@@ -10,11 +10,15 @@
 import { CacheFirst, ExpirationPlugin, NetworkOnly, Serwist } from 'serwist';
 import type { PrecacheEntry, RuntimeCaching } from 'serwist';
 
-type ServiceWorkerSelf = typeof globalThis & {
+// @serwist/webpack-plugin's InjectManifest finds its injection point by
+// scanning the compiled source text for the literal `self.__SW_MANIFEST`
+// (see its `injectionPoint` option); a renamed local alias for `self` would
+// compile to a different property access and the plugin would fail with
+// "Can't find self.__SW_MANIFEST in your SW source." So this references
+// `self` directly, declared once via `declare const`.
+declare const self: typeof globalThis & {
   __SW_MANIFEST?: (PrecacheEntry | string)[];
 };
-
-const swSelf = self as unknown as ServiceWorkerSelf;
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -35,7 +39,7 @@ const runtimeCaching: RuntimeCaching[] = [
 ];
 
 const serwist = new Serwist({
-  precacheEntries: swSelf.__SW_MANIFEST,
+  precacheEntries: self.__SW_MANIFEST,
   precacheOptions: { ignoreURLParametersMatching: [/.*/] },
   skipWaiting: false,
   clientsClaim: true,
