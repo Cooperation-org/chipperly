@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 import withSerwistInit from '@serwist/next';
 import { readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { pwaPrecacheRevision } from './lib/pwaPrecacheRevision';
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
 
@@ -36,7 +37,9 @@ function pageRouteUrls(dir: string, appRoot: string): string[] {
 
 function additionalPrecacheEntries(): { url: string; revision: string }[] {
   const appRoot = path.join(process.cwd(), 'app');
-  const revision = process.env.GIT_SHA ?? 'dev';
+  // GIT_SHA is set by CI (see .github/workflows/ci.yml); the fallback only
+  // fires on a local dev build (see lib/pwaPrecacheRevision.ts).
+  const revision = pwaPrecacheRevision(process.env.GIT_SHA);
   const prefix = basePath ?? '';
   return pageRouteUrls(appRoot, appRoot).map((url) => ({ url: `${prefix}${url}`, revision }));
 }

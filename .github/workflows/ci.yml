@@ -26,6 +26,7 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/chipperly_test
       DATABASE_URL_OWNER: postgres://postgres:postgres@localhost:5432/chipperly_test
       JWT_SECRET: ci-test-secret-please-change-me-32chars
+      GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
