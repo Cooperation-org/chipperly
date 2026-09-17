@@ -1,0 +1,21 @@
+{
+  "name": "chipperly",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.1.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "pnpm -F @chipperly/shared build && pnpm -r --filter '!@chipperly/shared' typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -F @chipperly/shared build && pnpm -r test",
+    "build": "pnpm -r build",
+    "e2e": "playwright test -c e2e/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.3",
+    "typescript": "^6.0.3"
+  }
+}
