@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file=.env dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --config test/vitest.config.ts",
     "db:start": "node scripts/dev-db.mjs",
     "db:migrate": "node --env-file=.env --import tsx src/db/migrate.ts",
     "db:generate": "drizzle-kit generate",

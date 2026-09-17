@@ -1,0 +1,19 @@
+import { boolean, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { syncColumns } from './_sync.js';
+
+export const rewards = pgTable(
+  'rewards',
+  {
+    ...syncColumns(),
+    name: text('name').notNull(),
+    emoji: text('emoji'),
+    photo_id: uuid('photo_id'),
+    chip_cost: integer('chip_cost'),
+    /** Null means "everywhere". */
+    location_id: uuid('location_id'),
+    /** True = free-time choice-board tile, costs nothing. */
+    always_available: boolean('always_available').notNull().default(false),
+    position: integer('position').notNull(),
+  },
+  (t) => [index('rewards_profile_version_idx').on(t.profile_id, t.version)],
+);
