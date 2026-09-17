@@ -7,6 +7,11 @@ export interface MailMessage {
   readonly html?: string;
 }
 
+/** Blanks the `token=` value in a reset/verify/invite link so the raw, unguessable token never reaches stdout/server logs. */
+function redactTokens(text: string): string {
+  return text.replace(/([?&]token=)[^\s&]+/gi, '$1<redacted>');
+}
+
 /** Prints a clear, copy-pasteable block to stdout. Used whenever RESEND_API_KEY is unset. */
 function sendViaConsole(message: MailMessage): void {
   const lines = [
@@ -15,7 +20,7 @@ function sendViaConsole(message: MailMessage): void {
     `from:    ${env.MAIL_FROM}`,
     `subject: ${message.subject}`,
     '',
-    message.text,
+    redactTokens(message.text),
     '───────────────────────────────────────────────────────────',
   ];
   console.log(lines.join('\n'));

@@ -120,6 +120,12 @@ export default async function syncRoutes(app: FastifyInstance): Promise<void> {
     const rejected: RejectedMutation[] = [];
 
     await sql.begin(async (tx) => {
+      // Serializes concurrent /sync/push calls for the same profile so the
+      // BEFORE-trigger version assignment below can't commit out of order
+      // (a slower tx grabbing a lower version than one that already
+      // committed and got read as a pull cursor) and get permanently
+      // skipped by that cursor.
+      await tx`select pg_advisory_xact_lock(hashtext(${body.profile_id}))`;
       for (const mutation of body.mutations) {
         // Each mutation runs in its own savepoint: a DB-level error (a bad
         // value, a constraint violation, anything applyMutation's own zod
@@ -177,7 +183,7 @@ async function applyMutation(
   }
 
   if (APPEND_ONLY_TABLES.has(table)) {
-    return applyAppendOnly(tx, mutation);
+    return applyAppendOnly(tx, mutation, userId);
   }
 
   if (mutation.op === 'delete') {
@@ -200,7 +206,11 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
       const contentKeys = ['date', 'position', 'activity_id', 'start_time', 'part_of_day', 'source', 'deleted_at'] as const;
       return contentKeys.every((key) => (parsed.data as SyncRow)[key] === storedRow[key]);
     }
+    // step_completions is un-completed by soft-delete (schemas/schedule.ts
+    // StepCompletionSchema docstring), so a locked device must be able to
+    // push that delete, not only the upsert that completes a step.
     case 'step_completions':
+      return mutation.op === 'delete' || (mutation.op === 'upsert' && Boolean(mutation.row));
     case 'attitude_checks':
       return mutation.op === 'upsert' && Boolean(mutation.row);
     case 'chip_ledger': {
@@ -212,15 +222,21 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
   }
 }
 
-async function applyAppendOnly(tx: Sql, mutation: Mutation): Promise<ApplyResult> {
-  // Append-only rows are never updated and (per the sync protocol) never
-  // deleted; a `delete` mutation against one is a harmless no-op.
-  if (mutation.op !== 'upsert' || !mutation.row) return { ok: true };
+async function applyAppendOnly(tx: Sql, mutation: Mutation, userId: string): Promise<ApplyResult> {
+  // Append-only rows are never updated once written, but one of them
+  // (step_completions) IS soft-deleted client-side to un-complete a step
+  // (schemas/schedule.ts), so a `delete` mutation must actually apply,
+  // same as any other table's soft-delete.
+  if (mutation.op === 'delete') return applyDelete(tx, mutation, userId);
+  if (!mutation.row) return { ok: true };
 
   const schema = TABLE_SCHEMAS[mutation.table];
   const parsed = schema.safeParse(mutation.row);
   if (!parsed.success) return { ok: false, reason: 'invalid', server_row: null };
-  const row: SyncRow = { ...(parsed.data as SyncRow), id: mutation.id };
+  // `updated_by` is server-controlled like `version` (the sync trigger
+  // handles that one); never trust the client-supplied uuid here, same as
+  // applyDelete and applyUpsert below.
+  const row: SyncRow = { ...(parsed.data as SyncRow), id: mutation.id, updated_by: userId };
 
   await tx`insert into ${tx(mutation.table)} ${tx(row)} on conflict (id) do nothing`;
   return { ok: true };
@@ -255,7 +271,9 @@ async function applyUpsert(
   const parsed = schema.safeParse(mutation.row);
   if (!parsed.success) return { ok: false, reason: 'invalid', server_row: null };
 
-  const row: SyncRow = { ...(parsed.data as SyncRow), id: mutation.id };
+  // `updated_by` is server-controlled like `version`; never trust the
+  // client-supplied uuid, same as applyDelete/applyAppendOnly.
+  const row: SyncRow = { ...(parsed.data as SyncRow), id: mutation.id, updated_by: userId };
   if (mutation.table !== 'profiles') row.profile_id = profileId;
   // `profiles.settings` is the only jsonb column any pushed table has, and
   // it needs to be pre-serialized here: db/client.ts's `drizzle(sql)` call

@@ -57,6 +57,8 @@ export const sessions = pgTable('sessions', {
   user_agent: text('user_agent'),
   expires_at: bigint('expires_at', { mode: 'number' }).notNull(),
   revoked_at: bigint('revoked_at', { mode: 'number' }),
+  /** Set by POST /me/lock, cleared by POST /me/unlock (PIN checked server-side). plugins/auth.ts derives `request.locked` from this, never from a client header. */
+  locked_profile_id: uuid('locked_profile_id'),
 });
 
 /** One-time tokens for the forgot/reset-password email link. */

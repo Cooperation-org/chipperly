@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { account_members } from '../db/schema/accounts.js';
+import { account_members, sessions } from '../db/schema/accounts.js';
 import { profiles, profile_members } from '../db/schema/profiles.js';
 import { verifyAccessToken } from '../lib/tokens.js';
 import { AppError } from './errors.js';
@@ -30,13 +30,24 @@ export default async function registerAuth(app: FastifyInstance): Promise<void> 
   app.decorateRequest('locked', false);
 
   app.addHook('onRequest', async (request: FastifyRequest) => {
-    request.locked = request.headers['x-locked'] === '1';
+    request.locked = false;
 
     const authHeader = request.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       try {
         const payload = await verifyAccessToken(authHeader.slice('Bearer '.length));
         request.user = { id: payload.sub, session_id: payload.sid };
+
+        // Whether this device is child-locked is a fact about the server's
+        // session row (set by POST /me/lock, cleared by POST /me/unlock
+        // after a server-verified PIN), never a client-asserted header --
+        // a caller can't just omit a header to get full-privilege writes.
+        const [session] = await db
+          .select({ locked_profile_id: sessions.locked_profile_id })
+          .from(sessions)
+          .where(eq(sessions.id, payload.sid))
+          .limit(1);
+        request.locked = session?.locked_profile_id != null;
       } catch {
         // Invalid or expired token: request.user stays null, requireUser rejects it.
       }

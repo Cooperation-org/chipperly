@@ -126,6 +126,87 @@ describe('me routes', () => {
   });
 });
 
+describe('POST /me/lock, POST /me/unlock', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('locks with no PIN needed, unlocks only with the right one, and gates sync/push in between', async () => {
+    const admin = await createUser('Locker');
+    const accountId = await createAccount('household', 'Lock Household');
+    await addMember(accountId, admin.id, 'admin');
+    const profileId = await insertProfile(accountId);
+
+    await request(app, {
+      method: 'PATCH',
+      url: '/api/me/pin',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { pin: '4242' },
+    });
+
+    const lock = await request(app, {
+      method: 'POST',
+      url: '/api/me/lock',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { profile_id: profileId },
+    });
+    expect(lock.statusCode).toBe(200);
+
+    const gatedPush = await request(app, {
+      method: 'POST',
+      url: '/api/sync/push',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: {
+        profile_id: profileId,
+        mutations: [
+          // 'activities' isn't one of lockGateAllows' cases, so it's
+          // rejected 'locked' before the row is ever schema-checked --
+          // any row shape proves the gate, same as sync.test.ts.
+          { table: 'activities', id: uuidv7(), op: 'upsert', row: { name: 'Snack' }, client_updated_at: Date.now() },
+        ],
+      },
+    });
+    expect((gatedPush.json() as { rejected: Array<{ reason: string }> }).rejected[0]?.reason).toBe('locked');
+
+    const wrongPin = await request(app, {
+      method: 'POST',
+      url: '/api/me/unlock',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { pin: '0000' },
+    });
+    expect(wrongPin.statusCode).toBe(401);
+
+    const rightPin = await request(app, {
+      method: 'POST',
+      url: '/api/me/unlock',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { pin: '4242' },
+    });
+    expect(rightPin.statusCode).toBe(200);
+    expect(rightPin.json()).toEqual({ locked_profile_id: null });
+  });
+
+  it('rejects locking to a profile outside the caller\'s account', async () => {
+    const admin = await createUser('Outsider');
+    const otherAccountId = await createAccount('household', 'Someone Else');
+    const otherProfileId = await insertProfile(otherAccountId);
+
+    const response = await request(app, {
+      method: 'POST',
+      url: '/api/me/lock',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { profile_id: otherProfileId },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+});
+
 describe('DELETE /me', () => {
   let app: FastifyInstance;
 

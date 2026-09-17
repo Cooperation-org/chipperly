@@ -8,6 +8,7 @@ import { balanceFor } from '@chipperly/shared/helpers/chips';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { buildTestApp, request } from './helpers.js';
 import { addMember, createUser, setupProfile, type TestProfileSetup } from './fixtures.js';
+import { sql } from '../src/db/client.js';
 
 interface MutationInput {
   table: string;
@@ -17,17 +18,30 @@ interface MutationInput {
   client_updated_at: number;
 }
 
-function pushRequest(
+/**
+ * `locked` locks this session server-side first (POST /me/lock -- the
+ * server derives `request.locked` from the session row, never from a
+ * client header; see plugins/auth.ts).
+ */
+async function pushRequest(
   app: FastifyInstance,
   token: string,
   profileId: string,
   mutations: MutationInput[],
   locked = false,
 ): Promise<LightMyRequestResponse> {
+  if (locked) {
+    await request(app, {
+      method: 'POST',
+      url: '/api/me/lock',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { profile_id: profileId },
+    });
+  }
   return request(app, {
     method: 'POST',
     url: '/api/sync/push',
-    headers: { authorization: `Bearer ${token}`, ...(locked ? { 'x-locked': '1' } : {}) },
+    headers: { authorization: `Bearer ${token}` },
     payload: { profile_id: profileId, mutations },
   });
 }
@@ -114,6 +128,30 @@ function chipLedgerRow(
     ref_id: null,
     created_at: clientUpdatedAt,
     created_by: createdBy,
+    ...overrides,
+  };
+}
+
+function stepCompletionRow(
+  id: string,
+  profileId: string,
+  itemId: string,
+  stepId: string,
+  updatedBy: string,
+  clientUpdatedAt: number,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id,
+    profile_id: profileId,
+    version: 0,
+    client_updated_at: clientUpdatedAt,
+    updated_by: updatedBy,
+    deleted_at: null,
+    schedule_item_id: itemId,
+    activity_step_id: stepId,
+    completed_at: clientUpdatedAt,
+    completed_by: updatedBy,
     ...overrides,
   };
 }
@@ -260,7 +298,104 @@ describe('sync', () => {
     expect(rows[0]?.delta).toBe(3);
   });
 
-  it('under X-Locked, rejects an activity upsert but allows a completion', async () => {
+  it('actually applies a delete on an append-only row: unchecking a step reaches the server', async () => {
+    const { admin, profileId } = await setupProfile();
+    const itemId = uuidv7();
+    const stepId = uuidv7();
+    const completionId = uuidv7();
+    const t0 = Date.now();
+
+    const checked = await pushRequest(app, admin.token, profileId, [
+      {
+        table: 'step_completions',
+        id: completionId,
+        op: 'upsert',
+        row: stepCompletionRow(completionId, profileId, itemId, stepId, admin.id, t0),
+        client_updated_at: t0,
+      },
+    ]);
+    expect((checked.json() as { applied: string[] }).applied).toEqual([completionId]);
+
+    const unchecked = await pushRequest(app, admin.token, profileId, [
+      { table: 'step_completions', id: completionId, op: 'delete', client_updated_at: t0 + 1000 },
+    ]);
+    const uncheckedBody = unchecked.json() as { applied: string[]; rejected: unknown[] };
+    expect(uncheckedBody.applied).toEqual([completionId]);
+    expect(uncheckedBody.rejected).toEqual([]);
+
+    const pull = await pullRequest(app, admin.token, profileId, 0);
+    const body = pull.json() as { changes: Record<string, Record<string, unknown>[]> };
+    const row = (body.changes.step_completions ?? []).find((r) => r.id === completionId);
+    expect(row?.deleted_at).not.toBeNull();
+  });
+
+  it('a locked device can also push that uncheck: the lock gate allows delete, not only upsert, for step_completions', async () => {
+    const { admin, profileId } = await setupProfile();
+    const itemId = uuidv7();
+    const stepId = uuidv7();
+    const completionId = uuidv7();
+    const t0 = Date.now();
+
+    await pushRequest(app, admin.token, profileId, [
+      {
+        table: 'step_completions',
+        id: completionId,
+        op: 'upsert',
+        row: stepCompletionRow(completionId, profileId, itemId, stepId, admin.id, t0),
+        client_updated_at: t0,
+      },
+    ]);
+
+    const lockedDelete = await pushRequest(
+      app,
+      admin.token,
+      profileId,
+      [{ table: 'step_completions', id: completionId, op: 'delete', client_updated_at: t0 + 1000 }],
+      true,
+    );
+    const body = lockedDelete.json() as { applied: string[]; rejected: Array<{ reason: string }> };
+    expect(body.applied).toEqual([completionId]);
+    expect(body.rejected).toEqual([]);
+  });
+
+  it('serializes concurrent pushes to the same profile behind an advisory lock, so version order cannot outrun commit order', async () => {
+    const { admin, profileId } = await setupProfile();
+
+    // Holds the exact lock key /sync/push takes (sync.ts) from a separate
+    // raw transaction, so a concurrent push for the same profile has to
+    // wait behind it -- proving the route actually serializes per profile
+    // instead of letting a slower writer's version commit after a faster
+    // one's has already been read as a pull cursor.
+    let releaseHold: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      releaseHold = resolve;
+    });
+    const holdTx = sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(hashtext(${profileId}))`;
+      await held;
+    });
+
+    let pushSettled = false;
+    const ledgerId = uuidv7();
+    const pushPromise = pushRequest(app, admin.token, profileId, [
+      { table: 'chip_ledger', id: ledgerId, op: 'upsert', row: chipLedgerRow(ledgerId, profileId, admin.id, Date.now()), client_updated_at: Date.now() },
+    ]).then((res) => {
+      pushSettled = true;
+      return res;
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(pushSettled).toBe(false);
+
+    releaseHold?.();
+    await holdTx;
+    const res = await pushPromise;
+    expect(pushSettled).toBe(true);
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { applied: string[] }).applied).toEqual([ledgerId]);
+  });
+
+  it('under a server-side lock (POST /me/lock), rejects an activity upsert but allows a completion', async () => {
     const { admin, profileId } = await setupProfile();
     const activityId = uuidv7();
     const itemId = uuidv7();
@@ -294,6 +429,48 @@ describe('sync', () => {
     expect(body.applied).toEqual([itemId]);
     expect(body.rejected).toHaveLength(1);
     expect(body.rejected[0]).toMatchObject({ id: otherActivityId, table: 'activities', reason: 'locked' });
+  });
+
+  it('a raw X-Locked header with no server-side lock is ignored (sec-1): the write still applies', async () => {
+    const { admin, profileId } = await setupProfile();
+    const activityId = uuidv7();
+    const t0 = Date.now();
+
+    const res = await request(app, {
+      method: 'POST',
+      url: '/api/sync/push',
+      headers: { authorization: `Bearer ${admin.token}`, 'x-locked': '1' },
+      payload: {
+        profile_id: profileId,
+        mutations: [
+          { table: 'activities', id: activityId, op: 'upsert', row: activityRow(activityId, profileId, admin.id, t0), client_updated_at: t0 },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { applied: string[]; rejected: unknown[] };
+    expect(body.applied).toEqual([activityId]);
+    expect(body.rejected).toEqual([]);
+  });
+
+  it('does not let a client spoof `updated_by` on an upsert or an append-only insert (sec-2)', async () => {
+    const { admin, profileId } = await setupProfile();
+    const activityId = uuidv7();
+    const ledgerId = uuidv7();
+    const spoofedId = uuidv7();
+    const t0 = Date.now();
+
+    const res = await pushRequest(app, admin.token, profileId, [
+      { table: 'activities', id: activityId, op: 'upsert', row: activityRow(activityId, profileId, spoofedId, t0), client_updated_at: t0 },
+      { table: 'chip_ledger', id: ledgerId, op: 'upsert', row: chipLedgerRow(ledgerId, profileId, spoofedId, t0), client_updated_at: t0 },
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { applied: string[] }).applied).toEqual([activityId, ledgerId]);
+
+    const pull = await pullRequest(app, admin.token, profileId, 0);
+    const body = pull.json() as { changes: Record<string, Record<string, unknown>[]> };
+    expect(body.changes.activities?.find((r) => r.id === activityId)?.updated_by).toBe(admin.id);
+    expect(body.changes.chip_ledger?.find((r) => r.id === ledgerId)?.updated_by).toBe(admin.id);
   });
 
   it('rejects a member with no profile_members access with 403', async () => {

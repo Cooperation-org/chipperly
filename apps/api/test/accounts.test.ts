@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { eq } from 'drizzle-orm';
@@ -10,6 +10,7 @@ import { rewards } from '../src/db/schema/rewards.js';
 import { locations } from '../src/db/schema/locations.js';
 import { profile_members } from '../src/db/schema/profiles.js';
 import { issueTokens } from '../src/lib/tokens.js';
+import { getLastMailMessage } from '../src/lib/mailer.js';
 
 async function createUser(label: string): Promise<{ id: string; token: string }> {
   const id = uuidv7();
@@ -27,11 +28,16 @@ function auth(token: string): Record<string, string> {
   return { authorization: `Bearer ${token}` };
 }
 
-/** Pulls the invite link out of the console-transport email (RESEND_API_KEY is unset in tests). */
-function captureInviteToken(logSpy: ReturnType<typeof vi.spyOn>): string {
-  const logged = logSpy.mock.calls.map((call: unknown[]) => call.join(' ')).join('\n');
-  const match = logged.match(/token=([^\s&]+)/);
-  if (!match) throw new Error(`no invite link found in logged mail:\n${logged}`);
+/**
+ * Pulls the invite link's token out of the last sent mail. Reads
+ * `getLastMailMessage()` (always the raw text), not stdout: the console
+ * transport redacts `token=` before printing (lib/mailer.ts), same as a
+ * production log would.
+ */
+function captureInviteToken(): string {
+  const mail = getLastMailMessage();
+  const match = mail?.text.match(/token=([^\s&]+)/);
+  if (!match) throw new Error(`no invite link found in last mail:\n${mail?.text}`);
   return match[1]!;
 }
 
@@ -118,7 +124,6 @@ describe('accounts routes', () => {
     });
     const profileB = profileBRes.json() as { id: string };
 
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const inviteRes = await request(app, {
       method: 'POST',
       url: `/api/accounts/${account.id}/invites`,
@@ -128,8 +133,7 @@ describe('accounts routes', () => {
     expect(inviteRes.statusCode).toBe(201);
     const invite = inviteRes.json() as { email: string };
     expect(invite).not.toHaveProperty('token_hash');
-    const rawToken = captureInviteToken(logSpy);
-    logSpy.mockRestore();
+    const rawToken = captureInviteToken();
 
     const detailsRes = await request(app, { method: 'GET', url: `/api/invites/${rawToken}` });
     expect(detailsRes.statusCode).toBe(200);

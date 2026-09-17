@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { z } from 'zod';
+import { uuidSchema } from '@chipperly/shared/schemas/common';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
 import { PinBodySchema, type MeAccount, type MeResponse } from '@chipperly/shared/schemas/auth';
 import type { Profile } from '@chipperly/shared/schemas/profile';
@@ -14,9 +16,11 @@ import { chip_ledger } from '../db/schema/chips.js';
 import { social_stories, story_pages } from '../db/schema/stories.js';
 import { attitude_checks } from '../db/schema/attitude.js';
 import { media } from '../db/schema/media.js';
-import { hashPin } from '../lib/password.js';
-import { requireUser } from '../plugins/auth.js';
+import { hashPin, verifyPin } from '../lib/password.js';
+import { canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
+
+const LockBodySchema = z.object({ profile_id: uuidSchema });
 
 export default async function meRoutes(app: FastifyInstance): Promise<void> {
   app.get('/me', { preHandler: requireUser }, async (request): Promise<MeResponse> => {
@@ -84,6 +88,32 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     await db.update(users).set({ pin_hash: pinHash }).where(eq(users.id, authUser.id));
 
     return { pin_hash: pinHash };
+  });
+
+  /** S23 "Lock this device": marks this session child-locked. No PIN needed to lock, only to unlock. */
+  app.post('/me/lock', { preHandler: requireUser }, async (request): Promise<{ locked_profile_id: string }> => {
+    const authUser = request.user!;
+    const body = LockBodySchema.parse(request.body);
+
+    const allowed = await canAccessProfile(authUser.id, body.profile_id);
+    if (!allowed) throw new AppError(403, 'forbidden', 'Cannot lock to this profile');
+
+    await db.update(sessions).set({ locked_profile_id: body.profile_id }).where(eq(sessions.id, authUser.session_id));
+    return { locked_profile_id: body.profile_id };
+  });
+
+  /** S24 unlock overlay: clears this session's lock, but only once the PIN checks out server-side. */
+  app.post('/me/unlock', { preHandler: requireUser }, async (request): Promise<{ locked_profile_id: null }> => {
+    const authUser = request.user!;
+    const body = PinBodySchema.parse(request.body);
+
+    const [userRow] = await db.select({ pin_hash: users.pin_hash }).from(users).where(eq(users.id, authUser.id)).limit(1);
+    if (!userRow?.pin_hash || !(await verifyPin(body.pin, userRow.pin_hash))) {
+      throw new AppError(401, 'invalid_pin', 'Wrong PIN');
+    }
+
+    await db.update(sessions).set({ locked_profile_id: null }).where(eq(sessions.id, authUser.session_id));
+    return { locked_profile_id: null };
   });
 
   app.delete('/me', { preHandler: requireUser }, async (request, reply) => {

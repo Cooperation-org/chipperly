@@ -97,7 +97,7 @@ helpers/date.ts          todayIso(now?), addDays(iso, n), weekday(iso) 0-6, isWe
 
 Field names are `snake_case` in every schema, every API payload, every Dexie row and every Postgres column. No camelCase mapping anywhere. Timestamps that sync are `bigint` epoch ms serialized as JS `number` in JSON (`client_updated_at`, `created_at` on ledger rows use ms numbers). `deleted_at` is ms number or null. Dates are `YYYY-MM-DD` strings. Times are `HH:MM` strings.
 
-Sync columns (on every synced table): `id, profile_id, version, client_updated_at, updated_by, deleted_at`. `version` is `number` (server-assigned, 0 on unsynced local rows).
+Sync columns (on every synced table): `id, profile_id, version, client_updated_at, updated_by, deleted_at`. `version` is `number` (server-assigned, 0 on unsynced local rows). `updated_by` is also server-assigned on every push, overwritten with the authenticated user's id regardless of what the client sends.
 
 SYNCED_TABLES, in dependency order (parents first):
 `locations, activities, activity_steps, recurrence_skips, rewards, schedule_items, step_completions, chip_ledger, social_stories, story_pages, attitude_checks`.
@@ -123,11 +123,11 @@ db/client.ts           postgres.js + drizzle instance; `db`, `sql`
 db/schema/*.ts         Drizzle tables, one file per domain, same names as shared
 db/migrate.ts          runs drizzle migrations from db/migrations (drizzle-kit generated + 0001_sync_triggers.sql hand-written)
 db/migrations/
-plugins/auth.ts        request.user, request.accountId (from X-Account-Id, membership checked), request.locked (X-Locked: 1)
+plugins/auth.ts        request.user, request.accountId (from X-Account-Id, membership checked), request.locked (server session's locked_profile_id, set/cleared by POST /me/lock and /me/unlock -- never a client header)
 plugins/errors.ts      error -> { error: { code, message } } ; zod errors -> 400
 routes/health.ts       GET /health
 routes/auth.ts         /auth/*
-routes/me.ts           GET /me, PATCH /me/pin
+routes/me.ts           GET /me, PATCH /me/pin, POST /me/lock, POST /me/unlock
 routes/accounts.ts     /accounts/*, /invites/:token/accept
 routes/sync.ts         /sync/pull, /sync/push
 routes/media.ts        /media
@@ -147,7 +147,7 @@ static.ts              serves WEB_DIR under BASE_PATH with SPA-ish fallback: `/x
 
 Every route validates body/query with the shared zod schema and replies with shared shapes. All routes mount under `${BASE_PATH}/api`. Auth: `Authorization: Bearer <access>`. Account-scoped: `X-Account-Id`. Errors: `{ error: { code: 'invalid_credentials', message } }` with proper status.
 
-Sync authorization: user may read/write profile P if P.account_id is an account where user is `admin`, or user is `member` and (P.id in profile_members for user). `X-Locked: 1` restricts writes to `schedule_items` (only `completed_at`, `completed_by`, `client_updated_at` may change), `step_completions`, `attitude_checks`, `chip_ledger` with reason `task|step`.
+Sync authorization: user may read/write profile P if P.account_id is an account where user is `admin`, or user is `member` and (P.id in profile_members for user). A device is child-locked when this session's `sessions.locked_profile_id` is set (POST `/me/lock`; cleared by POST `/me/unlock`, which requires the caregiver's PIN, checked server-side against `users.pin_hash`). While locked, sync/push restricts writes to `schedule_items` (only `completed_at`, `completed_by`, `client_updated_at` may change), `step_completions`, `attitude_checks`, `chip_ledger` with reason `task|step`.
 
 Push semantics exactly as `docs/technical-plan.md` section 6. One transaction per request. `version` from `sync_version_seq` via trigger `set_sync_version()`.
 
