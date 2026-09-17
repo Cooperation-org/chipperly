@@ -7,6 +7,12 @@ import registerErrors from './plugins/errors.js';
 import registerAuth from './plugins/auth.js';
 import { registerStatic } from './static.js';
 import healthRoutes from './routes/health.js';
+import authRoutes from './routes/auth.js';
+import meRoutes from './routes/me.js';
+import accountsRoutes from './routes/accounts.js';
+import syncRoutes from './routes/sync.js';
+import mediaRoutes from './routes/media.js';
+import shareRoutes from './routes/share.js';
 
 export interface BuildAppOptions {
   readonly env: Env;
@@ -14,7 +20,12 @@ export interface BuildAppOptions {
 
 const routePlugins: FastifyPluginAsync[] = [
   healthRoutes,
-  // Extension point: other agents append their route plugins here (auth, me, accounts, sync, media, share).
+  authRoutes,
+  meRoutes,
+  accountsRoutes,
+  syncRoutes,
+  mediaRoutes,
+  shareRoutes,
 ];
 
 export async function buildApp({ env }: BuildAppOptions): Promise<FastifyInstance> {
