@@ -40,7 +40,6 @@ export function SyncSheet() {
 
   return (
     <div className={styles.sheet}>
-      <h2>Sync</h2>
       <p className={styles.status}>{statusText(status.state, status.pending, status.last_synced_at)}</p>
       {photosWaiting > 0 ? <p className={styles.muted}>Photos waiting to upload: {photosWaiting}</p> : null}
       <BigButton fullWidth onClick={() => void handleSyncNow()} disabled={syncing}>

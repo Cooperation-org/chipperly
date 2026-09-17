@@ -80,7 +80,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
             />,
           )
         }
-        onSyncTap={() => open(<SyncSheet />)}
+        onSyncTap={() => open(<SyncSheet />, { title: 'Sync' })}
         onSettingsTap={() => router.push('/settings/')}
       />
       <TimerPill />
