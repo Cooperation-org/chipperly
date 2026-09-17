@@ -19,3 +19,7 @@ apps/web/app/fonts/*.otf
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+e2e/report
+e2e/screenshots
+e2e/.uploads
+e2e/test-results
