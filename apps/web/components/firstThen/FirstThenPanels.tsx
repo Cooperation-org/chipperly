@@ -121,9 +121,13 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
             <EmptyPanel sentence="Choose a reward" onTap={caregiver ? openThenPicker : undefined} />
           )}
         </div>
-      </div>
 
-      {celebrating ? <Celebration kind="first_then" onDone={() => setCelebrating(false)} /> : null}
+        {celebrating ? (
+          <div className={styles.celebrationWrap}>
+            <Celebration kind="first_then" onDone={() => setCelebrating(false)} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

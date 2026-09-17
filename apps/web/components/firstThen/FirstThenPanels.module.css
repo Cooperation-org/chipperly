@@ -10,9 +10,19 @@
 }
 
 .panels {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.celebrationWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 /* Side by side from 600px wide, and in landscape (ux-plan.md S15 / section 12). */
@@ -46,6 +56,8 @@
 
 .enlarged {
   transform: scale(1.06);
+  border-color: var(--color-primary);
+  border-width: 2px;
 }
 
 .label {

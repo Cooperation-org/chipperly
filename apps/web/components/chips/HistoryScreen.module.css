@@ -48,16 +48,19 @@
   height: 40px;
   border-radius: var(--radius-full);
   background: var(--color-surface-2);
+  color: var(--color-text);
   font-size: var(--text-sm);
   font-weight: 600;
 }
 
+/* Sign is carried by the leading +/- glyph in the text, not color
+   (--color-text on --color-surface-2 is ~9.3:1, both signs pass 4.5:1). */
 .positive {
-  color: var(--color-accent);
+  color: var(--color-text);
 }
 
 .negative {
-  color: var(--color-secondary);
+  color: var(--color-text);
 }
 
 .time {
