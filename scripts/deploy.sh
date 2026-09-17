@@ -11,6 +11,8 @@ git pull
 pnpm install --frozen-lockfile
 
 pnpm -F @chipperly/shared build
+# The service worker precache revision comes from the commit being deployed.
+export GIT_SHA="$(git rev-parse HEAD)"
 pnpm -F @chipperly/web build
 pnpm -F @chipperly/api build
 

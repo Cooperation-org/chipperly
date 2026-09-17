@@ -35,3 +35,23 @@ pnpm e2e
 Copy `apps/api/.env.example` to `apps/api/.env` and fill in `JWT_SECRET`
 before running the API. See `docs/CONTRACTS.md` for every environment
 variable and `docs/technical-plan.md` for how the pieces fit together.
+
+## Production shape
+
+One Node process: the API serves the static export from `apps/web/out` when
+`WEB_DIR` is set, so nginx or Caddy only needs to proxy one port. Build with
+`GIT_SHA` set (the service worker uses it as its precache revision), run
+migrations with the owner role, then start `node dist/server.js` under
+systemd. `scripts/deploy.sh` is the reference sequence and
+`docs/technical-plan.md` section 10 has the systemd unit, nginx location
+blocks and the health-check cron. Nothing in this repo deploys on its own.
+
+## Tests
+
+- `pnpm test` runs the unit suites. The API tests start an embedded Postgres
+  on port 54329 the first time (downloads the binaries once).
+- `pnpm e2e` builds nothing; run `pnpm -F @chipperly/web build` first. The
+  suite boots its own database and API on port 8123 and drives the real
+  export at phone (390x844), tablet (820x1180) and desktop (1440x900)
+  sizes, checking every screen for horizontal overflow and tap-target size.
+  Screenshots land in `e2e/screenshots/<project>/`.
