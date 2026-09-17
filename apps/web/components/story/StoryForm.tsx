@@ -44,7 +44,11 @@ export function StoryForm() {
   const hydrated = useRef(false);
 
   useEffect(() => {
-    if (!id || hydrated.current || !story) return;
+    // `pages` loads via its own liveQuery, independently of `story` (see
+    // useStory's comment) — wait for both before hydrating, and before
+    // latching `hydrated.current`, or a save made while pages is still
+    // "loading" would submit an empty page list and delete the real ones.
+    if (!id || hydrated.current || !story || !pages) return;
     hydrated.current = true;
     setTitle(story.title);
     setCover({ emoji: story.emoji, photo_id: story.cover_photo_id });

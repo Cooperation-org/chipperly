@@ -25,7 +25,7 @@ const TEMPLATES: { key: StoryTemplateKey; label: string }[] = [
 
 function StoryViewerHost({ id, onClose }: { id: string; onClose: () => void }) {
   const { story, pages } = useStory(id);
-  if (!story) return null;
+  if (!story || !pages) return null;
   return <StoryViewer story={story} pages={pages} onClose={onClose} />;
 }
 

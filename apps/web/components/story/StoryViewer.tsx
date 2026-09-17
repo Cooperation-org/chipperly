@@ -24,6 +24,7 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const page = pages[index];
+  const hasPage = page !== undefined;
   const photoUrl = useMediaUrl(page?.photo_id ?? null);
   const canReadAloud = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -40,7 +41,12 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
     };
   }, []);
 
+  // Guarded on `page` (not just called after the `if (!page) return null`
+  // below): hooks always run regardless of that early return, so without
+  // this guard a page-less render would still lock body scroll and steal
+  // focus for a dialog that never actually mounts.
   useEffect(() => {
+    if (!hasPage) return undefined;
     returnFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -82,7 +88,7 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
       document.body.style.overflow = previousOverflow;
       returnFocusRef.current?.focus();
     };
-  }, [onClose, goNext, goPrev]);
+  }, [onClose, goNext, goPrev, hasPage]);
 
   function readAloud(): void {
     if (!page || !canReadAloud) return;

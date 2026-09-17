@@ -18,11 +18,16 @@ export function useStories(profileId: string): SocialStory[] {
   );
 }
 
-export function useStory(id: string): { story: SocialStory | undefined; pages: StoryPage[] } {
+// No `[]` default on the `pages` liveQuery: that would make "still loading"
+// and "genuinely has zero pages" both read as an empty array, and callers
+// (StoryForm's hydration effect in particular) need to tell those apart —
+// hydrating a draft from a story whose pages just haven't loaded yet would
+// wipe the real pages on the next save.
+export function useStory(id: string): { story: SocialStory | undefined; pages: StoryPage[] | undefined } {
   const story = useLiveQuery(() => db.social_stories.get(id), [id]);
-  const pages = useLiveQuery(() => db.story_pages.where('story_id').equals(id).toArray(), [id], []);
+  const pages = useLiveQuery(() => db.story_pages.where('story_id').equals(id).toArray(), [id]);
   const sortedPages = useMemo(
-    () => pages.filter((page) => page.deleted_at === null).sort((a, b) => a.position - b.position),
+    () => pages?.filter((page) => page.deleted_at === null).sort((a, b) => a.position - b.position),
     [pages],
   );
   return { story, pages: sortedPages };
