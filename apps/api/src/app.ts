@@ -41,6 +41,10 @@ export async function buildApp({ env }: BuildAppOptions): Promise<FastifyInstanc
       level: env.LOG_LEVEL,
       transport: isDev ? { target: 'pino-pretty' } : undefined,
     },
+    // Bounds on a single stuck request/connection so it can't hang the
+    // process instead of failing loudly.
+    requestTimeout: 30_000,
+    connectionTimeout: 30_000,
   });
 
   // Called directly (no `.register()`) so these apply to the root instance
@@ -60,7 +64,10 @@ export async function buildApp({ env }: BuildAppOptions): Promise<FastifyInstanc
   // saturates it and starts 429ing unrelated routes, including the ones
   // that are supposed to be protected.
   await app.register(rateLimit, { global: false, max: 1000, timeWindow: '1 minute' });
-  await app.register(multipart);
+  // Backstop limits so a malformed/abusive multipart request can't hold a
+  // connection open indefinitely; routes/media.ts's own request.file() call
+  // sets the real (50MB) fileSize limit per upload.
+  await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 20 } });
 
   const apiPrefix = `${env.BASE_PATH}/api`;
   for (const plugin of routePlugins) {
