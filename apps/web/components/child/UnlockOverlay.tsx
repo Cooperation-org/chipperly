@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth/session';
+import { api } from '@/lib/api/client';
 import { unlock, usePinGate } from '@/lib/device/settings';
 import { verifyPin } from '@/lib/auth/pin';
 import { PinPad } from '@/components/pin/PinPad';
@@ -83,6 +84,17 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
     }
 
     await pinGate.recordSuccess();
+    try {
+      // The server only ever lifts sync/push's lock gate once it has
+      // checked this PIN itself (CONTRACTS.md "Sync authorization");
+      // ponytail: offline/unreachable, still unlock the local view below
+      // (S24 "works offline against the locally cached hash") -- writes
+      // made before the server catches up stay lock-gated, which fails
+      // safe rather than open.
+      await api.post('/me/unlock', { pin });
+    } catch {
+      // see above
+    }
     await unlock();
     router.replace('/today/');
     return true;

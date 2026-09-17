@@ -12,6 +12,14 @@ import { now } from '../clock';
 import { upsert } from '../sync/mutate';
 import { getCurrentUserId } from './_util';
 
+// perf-2 (chip_ledger half): the [profile_id+location_id] compound index
+// can't serve this. IndexedDB drops a record from a compound index entirely
+// when any key-path component is null, and location_id is null for every
+// shared-pool row (getActiveLocationId() returns null before a family has
+// created its first location), confirmed against real IndexedDB: even
+// querying the index with a null component throws DataError. Scoping
+// to the index would silently drop shared-pool chips from every balance.
+// See openIssues.
 export function useBalance(profileId: string, locationId: string | null): number {
   const ledger = useLiveQuery(() => db.chip_ledger.where('profile_id').equals(profileId).toArray(), [profileId], []);
   return useMemo(() => balanceFor(ledger, locationId), [ledger, locationId]);

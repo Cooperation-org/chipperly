@@ -11,6 +11,7 @@ import { db } from '../db/db';
 import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert, softDelete } from '../sync/mutate';
+import { pullProfile } from '../sync/engine';
 import { getActiveLocationId } from './locations';
 
 export interface DayStep {
@@ -112,8 +113,18 @@ export function useDayItems(profileId: string, isoDate: string): DayItem[] {
     useLiveQuery(() => db.activities.where('profile_id').equals(profileId).toArray(), [profileId], []);
   const steps =
     useLiveQuery(() => db.activity_steps.where('profile_id').equals(profileId).toArray(), [profileId], []);
-  const completions =
-    useLiveQuery(() => db.step_completions.where('profile_id').equals(profileId).toArray(), [profileId], []);
+  // Scoped to this day's schedule_item ids via the schedule_item_id index,
+  // not a profile_id scan of the whole (append-only, uncapped) history.
+  const completions = useLiveQuery(
+    () => {
+      const ids = items.map((item) => item.id);
+      return ids.length > 0
+        ? db.step_completions.where('schedule_item_id').anyOf(ids).toArray()
+        : Promise.resolve<StepCompletion[]>([]);
+    },
+    [items],
+    [],
+  );
 
   return useMemo(() => joinDayItems(items, activities, steps, completions), [items, activities, steps, completions]);
 }
@@ -265,13 +276,13 @@ export async function setStepCompleted(itemId: string, stepId: string, done: boo
     await softDelete('step_completions', existing.id);
   }
 
-  if (item.completed_at !== null) return; // already complete; nothing to cascade
   const steps = (await db.activity_steps.where('activity_id').equals(item.activity_id).toArray()).filter(
     (step) => step.deleted_at === null,
   );
   const completions = await db.step_completions.where('schedule_item_id').equals(itemId).toArray();
-  if (allStepsComplete(steps, completions)) {
-    await markItemCompletion(item, true, userId);
+  const complete = allStepsComplete(steps, completions);
+  if (complete !== (item.completed_at !== null)) {
+    await markItemCompletion(item, complete, userId);
   }
 }
 
@@ -360,6 +371,21 @@ export async function materializeRecurring(profileId: string, isoDate: string): 
     existingIds.add(id);
     position += 1;
   }
+}
+
+/**
+ * `materializeRecurring`, but pulls this profile first (best-effort, only
+ * when online). Today screens call this instead on every load: without a
+ * fresh pull, a device that hasn't yet learned about another device's
+ * "remove today" delete + recurrence_skips can regenerate the item with a
+ * fresh client_updated_at, and the server's ordinary LWW resurrects it for
+ * everyone (technical-plan.md "Recurrence on the client").
+ */
+export async function materializeRecurringFresh(profileId: string, isoDate: string): Promise<void> {
+  if (typeof navigator === 'undefined' || navigator.onLine) {
+    await pullProfile(profileId).catch(() => {});
+  }
+  await materializeRecurring(profileId, isoDate);
 }
 
 /** Copies non-deleted items from one day to another as new manual items. */

@@ -6,6 +6,7 @@ import { BigButton } from '@/components/ui/BigButton';
 import { useSheet } from '@/components/ui/Sheet';
 import { PinPad } from '@/components/pin/PinPad';
 import { useSession, setPin } from '@/lib/auth/session';
+import { api } from '@/lib/api/client';
 import { lockTo, type LockOptions } from '@/lib/device/settings';
 import styles from './LockSheet.module.css';
 import { Switch } from './Switch';
@@ -58,6 +59,17 @@ export function LockSheet({ profileId }: LockSheetProps) {
 
   async function handleLock(): Promise<void> {
     setLocking(true);
+    try {
+      // Server-side lock is what sync/push actually enforces (CONTRACTS.md
+      // "Sync authorization"); this device's own kv state below is only
+      // the local UI's idea of it. Best-effort: an offline caregiver still
+      // gets the local child view immediately, same as today.
+      await api.post('/me/lock', { profile_id: profileId });
+    } catch {
+      // ponytail: offline/unreachable, local child view still locks; retry
+      // when back online if this matters (Lock this device is caregiver-
+      // initiated and rarely offline in practice).
+    }
     await lockTo(profileId, options);
     setLocking(false);
     close();

@@ -60,7 +60,8 @@ async function applyMe(me: MeResponse): Promise<void> {
   setState({ status: 'signed_in', user: me.user, accounts: me.accounts, profiles: me.profiles });
 }
 
-async function clearSession(): Promise<void> {
+/** Also called by lib/sync/engine.ts on an unrecoverable 401: session is invalid, drop back to signed-out. */
+export async function clearSession(): Promise<void> {
   await setTokens(null);
   await setKv<MeResponse | null>(ME_KEY, null);
   await setKv<string | null>(CURRENT_USER_KEY, null);

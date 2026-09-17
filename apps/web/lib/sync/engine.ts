@@ -9,6 +9,7 @@ import { db, tableFor, type SyncedRow } from '../db/db';
 import { api, ApiError } from '../api/client';
 import { now } from '../clock';
 import { uploadPending } from '../media/upload';
+import { clearSession } from '../auth/session';
 import { applyPulledRow } from './applyPulledRow';
 import { mutationProfileId } from './mutationProfileId';
 
@@ -126,9 +127,14 @@ async function runCycle(): Promise<void> {
     setStatus({ state: pending > 0 ? 'pending' : 'synced', pending, last_synced_at: now() });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
-      // Paused until the session refreshes and calls startSync() again.
+      // client.ts already retried this request once via refresh token, so a
+      // 401 here means the session is genuinely invalid, not transient.
+      // Clear it (not just stopSync()) so the UI drops out of "signed in"
+      // and RequireSession sends the caregiver to sign in again: otherwise
+      // sync stays permanently wedged with no automatic or manual recovery.
       setStatus({ state: 'error' });
       stopSync();
+      await clearSession();
       return;
     }
     setStatus({ state: 'error' });
@@ -140,7 +146,8 @@ async function runCycle(): Promise<void> {
   }
 }
 
-async function pullProfile(profileId: string): Promise<void> {
+/** Also called directly by lib/data/schedule.ts's materializeRecurringFresh, ahead of materializing. */
+export async function pullProfile(profileId: string): Promise<void> {
   let cursor = (await db.sync_cursors.get(profileId))?.version ?? 0;
   let hasMore = true;
   while (hasMore) {
@@ -161,20 +168,34 @@ async function applyChanges(changes: Record<string, Record<string, unknown>[]>):
   }
   const profileRows = changes.profiles;
   if (profileRows?.length) {
-    await db.profiles.bulkPut(profileRows as unknown as Profile[]);
+    // Same hasOutbox-aware merge every SYNCED_TABLES row gets in
+    // applyRowsToTable below, not a bare put: without it, a pull landing
+    // between a local profile edit and its own push finishing can clobber
+    // that unsynced edit with the older server row.
+    for (const raw of profileRows) {
+      const incoming = raw as unknown as Profile;
+      const id = raw.id as string;
+      const local = await db.profiles.get(id);
+      const hasOutbox = (await db.outbox.where('id').equals(id).count()) > 0;
+      await db.profiles.put(applyPulledRow(local, incoming, hasOutbox));
+    }
   }
 }
 
 async function applyRowsToTable(table: SyncedTable, rows: Record<string, unknown>[]): Promise<void> {
   const tbl = tableFor(table);
-  for (const raw of rows) {
-    const incoming = raw as unknown as SyncedRow<typeof table>;
-    const id = raw.id as string;
-    const local = await tbl.get(id);
-    const hasOutbox = (await db.outbox.where('id').equals(id).count()) > 0;
-    const next = applyPulledRow(local, incoming, hasOutbox);
-    await tbl.put(next);
-  }
+  const ids = rows.map((raw) => raw.id as string);
+
+  await db.transaction('rw', tbl, db.outbox, async () => {
+    const locals = await tbl.bulkGet(ids);
+    const outboxIds = new Set((await db.outbox.where('id').anyOf(ids).toArray()).map((entry) => entry.id));
+    const nextRows = rows.map((raw, i) => {
+      const incoming = raw as unknown as SyncedRow<typeof table>;
+      const hasOutbox = outboxIds.has(ids[i] as string);
+      return applyPulledRow(locals[i], incoming, hasOutbox);
+    });
+    await tbl.bulkPut(nextRows);
+  });
 }
 
 async function pushOutbox(): Promise<void> {
