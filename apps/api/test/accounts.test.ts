@@ -4,10 +4,11 @@ import { v7 as uuidv7 } from 'uuid';
 import { eq } from 'drizzle-orm';
 import { buildTestApp, request } from './helpers.js';
 import { db } from '../src/db/client.js';
-import { users } from '../src/db/schema/accounts.js';
+import { account_members, users } from '../src/db/schema/accounts.js';
 import { activities } from '../src/db/schema/activities.js';
 import { rewards } from '../src/db/schema/rewards.js';
 import { locations } from '../src/db/schema/locations.js';
+import { profile_members } from '../src/db/schema/profiles.js';
 import { issueTokens } from '../src/lib/tokens.js';
 
 async function createUser(label: string): Promise<{ id: string; token: string }> {
@@ -214,5 +215,48 @@ describe('accounts routes', () => {
       headers: auth(admin.token),
     });
     expect(removeRes.statusCode).toBe(409);
+  });
+
+  it('persists relationship_label on profile_members, both on assignment and on a label-only patch', async () => {
+    const admin = await createUser('label-admin');
+    const member = await createUser('label-member');
+
+    const accountRes = await request(app, {
+      method: 'POST',
+      url: '/api/accounts',
+      headers: auth(admin.token),
+      payload: { kind: 'household', name: 'Label household' },
+    });
+    const { account } = accountRes.json() as { account: { id: string } };
+
+    const profileRes = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${account.id}/profiles`,
+      headers: auth(admin.token),
+      payload: { name: 'Kiddo' },
+    });
+    const profile = profileRes.json() as { id: string };
+
+    await db.insert(account_members).values({ account_id: account.id, user_id: member.id, role: 'member' });
+
+    const assignRes = await request(app, {
+      method: 'PATCH',
+      url: `/api/accounts/${account.id}/members/${member.id}`,
+      headers: auth(admin.token),
+      payload: { profile_ids: [profile.id], relationship_label: 'Grandma' },
+    });
+    expect(assignRes.statusCode).toBe(200);
+    const [assigned] = await db.select().from(profile_members).where(eq(profile_members.user_id, member.id));
+    expect(assigned?.relationship_label).toBe('Grandma');
+
+    const relabelRes = await request(app, {
+      method: 'PATCH',
+      url: `/api/accounts/${account.id}/members/${member.id}`,
+      headers: auth(admin.token),
+      payload: { relationship_label: 'Auntie' },
+    });
+    expect(relabelRes.statusCode).toBe(200);
+    const [relabeled] = await db.select().from(profile_members).where(eq(profile_members.user_id, member.id));
+    expect(relabeled?.relationship_label).toBe('Auntie');
   });
 });

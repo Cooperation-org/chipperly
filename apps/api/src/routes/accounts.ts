@@ -377,12 +377,19 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
             .delete(profile_members)
             .where(and(eq(profile_members.user_id, targetId), inArray(profile_members.profile_id, profileIds)));
         }
-        // ponytail: drops any prior relationship_label on reassignment; PATCH carries no label field to preserve.
         for (const profileId of body.profile_ids) {
           await tx
             .insert(profile_members)
-            .values({ profile_id: profileId, user_id: targetId, relationship_label: null })
+            .values({ profile_id: profileId, user_id: targetId, relationship_label: body.relationship_label ?? null })
             .onConflictDoNothing();
+        }
+      } else if (body.relationship_label !== undefined) {
+        const profileIds = await accountProfileIds(accountId);
+        if (profileIds.length > 0) {
+          await tx
+            .update(profile_members)
+            .set({ relationship_label: body.relationship_label })
+            .where(and(eq(profile_members.user_id, targetId), inArray(profile_members.profile_id, profileIds)));
         }
       }
     });
