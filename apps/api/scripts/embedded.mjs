@@ -23,6 +23,7 @@ function getServer() {
       user: USER,
       password: PASSWORD,
       persistent: true,
+      initdbFlags: ['--encoding=UTF8', '--locale=C'],
     });
   }
   return server;

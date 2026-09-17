@@ -32,7 +32,13 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.string().min(1).default('info'),
 });
 
-const parsed = EnvSchema.parse(process.env);
+// `.env.example` documents an unset var as `KEY=` (empty), which --env-file
+// loads as an empty string, not undefined; treat empty the same as unset so
+// every optional var above (`.min(1).optional()`) accepts it.
+const envWithoutEmpty = Object.fromEntries(
+  Object.entries(process.env).filter(([, value]) => value !== ''),
+);
+const parsed = EnvSchema.parse(envWithoutEmpty);
 
 export const env = {
   ...parsed,
