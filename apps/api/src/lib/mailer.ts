@@ -42,7 +42,15 @@ async function sendViaResend(message: MailMessage): Promise<void> {
   }
 }
 
+let lastMessage: MailMessage | null = null;
+
+/** Test hook: the most recent message passed to `sendMail`, whichever transport sent it. */
+export function getLastMailMessage(): MailMessage | null {
+  return lastMessage;
+}
+
 export async function sendMail(message: MailMessage): Promise<void> {
+  lastMessage = message;
   if (env.mailEnabled) {
     await sendViaResend(message);
     return;
