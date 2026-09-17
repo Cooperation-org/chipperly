@@ -41,14 +41,16 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 /** PIN hashing: exact format from CONTRACTS.md "PIN" — shared with the client's WebCrypto implementation. */
 export async function hashPin(pin: string): Promise<string> {
-  const salt = randomBytes(16).toString('base64url');
-  const derived = (await pbkdf2(pin, salt, PIN_ITERATIONS, PIN_KEYLEN, 'sha256')) as Buffer;
+  const saltBytes = randomBytes(16);
+  const salt = saltBytes.toString('base64url');
+  const derived = (await pbkdf2(pin, saltBytes, PIN_ITERATIONS, PIN_KEYLEN, 'sha256')) as Buffer;
   return formatPinHash(salt, derived.toString('base64url'), PIN_ITERATIONS);
 }
 
 export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   const { iterations, salt, hash } = parsePinHash(stored);
+  const saltBytes = Buffer.from(salt, 'base64url');
   const expected = Buffer.from(hash, 'base64url');
-  const derived = (await pbkdf2(pin, salt, iterations, expected.length, 'sha256')) as Buffer;
+  const derived = (await pbkdf2(pin, saltBytes, iterations, expected.length, 'sha256')) as Buffer;
   return derived.length === expected.length && timingSafeEqual(derived, expected);
 }
