@@ -4,14 +4,14 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Profile } from '@chipperly/shared/schemas/profile';
+import { AVATAR_EMOJI } from '@chipperly/shared/constants/emoji';
 import { api } from '@/lib/api/client';
 import { useKv } from '@/lib/db/kv';
 import { refreshMe } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
-import type { PicturePickerValue } from '@/components/picture/PicturePicker';
+import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
-import { ProfilePicturePicker } from './ProfilePicturePicker';
 import styles from './ProfileForm.module.css';
 
 /** kv key documented in CONTRACTS.md's lib/db/db.ts; set by S3 (KindPicker) via useActiveAccount().setActiveAccountId. */
@@ -58,7 +58,7 @@ export function ProfileForm() {
         <p className={styles.subtitle}>Personalize their visual routine workspace.</p>
       </div>
       <TextField label="Name" autoFocus required value={name} onChange={(e) => setName(e.target.value)} />
-      <ProfilePicturePicker value={picture} onChange={setPicture} name={name} />
+      <PicturePicker value={picture} onChange={setPicture} name={name} choices={AVATAR_EMOJI} />
       {error ? (
         <p className={styles.error} role="alert">
           {error}

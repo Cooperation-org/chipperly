@@ -64,6 +64,11 @@
 }
 
 @media (min-width: 768px) {
+  .screen {
+    /* ux-plan.md section 12: 96px rows, 120px tiles, one column, on tablets. */
+    --tile-child: 120px;
+  }
+
   .row {
     min-height: 96px;
   }

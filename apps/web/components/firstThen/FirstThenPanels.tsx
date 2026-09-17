@@ -98,8 +98,7 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
     <div className={styles.wrap}>
       {caregiver ? (
         <div className={styles.toolbar}>
-          {/* ponytail: the fixed icon set has no kebab/ellipsis glyph; chevron stands in as "More". */}
-          <IconButton icon="chevron" aria-label="More" onClick={openMenu} />
+          <IconButton icon="more" aria-label="More" onClick={openMenu} />
         </div>
       ) : null}
 

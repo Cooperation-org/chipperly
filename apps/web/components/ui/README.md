@@ -2,7 +2,7 @@
 
 Every component here reads color, spacing, radius and motion from `app/styles/tokens.css` and nothing else. No hard-coded hex or px outside the token files. `'use client'` is only on components that hold state or attach an event handler; purely presentational ones (`Field`, `EmptyState`) stay server-renderable.
 
-**Icon** (`name`, `size = 24`, `title?`) — the app's one outline icon set (check, plus, minus, chevron, clock, star, lock, gear, sync, camera, image, trash, drag, close, play, pause, arrowLeft, arrowRight, share, users, home, book, timer, split, chips) as inline SVG, 24px viewBox, stroke 2, round caps. `aria-hidden` unless you pass `title`, so pair it with visible text or an `aria-label` on the parent control.
+**Icon** (`name`, `size = 24`, `title?`) — the app's one outline icon set (check, plus, minus, chevron, more, clock, star, lock, gear, sync, camera, image, trash, drag, close, play, pause, arrowLeft, arrowRight, share, users, home, book, timer, split, chips) as inline SVG, 24px viewBox, stroke 2, round caps. `aria-hidden` unless you pass `title`, so pair it with visible text or an `aria-label` on the parent control.
 
 **Button** (`variant: primary | secondary | ghost | danger`, `size: md | lg`, `fullWidth?`, `loading?`, `icon?`) — the standard button for forms, dialogs and secondary actions. `loading` disables it and sets `aria-busy`. Use `danger` only for destructive confirms.
 

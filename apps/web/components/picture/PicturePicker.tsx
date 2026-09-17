@@ -16,11 +16,15 @@ export interface PicturePickerProps {
   value: PicturePickerValue;
   onChange: (next: PicturePickerValue) => void;
   name?: string;
+  /** Restricts the emoji grid, e.g. AVATAR_EMOJI for profile pictures. Defaults to the full set. */
+  choices?: readonly string[];
 }
 
 /** Emoji / photo / camera / paste, in that order, per the global picture pattern. */
-export function PicturePicker({ value, onChange, name }: PicturePickerProps) {
-  const [emojiOpen, setEmojiOpen] = useState(false);
+export function PicturePicker({ value, onChange, name, choices }: PicturePickerProps) {
+  // Emoji grid is open by default: it's the default picture choice (never fails
+  // offline, no permission prompt), per ux-plan.md's global picture pattern.
+  const [emojiOpen, setEmojiOpen] = useState(true);
   const [pasteMessage, setPasteMessage] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +102,7 @@ export function PicturePicker({ value, onChange, name }: PicturePickerProps) {
       {emojiOpen ? (
         <EmojiGrid
           value={value.emoji}
+          choices={choices}
           onChange={(emoji) => {
             onChange({ emoji, photo_id: null });
             setEmojiOpen(false);

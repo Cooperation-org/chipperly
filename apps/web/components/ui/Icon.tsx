@@ -6,6 +6,7 @@ export type IconName =
   | 'plus'
   | 'minus'
   | 'chevron'
+  | 'more'
   | 'clock'
   | 'star'
   | 'lock'
@@ -38,6 +39,13 @@ const paths: Record<IconName, ReactNode> = {
   ),
   minus: <line x1="5" y1="12" x2="19" y2="12" />,
   chevron: <polyline points="8 6 16 12 8 18" />,
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1.3" />
+      <circle cx="12" cy="12" r="1.3" />
+      <circle cx="19" cy="12" r="1.3" />
+    </>
+  ),
   clock: (
     <>
       <circle cx="12" cy="12" r="9" />
