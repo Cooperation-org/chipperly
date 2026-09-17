@@ -9,7 +9,8 @@
     align-items: stretch;
     gap: var(--space-2);
     position: fixed;
-    top: 0;
+    /* Below the TopBar, not under it (TopBar draws on top per CONTRACTS.md). */
+    top: var(--topbar-h);
     left: 0;
     bottom: 0;
     width: var(--rail-w);

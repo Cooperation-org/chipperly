@@ -22,7 +22,12 @@ export interface TopBarProps {
   onSettingsTap?: () => void;
 }
 
-/** 56px top bar: avatar + profile switcher, or a title, plus the sync mark and gear. */
+/**
+ * 56px top bar: avatar + profile switcher, or a title, plus the sync mark and gear.
+ * The name/title here is shell chrome, not the page's semantic heading (a page
+ * supplies its own h1, or none, per CONTRACTS.md "Layout rules") - so it's a
+ * plain span, never an h1, to keep exactly one h1 per route.
+ */
 export function TopBar({ profile, onProfileTap, title, sync, onSyncTap, onSettingsTap }: TopBarProps) {
   return (
     <header className={styles.bar}>

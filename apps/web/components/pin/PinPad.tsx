@@ -94,7 +94,7 @@ export function PinPad({ length, onComplete, error, title }: PinPadProps) {
         {length ? (
           <span className={[styles.key, styles.ghost].join(' ')} aria-hidden="true" />
         ) : (
-          <button type="button" className={styles.ok} disabled={!okEnabled} onClick={() => void submit()}>
+          <button type="button" className={[styles.key, styles.ok].join(' ')} disabled={!okEnabled} onClick={() => void submit()}>
             OK
           </button>
         )}

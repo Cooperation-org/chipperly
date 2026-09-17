@@ -44,7 +44,7 @@
 
 .accent {
   background: var(--color-accent);
-  color: var(--color-primary-ink);
+  color: var(--color-text);
 }
 
 .accent:not(:disabled):hover {
