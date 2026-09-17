@@ -1,0 +1,113 @@
+/* Design tokens. Every UI primitive reads colors, spacing, radius and motion
+   from here — never a hard-coded hex or px value in a component file. */
+
+:root {
+  /* Colors */
+  --color-primary: #1f6f78;
+  --color-primary-ink: #ffffff;
+  --color-secondary: #71a6a6;
+  --color-accent: #f7931e;
+  --color-bg: #faf8f5;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1ede7;
+  --color-text: #3d3d3d;
+  --color-text-muted: #6b6b6b;
+  --color-border: #ddd6cc;
+  --color-success: #2e8b57;
+  --color-danger: #b3261e;
+  --color-focus: #1f6f78;
+
+  /* Fonts. app/fonts.ts loads the real Altone / Code Pro LC (or the Outfit /
+     Montserrat stand-ins) via next/font and may override these two on :root
+     once it exists; these defaults keep the app usable without it. */
+  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Montserrat', system-ui, sans-serif;
+
+  /* Type scale: one body size, one secondary, one heading, one display */
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 2rem;
+  --text-2xl: 3rem;
+
+  /* Spacing, 8px grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+
+  /* Touch targets and picture tile sizes */
+  --tap: 48px;
+  --tap-child: 64px;
+  --tile-list: 48px;
+  --tile-grid: 96px;
+  --tile-child: 72px;
+
+  /* Shell chrome */
+  --tabbar-h: 64px;
+  --rail-w: 88px;
+
+  /* Elevation */
+  --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.12);
+
+  /* Motion */
+  --motion-fast: 150ms;
+  --motion: 220ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Left rail replaces the bottom tab bar at 1024px and up */
+@media (min-width: 1024px) {
+  :root {
+    --tabbar-h: 0px;
+  }
+}
+
+/* Child mode: bigger type, bigger touch targets, everywhere */
+:root[data-mode='child'],
+html[data-mode='child'] {
+  font-size: 20px;
+  --tap: var(--tap-child);
+}
+
+/* Motion off: system preference or the manual Settings toggle */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion: 0ms;
+  }
+}
+
+:root[data-reduce-motion='true'],
+html[data-reduce-motion='true'] {
+  --motion-fast: 0ms;
+  --motion: 0ms;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+}
+
+/* One visible focus style for every control, everywhere */
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}

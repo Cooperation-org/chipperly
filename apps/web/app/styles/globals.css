@@ -1,0 +1,112 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), sans-serif;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+img,
+picture,
+video {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Child mode: bigger everything (CONTRACTS.md "Design tokens"). */
+[data-mode='child'] {
+  font-size: 20px;
+  --tap: var(--tap-child);
+}
+
+/* Reduced motion: explicit device setting or OS preference collapse every
+   motion token to 0ms so transitions/animations become instant. */
+[data-reduce-motion='true'] {
+  --motion-fast: 0ms;
+  --motion: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-reduce-motion='false']) {
+    --motion-fast: 0ms;
+    --motion: 0ms;
+  }
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-x {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media print {
+  [data-shell-nav],
+  [data-shell-tabbar] {
+    display: none !important;
+  }
+}
