@@ -121,8 +121,18 @@ export default async function syncRoutes(app: FastifyInstance): Promise<void> {
 
     await sql.begin(async (tx) => {
       for (const mutation of body.mutations) {
+        // Each mutation runs in its own savepoint: a DB-level error (a bad
+        // value, a constraint violation, anything applyMutation's own zod
+        // checks didn't catch) rolls back only that mutation instead of
+        // aborting the whole push transaction and 500ing the request.
         // eslint-disable-next-line no-await-in-loop -- mutations must apply in outbox order, one transaction.
-        const result = await applyMutation(tx, mutation, body.profile_id, user.id, request.locked, role);
+        const result = await tx
+          .savepoint((sp) => applyMutation(sp, mutation, body.profile_id, user.id, request.locked, role))
+          .catch((error: unknown) => {
+            request.log.error({ err: error, mutationId: mutation.id, table: mutation.table }, 'sync mutation failed');
+            const failed: ApplyResult = { ok: false, reason: 'invalid', server_row: null };
+            return failed;
+          });
         if (result.ok) {
           applied.push(mutation.id);
         } else {
@@ -148,7 +158,8 @@ async function getRole(userId: string, profileId: string): Promise<'admin' | 'me
   return (row?.role as 'admin' | 'member' | undefined) ?? null;
 }
 
-type ApplyResult = { ok: true } | { ok: false; reason: string; server_row: SyncRow | null };
+type RejectReason = 'stale' | 'locked' | 'forbidden' | 'invalid';
+type ApplyResult = { ok: true } | { ok: false; reason: RejectReason; server_row: SyncRow | null };
 
 async function applyMutation(
   tx: Sql,
@@ -246,6 +257,16 @@ async function applyUpsert(
 
   const row: SyncRow = { ...(parsed.data as SyncRow), id: mutation.id };
   if (mutation.table !== 'profiles') row.profile_id = profileId;
+  // `profiles.settings` is the only jsonb column any pushed table has, and
+  // it needs to be pre-serialized here: db/client.ts's `drizzle(sql)` call
+  // replaces this shared connection's jsonb serializer with a passthrough
+  // (drizzle does its own `JSON.stringify` before handing postgres.js a
+  // value), so a plain object reaches the wire as `[object Object]` /
+  // throws, and `sql.json()` doesn't help either since it hits that same
+  // passthrough. Stringifying ourselves is what the passthrough expects.
+  if (mutation.table === 'profiles' && 'settings' in row) {
+    row.settings = JSON.stringify(row.settings);
+  }
 
   const stored = await selectForUpdate(tx, mutation.table, mutation.id);
 
