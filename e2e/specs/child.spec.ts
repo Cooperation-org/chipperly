@@ -115,23 +115,6 @@ test.describe('child mode', () => {
   });
 
   test('S24 lock glyph -> PIN pad -> wrong then correct PIN', async () => {
-    // BUG PIN hash/verify mismatch: apps/api/src/lib/password.ts's
-    // hashPin()/verifyPin() call Node's `pbkdf2(pin, salt, ...)` with
-    // `salt` as the base64url *string* (`randomBytes(16).toString(
-    // 'base64url')`) instead of decoding it back to the raw 16 bytes first.
-    // Node's `crypto.pbkdf2` treats a string salt as UTF-8 text, so the
-    // server derives against the UTF-8 bytes of the base64url text, not the
-    // original random bytes. apps/web/lib/auth/pin.ts's WebCrypto
-    // hashPin()/verifyPin() (correctly) decode the salt back to raw bytes
-    // first. The PIN is *set* through the server (PATCH /me/pin ->
-    // routes/me.ts -> lib/password.ts hashPin) and *verified* on the client
-    // (UnlockOverlay -> lib/auth/pin.ts verifyPin against the cached
-    // pin_hash): two different salt interpretations for the same stored
-    // hash, so every unlock attempt fails, correct PIN or not — CONTRACTS.md
-    // "PIN" requires this to verify identically on both sides. See
-    // openIssues.
-    test.fail(true, 'BUG auth: PIN set via the server / verified on the client never matches (salt encoding mismatch) — see openIssues');
-
     await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
     const overlay = page.getByRole('dialog', { name: 'Unlock' });
     await expect(overlay).toBeVisible();

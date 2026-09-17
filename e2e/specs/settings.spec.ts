@@ -63,20 +63,8 @@ test.describe('settings', () => {
   });
 
   test('S26/S27 care team: invite, accept from a fresh context', async () => {
-    // BUG API accept-invite: POST /invites/:token/accept (and every other
-    // no-body api.post/patch/delete call — resend/cancel invite, remove
-    // member, delete account) sends `Content-Type: application/json` with
-    // no body (lib/api/client.ts always sets that header; request() only
-    // omits the `body` field, not the header). Fastify's default JSON body
-    // parser rejects that with 400 "Body cannot be empty when content-type
-    // is set to 'application/json'", so InviteAccept.tsx's accept() always
-    // catches and shows "Couldn't accept the invite. Try again." This test
-    // documents the real flow up to that point and is expected to fail
-    // there until the client (or server) is fixed; see openIssues.
-    test.fail(true, "BUG accounts: accept invite 400s, Content-Type: application/json with no body — see openIssues");
-
     // Always leave `page` back on /settings/ for the next test, whether or
-    // not the known-broken accept step below throws.
+    // not the accept step below throws.
     try {
       await page.getByRole('button', { name: 'Care team', exact: true }).click();
       await page.waitForURL('**/settings/care-team/');
@@ -133,27 +121,6 @@ test.describe('settings', () => {
   });
 
   test('S28 share link: enable, copy, open from a fresh context', async () => {
-    // BUG API sync/push: enabling the toggle upserts `profiles.share_token`
-    // locally then pushes it through the outbox; that push is unreliable
-    // shortly after profile creation. lib/clock.ts's `now()` offset is
-    // learned from the HTTP `Date` response header, which only has
-    // whole-second resolution, so it can under-shoot the true server time
-    // by up to ~1s. The profile row's own `client_updated_at` was set
-    // moments earlier from the server's precise `Date.now()`
-    // (apps/api/src/routes/accounts.ts POST /accounts/:id/profiles), so a
-    // share-toggle pushed soon after can compute a `client_updated_at` that
-    // looks *older* than the stored row and gets rejected `reason: "stale"`
-    // by routes/sync.ts's `applyUpsert` (seen once as a clean 200 rejection,
-    // once as a 500 "Something went wrong" — same push, so likely the same
-    // root cause hitting an unhandled edge case server-side too). Either
-    // way `GET /api/share/:token` 404s because the token never lands. The
-    // same "Sync error" outcome shows up for a schedule_items push too
-    // (today.spec.ts "back online"), on a row that isn't fresh, so the
-    // clock-skew theory above doesn't fully explain that case — the push
-    // path likely has a broader, not yet pinned down, source of
-    // intermittent 500s. See openIssues.
-    test.fail(true, 'BUG sync: profiles push rejected/500s shortly after profile creation (clock-skew LWW) — see openIssues');
-
     const viewerContext = await page.context().browser()!.newContext();
     try {
       // Independent of the bug above: a token that was never issued.

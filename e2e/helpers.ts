@@ -64,44 +64,13 @@ export async function signUp(page: Page, opts: { name: string }): Promise<SignUp
   await page.getByRole('button', { name: 'Go to Today', exact: true }).click();
   await page.waitForURL('**/today/');
 
-  // BUG (recorded, not fixed here — see openIssues): lib/sync/engine.ts's
-  // startSync() runs once per page-load session and its first runCycle()
-  // fires as soon as the account is signed in, before this profile (or its
-  // seeded activities/rewards/locations) exists — that first cycle finds
-  // `db.profiles` empty, pulls nothing, and reports "synced". Nothing
-  // schedules another pull until the 60s poll interval, an outbox write, or
-  // a tab visibility change, so the just-created profile's seed data would
-  // otherwise sit unpulled for up to a minute. Tapping the sync mark's
-  // "Sync now" is the one user-facing way to force a fresh cycle.
-  //
-  // A single tap isn't quite enough either: runCycle() is guarded by a
-  // `cycleRunning` flag, so a tap that lands while the *other*, already-
-  // in-flight (empty) cycle from startSync()'s own first run is still
-  // finishing silently no-ops. Rather than trust the sheet's "Up to date"
-  // label (which can reflect that no-op'd cycle), poll for the actual
-  // seeded data — the Chips tab's Home/School locations — retrying "Sync
-  // now" until it shows up.
+  // The sync engine schedules an immediate cycle when the profile lands in
+  // Dexie (lib/sync/engine.ts subscribes to db.profiles' 'creating' hook),
+  // so the seeded Home/School locations show up without forcing "Sync now".
   await gotoTab(page, 'chips');
-  await expect
-    .poll(
-      async () => {
-        const count = await page.getByRole('radiogroup', { name: 'Location' }).getByRole('radio').count();
-        if (count > 0) return count;
-        const syncButton = page.getByRole('button', { name: /^Synced|^Sync pending|^Offline$|^Sync error$/ });
-        await syncButton.click();
-        const syncSheet = page.getByRole('dialog');
-        const syncNow = syncSheet.getByRole('button', { name: 'Sync now', exact: true });
-        await syncNow.click();
-        // Wait for this cycle to actually finish (the button re-enables)
-        // before closing, so this attempt's pull has a chance to land
-        // before the next poll tick checks the location count.
-        await expect(syncNow).toBeEnabled({ timeout: 5_000 }).catch(() => undefined);
-        await syncSheet.getByRole('button', { name: 'Close', exact: true }).click({ timeout: 5_000 }).catch(() => undefined);
-        return 0;
-      },
-      { timeout: 30_000, intervals: [500] },
-    )
-    .toBeGreaterThan(0);
+  await expect(page.getByRole('radiogroup', { name: 'Location' }).getByRole('radio').first()).toBeVisible({
+    timeout: 20_000,
+  });
   await gotoTab(page, 'today');
 
   return { email, password, name: opts.name };

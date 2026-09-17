@@ -72,35 +72,9 @@ file's email or data race another's.
 
 All four are gitignored.
 
-## Known app bugs this suite documents (not fixed here)
+## History
 
-Four specs contain a test marked `test.fail(true, '...')`: the flow up to
-the bug is exercised for real, the test is expected to fail at the known
-broken step, and the comment right above it names the root cause and the
-files involved. If one of these ever starts passing unexpectedly, Playwright
-flags it (`test.fail()` inverts pass/fail), which is the signal the bug got
-fixed.
-
-- `settings.spec.ts` "S26/S27 care team": accepting an invite 400s.
-  `lib/api/client.ts` always sends `Content-Type: application/json` even on
-  a body-less request; Fastify rejects that combination. Same pattern
-  likely breaks resend/cancel invite, remove member and delete account.
-- `settings.spec.ts` "S28 share link": enabling the toggle 404s when
-  fetched back. The push that carries `profiles.share_token` to the server
-  can be rejected as stale (or 500) because of clock-skew in
-  `lib/clock.ts`'s second-resolution offset, shortly after profile
-  creation.
-- `child.spec.ts` "S24 lock glyph": unlocking with the correct PIN always
-  fails. The server (`apps/api/src/lib/password.ts`) and the client
-  (`apps/web/lib/auth/pin.ts`) hash the PIN with different interpretations
-  of the same salt string, so a PIN set through the server never verifies
-  on the client.
-
-`helpers.ts`'s `signUp()` also works around a fourth, non-fatal one: a
-fresh profile's seeded activities/rewards/locations can take up to 60s to
-reach the client (`lib/sync/engine.ts`'s first sync cycle can race ahead of
-the profile's own creation), so it forces a sync and waits for the actual
-data rather than trusting the sync status label.
+The first full run of this suite found four app bugs through the UI (invite accept rejected on an empty JSON body, PIN hashes that differed between server and client, sync pushes rejected as stale right after a row was created, and a first pull that ran before the new profile existed). All four are fixed with regression tests; the flows are ordinary passing tests now.
 
 ## The one API route this suite owns
 

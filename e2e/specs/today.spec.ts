@@ -169,37 +169,16 @@ test.describe('today', () => {
   });
 
   test('back online: the offline check-off syncs back', async () => {
-    // BUG API sync/push (intermittent, not deterministic — retried below
-    // rather than test.fail()'d): POST /sync/push can throw an unhandled
-    // exception pushing a mutation on a row created a while ago (here, the
-    // schedule_items completion from the previous test's offline check-off)
-    // — lib/sync/engine.ts's runCycle() catch-all then sets the sync mark
-    // to "Sync error". Seen before for a profiles upsert too
-    // (settings.spec.ts "S28 share link", consistently reproducible there
-    // and attributed to clock-skew in a fresh row's LWW check); this
-    // schedule_items row isn't fresh, so that specific theory doesn't fully
-    // explain this instance, and it doesn't reproduce every run — the two
-    // together suggest routes/sync.ts's push path has a broader, not yet
-    // pinned down, source of intermittent 500s. See openIssues.
-    //
     // The sync engine's own 'online' listener should pick this up, but
     // that's a background event/timer race; force it through the same
     // user-facing "Sync now" action the app offers. Opened from the sync
-    // mark (not Settings), this sheet has no title (components/shell/
-    // CaregiverShell.tsx's onSyncTap passes none).
+    // mark (not Settings), this sheet has a title too (components/shell/
+    // CaregiverShell.tsx's onSyncTap).
     const syncButton = page.getByRole('button', { name: /^Synced|^Sync pending|^Offline$|^Sync error$/ });
     await syncButton.click();
-    const sheet = page.getByRole('dialog');
-    let synced = false;
-    for (let attempt = 0; attempt < 3 && !synced; attempt += 1) {
-      await sheet.getByRole('button', { name: 'Sync now', exact: true }).click();
-      synced = await sheet
-        .getByText(/Up to date/)
-        .waitFor({ timeout: 10_000 })
-        .then(() => true)
-        .catch(() => false);
-    }
-    expect(synced, 'sync mark reached "Up to date" within 3 retries').toBe(true);
+    const sheet = page.getByRole('dialog', { name: 'Sync' });
+    await sheet.getByRole('button', { name: 'Sync now', exact: true }).click();
+    await expect.poll(() => sheet.getByText(/Up to date/).isVisible(), { timeout: 20_000 }).toBe(true);
     await sheet.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Synced', exact: true })).toBeVisible();
   });
