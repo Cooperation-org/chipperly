@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { TABLE_NAMES, type SyncedTable } from '../constants/tables.js';
+import { MUTATION_TABLE_NAMES, TABLE_NAMES, type SyncedTable } from '../constants/tables.js';
 import { msTimestampSchema, uuidSchema } from './common.js';
 
 export const SyncedTableSchema = z.enum(TABLE_NAMES);
+export const MutationTableSchema = z.enum(MUTATION_TABLE_NAMES);
 
 export const SYNCED_TABLES: readonly SyncedTable[] = TABLE_NAMES;
 
@@ -37,7 +38,7 @@ export const MutationOp = z.enum(['upsert', 'delete']);
 export type MutationOp = z.infer<typeof MutationOp>;
 
 export const MutationSchema = z.object({
-  table: SyncedTableSchema,
+  table: MutationTableSchema,
   id: uuidSchema,
   op: MutationOp,
   /** Omitted for `delete`; the server sets `deleted_at` itself. */
@@ -54,7 +55,7 @@ export type SyncPushRequest = z.infer<typeof SyncPushRequestSchema>;
 
 export const RejectedMutationSchema = z.object({
   id: uuidSchema,
-  table: SyncedTableSchema,
+  table: MutationTableSchema,
   reason: z.string(),
   server_row: unknownRowSchema.nullable(),
 });

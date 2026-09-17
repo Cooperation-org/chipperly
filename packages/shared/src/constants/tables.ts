@@ -18,3 +18,7 @@ export const TABLE_NAMES = [
 ] as const;
 
 export type SyncedTable = (typeof TABLE_NAMES)[number];
+
+/** Tables a client may push mutations for: every synced table plus the profile row itself. */
+export const MUTATION_TABLE_NAMES = [...TABLE_NAMES, 'profiles'] as const;
+export type MutationTable = (typeof MUTATION_TABLE_NAMES)[number];
