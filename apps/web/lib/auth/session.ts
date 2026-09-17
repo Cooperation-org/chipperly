@@ -48,6 +48,8 @@ async function applyMe(me: MeResponse): Promise<void> {
   await setKv<MeResponse>(ME_KEY, me);
   await setKv<string>(CURRENT_USER_KEY, me.user.id);
   if (me.profiles.length > 0) await db.profiles.bulkPut(me.profiles);
+  if (me.accounts.length > 0) await db.accounts.bulkPut(me.accounts.map((a) => a.account));
+  await db.users.put(me.user);
 
   const activeAccount = await getKv<string>(ACTIVE_ACCOUNT_KEY);
   if (!activeAccount && me.accounts[0]) await setKv(ACTIVE_ACCOUNT_KEY, me.accounts[0].account.id);

@@ -9,7 +9,7 @@ import { ToastHost } from '@/lib/toast';
 import { SwRegister } from '@/components/pwa/SwRegister';
 
 interface DeviceSettings {
-  reduce_motion?: boolean;
+  reduce_motion?: 'system' | 'on' | 'off';
 }
 
 /** Starts/stops the sync loop with the session: nothing to sync while signed out. */
@@ -30,7 +30,8 @@ function ReducedMotion(): null {
   const settings = useKv<DeviceSettings>('device_settings', {});
 
   useEffect(() => {
-    document.documentElement.dataset.reduceMotion = settings.reduce_motion ? 'true' : 'false';
+    // 'system' sets no override: the CSS `prefers-reduced-motion: reduce` query (tokens.css) already covers it.
+    document.documentElement.dataset.reduceMotion = settings.reduce_motion === 'on' ? 'true' : 'false';
   }, [settings.reduce_motion]);
 
   return null;

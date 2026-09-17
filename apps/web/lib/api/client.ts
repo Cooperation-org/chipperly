@@ -5,6 +5,11 @@ import { setServerDate } from '../clock';
 
 const TOKENS_KEY = 'auth_tokens';
 const ACTIVE_ACCOUNT_KEY = 'active_account_id';
+/** Same key/shape as lib/device/settings.ts's LockState; read directly (not the 'use client' hook) so this stays usable outside components. */
+const LOCK_KEY = 'lock';
+interface LockStateShape {
+  locked_profile_id: string | null;
+}
 
 export interface StoredTokens {
   access_token: string;
@@ -83,11 +88,12 @@ async function request<T>(
 ): Promise<T> {
   const tokens = await getTokens();
   const accountId = opts?.accountId ?? (await getKv<string>(ACTIVE_ACCOUNT_KEY));
+  const lockState = await getKv<LockStateShape>(LOCK_KEY);
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (tokens?.access_token) headers.Authorization = `Bearer ${tokens.access_token}`;
   if (accountId) headers['X-Account-Id'] = accountId;
-  if (opts?.locked) headers['X-Locked'] = '1';
+  if (opts?.locked || lockState?.locked_profile_id) headers['X-Locked'] = '1';
 
   const res = await fetch(`${apiBase}${path}`, {
     method,

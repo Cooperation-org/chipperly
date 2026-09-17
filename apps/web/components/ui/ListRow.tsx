@@ -14,19 +14,31 @@ export interface ListRowProps {
   dimmed?: boolean;
   onTap?: () => void;
   className?: string;
+  /** Forwarded to the inner `<button>` (S21: current-profile row). */
+  ariaCurrent?: boolean | 'page';
 }
 
 /** A picture, name and secondary text row. The whole row is tappable except `handle` and `trailing`. */
-export function ListRow({ handle, tile, name, secondary, trailing, dimmed, onTap, className }: ListRowProps) {
+export function ListRow({
+  handle,
+  tile,
+  name,
+  secondary,
+  trailing,
+  dimmed,
+  onTap,
+  className,
+  ariaCurrent,
+}: ListRowProps) {
   return (
     <div className={[styles.row, dimmed ? styles.dimmed : '', className].filter(Boolean).join(' ')}>
       {handle ? <span className={styles.handle}>{handle}</span> : null}
       {onTap ? (
-        <button type="button" className={styles.main} onClick={onTap}>
+        <button type="button" className={styles.main} onClick={onTap} aria-current={ariaCurrent}>
           <RowContent tile={tile} name={name} secondary={secondary} />
         </button>
       ) : (
-        <div className={styles.main}>
+        <div className={styles.main} aria-current={ariaCurrent}>
           <RowContent tile={tile} name={name} secondary={secondary} />
         </div>
       )}
