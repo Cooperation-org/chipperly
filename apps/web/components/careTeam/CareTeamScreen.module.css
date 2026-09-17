@@ -1,0 +1,99 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionTitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 var(--space-2);
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.card > :not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-3);
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.memberInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.memberName {
+  font-size: var(--text-md);
+  color: var(--color-text);
+}
+
+.memberRole {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+
+.tiles {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.inviteRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.inviteInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.inviteEmail {
+  font-size: var(--text-md);
+  color: var(--color-text);
+  overflow-wrap: break-word;
+}
+
+.inviteHint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.memberActions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.memberNote {
+  font-size: var(--text-md);
+  color: var(--color-text-muted);
+}

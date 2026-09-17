@@ -1,0 +1,108 @@
+.pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.title {
+  font-size: var(--text-lg);
+  color: var(--color-text);
+  margin: 0;
+  text-align: center;
+}
+
+.dots {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: transparent;
+  transition: background-color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
+}
+
+.filled {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.error {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  min-height: 1.25em;
+  margin: 0;
+  text-align: center;
+}
+
+.shake {
+  /* var(--motion) is zeroed by tokens.css under reduced motion, so this is a
+     no-op shake then; the error text below still announces the failure. */
+  animation: shake var(--motion) var(--ease);
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-8px);
+  }
+  75% {
+    transform: translateX(8px);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 64px);
+  gap: var(--space-3);
+}
+
+.key {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-lg);
+  font-family: var(--font-heading);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--motion-fast) var(--ease);
+}
+
+.key:hover:not(:disabled) {
+  background: var(--color-surface-2);
+}
+
+.key:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.ok {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-ink);
+  font-weight: 700;
+}
+
+.ok:disabled {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}

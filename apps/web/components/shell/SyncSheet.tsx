@@ -1,34 +1,50 @@
 'use client';
 
+import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { BigButton } from '@/components/ui/BigButton';
+import { db } from '@/lib/db/db';
 import { useSyncStatus, syncNow, type SyncState } from '@/lib/sync/engine';
 import styles from './SyncSheet.module.css';
 
-const STATE_LABEL: Record<SyncState, string> = {
-  synced: 'Everything is synced.',
-  pending: 'Waiting to sync your changes.',
-  offline: "Offline. Changes will sync once you're back online.",
-  error: 'Could not sync. Retrying automatically.',
-};
+function timeAgo(ms: number): string {
+  const minutes = Math.floor((Date.now() - ms) / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
 
-/** Placeholder sync status sheet, opened from TopBar's sync mark (CONTRACTS.md S31). */
+function statusText(state: SyncState, pending: number, lastSyncedAt: number | null): string {
+  if (state === 'offline') return 'Offline. Changes are saved on this device.';
+  if (pending > 0) return `${pending} change${pending === 1 ? '' : 's'} waiting.`;
+  if (state === 'error') return 'Could not sync. Retrying automatically.';
+  return lastSyncedAt ? `Up to date, ${timeAgo(lastSyncedAt)}.` : 'Up to date.';
+}
+
+/** S31: sync status sheet, opened from TopBar's sync mark. */
 export function SyncSheet() {
   const status = useSyncStatus();
+  const [syncing, setSyncing] = useState(false);
+  // media_blobs is only indexed on media_id (lib/db/db.ts), so this is a
+  // full-table filter rather than a `.where('uploaded')` index lookup.
+  const photosWaiting = useLiveQuery(() => db.media_blobs.filter((row) => row.uploaded === 0).count(), [], 0);
+
+  async function handleSyncNow(): Promise<void> {
+    setSyncing(true);
+    await syncNow();
+    setSyncing(false);
+  }
 
   return (
     <div className={styles.sheet}>
       <h2>Sync</h2>
-      <p>{STATE_LABEL[status.state]}</p>
-      {status.pending > 0 ? (
-        <p className={styles.muted}>
-          {status.pending} change{status.pending === 1 ? '' : 's'} waiting.
-        </p>
-      ) : null}
-      {status.last_synced_at ? (
-        <p className={styles.muted}>Last synced {new Date(status.last_synced_at).toLocaleTimeString()}</p>
-      ) : null}
-      <BigButton fullWidth onClick={() => void syncNow()}>
-        Sync now
+      <p className={styles.status}>{statusText(status.state, status.pending, status.last_synced_at)}</p>
+      {photosWaiting > 0 ? <p className={styles.muted}>Photos waiting to upload: {photosWaiting}</p> : null}
+      <BigButton fullWidth onClick={() => void handleSyncNow()} disabled={syncing}>
+        {syncing ? 'Syncing…' : 'Sync now'}
       </BigButton>
     </div>
   );

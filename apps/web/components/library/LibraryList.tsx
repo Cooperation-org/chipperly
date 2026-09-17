@@ -1,0 +1,185 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useLiveQuery } from 'dexie-react-hooks';
+import type { Activity } from '@chipperly/shared/schemas/activity';
+import type { Location } from '@chipperly/shared/schemas/location';
+import { Picture } from '@/components/media/Picture';
+import { IconButton } from '@/components/ui/IconButton';
+import { ListRow } from '@/components/ui/ListRow';
+import { BigButton } from '@/components/ui/BigButton';
+import { TextField } from '@/components/ui/TextField';
+import { Stepper } from '@/components/ui/Stepper';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useSheet } from '@/components/ui/Sheet';
+import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
+import { db } from '@/lib/db/db';
+import { restore } from '@/lib/sync/mutate';
+import { useActivities, deleteActivity } from '@/lib/data/activities';
+import { useRewards, deleteReward } from '@/lib/data/rewards';
+import { useLocations, saveLocation, deleteLocation } from '@/lib/data/locations';
+import { useActiveProfile } from '@/lib/profile/active';
+import { toast } from '@/lib/toast';
+import styles from './LibraryList.module.css';
+
+export type LibraryKind = 'activity' | 'reward' | 'location';
+
+export interface LibraryListProps {
+  kind: LibraryKind;
+}
+
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function repeatLabel(activity: Activity): string | undefined {
+  if (!activity.recurrence) return undefined;
+  switch (activity.recurrence) {
+    case 'daily':
+      return 'Every day';
+    case 'weekdays':
+      return 'Weekdays';
+    case 'weekends':
+      return 'Weekends';
+    case 'weekly':
+      return activity.recurrence_weekday !== null ? `Every ${WEEKDAY_NAMES[activity.recurrence_weekday]}` : 'Weekly';
+  }
+}
+
+function LocationSheet({ profileId, location }: { profileId: string; location?: Location }) {
+  const { close } = useSheet();
+  const [name, setName] = useState(location?.name ?? '');
+  const [picture, setPicture] = useState<PicturePickerValue>({ emoji: location?.emoji, photo_id: location?.photo_id });
+  const [goal, setGoal] = useState(location?.chip_goal ?? 5);
+  const [saving, setSaving] = useState(false);
+
+  async function submit(): Promise<void> {
+    if (!name.trim()) return;
+    setSaving(true);
+    await saveLocation({
+      id: location?.id,
+      profile_id: profileId,
+      name: name.trim(),
+      emoji: picture.emoji ?? null,
+      photo_id: picture.photo_id ?? null,
+      chip_goal: goal,
+      working_for_reward_id: location?.working_for_reward_id,
+    });
+    setSaving(false);
+    close();
+  }
+
+  return (
+    <div className={styles.sheet}>
+      <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      <PicturePicker value={picture} onChange={setPicture} name={name || 'Location'} />
+      <Stepper label="Goal" value={goal} min={1} max={20} onChange={setGoal} />
+      <BigButton fullWidth onClick={() => void submit()} disabled={saving}>
+        Save
+      </BigButton>
+    </div>
+  );
+}
+
+/** S25: activities, rewards and locations, three simple lists sharing one shape. */
+export function LibraryList({ kind }: LibraryListProps) {
+  const router = useRouter();
+  const { open } = useSheet();
+  const { profile } = useActiveProfile();
+  const profileId = profile?.id;
+
+  const activities = useActivities(profileId ?? '');
+  const rewards = useRewards(profileId ?? '');
+  const locations = useLocations(profileId ?? '');
+  const steps = useLiveQuery(() => (profileId ? db.activity_steps.where('profile_id').equals(profileId).toArray() : []), [profileId], []);
+
+  const stepCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const step of steps) {
+      if (step.deleted_at !== null) continue;
+      counts.set(step.activity_id, (counts.get(step.activity_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [steps]);
+
+  if (!profileId) return null;
+  const pid = profileId;
+
+  function addNew(): void {
+    if (kind === 'activity') router.push('/activity/edit/');
+    else if (kind === 'reward') router.push('/reward/edit/');
+    else open(<LocationSheet profileId={pid} />, { title: 'Add location' });
+  }
+
+  const rows =
+    kind === 'activity'
+      ? activities.map((a) => ({
+          id: a.id,
+          name: a.name,
+          secondary: [`${stepCounts.get(a.id) ?? 0} step${(stepCounts.get(a.id) ?? 0) === 1 ? '' : 's'}`, repeatLabel(a)]
+            .filter(Boolean)
+            .join(' · '),
+          tile: <Picture emoji={a.emoji} photo_id={a.photo_id} name={a.name} size="list" />,
+          onTap: () => router.push(`/activity/edit/?id=${a.id}`),
+          onDelete: () => {
+            void deleteActivity(a.id);
+            toast(`Deleted ${a.name}`, { undo: () => void restore('activities', a.id) });
+          },
+        }))
+      : kind === 'reward'
+        ? rewards.map((r) => ({
+            id: r.id,
+            name: r.name,
+            secondary: r.always_available ? 'Free time' : r.chip_cost !== null ? `${r.chip_cost} chip${r.chip_cost === 1 ? '' : 's'}` : undefined,
+            tile: <Picture emoji={r.emoji} photo_id={r.photo_id} name={r.name} size="list" />,
+            onTap: () => router.push(`/reward/edit/?id=${r.id}`),
+            onDelete: () => {
+              void deleteReward(r.id);
+              toast(`Deleted ${r.name}`, { undo: () => void restore('rewards', r.id) });
+            },
+          }))
+        : locations.map((l) => ({
+            id: l.id,
+            name: l.name,
+            secondary: `Goal: ${l.chip_goal} chips`,
+            tile: <Picture emoji={l.emoji} photo_id={l.photo_id} name={l.name} size="list" />,
+            onTap: () => open(<LocationSheet profileId={pid} location={l} />, { title: 'Edit location' }),
+            onDelete: () => {
+              void deleteLocation(l.id);
+              toast(`Deleted ${l.name}`, { undo: () => void restore('locations', l.id) });
+            },
+          }));
+
+  const addLabel = kind === 'activity' ? 'Add activity' : kind === 'reward' ? 'Add reward' : 'Add location';
+  const emptySentence =
+    kind === 'activity' ? 'No activities yet.' : kind === 'reward' ? 'No rewards yet.' : 'No locations yet.';
+
+  return (
+    <div className={styles.page}>
+      <BigButton fullWidth icon="plus" onClick={addNew}>
+        {addLabel}
+      </BigButton>
+      {rows.length === 0 ? (
+        <EmptyState sentence={emptySentence} />
+      ) : (
+        <div className={styles.list}>
+          {rows.map((row) => (
+            <ListRow
+              key={row.id}
+              tile={row.tile}
+              name={row.name}
+              secondary={row.secondary}
+              onTap={row.onTap}
+              trailing={
+                <IconButton
+                  icon="trash"
+                  aria-label={`Delete ${row.name}`}
+                  onClick={row.onDelete}
+                />
+              }
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

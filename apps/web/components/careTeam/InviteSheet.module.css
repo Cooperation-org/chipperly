@@ -1,0 +1,40 @@
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: var(--text-md);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.offline {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}

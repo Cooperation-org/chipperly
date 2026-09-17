@@ -1,0 +1,34 @@
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.intro {
+  font-size: var(--text-md);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.toggles {
+  display: flex;
+  flex-direction: column;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 64px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.toggleRow:last-child {
+  border-bottom: none;
+}
+
+.toggleLabel {
+  font-size: var(--text-md);
+  color: var(--color-text);
+}
