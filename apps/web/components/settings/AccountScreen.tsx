@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { PinPad } from '@/components/pin/PinPad';
-import { api, ApiError } from '@/lib/api/client';
+import { api } from '@/lib/api/client';
 import { useSession, signOut, setPin } from '@/lib/auth/session';
 import { useActiveProfile, useActiveAccount } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
@@ -74,13 +74,10 @@ export function AccountScreen() {
     try {
       await api.delete('/me');
       await signOut();
+      toast('Account deleted');
       router.replace('/');
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        toast('Contact support to delete your account.');
-      } else {
-        toast("Couldn't delete your account. Try again.");
-      }
+    } catch {
+      toast("Couldn't delete your account. Try again.");
     } finally {
       setDeleting(false);
       close();

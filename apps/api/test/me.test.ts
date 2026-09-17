@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { MeResponse, TokensResponse } from '@chipperly/shared/schemas/auth';
 import { buildTestApp, request } from './helpers.js';
+import { addMember, createAccount, createUser } from './fixtures.js';
 import { db } from '../src/db/client.js';
-import { account_members, accounts } from '../src/db/schema/accounts.js';
+import { account_members, accounts, users } from '../src/db/schema/accounts.js';
 import { profile_members, profiles } from '../src/db/schema/profiles.js';
 import { verifyPin } from '../src/lib/password.js';
 
@@ -121,5 +123,109 @@ describe('me routes', () => {
       payload: { pin: '12' },
     });
     expect(response.statusCode).toBe(400);
+  });
+});
+
+describe('DELETE /me', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('deletes a solo account and everything under it, and the user', async () => {
+    const user = await createUser('Solo');
+    const accountId = await createAccount('individual', 'Solo Household');
+    await addMember(accountId, user.id, 'admin');
+
+    const profileRes = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${accountId}/profiles`,
+      headers: { authorization: `Bearer ${user.token}` },
+      payload: { name: 'Kid' },
+    });
+    const profile = profileRes.json() as { id: string };
+
+    const response = await request(app, {
+      method: 'DELETE',
+      url: '/api/me',
+      headers: { authorization: `Bearer ${user.token}` },
+    });
+    expect(response.statusCode).toBe(204);
+
+    const [accountRow] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+    expect(accountRow).toBeUndefined();
+    const [profileRow] = await db.select().from(profiles).where(eq(profiles.id, profile.id));
+    expect(profileRow).toBeUndefined();
+    const [userRow] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(userRow).toBeUndefined();
+
+    const me = await request(app, {
+      method: 'GET',
+      url: '/api/me',
+      headers: { authorization: `Bearer ${user.token}` },
+    });
+    expect(me.statusCode).toBe(401);
+  });
+
+  it('just removes the membership when another admin remains, leaving the account intact', async () => {
+    const leaving = await createUser('Leaving');
+    const staying = await createUser('Staying');
+    const accountId = await createAccount('household', 'Shared Household');
+    await addMember(accountId, leaving.id, 'admin');
+    await addMember(accountId, staying.id, 'admin');
+
+    const response = await request(app, {
+      method: 'DELETE',
+      url: '/api/me',
+      headers: { authorization: `Bearer ${leaving.token}` },
+    });
+    expect(response.statusCode).toBe(204);
+
+    const [accountRow] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+    expect(accountRow).toBeDefined();
+    const [membershipRow] = await db
+      .select()
+      .from(account_members)
+      .where(eq(account_members.user_id, leaving.id));
+    expect(membershipRow).toBeUndefined();
+    const [remainingRow] = await db
+      .select()
+      .from(account_members)
+      .where(eq(account_members.user_id, staying.id));
+    expect(remainingRow).toBeDefined();
+    const [userRow] = await db.select().from(users).where(eq(users.id, leaving.id));
+    expect(userRow).toBeUndefined();
+  });
+
+  it('409s with last_admin when the user is the sole admin but other members remain', async () => {
+    const admin = await createUser('SoleAdmin');
+    const member = await createUser('PlainMember');
+    const accountId = await createAccount('household', 'Needs Another Admin');
+    await addMember(accountId, admin.id, 'admin');
+    await addMember(accountId, member.id, 'member');
+
+    const response = await request(app, {
+      method: 'DELETE',
+      url: '/api/me',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(response.statusCode).toBe(409);
+    expect((response.json() as { error: { code: string } }).error.code).toBe('last_admin');
+
+    // Nothing committed: the account, its members and the admin's own user row all survive.
+    const [accountRow] = await db.select().from(accounts).where(eq(accounts.id, accountId));
+    expect(accountRow).toBeDefined();
+    const [userRow] = await db.select().from(users).where(eq(users.id, admin.id));
+    expect(userRow).toBeDefined();
+  });
+
+  it('rejects an unauthenticated request', async () => {
+    const response = await request(app, { method: 'DELETE', url: '/api/me' });
+    expect(response.statusCode).toBe(401);
   });
 });
