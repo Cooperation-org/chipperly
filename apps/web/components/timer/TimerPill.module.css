@@ -1,0 +1,28 @@
+.pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + var(--space-2));
+  transform: translateX(-50%);
+  z-index: 20;
+  width: calc(100% - var(--space-6));
+  max-width: 640px;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  background: var(--color-primary);
+  color: var(--color-primary-ink);
+  border: none;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sheet);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+}

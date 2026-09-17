@@ -1,0 +1,164 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-bottom: var(--space-5);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.startRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-2) 0;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  cursor: default;
+  text-align: left;
+}
+
+button.optionRow {
+  cursor: pointer;
+}
+
+.optionTile {
+  flex-shrink: 0;
+}
+
+.optionPlaceholder {
+  width: var(--tile-list);
+  height: var(--tile-list);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+}
+
+.optionLabel {
+  flex: 1;
+  font-size: var(--text-md);
+}
+
+.soundToggle {
+  min-width: var(--tap);
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  transition: background-color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
+}
+
+.trackOn {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  transition: transform var(--motion-fast) var(--ease);
+}
+
+.trackOn .thumb {
+  transform: translateX(20px);
+}
+
+.durationSheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.durationRow {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.durationRow > * {
+  flex: 1;
+}
+
+.revealSheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.revealDivider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.revealDivider::before,
+.revealDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
