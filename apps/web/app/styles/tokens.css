@@ -52,8 +52,14 @@
   --tile-child: 72px;
 
   /* Shell chrome */
+  --topbar-h: 56px;
   --tabbar-h: 64px;
   --rail-w: 88px;
+  /* Height of whichever fixed bottom bar is actually mounted (ToastHost reads
+     this so it clears the real bar instead of assuming the caregiver one).
+     Caregiver: tracks --tabbar-h (0 once the rail replaces it at 1024px+).
+     Child mode overrides this below with its own bottomBar's height. */
+  --bottom-bar-h: var(--tabbar-h);
 
   /* Elevation */
   --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.12);
@@ -76,6 +82,11 @@
 html[data-mode='child'] {
   font-size: 20px;
   --tap: var(--tap-child);
+  /* ponytail: no TabBar/TabRail in child mode, so --tabbar-h doesn't apply.
+     ChildToday's .bottomBar is icon + up to 2 lines of label; this estimate
+     covers that at every viewport. Upgrade to a measured value (e.g. a
+     ResizeObserver setting this var from the bar itself) if content changes. */
+  --bottom-bar-h: calc(var(--space-6) * 2);
 }
 
 /* Motion off: system preference or the manual Settings toggle */

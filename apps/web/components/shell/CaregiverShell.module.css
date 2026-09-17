@@ -24,7 +24,8 @@
 .railSlot {
   position: fixed;
   left: 0;
-  top: 0;
+  /* Below the TopBar, not under it (TopBar draws on top per CONTRACTS.md). */
+  top: var(--topbar-h);
   bottom: 0;
   width: var(--rail-w);
   display: none;
@@ -42,7 +43,9 @@
   }
 
   .content {
-    margin-left: var(--rail-w);
+    /* Clears the rail, then centers in whatever room is left (CONTRACTS.md: column stays centered). */
+    margin-left: max(var(--rail-w), calc((100% - 640px) / 2));
+    margin-right: auto;
   }
 }
 
