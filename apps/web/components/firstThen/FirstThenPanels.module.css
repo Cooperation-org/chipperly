@@ -38,11 +38,14 @@
 }
 
 .dimmed {
-  opacity: 0.5;
+  opacity: 0.55;
+  /* Fading toward var(--color-bg) alone barely reads since surface and page
+     background are both near-white; drop the fill too so it's visible. */
+  background: var(--color-surface-2);
 }
 
 .enlarged {
-  transform: scale(1.04);
+  transform: scale(1.06);
 }
 
 .label {

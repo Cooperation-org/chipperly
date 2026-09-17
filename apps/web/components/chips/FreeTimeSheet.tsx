@@ -38,6 +38,11 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
   if (rewards.length === 0) {
     return (
       <EmptyState
+        picture={
+          <span className={styles.emptyEmoji} aria-hidden="true">
+            🎈
+          </span>
+        }
         sentence="No free-time choices yet"
         actions={canCreate ? [<Button key="add" onClick={handleCreate}>Add one</Button>] : undefined}
       />

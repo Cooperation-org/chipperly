@@ -53,11 +53,11 @@
 }
 
 .positive {
-  color: var(--color-success);
+  color: var(--color-accent);
 }
 
 .negative {
-  color: var(--color-accent);
+  color: var(--color-secondary);
 }
 
 .time {

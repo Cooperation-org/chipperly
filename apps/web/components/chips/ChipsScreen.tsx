@@ -74,6 +74,7 @@ export function ChipsScreen() {
           router.push(`/reward/edit/?location_id=${location.id}&working_for=1`);
         }}
       />,
+      { title: 'Working for...' },
     );
   }
 
@@ -172,12 +173,12 @@ export function ChipsScreen() {
       ) : null}
 
       <div className={styles.actions}>
-        <BigButton variant="secondary" onClick={handleRemoveChip} disabled={balance <= 0}>
+        <BigButton variant="primary" onClick={handleRemoveChip} disabled={balance <= 0}>
           <VisuallyHidden>Remove chip</VisuallyHidden>−
         </BigButton>
         {canRedeem && working.reward ? (
           <BigButton variant="accent" onClick={handleRedeem}>
-            Redeem {working.reward.emoji ?? '🎁'} {working.reward.name}
+            Redeem {working.reward.emoji ?? '🎁'}
           </BigButton>
         ) : (
           <BigButton variant="primary" onClick={handleAddChip}>
