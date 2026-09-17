@@ -1,16 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api/client';
 import { refreshMe, useSession } from '@/lib/auth/session';
+import { BigButton } from '@/components/ui/BigButton';
 import styles from './VerifyStatus.module.css';
 
 type Status = 'checking' | 'verified' | 'expired';
 
 /** /verify/?token= : calls GET /auth/verify/:token on mount (page wraps this in Suspense). */
 export function VerifyStatus() {
+  const router = useRouter();
   const token = useSearchParams().get('token') ?? '';
   const { status: sessionStatus } = useSession();
   const [status, setStatus] = useState<Status>(() => (token ? 'checking' : 'expired'));
@@ -47,9 +48,9 @@ export function VerifyStatus() {
       </h1>
       {status === 'expired' ? <p className={styles.text}>Ask for a new verification email from Settings.</p> : null}
       {status !== 'checking' ? (
-        <Link href={destination} className={styles.link}>
+        <BigButton fullWidth onClick={() => router.push(destination)}>
           {destinationLabel}
-        </Link>
+        </BigButton>
       ) : null}
     </div>
   );

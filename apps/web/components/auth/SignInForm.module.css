@@ -44,6 +44,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
 }
 
@@ -57,6 +58,7 @@
   font-weight: 600;
   text-decoration: none;
   border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 
 .link:hover {
@@ -65,4 +67,5 @@
 
 .sep {
   color: var(--color-border);
+  white-space: nowrap;
 }
