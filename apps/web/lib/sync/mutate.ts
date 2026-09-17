@@ -2,6 +2,7 @@ import type { MutationTable } from '@chipperly/shared/constants/tables';
 import { db, tableForMutation, type MutationRow } from '../db/db';
 import { getKv } from '../db/kv';
 import { now } from '../clock';
+import { nextClientUpdatedAt } from './nextClientUpdatedAt';
 
 const CURRENT_USER_KEY = 'current_user_id';
 
@@ -19,11 +20,16 @@ async function currentUserId(): Promise<string> {
  */
 export async function upsert<T extends MutationTable>(table: T, row: MutationRow<T>): Promise<void> {
   const updated_by = await currentUserId();
-  const client_updated_at = now();
-  const nextRow = { ...row, client_updated_at, updated_by } as MutationRow<T>;
   const tbl = tableForMutation(table);
 
   await db.transaction('rw', tbl, db.outbox, async () => {
+    // `row.id` is always a plain string, but Dexie's `IDType<MutationRow<T>,
+    // 'id'>` can't be proven equal to `string` while `T` is still an
+    // unresolved generic (the same reason `tableForMutation`'s own return
+    // needs an `as unknown as` cast just above).
+    const existing = await tbl.get(row.id as never);
+    const client_updated_at = nextClientUpdatedAt(now(), existing?.client_updated_at);
+    const nextRow = { ...row, client_updated_at, updated_by } as MutationRow<T>;
     await tbl.put(nextRow);
     await db.outbox.add({
       id: nextRow.id,
@@ -39,12 +45,12 @@ export async function upsert<T extends MutationTable>(table: T, row: MutationRow
 
 export async function softDelete(table: MutationTable, id: string): Promise<void> {
   const updated_by = await currentUserId();
-  const client_updated_at = now();
   const tbl = tableForMutation(table);
 
   await db.transaction('rw', tbl, db.outbox, async () => {
     const existing = await tbl.get(id);
     if (!existing) return;
+    const client_updated_at = nextClientUpdatedAt(now(), existing.client_updated_at);
     const nextRow = { ...existing, deleted_at: client_updated_at, client_updated_at, updated_by };
     await tbl.put(nextRow);
     // `row` is kept locally (dropped from the wire payload by the push loop,
@@ -64,12 +70,12 @@ export async function softDelete(table: MutationTable, id: string): Promise<void
 
 export async function restore(table: MutationTable, id: string): Promise<void> {
   const updated_by = await currentUserId();
-  const client_updated_at = now();
   const tbl = tableForMutation(table);
 
   await db.transaction('rw', tbl, db.outbox, async () => {
     const existing = await tbl.get(id);
     if (!existing) return;
+    const client_updated_at = nextClientUpdatedAt(now(), existing.client_updated_at);
     const nextRow = { ...existing, deleted_at: null, client_updated_at, updated_by };
     await tbl.put(nextRow);
     await db.outbox.add({

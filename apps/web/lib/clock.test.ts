@@ -23,4 +23,20 @@ describe('clock', () => {
     setServerDate('not-a-date');
     expect(Math.abs(now() - before)).toBeLessThan(1000);
   });
+
+  it('never goes backward even when the learned offset moves the clock back', () => {
+    setServerDate(new Date(Date.now() + 60_000).toUTCString());
+    const high = now();
+    // A freshly-learned offset that would put the clock behind where it's already been.
+    setServerDate(new Date().toUTCString());
+    expect(now()).toBeGreaterThan(high);
+  });
+
+  it('is strictly increasing across back-to-back calls', () => {
+    const a = now();
+    const b = now();
+    const c = now();
+    expect(b).toBeGreaterThan(a);
+    expect(c).toBeGreaterThan(b);
+  });
 });
