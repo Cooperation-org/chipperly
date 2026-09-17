@@ -64,6 +64,7 @@ NEXT_PUBLIC_BASE_PATH        default ""      -> next.config basePath
 NEXT_PUBLIC_API_ORIGIN       default ""      -> "" means same origin
 NEXT_PUBLIC_SITE_ORIGIN      default http://localhost:3000
 NEXT_PUBLIC_GOOGLE_CLIENT_ID unset = Google button hidden (server also reports providers)
+NEXT_PUBLIC_APPLE_CLIENT_ID  unset = Apple button hidden (server also reports providers)
 NEXT_PUBLIC_GSC_VERIFICATION NEXT_PUBLIC_GA4_MEASUREMENT_ID NEXT_PUBLIC_CLARITY_PROJECT_ID
 ```
 
