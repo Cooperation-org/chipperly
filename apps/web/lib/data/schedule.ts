@@ -1,0 +1,392 @@
+'use client';
+
+import { useMemo } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import type { Activity, ActivityStep } from '@chipperly/shared/schemas/activity';
+import type { ScheduleItem, StepCompletion } from '@chipperly/shared/schemas/schedule';
+import type { RecurrenceSkip } from '@chipperly/shared/schemas/activity';
+import type { ChipLedger } from '@chipperly/shared/schemas/chips';
+import { occursOn, materializedId } from '@chipperly/shared/helpers/recurrence';
+import { db } from '../db/db';
+import { newId } from '../ids';
+import { now } from '../clock';
+import { upsert, softDelete } from '../sync/mutate';
+import { getActiveLocationId } from './locations';
+
+export interface DayStep {
+  step: ActivityStep;
+  completed_at: number | null;
+  completed_by: string | null;
+  /** id of the step_completion row backing this state, for undo. */
+  completion_id: string | null;
+}
+
+export interface DayItem {
+  item: ScheduleItem;
+  activity: Activity;
+  steps: DayStep[];
+}
+
+/**
+ * Pure join: schedule_items (not deleted) for a day, with their activity
+ * and ordered, non-deleted steps and completions. `items` is expected to
+ * already be scoped to one profile + date (the [profile_id+date] Dexie
+ * index does that for the hook below); this function only applies the
+ * "not deleted" filter and the sort.
+ */
+export function joinDayItems(
+  items: readonly ScheduleItem[],
+  activities: readonly Activity[],
+  steps: readonly ActivityStep[],
+  completions: readonly StepCompletion[],
+): DayItem[] {
+  const activityById = new Map(activities.map((activity) => [activity.id, activity]));
+
+  const stepsByActivity = new Map<string, ActivityStep[]>();
+  for (const step of steps) {
+    if (step.deleted_at !== null) continue;
+    const list = stepsByActivity.get(step.activity_id) ?? [];
+    list.push(step);
+    stepsByActivity.set(step.activity_id, list);
+  }
+  for (const list of stepsByActivity.values()) list.sort((a, b) => a.position - b.position);
+
+  const completionsByItem = new Map<string, StepCompletion[]>();
+  for (const completion of completions) {
+    if (completion.deleted_at !== null) continue;
+    const list = completionsByItem.get(completion.schedule_item_id) ?? [];
+    list.push(completion);
+    completionsByItem.set(completion.schedule_item_id, list);
+  }
+
+  const result: DayItem[] = [];
+  for (const item of items) {
+    if (item.deleted_at !== null) continue;
+    const activity = activityById.get(item.activity_id);
+    if (!activity) continue;
+
+    const activitySteps = stepsByActivity.get(item.activity_id) ?? [];
+    const completionByStep = new Map(
+      (completionsByItem.get(item.id) ?? []).map((completion) => [completion.activity_step_id, completion]),
+    );
+    const daySteps: DayStep[] = activitySteps.map((step) => {
+      const completion = completionByStep.get(step.id);
+      return {
+        step,
+        completed_at: completion?.completed_at ?? null,
+        completed_by: completion?.completed_by ?? null,
+        completion_id: completion?.id ?? null,
+      };
+    });
+
+    result.push({ item, activity, steps: daySteps });
+  }
+
+  result.sort((a, b) => {
+    if (a.item.position !== b.item.position) return a.item.position - b.item.position;
+    return (a.item.start_time ?? '').localeCompare(b.item.start_time ?? '');
+  });
+  return result;
+}
+
+/** Pure: the step-complete-parent rule (S6 "Checking every step checks the parent"). */
+export function allStepsComplete(
+  steps: readonly Pick<ActivityStep, 'id' | 'deleted_at'>[],
+  completions: readonly Pick<StepCompletion, 'activity_step_id' | 'deleted_at'>[],
+): boolean {
+  const liveSteps = steps.filter((step) => step.deleted_at === null);
+  if (liveSteps.length === 0) return false;
+  const completedIds = new Set(
+    completions.filter((completion) => completion.deleted_at === null).map((completion) => completion.activity_step_id),
+  );
+  return liveSteps.every((step) => completedIds.has(step.id));
+}
+
+export function useDayItems(profileId: string, isoDate: string): DayItem[] {
+  const items = useLiveQuery(
+    () => db.schedule_items.where('[profile_id+date]').equals([profileId, isoDate]).toArray(),
+    [profileId, isoDate],
+    [],
+  );
+  const activities =
+    useLiveQuery(() => db.activities.where('profile_id').equals(profileId).toArray(), [profileId], []);
+  const steps =
+    useLiveQuery(() => db.activity_steps.where('profile_id').equals(profileId).toArray(), [profileId], []);
+  const completions =
+    useLiveQuery(() => db.step_completions.where('profile_id').equals(profileId).toArray(), [profileId], []);
+
+  return useMemo(() => joinDayItems(items, activities, steps, completions), [items, activities, steps, completions]);
+}
+
+export async function addToDay(profileId: string, isoDate: string, activityId: string): Promise<string> {
+  const position = await nextDayPosition(profileId, isoDate);
+  const id = newId();
+  const row: ScheduleItem = {
+    id,
+    profile_id: profileId,
+    version: 0,
+    client_updated_at: now(),
+    updated_by: '',
+    deleted_at: null,
+    date: isoDate,
+    position,
+    activity_id: activityId,
+    start_time: null,
+    part_of_day: null,
+    source: 'manual',
+    completed_at: null,
+    completed_by: null,
+  };
+  await upsert('schedule_items', row);
+  return id;
+}
+
+async function nextDayPosition(profileId: string, isoDate: string): Promise<number> {
+  const items = await db.schedule_items.where('[profile_id+date]').equals([profileId, isoDate]).toArray();
+  return items.reduce((max, item) => (item.deleted_at === null ? Math.max(max, item.position) : max), -1) + 1;
+}
+
+/**
+ * Sets completed_at/completed_by and, when awarding, mirrors S6's "checking
+ * the parent with steps asks nothing, it checks all steps" rule. Awards a
+ * chip through the ledger when the activity earns one; undoing appends a
+ * compensating 'adjust' row instead of touching the earlier row (ledger is
+ * append-only).
+ */
+export async function setCompleted(itemId: string, done: boolean, userId: string): Promise<void> {
+  const item = await db.schedule_items.get(itemId);
+  if (!item) return;
+  await markItemCompletion(item, done, userId);
+  if (!done) return;
+
+  const steps = (await db.activity_steps.where('activity_id').equals(item.activity_id).toArray()).filter(
+    (step) => step.deleted_at === null,
+  );
+  if (steps.length === 0) return;
+
+  const completions = await db.step_completions.where('schedule_item_id').equals(itemId).toArray();
+  const completedIds = new Set(
+    completions.filter((completion) => completion.deleted_at === null).map((completion) => completion.activity_step_id),
+  );
+  for (const step of steps) {
+    if (completedIds.has(step.id)) continue;
+    await upsert('step_completions', {
+      id: newId(),
+      profile_id: item.profile_id,
+      version: 0,
+      client_updated_at: now(),
+      updated_by: userId,
+      deleted_at: null,
+      schedule_item_id: itemId,
+      activity_step_id: step.id,
+      completed_at: now(),
+      completed_by: userId,
+    } satisfies StepCompletion);
+  }
+}
+
+async function markItemCompletion(item: ScheduleItem, done: boolean, userId: string): Promise<void> {
+  await upsert('schedule_items', {
+    ...item,
+    completed_at: done ? now() : null,
+    completed_by: done ? userId : null,
+  });
+  await syncChipLedgerForCompletion(item, done, userId);
+}
+
+async function syncChipLedgerForCompletion(item: ScheduleItem, done: boolean, userId: string): Promise<void> {
+  const activity = await db.activities.get(item.activity_id);
+
+  if (done) {
+    if (!activity || activity.chip_value <= 0) return;
+    const locationId = activity.location_id ?? (await getActiveLocationId(item.profile_id));
+    await appendLedgerRow(item.profile_id, locationId, 'task', item.id, activity.chip_value, userId);
+    return;
+  }
+
+  // Undo: never remove the award, append a compensating row that nets this
+  // item's ledger contribution to zero (only when something was awarded).
+  const rows = (await db.chip_ledger.where('profile_id').equals(item.profile_id).toArray()).filter(
+    (row) => row.ref_id === item.id && row.deleted_at === null,
+  );
+  const net = rows.reduce((sum, row) => sum + row.delta, 0);
+  if (net === 0) return;
+  const locationId = activity?.location_id ?? (await getActiveLocationId(item.profile_id));
+  await appendLedgerRow(item.profile_id, locationId, 'adjust', item.id, -net, userId);
+}
+
+async function appendLedgerRow(
+  profileId: string,
+  locationId: string | null,
+  reason: ChipLedger['reason'],
+  refId: string,
+  delta: number,
+  userId: string,
+): Promise<void> {
+  await upsert('chip_ledger', {
+    id: newId(),
+    profile_id: profileId,
+    version: 0,
+    client_updated_at: now(),
+    updated_by: userId,
+    deleted_at: null,
+    location_id: locationId,
+    delta,
+    reason,
+    ref_id: refId,
+    created_at: now(),
+    created_by: userId,
+  } satisfies ChipLedger);
+}
+
+/** Inserts/soft-deletes one step_completion, then applies the "all steps done completes the parent" rule upward. */
+export async function setStepCompleted(itemId: string, stepId: string, done: boolean, userId: string): Promise<void> {
+  const item = await db.schedule_items.get(itemId);
+  if (!item) return;
+
+  const existing = (await db.step_completions.where('schedule_item_id').equals(itemId).toArray()).find(
+    (completion) => completion.activity_step_id === stepId && completion.deleted_at === null,
+  );
+
+  if (done && !existing) {
+    await upsert('step_completions', {
+      id: newId(),
+      profile_id: item.profile_id,
+      version: 0,
+      client_updated_at: now(),
+      updated_by: userId,
+      deleted_at: null,
+      schedule_item_id: itemId,
+      activity_step_id: stepId,
+      completed_at: now(),
+      completed_by: userId,
+    } satisfies StepCompletion);
+  } else if (!done && existing) {
+    await softDelete('step_completions', existing.id);
+  }
+
+  if (item.completed_at !== null) return; // already complete; nothing to cascade
+  const steps = (await db.activity_steps.where('activity_id').equals(item.activity_id).toArray()).filter(
+    (step) => step.deleted_at === null,
+  );
+  const completions = await db.step_completions.where('schedule_item_id').equals(itemId).toArray();
+  if (allStepsComplete(steps, completions)) {
+    await markItemCompletion(item, true, userId);
+  }
+}
+
+/**
+ * Soft-deletes the item. For a recurring item: scope 'always' clears the
+ * activity's recurrence (it stops generating occurrences at all); scope
+ * 'today' records a recurrence_skips row so only this date is suppressed.
+ */
+export async function removeFromDay(itemId: string, scope: 'today' | 'always'): Promise<void> {
+  const item = await db.schedule_items.get(itemId);
+  if (!item) return;
+  await softDelete('schedule_items', itemId);
+  if (item.source !== 'recurring') return;
+
+  if (scope === 'always') {
+    const activity = await db.activities.get(item.activity_id);
+    if (activity) await upsert('activities', { ...activity, recurrence: null });
+    return;
+  }
+
+  await upsert('recurrence_skips', {
+    id: newId(),
+    profile_id: item.profile_id,
+    version: 0,
+    client_updated_at: now(),
+    updated_by: '',
+    deleted_at: null,
+    activity_id: item.activity_id,
+    date: item.date,
+  } satisfies RecurrenceSkip);
+}
+
+export async function reorder(profileId: string, isoDate: string, orderedIds: readonly string[]): Promise<void> {
+  const items = await db.schedule_items.where('[profile_id+date]').equals([profileId, isoDate]).toArray();
+  const byId = new Map(items.map((item) => [item.id, item]));
+  for (let i = 0; i < orderedIds.length; i += 1) {
+    const item = byId.get(orderedIds[i] as string);
+    if (!item || item.position === i) continue;
+    await upsert('schedule_items', { ...item, position: i });
+  }
+}
+
+/**
+ * Materializes every recurring activity that occurs on `isoDate` and has no
+ * item yet. `materializedId` is deterministic (activity id + date), so two
+ * devices opening the same day produce the same row and the server's
+ * upsert treats the second push as a no-op (technical-plan.md "Recurrence
+ * on the client").
+ */
+export async function materializeRecurring(profileId: string, isoDate: string): Promise<void> {
+  const activities = (await db.activities.where('profile_id').equals(profileId).toArray()).filter(
+    (activity) => activity.deleted_at === null && activity.recurrence !== null,
+  );
+  if (activities.length === 0) return;
+
+  const skips = (await db.recurrence_skips.where('profile_id').equals(profileId).toArray()).filter(
+    (skip) => skip.deleted_at === null,
+  );
+  const existingItems = await db.schedule_items.where('[profile_id+date]').equals([profileId, isoDate]).toArray();
+  const existingIds = new Set(existingItems.filter((item) => item.deleted_at === null).map((item) => item.id));
+  let position = existingItems.reduce((max, item) => (item.deleted_at === null ? Math.max(max, item.position) : max), -1) + 1;
+
+  for (const activity of activities) {
+    const activitySkips = skips.filter((skip) => skip.activity_id === activity.id);
+    if (!occursOn(activity, isoDate, activitySkips)) continue;
+
+    const id = materializedId(activity.id, isoDate);
+    if (existingIds.has(id)) continue;
+
+    await upsert('schedule_items', {
+      id,
+      profile_id: profileId,
+      version: 0,
+      client_updated_at: now(),
+      updated_by: '',
+      deleted_at: null,
+      date: isoDate,
+      position,
+      activity_id: activity.id,
+      start_time: activity.recurrence_time,
+      part_of_day: null,
+      source: 'recurring',
+      completed_at: null,
+      completed_by: null,
+    } satisfies ScheduleItem);
+    existingIds.add(id);
+    position += 1;
+  }
+}
+
+/** Copies non-deleted items from one day to another as new manual items. */
+export async function copyDay(profileId: string, fromIso: string, toIso: string): Promise<void> {
+  const fromItems = (await db.schedule_items.where('[profile_id+date]').equals([profileId, fromIso]).toArray())
+    .filter((item) => item.deleted_at === null)
+    .sort((a, b) => a.position - b.position);
+  if (fromItems.length === 0) return;
+
+  let position = await nextDayPosition(profileId, toIso);
+  for (const item of fromItems) {
+    await upsert('schedule_items', {
+      id: newId(),
+      profile_id: profileId,
+      version: 0,
+      client_updated_at: now(),
+      updated_by: '',
+      deleted_at: null,
+      date: toIso,
+      position,
+      activity_id: item.activity_id,
+      start_time: item.start_time,
+      part_of_day: item.part_of_day,
+      source: 'manual',
+      completed_at: null,
+      completed_by: null,
+    } satisfies ScheduleItem);
+    position += 1;
+  }
+}

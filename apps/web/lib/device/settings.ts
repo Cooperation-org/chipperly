@@ -1,0 +1,107 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { getKv, setKv, useKv } from '../db/kv';
+
+export interface DeviceSettings {
+  sounds: boolean;
+  reduce_motion: 'system' | 'on' | 'off';
+  high_contrast: boolean;
+}
+
+const DEVICE_SETTINGS_KEY = 'device_settings';
+const DEFAULT_DEVICE_SETTINGS: DeviceSettings = { sounds: true, reduce_motion: 'system', high_contrast: false };
+
+export function useDeviceSettings(): DeviceSettings {
+  return useKv<DeviceSettings>(DEVICE_SETTINGS_KEY, DEFAULT_DEVICE_SETTINGS);
+}
+
+export async function setDeviceSettings(patch: Partial<DeviceSettings>): Promise<void> {
+  const current = (await getKv<DeviceSettings>(DEVICE_SETTINGS_KEY)) ?? DEFAULT_DEVICE_SETTINGS;
+  await setKv<DeviceSettings>(DEVICE_SETTINGS_KEY, { ...current, ...patch });
+}
+
+export interface LockOptions {
+  show_free_time: boolean;
+  show_first_then: boolean;
+  attitude_prompt: boolean;
+  expand_steps: boolean;
+}
+
+export interface LockState {
+  locked_profile_id: string | null;
+  options: LockOptions;
+}
+
+const LOCK_KEY = 'lock';
+const DEFAULT_LOCK_OPTIONS: LockOptions = {
+  show_free_time: true,
+  show_first_then: true,
+  attitude_prompt: true,
+  expand_steps: true,
+};
+const DEFAULT_LOCK_STATE: LockState = { locked_profile_id: null, options: DEFAULT_LOCK_OPTIONS };
+
+export function useLock(): LockState {
+  return useKv<LockState>(LOCK_KEY, DEFAULT_LOCK_STATE);
+}
+
+export async function lockTo(profileId: string, options: Partial<LockOptions> = {}): Promise<void> {
+  await setKv<LockState>(LOCK_KEY, {
+    locked_profile_id: profileId,
+    options: { ...DEFAULT_LOCK_OPTIONS, ...options },
+  });
+}
+
+export async function unlock(): Promise<void> {
+  await setKv<LockState>(LOCK_KEY, DEFAULT_LOCK_STATE);
+}
+
+interface PinAttemptsState {
+  count: number;
+  locked_until: number | null;
+}
+
+const PIN_ATTEMPTS_KEY = 'pin_attempts';
+const DEFAULT_PIN_ATTEMPTS: PinAttemptsState = { count: 0, locked_until: null };
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 30_000;
+
+export interface PinGate {
+  locked: boolean;
+  remaining_ms: number;
+  recordFailure: () => Promise<void>;
+  recordSuccess: () => Promise<void>;
+}
+
+/** Five wrong PIN attempts (S24) triggers a thirty-second wait, tracked in kv so it survives offline/reload. */
+export function usePinGate(): PinGate {
+  const attempts = useKv<PinAttemptsState>(PIN_ATTEMPTS_KEY, DEFAULT_PIN_ATTEMPTS);
+  const [remaining_ms, setRemainingMs] = useState(0);
+
+  useEffect(() => {
+    const lockedUntil = attempts.locked_until;
+    function tick(): void {
+      setRemainingMs(lockedUntil !== null ? Math.max(0, lockedUntil - Date.now()) : 0);
+    }
+    tick();
+    if (lockedUntil === null) return;
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [attempts.locked_until]);
+
+  const locked = remaining_ms > 0;
+
+  const recordFailure = async (): Promise<void> => {
+    const current = (await getKv<PinAttemptsState>(PIN_ATTEMPTS_KEY)) ?? DEFAULT_PIN_ATTEMPTS;
+    const count = current.count + 1;
+    const locked_until = count >= MAX_ATTEMPTS ? Date.now() + LOCKOUT_MS : current.locked_until;
+    await setKv<PinAttemptsState>(PIN_ATTEMPTS_KEY, { count, locked_until });
+  };
+
+  const recordSuccess = async (): Promise<void> => {
+    await setKv<PinAttemptsState>(PIN_ATTEMPTS_KEY, DEFAULT_PIN_ATTEMPTS);
+  };
+
+  return { locked, remaining_ms, recordFailure, recordSuccess };
+}
