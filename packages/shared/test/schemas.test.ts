@@ -101,6 +101,7 @@ describe('account schemas', () => {
       pin_hash: 'pbkdf2$100000$c2FsdA$aGFzaA',
       email_verified_at: now,
       created_at: now,
+      auth_provider: null,
     });
   });
 
@@ -372,6 +373,7 @@ describe('auth schemas', () => {
       pin_hash: null,
       email_verified_at: null,
       created_at: now,
+      auth_provider: null,
     };
     const profile = {
       id: id3,

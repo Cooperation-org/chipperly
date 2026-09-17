@@ -9,6 +9,7 @@ export const RegisterBodySchema = z.object({
   email: z.string().email(),
   password: passwordSchema,
   display_name: z.string().min(1),
+  device_id: z.string().min(1).optional(),
 });
 export type RegisterBody = z.infer<typeof RegisterBodySchema>;
 

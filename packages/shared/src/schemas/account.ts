@@ -35,6 +35,8 @@ export const UserPublicSchema = z.object({
   pin_hash: z.string().nullable(),
   email_verified_at: msTimestampSchema.nullable(),
   created_at: msTimestampSchema,
+  /** null = registered with a password (S30 "connected sign-ins"). */
+  auth_provider: z.enum(['google', 'apple']).nullable(),
 });
 export type UserPublic = z.infer<typeof UserPublicSchema>;
 
@@ -51,3 +53,44 @@ export const InviteSchema = z.object({
   invited_by: uuidSchema,
 });
 export type Invite = z.infer<typeof InviteSchema>;
+
+/** `InviteSchema` without `token_hash`: what the invite-issuing routes hand back to a caregiver. */
+export const InvitePublicSchema = InviteSchema.omit({ token_hash: true });
+export type InvitePublic = z.infer<typeof InvitePublicSchema>;
+
+/** Public info shown at S33 (accept invite) before the visitor signs in. */
+export const InviteDetailsSchema = z.object({
+  account_name: z.string(),
+  inviter_name: z.string(),
+  role: Role,
+  profiles: z.array(z.object({ id: uuidSchema, name: z.string(), avatar_emoji: z.string().nullable() })),
+  email: z.string().email(),
+  expired: z.boolean(),
+});
+export type InviteDetails = z.infer<typeof InviteDetailsSchema>;
+
+export const AcceptInviteResponseSchema = z.object({
+  account_id: uuidSchema,
+  profile_ids: z.array(uuidSchema),
+});
+export type AcceptInviteResponse = z.infer<typeof AcceptInviteResponseSchema>;
+
+export const UpdateMemberBodySchema = z.object({
+  role: Role.optional(),
+  profile_ids: z.array(uuidSchema).optional(),
+});
+export type UpdateMemberBody = z.infer<typeof UpdateMemberBodySchema>;
+
+/** A row of S26 (care team): who, at what role, seeing which profiles. */
+export const AccountMemberSchema = z.object({
+  user: z.object({ id: uuidSchema, email: z.string().email(), display_name: z.string() }),
+  role: Role,
+  profile_ids: z.array(uuidSchema),
+});
+export type AccountMember = z.infer<typeof AccountMemberSchema>;
+
+export const AccountMembersResponseSchema = z.object({
+  members: z.array(AccountMemberSchema),
+  invites: z.array(InvitePublicSchema),
+});
+export type AccountMembersResponse = z.infer<typeof AccountMembersResponseSchema>;
