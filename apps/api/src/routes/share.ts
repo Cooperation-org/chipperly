@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { ShareViewSchema } from '@chipperly/shared/schemas/share';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { balanceFor } from '@chipperly/shared/helpers/chips';
@@ -8,8 +8,8 @@ import { db } from '../db/client.js';
 import { profiles } from '../db/schema/profiles.js';
 import { locations } from '../db/schema/locations.js';
 import { rewards } from '../db/schema/rewards.js';
-import { activities } from '../db/schema/activities.js';
-import { schedule_items } from '../db/schema/schedule.js';
+import { activities, activity_steps } from '../db/schema/activities.js';
+import { schedule_items, step_completions } from '../db/schema/schedule.js';
 import { chip_ledger } from '../db/schema/chips.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -27,11 +27,13 @@ export default async function shareRoutes(app: FastifyInstance): Promise<void> {
 
       const today = todayIso();
 
-      const items = await db
+      const scheduleRows = await db
         .select({
           id: schedule_items.id,
+          activity_id: schedule_items.activity_id,
           activity_name: activities.name,
           activity_emoji: activities.emoji,
+          activity_photo_id: activities.photo_id,
           start_time: schedule_items.start_time,
           part_of_day: schedule_items.part_of_day,
           completed_at: schedule_items.completed_at,
@@ -42,6 +44,41 @@ export default async function shareRoutes(app: FastifyInstance): Promise<void> {
           and(eq(schedule_items.profile_id, profile.id), eq(schedule_items.date, today), isNull(schedule_items.deleted_at)),
         )
         .orderBy(schedule_items.position);
+
+      const activityIds = [...new Set(scheduleRows.map((r) => r.activity_id))];
+      const steps =
+        activityIds.length > 0
+          ? await db
+              .select()
+              .from(activity_steps)
+              .where(and(inArray(activity_steps.activity_id, activityIds), isNull(activity_steps.deleted_at)))
+              .orderBy(activity_steps.position)
+          : [];
+      const stepsByActivity = new Map<string, typeof steps>();
+      for (const step of steps) {
+        const list = stepsByActivity.get(step.activity_id) ?? [];
+        list.push(step);
+        stepsByActivity.set(step.activity_id, list);
+      }
+
+      const scheduleItemIds = scheduleRows.map((r) => r.id);
+      const completions =
+        scheduleItemIds.length > 0
+          ? await db
+              .select({ schedule_item_id: step_completions.schedule_item_id, activity_step_id: step_completions.activity_step_id })
+              .from(step_completions)
+              .where(and(inArray(step_completions.schedule_item_id, scheduleItemIds), isNull(step_completions.deleted_at)))
+          : [];
+      const completedKeys = new Set(completions.map((c) => `${c.schedule_item_id}:${c.activity_step_id}`));
+
+      const items = scheduleRows.map((row) => ({
+        ...row,
+        steps: (stepsByActivity.get(row.activity_id) ?? []).map((step) => ({
+          name: step.name,
+          emoji: step.emoji,
+          completed: completedKeys.has(`${row.id}:${step.id}`),
+        })),
+      }));
 
       const profileLocations = await db
         .select()
@@ -67,6 +104,7 @@ export default async function shareRoutes(app: FastifyInstance): Promise<void> {
       return ShareViewSchema.parse({
         profile_name: profile.name,
         profile_emoji: profile.avatar_emoji,
+        profile_avatar_photo_id: profile.avatar_photo_id,
         items,
         chip_balance,
         working_for_reward,

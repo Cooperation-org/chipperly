@@ -78,6 +78,7 @@ export type AcceptInviteResponse = z.infer<typeof AcceptInviteResponseSchema>;
 export const UpdateMemberBodySchema = z.object({
   role: Role.optional(),
   profile_ids: z.array(uuidSchema).optional(),
+  relationship_label: z.string().nullable().optional(),
 });
 export type UpdateMemberBody = z.infer<typeof UpdateMemberBodySchema>;
 

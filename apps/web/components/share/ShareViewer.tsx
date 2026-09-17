@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ShareViewSchema, type ShareView } from '@chipperly/shared/schemas/share';
+import { ShareViewSchema, type ShareView, type ShareScheduleItem } from '@chipperly/shared/schemas/share';
 import { apiBase } from '@/lib/api/base';
 import { Picture } from '@/components/media/Picture';
 import { ChipStrip } from '@/components/ui/ChipStrip';
@@ -13,6 +13,19 @@ import styles from './ShareViewer.module.css';
 type Status = 'loading' | 'ready' | 'not_found' | 'error';
 
 class ShareNotFoundError extends Error {}
+
+interface ShareStepView {
+  name: string;
+  emoji: string | null;
+  completed: boolean;
+}
+
+/** `steps` is landing on `ShareScheduleItem` in packages/shared separately; read it
+ * defensively so this renders correctly before and after that schema change ships. */
+function itemSteps(item: ShareScheduleItem): ShareStepView[] {
+  const raw = (item as ShareScheduleItem & { steps?: unknown }).steps;
+  return Array.isArray(raw) ? (raw as ShareStepView[]) : [];
+}
 
 /** Plain, unauthenticated `GET /share/:token` (technical-plan.md section 8). Throws
  * `ShareNotFoundError` for a 404 so callers can tell "gone" from "network trouble". */
@@ -114,13 +127,29 @@ export function ShareViewer() {
       />
 
       <ul className={styles.list}>
-        {view.items.map((item) => (
-          <li key={item.id} className={[styles.row, item.completed_at !== null ? styles.dimmed : ''].filter(Boolean).join(' ')}>
-            <Picture emoji={item.activity_emoji} name={item.activity_name} size="list" />
-            <span className={styles.rowName}>{item.activity_name}</span>
-            <CheckCircle checked={item.completed_at !== null} name={item.activity_name} disabled />
-          </li>
-        ))}
+        {view.items.map((item) => {
+          const steps = itemSteps(item);
+          return (
+            <li key={item.id} className={styles.itemWrap}>
+              <div className={[styles.row, item.completed_at !== null ? styles.dimmed : ''].filter(Boolean).join(' ')}>
+                <Picture emoji={item.activity_emoji} name={item.activity_name} size="list" />
+                <span className={styles.rowName}>{item.activity_name}</span>
+                <CheckCircle checked={item.completed_at !== null} name={item.activity_name} disabled />
+              </div>
+              {steps.length > 0 ? (
+                <ul className={styles.steps}>
+                  {steps.map((step, i) => (
+                    <li key={i} className={[styles.stepRow, step.completed ? styles.dimmed : ''].filter(Boolean).join(' ')}>
+                      <Picture emoji={step.emoji} name={step.name} size="list" />
+                      <span className={styles.rowName}>{step.name}</span>
+                      <CheckCircle checked={step.completed} name={step.name} disabled />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
 
       <div className={styles.footerRow}>

@@ -2,13 +2,22 @@ import { z } from 'zod';
 import { hhmmSchema, msTimestampSchema, uuidSchema } from './common.js';
 import { PartOfDay } from './schedule.js';
 
+export const ShareStepSchema = z.object({
+  name: z.string(),
+  emoji: z.string().nullable(),
+  completed: z.boolean(),
+});
+export type ShareStep = z.infer<typeof ShareStepSchema>;
+
 export const ShareScheduleItemSchema = z.object({
   id: uuidSchema,
   activity_name: z.string(),
   activity_emoji: z.string().nullable(),
+  activity_photo_id: uuidSchema.nullable(),
   start_time: hhmmSchema.nullable(),
   part_of_day: PartOfDay.nullable(),
   completed_at: msTimestampSchema.nullable(),
+  steps: z.array(ShareStepSchema),
 });
 export type ShareScheduleItem = z.infer<typeof ShareScheduleItemSchema>;
 
@@ -26,6 +35,7 @@ export type ShareWorkingFor = z.infer<typeof ShareWorkingForSchema>;
 export const ShareViewSchema = z.object({
   profile_name: z.string(),
   profile_emoji: z.string().nullable(),
+  profile_avatar_photo_id: uuidSchema.nullable(),
   items: z.array(ShareScheduleItemSchema),
   chip_balance: z.number().int(),
   working_for_reward: ShareWorkingForSchema.nullable(),

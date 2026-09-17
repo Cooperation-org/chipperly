@@ -7,10 +7,10 @@ import { buildTestApp, request } from './helpers.js';
 import { db } from '../src/db/client.js';
 import { users } from '../src/db/schema/accounts.js';
 import { profiles } from '../src/db/schema/profiles.js';
-import { activities } from '../src/db/schema/activities.js';
+import { activities, activity_steps } from '../src/db/schema/activities.js';
 import { rewards } from '../src/db/schema/rewards.js';
 import { locations } from '../src/db/schema/locations.js';
-import { schedule_items } from '../src/db/schema/schedule.js';
+import { schedule_items, step_completions } from '../src/db/schema/schedule.js';
 import { chip_ledger } from '../src/db/schema/chips.js';
 import { issueTokens } from '../src/lib/tokens.js';
 
@@ -72,8 +72,9 @@ describe('share route', () => {
     await db.update(locations).set({ working_for_reward_id: reward.id }).where(eq(locations.id, workingLocation.id));
 
     const now = Date.now();
+    const scheduleItemId = uuidv7();
     await db.insert(schedule_items).values({
-      id: uuidv7(),
+      id: scheduleItemId,
       profile_id: profile.id,
       client_updated_at: now,
       updated_by: admin.id,
@@ -86,6 +87,46 @@ describe('share route', () => {
       source: 'manual',
       completed_at: null,
       completed_by: null,
+    });
+
+    const doneStepId = uuidv7();
+    const pendingStepId = uuidv7();
+    await db.insert(activity_steps).values([
+      {
+        id: doneStepId,
+        profile_id: profile.id,
+        client_updated_at: now,
+        updated_by: admin.id,
+        deleted_at: null,
+        activity_id: activity.id,
+        position: 0,
+        name: 'Brush teeth',
+        emoji: '🪥',
+        photo_id: null,
+      },
+      {
+        id: pendingStepId,
+        profile_id: profile.id,
+        client_updated_at: now,
+        updated_by: admin.id,
+        deleted_at: null,
+        activity_id: activity.id,
+        position: 1,
+        name: 'Wash face',
+        emoji: '🧼',
+        photo_id: null,
+      },
+    ]);
+    await db.insert(step_completions).values({
+      id: uuidv7(),
+      profile_id: profile.id,
+      client_updated_at: now,
+      updated_by: admin.id,
+      deleted_at: null,
+      schedule_item_id: scheduleItemId,
+      activity_step_id: doneStepId,
+      completed_at: now,
+      completed_by: admin.id,
     });
 
     await db.insert(chip_ledger).values([
@@ -125,16 +166,28 @@ describe('share route', () => {
     const view = shareRes.json() as {
       profile_name: string;
       profile_emoji: string | null;
-      items: { activity_name: string; completed_at: number | null }[];
+      profile_avatar_photo_id: string | null;
+      items: {
+        activity_name: string;
+        activity_photo_id: string | null;
+        completed_at: number | null;
+        steps: { name: string; emoji: string | null; completed: boolean }[];
+      }[];
       chip_balance: number;
       working_for_reward: { name: string; emoji: string | null; chip_cost: number | null } | null;
       updated_at: number;
     };
     expect(view.profile_name).toBe('Sharey');
     expect(view.profile_emoji).toBe('🌟');
+    expect(view.profile_avatar_photo_id).toBeNull();
     expect(view.items).toHaveLength(1);
     expect(view.items[0]!.activity_name).toBe(activity.name);
+    expect(view.items[0]!.activity_photo_id).toBeNull();
     expect(view.items[0]!.completed_at).toBeNull();
+    expect(view.items[0]!.steps).toEqual([
+      { name: 'Brush teeth', emoji: '🪥', completed: true },
+      { name: 'Wash face', emoji: '🧼', completed: false },
+    ]);
     expect(view.chip_balance).toBe(4);
     expect(view.working_for_reward).toEqual({ name: reward.name, emoji: reward.emoji, chip_cost: reward.chip_cost });
     expect(typeof view.updated_at).toBe('number');

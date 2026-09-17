@@ -447,14 +447,17 @@ describe('share schema', () => {
     expectRoundTrip(ShareViewSchema, {
       profile_name: 'Benny',
       profile_emoji: '🦁',
+      profile_avatar_photo_id: null,
       items: [
         {
           id: id1,
           activity_name: 'Brush Teeth',
           activity_emoji: '🪥',
+          activity_photo_id: null,
           start_time: '08:00',
           part_of_day: 'morning',
           completed_at: now,
+          steps: [{ name: 'Turn on tap', emoji: '🚰', completed: true }],
         },
       ],
       chip_balance: 3,
