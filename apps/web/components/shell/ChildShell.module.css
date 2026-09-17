@@ -1,0 +1,6 @@
+.column {
+  max-width: 720px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  padding: var(--space-3);
+}

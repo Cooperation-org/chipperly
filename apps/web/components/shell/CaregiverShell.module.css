@@ -1,0 +1,75 @@
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-3);
+  padding-bottom: calc(var(--tabbar-h) + var(--space-3));
+}
+
+.tabbarSlot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+}
+
+.railSlot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--rail-w);
+  display: none;
+  z-index: 10;
+}
+
+/* CONTRACTS.md "Layout rules": TabBar below 1024px, TabRail at 1024px+, toggled by CSS only. */
+@media (min-width: 1024px) {
+  .tabbarSlot {
+    display: none;
+  }
+
+  .railSlot {
+    display: block;
+  }
+
+  .content {
+    margin-left: var(--rail-w);
+  }
+}
+
+.profileList {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.profileRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profileRow:hover {
+  background: var(--color-border);
+}
