@@ -236,7 +236,7 @@ lib/auth/RequireSession.tsx  <RequireSession redirectTo="/">{children}</RequireS
 lib/auth/pin.ts          hashPin(pin) -> string ; verifyPin(pin, hash) -> boolean (WebCrypto PBKDF2)
 lib/profile/active.ts    useActiveProfile(): { profile, setActiveProfileId, profiles } ; useActiveAccount()
 lib/sync/engine.ts       startSync(), stopSync(), syncNow(), useSyncStatus(): { state: 'synced'|'pending'|'offline'|'error', pending: number, last_synced_at: number|null }
-lib/sync/mutate.ts       upsert<T extends SyncedTable>(table, row) ; softDelete(table, id) ; restore(table, id) ; each writes Dexie + outbox and returns Promise<void>
+lib/sync/mutate.ts       upsert(table: MutationTable, row) ; softDelete(table, id) ; restore(table, id) ; MutationTable = SyncedTable | "profiles" (from @chipperly/shared/constants/tables) ; each writes Dexie + outbox and returns Promise<void>
 lib/data/schedule.ts     useDayItems(profileId, isoDate) -> items with activity + steps + completions joined ; addToDay ; setCompleted(itemId, done, by) ; setStepCompleted ; removeFromDay(itemId, scope: 'today'|'always') ; reorder ; materializeRecurring(profileId, isoDate) ; copyDay(from, to)
 lib/data/activities.ts   useActivities(profileId) ; useActivity(id) ; saveActivity(input) ; deleteActivity(id) ; recent
 lib/data/rewards.ts      useRewards(profileId, {location_id?, always_available?}) ; saveReward ; deleteReward
