@@ -60,6 +60,28 @@ interface ErrorPayload {
   error?: { code?: string; message?: string };
 }
 
+/**
+ * Pure so it's unit-testable without a fetch mock (mirrors lib/sync/
+ * applyPulledRow.ts's split for the same reason). `Content-Type` is set
+ * only when there's a body: Fastify's JSON parser 400s an
+ * `application/json` request with an empty body, which every no-body
+ * api.post/patch/delete call (accept invite, resend/cancel invite, remove
+ * member, delete account, ...) was sending.
+ */
+export function buildHeaders(params: {
+  hasBody: boolean;
+  accessToken?: string;
+  accountId?: string;
+  locked?: boolean;
+}): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (params.hasBody) headers['Content-Type'] = 'application/json';
+  if (params.accessToken) headers.Authorization = `Bearer ${params.accessToken}`;
+  if (params.accountId) headers['X-Account-Id'] = params.accountId;
+  if (params.locked) headers['X-Locked'] = '1';
+  return headers;
+}
+
 async function refreshTokens(refreshToken: string): Promise<boolean> {
   try {
     const res = await fetch(`${apiBase}/auth/refresh`, {
@@ -90,10 +112,12 @@ async function request<T>(
   const accountId = opts?.accountId ?? (await getKv<string>(ACTIVE_ACCOUNT_KEY));
   const lockState = await getKv<LockStateShape>(LOCK_KEY);
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (tokens?.access_token) headers.Authorization = `Bearer ${tokens.access_token}`;
-  if (accountId) headers['X-Account-Id'] = accountId;
-  if (opts?.locked || lockState?.locked_profile_id) headers['X-Locked'] = '1';
+  const headers = buildHeaders({
+    hasBody: body !== undefined,
+    accessToken: tokens?.access_token,
+    accountId,
+    locked: Boolean(opts?.locked || lockState?.locked_profile_id),
+  });
 
   const res = await fetch(`${apiBase}${path}`, {
     method,
