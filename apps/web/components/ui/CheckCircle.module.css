@@ -1,0 +1,46 @@
+.circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  color: transparent;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
+}
+
+.circle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* md rides on --tap, so it is 48px in caregiver mode and 64px in child mode for free. */
+.md {
+  width: var(--tap);
+  height: var(--tap);
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.lg {
+  width: 64px;
+  height: 64px;
+}
+
+.checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-ink);
+}
+
+.checkmark {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  transition: stroke-dashoffset var(--motion) var(--ease);
+}
+
+.checked .checkmark {
+  stroke-dashoffset: 0;
+}

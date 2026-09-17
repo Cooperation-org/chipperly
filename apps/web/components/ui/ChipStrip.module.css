@@ -1,0 +1,51 @@
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: default;
+  text-align: left;
+}
+
+button.strip {
+  cursor: pointer;
+}
+
+.chips {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.chip {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  border: 2px solid var(--color-border);
+}
+
+.lg .chip {
+  width: 18px;
+  height: 18px;
+}
+
+.filled {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.reward {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rewardName {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  max-width: 12ch;
+  overflow-wrap: break-word;
+}

@@ -1,0 +1,9 @@
+.indent {
+  padding-left: var(--space-6);
+}
+
+/* Child mode already scales row height and tap targets via --tap; only the
+   indent needs to come down so the step tile has room on a narrower screen. */
+:global(html[data-mode='child']) .indent {
+  padding-left: var(--space-4);
+}

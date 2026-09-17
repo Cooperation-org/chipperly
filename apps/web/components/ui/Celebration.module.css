@@ -1,0 +1,61 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+}
+
+.badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-primary-ink);
+}
+
+.dots {
+  position: absolute;
+  inset: 0;
+}
+
+.dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  opacity: 0;
+  transform: rotate(calc(var(--i) * 45deg)) translate(0, 0);
+  animation: burst 1.2s var(--ease) forwards;
+}
+
+@keyframes burst {
+  0% {
+    opacity: 1;
+    transform: rotate(calc(var(--i) * 45deg)) translate(0, -6px);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--i) * 45deg)) translate(0, -44px);
+  }
+}
+
+/* Reduced motion: no confetti burst, the badge alone is the celebration. */
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    display: none;
+  }
+}
+
+:global(html[data-reduce-motion='true']) .dot {
+  display: none;
+}
