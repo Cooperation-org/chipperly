@@ -4,13 +4,6 @@
   gap: var(--space-4);
 }
 
-.title {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: var(--text-lg);
-  color: var(--color-text);
-}
-
 .sectionLabel {
   margin: 0 0 var(--space-2);
   font-size: var(--text-sm);
@@ -22,8 +15,14 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .tile {

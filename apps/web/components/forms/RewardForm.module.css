@@ -4,6 +4,20 @@
   padding-bottom: var(--space-6);
 }
 
+/* FormRow already shows "Name" as the row label; hide TextField's own visible label
+   here so it isn't repeated, keeping it for screen readers. */
+.nameField label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .switchRow {
   display: flex;
   align-items: center;

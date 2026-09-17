@@ -26,7 +26,7 @@ const RECENT_COUNT = 8;
 const SEARCH_THRESHOLD = 12;
 
 /** Sheet content for adding an activity to the day or picking a working-for reward. One component, two data sources. */
-export function Picker({ kind, profileId, locationId, title, onPick, onCreateNew }: PickerProps) {
+export function Picker({ kind, profileId, locationId, onPick, onCreateNew }: PickerProps) {
   const [query, setQuery] = useState('');
 
   const activities = useActivities(profileId);
@@ -58,7 +58,6 @@ export function Picker({ kind, profileId, locationId, title, onPick, onCreateNew
 
   return (
     <div className={styles.picker}>
-      <h2 className={styles.title}>{title}</h2>
       {showSearch ? (
         <TextField
           label="Search"
@@ -68,6 +67,13 @@ export function Picker({ kind, profileId, locationId, title, onPick, onCreateNew
           autoComplete="off"
         />
       ) : null}
+
+      <div className={styles.grid}>
+        <button type="button" className={styles.createNew} onClick={onCreateNew} aria-label="Create new">
+          <Icon name="plus" size={24} />
+          <span>Create new</span>
+        </button>
+      </div>
 
       {recent.length > 0 ? (
         <section>
@@ -88,10 +94,6 @@ export function Picker({ kind, profileId, locationId, title, onPick, onCreateNew
       <section>
         <h3 className={styles.sectionLabel}>All</h3>
         <div className={styles.grid}>
-          <button type="button" className={styles.createNew} onClick={onCreateNew} aria-label="Create new">
-            <Icon name="plus" size={24} />
-            <span>Create new</span>
-          </button>
           {kind === 'activity'
             ? filteredActivities.map((activity) => (
                 <ActivityTile

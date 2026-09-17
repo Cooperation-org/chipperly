@@ -10,7 +10,7 @@ import { VerifyBanner } from '@/components/auth/VerifyBanner';
 import {
   addToDay,
   copyDay,
-  materializeRecurring,
+  materializeRecurringFresh,
   removeFromDay,
   reorder,
   setCompleted,
@@ -38,7 +38,7 @@ import { ItemSheet } from './ItemSheet';
 import { allDone, groupByPartOfDay, moveItem, secondaryText, weekdayName } from './todayModel';
 import styles from './TodayScreen.module.css';
 
-// ponytail: module-level guard so materializeRecurring runs once per
+// ponytail: module-level guard so materializeRecurringFresh runs once per
 // profile+date per browser session, not a full kv/db-backed dedupe table.
 const materializedDates = new Set<string>();
 
@@ -62,7 +62,7 @@ export function TodayScreen() {
     const key = `${profileId}:${isoDate}`;
     if (materializedDates.has(key)) return;
     materializedDates.add(key);
-    void materializeRecurring(profileId, isoDate);
+    void materializeRecurringFresh(profileId, isoDate);
   }, [profileId, isoDate]);
 
   // Local render order, seeded from the live query and re-seeded whenever
@@ -250,7 +250,7 @@ export function TodayScreen() {
               key="plan"
               variant="secondary"
               onClick={() => {
-                void materializeRecurring(profileId, isoDate);
+                void materializeRecurringFresh(profileId, isoDate);
               }}
             >
               {isWeekend(isoDate) ? 'Use weekend plan' : 'Use weekday plan'}

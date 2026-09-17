@@ -108,7 +108,9 @@ export function RewardForm() {
       <EditPageHeader title={editingId ? 'Edit reward' : 'New reward'} />
 
       <FormRow label="Name" summary={name || 'Required'} open={openField === 'name'} onToggle={() => toggle('name')}>
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <div className={styles.nameField}>
+          <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        </div>
       </FormRow>
 
       <FormRow

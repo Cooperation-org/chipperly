@@ -182,7 +182,9 @@ export function ActivityForm() {
       <EditPageHeader title={editingId ? 'Edit activity' : 'New activity'} />
 
       <FormRow label="Name" summary={name || 'Required'} open={openField === 'name'} onToggle={() => toggle('name')}>
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <div className={styles.nameField}>
+          <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        </div>
       </FormRow>
 
       <FormRow label="Picture" summary={<Picture emoji={picture.emoji} photo_id={picture.photo_id} name={name || 'Activity'} size="list" />} open={openField === 'picture'} onToggle={() => toggle('picture')}>
