@@ -22,7 +22,18 @@ import { verifyAppleIdToken } from '../lib/apple.js';
 import { issueTokens, revokeByRefreshToken, revokeSession, rotateRefreshToken } from '../lib/tokens.js';
 import { AppError } from '../plugins/errors.js';
 
-const AUTH_RATE_LIMIT = { config: { rateLimit: { max: 10, timeWindow: '3 minutes' } } };
+// ponytail: e2e (TEST_ENDPOINTS=1, see app.ts) runs 20+ real registrations
+// from a single loopback IP across spec files and projects in one server
+// process, well past a production-sane 10-per-3-min cap; only that flag
+// relaxes it, production keeps the tight limit.
+const AUTH_RATE_LIMIT = {
+  config: {
+    rateLimit:
+      process.env.TEST_ENDPOINTS === '1'
+        ? { max: 1000, timeWindow: '3 minutes' }
+        : { max: 10, timeWindow: '3 minutes' },
+  },
+};
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 
