@@ -292,7 +292,14 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
 
   app.get(
     '/invites/:token',
-    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    {
+      config: {
+        rateLimit:
+          process.env.TEST_ENDPOINTS === '1'
+            ? { max: 1000, timeWindow: '1 minute' }
+            : { max: 60, timeWindow: '1 minute' },
+      },
+    },
     async (request) => {
       const { token } = z.object({ token: z.string().min(1) }).parse(request.params);
       const [invite] = await db.select().from(invites).where(eq(invites.token_hash, hashToken(token))).limit(1);

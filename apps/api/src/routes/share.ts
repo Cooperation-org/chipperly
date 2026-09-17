@@ -16,7 +16,14 @@ import { AppError } from '../plugins/errors.js';
 export default async function shareRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/share/:token',
-    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    {
+      config: {
+        rateLimit:
+          process.env.TEST_ENDPOINTS === '1'
+            ? { max: 1000, timeWindow: '1 minute' }
+            : { max: 60, timeWindow: '1 minute' },
+      },
+    },
     async (request) => {
       const { token } = z.object({ token: z.string().min(1) }).parse(request.params);
 
