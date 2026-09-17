@@ -53,7 +53,7 @@ let backoffMs = 0;
 let intervalHandle: ReturnType<typeof setInterval> | undefined;
 let debounceHandle: ReturnType<typeof setTimeout> | undefined;
 
-function onOutboxCreating(): void {
+function scheduleCycle(): void {
   if (debounceHandle) clearTimeout(debounceHandle);
   debounceHandle = setTimeout(() => void runCycle(), DEBOUNCE_MS);
 }
@@ -76,7 +76,12 @@ export function startSync(): void {
   backoffMs = 0;
   setStatus({ state: typeof navigator !== 'undefined' && navigator.onLine ? 'pending' : 'offline' });
 
-  db.outbox.hook.creating.subscribe(onOutboxCreating);
+  db.outbox.hook.creating.subscribe(scheduleCycle);
+  // A profile created after this session's first cycle already ran (S3/S4
+  // onboarding: the account exists and startSync() started before the
+  // profile does) would otherwise sit unpulled until the 60s poll — its
+  // seed data pulls only once db.profiles has a row for it.
+  db.profiles.hook.creating.subscribe(scheduleCycle);
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
   document.addEventListener('visibilitychange', handleVisibility);
@@ -91,7 +96,8 @@ export function stopSync(): void {
   if (debounceHandle) clearTimeout(debounceHandle);
   intervalHandle = undefined;
   debounceHandle = undefined;
-  db.outbox.hook.creating.unsubscribe(onOutboxCreating);
+  db.outbox.hook.creating.unsubscribe(scheduleCycle);
+  db.profiles.hook.creating.unsubscribe(scheduleCycle);
   window.removeEventListener('online', handleOnline);
   window.removeEventListener('offline', handleOffline);
   document.removeEventListener('visibilitychange', handleVisibility);
