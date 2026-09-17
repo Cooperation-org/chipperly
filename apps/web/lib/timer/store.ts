@@ -118,6 +118,15 @@ export function useTimer(): TimerState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
+function getRunningSnapshot(): boolean {
+  return state.running;
+}
+
+/** Like `useTimer`, but only re-renders when `running` flips — not on every tick's `remaining_ms`. */
+export function useTimerRunning(): boolean {
+  return useSyncExternalStore(subscribe, getRunningSnapshot, getRunningSnapshot);
+}
+
 export function setDuration(totalMs: number): void {
   setState({ total_ms: totalMs, remaining_ms: totalMs, running: false, started_at: null, ended_at: null });
 }

@@ -16,10 +16,10 @@ import { PicturePicker } from '@/components/picture/PicturePicker';
 import type { PicturePickerValue } from '@/components/picture/PicturePicker';
 import { TimerRing } from './TimerRing';
 import { TimerFullScreen } from './TimerFullScreen';
+import { useSquareSize } from './useSquareSize';
 import styles from './TimerScreen.module.css';
 
 const PRESET_MINUTES = [1, 2, 5, 10, 15, 30];
-const RING_SIZE = 240;
 
 function DurationSheetContent({ initialMs, onSet }: { initialMs: number; onSet: (ms: number) => void }) {
   const [minutes, setMinutes] = useState(String(Math.floor(initialMs / 60000)));
@@ -120,6 +120,7 @@ export function TimerScreen() {
   const timer = useTimer();
   const sheet = useSheet();
   const [fullScreenOpen, setFullScreenOpen] = useState(false);
+  const [ringBoxRef, ringSize] = useSquareSize(true, 240);
 
   if (!profile) return null;
   const profileId = profile.id;
@@ -162,7 +163,9 @@ export function TimerScreen() {
   return (
     <div className={styles.screen}>
       <div className={styles.card}>
-        <TimerRing remaining_ms={timer.remaining_ms} total_ms={timer.total_ms} reveal={timer.reveal} size={RING_SIZE} onTap={onRingTap} />
+        <div ref={ringBoxRef} className={styles.ringBox}>
+          <TimerRing remaining_ms={timer.remaining_ms} total_ms={timer.total_ms} reveal={timer.reveal} size={ringSize} onTap={onRingTap} />
+        </div>
         <p className={styles.hint}>Tap the time to type a duration</p>
 
         <div className={styles.presets}>

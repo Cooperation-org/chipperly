@@ -6,10 +6,10 @@ import { todayIso } from '@chipperly/shared/helpers/date';
 import { useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { db } from '@/lib/db/db';
-import { materializeRecurring, setCompleted, setStepCompleted, useDayItems, type DayItem } from '@/lib/data/schedule';
+import { materializeRecurringFresh, setCompleted, setStepCompleted, useDayItems, type DayItem } from '@/lib/data/schedule';
 import { useActiveLocation } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
-import { useTimer } from '@/lib/timer/store';
+import { useTimer, useTimerRunning } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { ChipStrip } from '@/components/ui/ChipStrip';
@@ -42,7 +42,11 @@ export function ChildToday() {
   const { locked_profile_id, options } = useLock();
   const { user } = useSession();
   const sheet = useSheet();
-  const timer = useTimer();
+  // Selector hook, not useTimer(): the full TimerState changes ~60x/sec while
+  // a timer runs, and re-executing this whole screen's body on every tick
+  // (dayItems.map, chip strip, header) is the P1 this avoids. The one thing
+  // that needs the live remaining_ms is isolated in TimerRemaining below.
+  const running = useTimerRunning();
 
   const profileId = locked_profile_id ?? '';
   const userId = user?.id ?? '';
@@ -58,7 +62,7 @@ export function ChildToday() {
     const key = `${profileId}:${isoDate}`;
     if (materializedDates.has(key)) return;
     materializedDates.add(key);
-    void materializeRecurring(profileId, isoDate);
+    void materializeRecurringFresh(profileId, isoDate);
   }, [profileId, isoDate]);
 
   // Best-effort back-gesture trap: every back navigation just re-pushes the
@@ -88,7 +92,7 @@ export function ChildToday() {
     let cancelled = false;
     let sentinel: WakeLockSentinel | null = null;
     async function acquire(): Promise<void> {
-      if (!timer.running || !('wakeLock' in navigator)) return;
+      if (!running || !('wakeLock' in navigator)) return;
       try {
         sentinel = await navigator.wakeLock.request('screen');
         if (cancelled) void sentinel.release();
@@ -101,7 +105,7 @@ export function ChildToday() {
       cancelled = true;
       void sentinel?.release();
     };
-  }, [timer.running]);
+  }, [running]);
 
   const [unlocking, setUnlocking] = useState(false);
   const [timerOpen, setTimerOpen] = useState(false);
@@ -166,7 +170,7 @@ export function ChildToday() {
     );
   }
 
-  const showBottomBar = options.show_free_time || options.show_first_then || timer.running;
+  const showBottomBar = options.show_free_time || options.show_first_then || running;
 
   if (!profileId || !profile) return null;
 
@@ -275,9 +279,9 @@ export function ChildToday() {
               Free time
             </BigButton>
           ) : null}
-          {timer.running ? (
+          {running ? (
             <BigButton variant="accent" icon="timer" onClick={() => setTimerOpen(true)}>
-              {formatTimerTime(timer.remaining_ms)}
+              <TimerRemaining />
             </BigButton>
           ) : null}
           {options.show_first_then ? (
@@ -296,4 +300,10 @@ export function ChildToday() {
       {unlocking ? <UnlockOverlay onClose={() => setUnlocking(false)} /> : null}
     </div>
   );
+}
+
+/** Leaf that reads the ticking `remaining_ms` itself (TimerPill's pattern), so only this re-renders per tick. */
+function TimerRemaining() {
+  const timer = useTimer();
+  return <>{formatTimerTime(timer.remaining_ms)}</>;
 }

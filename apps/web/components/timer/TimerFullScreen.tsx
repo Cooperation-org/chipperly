@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Celebration } from '@/components/ui/Celebration';
 import { VisuallyHidden } from '@/components/ui/VisuallyHidden';
 import { TimerRing } from './TimerRing';
+import { useSquareSize } from './useSquareSize';
 import styles from './TimerFullScreen.module.css';
 
 export interface TimerFullScreenProps {
@@ -15,23 +16,6 @@ export interface TimerFullScreenProps {
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
-
-function useSquareSize(active: boolean): [React.RefObject<HTMLDivElement | null>, number] {
-  const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState(280);
-  useEffect(() => {
-    if (!active) return undefined;
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver((entries) => {
-      const box = entries[0]?.contentRect;
-      if (box) setSize(Math.max(1, Math.round(Math.min(box.width, box.height))));
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [active]);
-  return [ref, size];
-}
 
 /** S14: the timer full screen. Tap anywhere to pause/resume, close top-right, screen kept awake
  * with the Wake Lock API while running (best-effort: unsupported or denied just lets it sleep). */
@@ -44,7 +28,7 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
   const [celebrationDone, setCelebrationDone] = useState(false);
 
   const justEnded = timer.ended_at !== null && timer.remaining_ms === 0;
-  const [boxRef, ringSize] = useSquareSize(!justEnded);
+  const [boxRef, ringSize] = useSquareSize(!justEnded, 280);
 
   useEffect(() => {
     returnFocusRef.current = document.activeElement as HTMLElement | null;
@@ -139,7 +123,7 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
         </button>
       )}
       <VisuallyHidden>
-        <span aria-live="polite">{announcement}</span>
+        <span aria-live="polite">{justEnded ? "Time's up" : announcement}</span>
       </VisuallyHidden>
     </div>
   );
