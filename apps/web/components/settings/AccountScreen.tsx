@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
+import { ListRow } from '@/components/ui/ListRow';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { PinPad } from '@/components/pin/PinPad';
 import { api } from '@/lib/api/client';
@@ -103,22 +105,25 @@ export function AccountScreen() {
         </div>
       </div>
 
-      <div className={styles.actions}>
-        <button type="button" className={styles.actionRow} onClick={() => open(<ChangePasswordSheet email={user.email} />, { title: 'Change password' })}>
-          Change password
-        </button>
-        <button
-          type="button"
-          className={styles.actionRow}
-          onClick={() => open(<DevicePinSheet onDone={close} />, { title: 'Device PIN' })}
-        >
-          {user.pin_hash ? 'Change device PIN' : 'Set device PIN'}
-        </button>
+      <div className={styles.card}>
+        <ListRow
+          tile={<Icon name="lock" size={20} />}
+          name="Change password"
+          trailing={<Icon name="chevron" size={20} />}
+          onTap={() => open(<ChangePasswordSheet email={user.email} />, { title: 'Change password' })}
+        />
+        <ListRow
+          tile={<Icon name="lock" size={20} />}
+          name={user.pin_hash ? 'Change device PIN' : 'Set device PIN'}
+          trailing={<Icon name="chevron" size={20} />}
+          onTap={() => open(<DevicePinSheet onDone={close} />, { title: 'Device PIN' })}
+        />
         {accounts.length > 1 ? (
-          <button
-            type="button"
-            className={styles.actionRow}
-            onClick={() =>
+          <ListRow
+            tile={<Icon name="users" size={20} />}
+            name="Switch account"
+            trailing={<Icon name="chevron" size={20} />}
+            onTap={() =>
               open(
                 <div className={styles.sheet}>
                   {accounts.map((a) => (
@@ -130,13 +135,14 @@ export function AccountScreen() {
                 { title: 'Switch account' },
               )
             }
-          >
-            Switch account
-          </button>
+          />
         ) : null}
-        <button type="button" className={styles.actionRow} onClick={() => void handleSignOut()}>
-          Sign out
-        </button>
+        <ListRow
+          tile={<Icon name="arrowRight" size={20} />}
+          name="Sign out"
+          trailing={<Icon name="chevron" size={20} />}
+          onTap={() => void handleSignOut()}
+        />
       </div>
 
       <Button

@@ -60,7 +60,16 @@ export function AttitudeHistory() {
   }
 
   if (days.length === 0) {
-    return <EmptyState sentence="No check-ins recorded yet." />;
+    return (
+      <EmptyState
+        picture={
+          <span className={styles.emptyEmoji} aria-hidden="true">
+            {GOOD_EMOJI}
+          </span>
+        }
+        sentence="No check-ins recorded yet."
+      />
+    );
   }
 
   return (

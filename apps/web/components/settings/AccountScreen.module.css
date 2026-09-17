@@ -30,28 +30,6 @@
   color: var(--color-text);
 }
 
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.actionRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: 56px;
-  border: none;
-  background: transparent;
-  padding: 0;
-  width: 100%;
-  text-align: left;
-  font-size: var(--text-md);
-  color: var(--color-text);
-  cursor: pointer;
-}
-
 .hint {
   font-size: var(--text-sm);
   color: var(--color-text-muted);

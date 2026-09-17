@@ -72,7 +72,7 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
     <div className={styles.sheet}>
       <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       <PicturePicker value={picture} onChange={setPicture} name={name || 'Location'} />
-      <Stepper label="Goal" value={goal} min={1} max={20} onChange={setGoal} />
+      <Stepper label="Chips to earn" value={goal} min={1} max={20} onChange={setGoal} />
       <BigButton fullWidth onClick={() => void submit()} disabled={saving}>
         Save
       </BigButton>
@@ -140,7 +140,7 @@ export function LibraryList({ kind }: LibraryListProps) {
         : locations.map((l) => ({
             id: l.id,
             name: l.name,
-            secondary: `Goal: ${l.chip_goal} chips`,
+            secondary: `${l.chip_goal} chips to earn`,
             tile: <Picture emoji={l.emoji} photo_id={l.photo_id} name={l.name} size="list" />,
             onTap: () => open(<LocationSheet profileId={pid} location={l} />, { title: 'Edit location' }),
             onDelete: () => {

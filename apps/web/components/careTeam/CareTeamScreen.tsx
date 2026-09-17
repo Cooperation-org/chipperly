@@ -97,7 +97,13 @@ export function CareTeamScreen() {
                   <div className={styles.tiles}>
                     {m.profile_ids.map((pid) => {
                       const p = profileById.get(pid);
-                      return p ? <Picture key={pid} emoji={p.avatar_emoji} photo_id={p.avatar_photo_id} name={p.name} size="list" /> : null;
+                      if (!p) return null;
+                      return (
+                        <span key={pid} className={styles.tileItem}>
+                          <Picture emoji={p.avatar_emoji} photo_id={p.avatar_photo_id} name={p.name} size="list" />
+                          <span className={styles.tileName}>Sees: {p.name}</span>
+                        </span>
+                      );
                     })}
                   </div>
                 </div>

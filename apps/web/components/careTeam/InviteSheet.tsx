@@ -40,7 +40,9 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
   const online = useOnline();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'member'>('member');
-  const [profileIds, setProfileIds] = useState<Set<string>>(new Set());
+  const [profileIds, setProfileIds] = useState<Set<string>>(
+    () => new Set(profiles.length === 1 ? [profiles[0].id] : []),
+  );
   const [relationship, setRelationship] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [sending, setSending] = useState(false);
