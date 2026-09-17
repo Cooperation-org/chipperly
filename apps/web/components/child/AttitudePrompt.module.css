@@ -1,0 +1,47 @@
+.prompt {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  animation: fadeIn var(--motion) var(--ease);
+}
+
+.question {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--color-text-muted);
+}
+
+.tiles {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.tile {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  font-size: var(--text-2xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tile:hover {
+  background: var(--color-surface);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
