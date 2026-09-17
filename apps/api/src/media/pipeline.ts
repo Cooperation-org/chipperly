@@ -19,8 +19,40 @@ export async function processImage(input: Buffer): Promise<ProcessedImage> {
   return { buffer, width: width ?? 0, height: height ?? 0, content_type: 'image/webp' };
 }
 
+/** ffprobe: duration in ms of the given file, or null when ffprobe fails or prints something unparseable. */
+export function getVideoDurationMs(filePath: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const ffprobe = spawn('ffprobe', [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
+      filePath,
+    ]);
+    let stdout = '';
+    ffprobe.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    ffprobe.on('error', () => resolve(null));
+    ffprobe.on('close', (code) => {
+      if (code !== 0) {
+        resolve(null);
+        return;
+      }
+      const seconds = Number.parseFloat(stdout.trim());
+      resolve(Number.isFinite(seconds) ? Math.round(seconds * 1000) : null);
+    });
+  });
+}
+
+export interface ProcessedVideo {
+  readonly duration_ms: number | null;
+}
+
 /** ffmpeg: scale to fit 720p without upscaling, H.264/AAC, faststart. Exact args from technical-plan.md 7b. */
-export function processVideo(inPath: string, outPath: string): Promise<void> {
+export function processVideo(inPath: string, outPath: string): Promise<ProcessedVideo> {
   return new Promise((resolve, reject) => {
     const args = [
       '-i',
@@ -50,7 +82,7 @@ export function processVideo(inPath: string, outPath: string): Promise<void> {
     ffmpeg.on('error', reject);
     ffmpeg.on('close', (code) => {
       if (code === 0) {
-        resolve();
+        void getVideoDurationMs(outPath).then((duration_ms) => resolve({ duration_ms }));
       } else {
         reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-2000)}`));
       }
