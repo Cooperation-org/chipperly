@@ -12,6 +12,7 @@
     "db:start": "node scripts/dev-db.mjs",
     "db:migrate": "node --env-file=.env --import tsx src/db/migrate.ts",
     "db:generate": "drizzle-kit generate",
+    "import:rails": "node --env-file=.env --import tsx scripts/import-rails.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
