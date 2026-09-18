@@ -128,8 +128,9 @@ No tabs. No top bar except the profile picture, the chip strip, and a small lock
 | S33 | Accept invite | Signed out → Caregiver | page | Accept |
 | S34 | Share viewer | Viewer | page | none (read) |
 | S35 | Chipper Chart | Caregiver, Child (optional) | page (child: sheet) | +/- the mood level |
+| S36 | Visual schedule | Caregiver, Child (optional) | overlay | Check off / Print |
 
-Thirty-five, of which twelve are sheets or overlays over an existing screen (thirteen counting S35 in child mode). A caregiver's daily loop touches S6, S7, S10, S13, S15 and nothing else.
+Thirty-six, of which thirteen are sheets or overlays over an existing screen (fourteen counting S35 in child mode). A caregiver's daily loop touches S6, S7, S10, S13, S15 and nothing else.
 
 Two more public, unnumbered pages sit alongside forgot/reset-password and verify: `/privacy/` and `/terms/`, plain-language draft policy and terms pages (SOW Q21), linked from the (public) footer and from S30.
 
@@ -199,7 +200,7 @@ Top to bottom:
 
 - Date row: previous, date, next, and a "Today" jump that appears only when not on today. Tapping the date opens the platform date input. No month grid.
 - Chip strip: filled and empty chips for the current location, the working-for reward picture and name. Tap goes to Chips. Hidden when no reward and no chips.
-- The list. Each row: drag handle (left), picture tile, name, small secondary text (time, or step count, or a therapist's name if in the activity name), check circle (right, at least 48px). Rows with steps have a chevron; tapping it expands the steps inline, each with its own check circle. Checking every step checks the parent. Checking the parent with steps asks nothing; it checks all steps.
+- The list. Each row: drag handle (left), picture tile, name, small secondary text (time, or step count, or a therapist's name if in the activity name), check circle (right, at least 48px). Rows with steps have a chevron; tapping it expands the steps inline, each with its own check circle. Checking every step checks the parent. Checking the parent with steps asks nothing; it checks all steps. A step can itself be broken into sub-steps (S9, S36); the expanded list shows level 1 always, with any deeper level collapsed behind its own step's chevron until tapped.
 - Completed rows stay in place, dimmed, with a filled check. They do not move to the bottom.
 - Add button, bottom right, above the tab bar. Opens S8 for activities.
 
@@ -220,7 +221,8 @@ Opens from a row tap.
 - Picture, name.
 - Time (optional, tap to set via platform time input, Clear).
 - Part of day: none / morning / afternoon / evening (segmented).
-- Steps, if any, listed with check circles. A step with a duration also shows "N min" and a small Start timer button that starts the timer and opens S14.
+- Steps, if any, listed with check circles as a tree: level 1 always shown, anything nested under a step collapsed behind that step's own chevron until tapped. A step with a duration also shows "N min" and a small Start timer button that starts the timer and opens S14. A step with sub-steps also gets a small Open button ("Open [step] as visual schedule") for just that step's own list (S36).
+- An "Open as visual schedule" button under the steps, when the activity has any (S36, the full tree).
 - Chips: "Earns 2 chips" if chip value > 0.
 - Buttons: Done (checks it and closes), Remove from today. For a recurring item, Remove asks "Just today" or "Every day" in place, not in a new dialog.
 - Quiet link: Edit activity (goes to S9).
@@ -245,10 +247,12 @@ A page. Fields in this order, each a single row that expands when tapped:
 3. Chips: stepper 0 to 10. (Reward: cost stepper 1 to 20, or "Always available" toggle which hides the cost.)
 4. Where: chips for each location plus "Everywhere" (default).
 5. Repeat: none / every day / weekdays / weekends / weekly. Weekly reveals seven day toggle buttons (multi-select, at least one required); the summary reads "Weekly on Tue, Thu". Optional time.
-6. Steps: list of rows (picture + short text), add step, drag to reorder, swipe to delete. Empty by default. Each row also has a small **From activity** button, opening the activities picker (no routines offered) to copy that activity's name, emoji and photo into the step, and a small "min" number field (1-120, empty = untimed) for an optional step timer.
+6. Steps: list of rows (picture + short text), add step, drag to reorder, swipe to delete. Empty by default. Each row also has a small **From activity** button, opening the activities picker (no routines offered) to copy that activity's name, emoji and photo into the step, and a small "min" number field (1-120, empty = untimed) for an optional step timer. A small **Break down** button on each row adds an indented sub-step under it, up to three levels deep (deeper is fine once it exists, the button just stops offering a fourth); sub-steps reorder with the same drag/move controls, only among their own siblings, and removing a step removes its sub-steps with it (one undo restores the whole thing). **From activity** and **Break down** both work at any level.
 7. Save (sticky bottom). Delete at the very bottom, plain text, with undo toast.
 
 Routine mode: entered via `?routine=1` (from the picker's "New routine" tile) or by editing an activity that already has steps. The page title reads "New routine" / "Edit routine" instead of "...activity", and the Steps section starts expanded (new routine: one empty step row, focused).
+
+A **Print visual schedule** button sits in the header once the activity has any named steps, opening S36 read-only so a caregiver can print a step list before it is even added to a day.
 
 Must not have: tabs within the form, required fields beyond name, a preview pane.
 
@@ -281,6 +285,7 @@ Must not have: tabs within the form, required fields beyond name, a preview pane
 - Location selector at top. The device remembers the last one per profile.
 - Working-for card: reward picture, name, "3 of 5 chips". Tap opens the rewards picker filtered to this location. When no reward is chosen the card reads "Choose a reward" and the board uses the location's manual goal (a small "Goal: 5" link under the chips lets the caregiver change it; hidden once a reward is chosen).
 - Chips: as many circles as the cost or goal, filled from the ledger balance. Read-only; the reference's tap-to-set caused accidental changes.
+- Attitude-bonus idea, first slice (off by default, per profile in Edit profile, S22): when on, each filled chip is colored red, yellow or green by the Chipper Chart level it was earned with, with an aria-label per chip ("chip 3, earned with a positive attitude"). The bonus reward itself is a proposal for a later round.
 - Minus and plus: the primary actions, large, equal weight. Plus animates the next chip filling and plays the chip sound.
 - When full: the plus button becomes **Redeem 🎬**. Tap: celebration, ledger entry for the cost, the working-for card clears to "Choose a reward". Undo toast.
 - Free time choices: opens S11.
@@ -346,7 +351,7 @@ A menu page. Sections and rows:
 
 ### S21 Profiles and S22 Edit profile
 
-S21: list of profiles the user can see, avatar and name, current one marked. Add child at the bottom (respects the account limit; when reached, the button explains why). S22: name, picture, "After a reward" (Subtract the cost / Start over, SOW Q1, decided), and Delete profile at the bottom (this one confirms).
+S21: list of profiles the user can see, avatar and name, current one marked. Add child at the bottom (respects the account limit; when reached, the button explains why). S22: name, picture, "After a reward" (Subtract the cost / Start over, SOW Q1, decided), "Colour chips by attitude" switch (attitude-bonus idea, first slice, off by default, see S10), and Delete profile at the bottom (this one confirms).
 
 ### S23 Lock this device
 
@@ -406,7 +411,7 @@ Sheet from the ⟳ mark. "Up to date, 2 minutes ago" or "3 changes waiting" or "
 
 - Header: avatar, name, chip strip with the working-for picture, lock glyph. Nothing is tappable except the lock (S24) and the chip strip (opens a read-only view of S10 with just the chips and the reward, no buttons) — plus, only when the caregiver's "Let [name] switch location" toggle (S23) is on, the location name itself: a 64px button opening a sheet of the profile's locations as big picture tiles, tap one to switch (SOW Q3, decided). The chip strip and board follow the chosen location like they do on S10.
 - Today only. No date navigation.
-- Rows are tall (at least 72px), picture at least 56px, check circle at least 64px. Steps show expanded by default under their parent; the caregiver can collapse them in S23 if that is too much.
+- Rows are tall (at least 72px), picture at least 56px, check circle at least 64px. Steps show expanded by default under their parent, the whole tree at once, no collapsing; the caregiver can hide them entirely in S23 if that is too much. A row with steps also gets a "Steps" button, behind the "Let [name] open a step list" toggle (S23, default on), opening that item's tree as S36, still locked.
 - Check: fills, chip sound if it earns a chip, the chip strip updates. Then, if enabled, the attitude prompt appears inline under the row: "How did it go?" with two large tiles, a smiling face and a grumpy face, and no text beyond the labels. Tap either, or ignore it; it fades after ten seconds.
 - A step with a duration shows "N min" and, only when the caregiver's "Let the child start step timers" toggle (S23) is on, a Start timer button that starts the timer full screen (S14, SOW Q6, decided).
 - All done: the list ends with a large "All done!" picture. The screen does not change otherwise.
@@ -434,6 +439,27 @@ Under the card: "Today" as words ("+2") and the last seven days (date, emoji, le
 The level runs -5 to +5, starts at 0, and is stored per day (`mood_events`, append-only): tapping minus/plus moves it by one, tapping the bar jumps straight to that point. A tone plays on every change (660Hz up, 330Hz down) unless muted.
 
 Reached from a face button next to Today's chip strip (caregiver) and, if the lock option is on (default yes), a "Chipper Chart" button in S32's bottom row (opens this screen as a sheet, bar/face/minus-plus only, no theme, mute, blurb or history).
+
+### S36 Visual schedule
+
+The client's ask, direct: "everything can be broken down even further into steps as needed... when we need a visual schedule we can open that visual schedule up so those steps are the only thing on the screen." A visual schedule is an ordered list of steps, never a calendar.
+
+Any step (S9) can itself be broken into sub-steps, to whatever depth the family needs; the step editor shows up to three levels and lets a step nest one level deeper each time, and a routine's steps show as a tree everywhere they appear (S6, S7, S32) rather than a flat list.
+
+S36 is a full-screen overlay, not a route: it opens over whatever screen asked for it and closes back to it.
+
+- Header: the activity's (or the one step's) picture and name, large.
+- One row per step, in order, indented under its parent: picture, name, a large check circle. Nested steps show already expanded; there is nothing to tap open here, since this screen's whole point is to have every step on screen at once.
+- Two icon buttons, top corner: Print and Close.
+- Checking a step here is the same check as everywhere else (S6/S7/S32) and cascades the same way: checking a step with sub-steps checks them all, and completing every sub-step checks its parent.
+- Print produces one page: the same picture-and-name rows at a larger size, no header buttons, no check circles, a page break never falls inside a row. It works offline like the rest of the app; there is nothing to fetch.
+
+Opened from:
+
+- S7's "Open as visual schedule" button, for the item's whole step tree, whenever the activity has steps.
+- A small Open button on any step row in S7 that has its own sub-steps, showing just that step's own list.
+- S32's "Steps" button on a row with steps, behind a lock option ("Let [name] open a step list", default on, S23). The child checks steps the same way, still locked.
+- S9's "Print visual schedule" button, whenever the activity has steps: opens the same overlay read-only, for printing a clean copy before it is even added to a day (the client's cubby/desk/bathroom copies).
 
 Each flow is counted in taps from the caregiver's Today tab.
 
@@ -534,6 +560,7 @@ Baseline WCAG 2.2 AA. Specifics that matter for this audience:
 - 1024 px and up: tab bar becomes a left rail; content stays centered at 640 px. No dashboards, no side panels.
 - Child mode on a tablet: bigger, not more. Row height 96, tiles 120, one column.
 - Print: Today and any story print cleanly (one page each, pictures and names, no chrome). This is the "printable visual support" the reference planned and never built, and CSS gives it nearly for free.
+- Print: a visual schedule (S36) prints cleanly too, at a larger size than Today, since these are the ones a caregiver actually hands to a teacher for a cubby, a desk, or the bathroom (client request). Opening it sets a print attribute on the page while it's open, so nothing else on the page (tab bar, top bar, any sheet underneath) shows up in the printed copy, only the schedule itself.
 
 ## 13. Content and microcopy
 

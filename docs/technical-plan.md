@@ -151,8 +151,14 @@ locations         id, profile_id, name, emoji, photo_id, position,
 activities        id, profile_id, name, emoji, photo_id, chip_value int (default 0),
                   location_id (nullable = everywhere), recurrence (null|daily|weekdays|weekends|weekly),
                   recurrence_weekdays integer[] (0-6, for weekly, one or more days), recurrence_time time (nullable), position
-activity_steps    id, activity_id, position, name, emoji, photo_id, duration_minutes int 1-120 (nullable = untimed)
-                  (an activity with steps is a routine; no separate routines table)
+activity_steps    id, activity_id, parent_step_id (nullable uuid, self-reference), position, name, emoji,
+                  photo_id, duration_minutes int 1-120 (nullable = untimed)
+                  (an activity with steps is a routine; no separate routines table. Steps nest for a
+                  visual schedule broken into sub-steps: parent_step_id null = root step, siblings
+                  ordered by position within the same parent, not globally. A parent step is done when
+                  every child is done or it has its own completion row; checking/unchecking cascades to
+                  every descendant and recomputes every ancestor up the chain. The activity completes
+                  when every root step is done.)
 recurrence_skips  id, activity_id, date            (one row per suppressed occurrence, append-only)
 schedule_items    id, profile_id, date, position, activity_id, start_time (nullable),
                   part_of_day (null|morning|afternoon|evening), source (manual|recurring),
@@ -161,7 +167,11 @@ step_completions  id, schedule_item_id, activity_step_id, completed_at, complete
 rewards           id, profile_id, name, emoji, photo_id, chip_cost int (nullable),
                   location_id (nullable = everywhere), always_available bool (default false), position
 chip_ledger       id, profile_id, location_id (nullable), delta int,
-                  reason (task|step|manual|redeem|adjust), ref_id (nullable), created_at, created_by
+                  reason (task|step|manual|redeem|adjust), ref_id (nullable), created_at, created_by,
+                  mood_level int -5..5 (nullable; the profile's Chipper Chart level at the moment this
+                  chip was earned, null with no mood event that day. Attitude-bonus idea, first slice:
+                  a profile setting, chips_by_attitude, colors the chip board by this. The bonus reward
+                  itself is a proposal for a later round.)
 social_stories    id, profile_id, title, emoji, cover_photo_id, position
 story_pages       id, story_id, position, text, emoji, photo_id
 attitude_checks   id, profile_id, schedule_item_id (nullable), value (good|grumpy), created_at, created_by
@@ -179,7 +189,7 @@ Two modeling choices made here that the client should confirm (they are also in 
 1. Rewards and the choice board are one table. `always_available = true` means "free-time choice, costs nothing". The client's own doc suggested this merge.
 2. Routine steps are free-text rows on an activity, not references to other activities. Simpler to author, and steps with photos still work.
 
-`profiles.settings` now carries `redeem_mode: 'subtract' | 'reset'` (SOW Q1, decided: both are available, per profile, set in Edit profile), optional and defaulting to `'subtract'` for existing rows. It stays reserved for other future per-profile settings otherwise; screentime control ships as default rewards (below) and the Chipper Chart (SOW Q5, resolved to match the client's beta) writes to its own `mood_events` table, not `attitude_checks`.
+`profiles.settings` now carries `redeem_mode: 'subtract' | 'reset'` (SOW Q1, decided: both are available, per profile, set in Edit profile), optional and defaulting to `'subtract'` for existing rows. It stays reserved for other future per-profile settings otherwise; screentime control ships as default rewards (below) and the Chipper Chart (SOW Q5, resolved to match the client's beta) writes to its own `mood_events` table, not `attitude_checks`. It also carries `chips_by_attitude: boolean` (optional, default off), the attitude-bonus idea's first slice: when on, the Chips screen colors each chip by the Chipper Chart level it was earned with.
 
 ### Seed data
 

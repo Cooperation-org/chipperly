@@ -18,3 +18,10 @@
   font-size: var(--text-md);
   color: var(--color-text);
 }
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
