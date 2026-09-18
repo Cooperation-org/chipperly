@@ -55,7 +55,13 @@ test.describe('child mode', () => {
     await enterPin(page, '1234');
 
     await expect(sheet.getByRole('switch', { name: 'Show free-time choices' })).toHaveAttribute('aria-checked', 'true');
-    await expect(sheet.getByRole('switch', { name: 'Ask how it went after each task' })).toHaveAttribute('aria-checked', 'true');
+    // Off by default now that the Chipper Chart meter replaces it
+    // (lib/device/settings.ts); this test still wants the attitude prompt
+    // for the row below, so it opts back in here.
+    const attitudeToggle = sheet.getByRole('switch', { name: 'Ask how it went after each task' });
+    await expect(attitudeToggle).toHaveAttribute('aria-checked', 'false');
+    await attitudeToggle.click();
+    await expect(attitudeToggle).toHaveAttribute('aria-checked', 'true');
     await expectNoOverflow(page, 'S23 lock this device (toggles)');
     await snap(page, 's23-lock-toggles');
 

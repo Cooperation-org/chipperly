@@ -1,7 +1,7 @@
-// Two sounds only (chip earned, timer finished), preloaded once and
-// unlocked on the first user gesture per platform autoplay rules
-// (ux-plan.md "Sound"). No 'use client' banner: no hooks here, just plain
-// functions safe to import from a client component.
+// Chip earned, timer finished, and the Chipper Chart's up/down taps,
+// preloaded once and unlocked on the first user gesture per platform
+// autoplay rules (ux-plan.md "Sound"). No 'use client' banner: no hooks
+// here, just plain functions safe to import from a client component.
 import { getKv } from './db/kv';
 import { withBase } from './api/base';
 
@@ -9,6 +9,8 @@ const DEVICE_SETTINGS_KEY = 'device_settings';
 
 let chipAudio: HTMLAudioElement | null = null;
 let timerDoneAudio: HTMLAudioElement | null = null;
+let chipperUpAudio: HTMLAudioElement | null = null;
+let chipperDownAudio: HTMLAudioElement | null = null;
 let unlocked = false;
 
 function createAudio(name: string): HTMLAudioElement {
@@ -22,7 +24,7 @@ function createAudio(name: string): HTMLAudioElement {
 function unlockOnce(): void {
   if (unlocked) return;
   unlocked = true;
-  for (const audio of [chipAudio, timerDoneAudio]) {
+  for (const audio of [chipAudio, timerDoneAudio, chipperUpAudio, chipperDownAudio]) {
     if (!audio) continue;
     // A play-then-pause on the first real gesture satisfies the mobile
     // autoplay policy for every later programmatic play() call.
@@ -40,6 +42,8 @@ function init(): void {
   if (typeof window === 'undefined' || chipAudio) return;
   chipAudio = createAudio('chip');
   timerDoneAudio = createAudio('timer-done');
+  chipperUpAudio = createAudio('chipper-up');
+  chipperDownAudio = createAudio('chipper-down');
   document.addEventListener('pointerdown', unlockOnce, { once: true });
 }
 
@@ -63,4 +67,14 @@ export function playChip(): void {
 
 export function playTimerDone(): void {
   void play(timerDoneAudio);
+}
+
+/** Chipper Chart level goes up. */
+export function playChipperUp(): void {
+  void play(chipperUpAudio);
+}
+
+/** Chipper Chart level goes down. */
+export function playChipperDown(): void {
+  void play(chipperDownAudio);
 }

@@ -94,6 +94,12 @@ export function SettingsMenu() {
               onTap={() => router.push('/settings/attitude/')}
             />
             <ListRow
+              tile={<span aria-hidden="true">😊</span>}
+              name="Chipper Chart"
+              trailing={<Icon name="chevron" size={20} />}
+              onTap={() => router.push('/chipper-chart/')}
+            />
+            <ListRow
               tile={<Icon name="share" size={20} />}
               name="Share link"
               trailing={<Icon name="chevron" size={20} />}
@@ -107,6 +113,7 @@ export function SettingsMenu() {
         <span className={styles.sectionTitle}>Library</span>
         <div className={styles.card}>
           <ListRow tile={<Icon name="star" size={20} />} name="Activities" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/library/activities/')} />
+          <ListRow tile={<Icon name="split" size={20} />} name="Routines" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/library/routines/')} />
           <ListRow tile={<Icon name="chips" size={20} />} name="Rewards" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/library/rewards/')} />
           <ListRow tile={<Icon name="home" size={20} />} name="Locations" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/library/locations/')} />
         </div>

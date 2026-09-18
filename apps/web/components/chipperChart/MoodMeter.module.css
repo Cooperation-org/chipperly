@@ -1,0 +1,87 @@
+.meterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.minus,
+.plus {
+  flex: 0 0 auto;
+  /* 56px per ux-plan.md S35; child mode's --tap becomes --tap-child (64px),
+     which this picks up automatically without a separate child-mode rule. */
+  width: max(56px, var(--tap));
+  height: max(56px, var(--tap));
+  border-radius: var(--radius-full);
+  border: none;
+  color: var(--color-primary-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease), opacity var(--motion-fast) var(--ease);
+}
+
+.minus:disabled,
+.plus:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.minus:not(:disabled):hover,
+.plus:not(:disabled):hover {
+  transform: scale(1.06);
+}
+
+.minus {
+  background: var(--color-danger);
+}
+
+.plus {
+  background: var(--color-primary);
+}
+
+.bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 16px;
+  /* Half a face marker of side room so the marker never sits on the buttons at -5 or +5. */
+  margin: 0 calc(max(56px, var(--tap)) / 2);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  /* Content, like the emoji set: the beta's literal red-to-green mood
+     gradient, not a design token. */
+  background: linear-gradient(90deg, #e5484d, #f5a623, #4ade80);
+}
+
+.tick {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.face {
+  position: absolute;
+  top: 50%;
+  width: max(56px, var(--tap));
+  height: max(56px, var(--tap));
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 3px solid var(--color-surface);
+  box-shadow: var(--shadow-sheet);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  line-height: 1;
+  transition: left var(--motion) var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .face {
+    transition: none;
+  }
+}

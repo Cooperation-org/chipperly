@@ -26,6 +26,7 @@ export interface LockOptions {
   show_first_then: boolean;
   attitude_prompt: boolean;
   expand_steps: boolean;
+  show_chipper_chart: boolean;
 }
 
 export interface LockState {
@@ -37,8 +38,11 @@ const LOCK_KEY = 'lock';
 const DEFAULT_LOCK_OPTIONS: LockOptions = {
   show_free_time: true,
   show_first_then: true,
-  attitude_prompt: true,
+  // The Chipper Chart meter replaces the per-task prompt by default; the
+  // prompt itself stays available as a toggle.
+  attitude_prompt: false,
   expand_steps: true,
+  show_chipper_chart: true,
 };
 const DEFAULT_LOCK_STATE: LockState = { locked_profile_id: null, options: DEFAULT_LOCK_OPTIONS };
 

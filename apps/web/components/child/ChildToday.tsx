@@ -24,6 +24,7 @@ import { FreeTimeSheet } from '@/components/chips/FreeTimeSheet';
 import { FirstThenPanels } from '@/components/firstThen/FirstThenPanels';
 import { TimerFullScreen } from '@/components/timer/TimerFullScreen';
 import { formatTimerTime } from '@/components/timer/time';
+import { ChipperChartSheet } from '@/components/chipperChart/ChipperChartSheet';
 import { AttitudePrompt } from './AttitudePrompt';
 import { UnlockOverlay } from './UnlockOverlay';
 import styles from './ChildToday.module.css';
@@ -170,7 +171,7 @@ export function ChildToday() {
     );
   }
 
-  const showBottomBar = options.show_free_time || options.show_first_then || running;
+  const showBottomBar = options.show_free_time || options.show_first_then || options.show_chipper_chart || running;
 
   if (!profileId || !profile) return null;
 
@@ -291,6 +292,19 @@ export function ChildToday() {
               onClick={() => sheet.open(<FirstThenPanels profileId={profileId} mode="child" />, { title: 'First, then' })}
             >
               First, then
+            </BigButton>
+          ) : null}
+          {options.show_chipper_chart ? (
+            <BigButton
+              variant="secondary"
+              onClick={() =>
+                sheet.open(<ChipperChartSheet profileId={profileId} userId={userId} />, { title: 'Chipper Chart' })
+              }
+            >
+              <span className={styles.emojiGlyph} aria-hidden="true">
+                😊
+              </span>
+              Chipper Chart
             </BigButton>
           ) : null}
         </div>

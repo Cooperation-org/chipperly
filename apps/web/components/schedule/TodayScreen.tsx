@@ -132,6 +132,10 @@ export function TodayScreen() {
           close();
           router.push(`/activity/edit/?add_to=${isoDate}`);
         }}
+        onCreateRoutine={() => {
+          close();
+          router.push(`/activity/edit/?add_to=${isoDate}&routine=1`);
+        }}
       />,
       { title },
     );
@@ -208,22 +212,32 @@ export function TodayScreen() {
       <VerifyBanner />
       <DateNav isoDate={isoDate} onChange={setIsoDate} />
 
-      {workingFor.reward || workingFor.filled > 0 ? (
-        <ChipStrip
-          filled={workingFor.filled}
-          total={workingFor.goal}
-          reward={
-            workingFor.reward
-              ? {
-                  emoji: workingFor.reward.emoji ?? undefined,
-                  photo_id: workingFor.reward.photo_id,
-                  name: workingFor.reward.name,
-                }
-              : undefined
-          }
-          onTap={() => router.push('/chips/')}
-        />
-      ) : null}
+      <div className={styles.chipStripRow}>
+        {workingFor.reward || workingFor.filled > 0 ? (
+          <ChipStrip
+            filled={workingFor.filled}
+            total={workingFor.goal}
+            reward={
+              workingFor.reward
+                ? {
+                    emoji: workingFor.reward.emoji ?? undefined,
+                    photo_id: workingFor.reward.photo_id,
+                    name: workingFor.reward.name,
+                  }
+                : undefined
+            }
+            onTap={() => router.push('/chips/')}
+          />
+        ) : null}
+        <button
+          type="button"
+          className={styles.chipperChartButton}
+          aria-label="Chipper Chart"
+          onClick={() => router.push('/chipper-chart/')}
+        >
+          <span aria-hidden="true">😊</span>
+        </button>
+      </div>
 
       {orderedItems.length === 0 ? (
         <EmptyState
