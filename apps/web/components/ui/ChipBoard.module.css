@@ -18,6 +18,21 @@
   border-color: var(--color-accent);
 }
 
+.positive {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.neutral {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.negative {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
 .pop {
   animation: pop var(--motion) var(--ease);
 }

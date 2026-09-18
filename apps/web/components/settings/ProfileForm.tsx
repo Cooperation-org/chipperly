@@ -9,6 +9,7 @@ import { TextField } from '@/components/ui/TextField';
 import { Segmented } from '@/components/ui/Segmented';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
+import { Switch } from '@/components/ui/Switch';
 import { db } from '@/lib/db/db';
 import { upsert, softDelete } from '@/lib/sync/mutate';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -28,6 +29,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const [name, setName] = useState('');
   const [picture, setPicture] = useState<PicturePickerValue>({});
   const [redeemMode, setRedeemMode] = useState<RedeemMode>('subtract');
+  const [chipsByAttitude, setChipsByAttitude] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -38,6 +40,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     setName(row.name);
     setPicture({ emoji: row.avatar_emoji, photo_id: row.avatar_photo_id });
     setRedeemMode(row.settings.redeem_mode ?? 'subtract');
+    setChipsByAttitude(row.settings.chips_by_attitude ?? false);
     setLoadedFor(row.id);
   }
 
@@ -51,7 +54,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
       name: name.trim(),
       avatar_emoji: picture.emoji ?? null,
       avatar_photo_id: picture.photo_id ?? null,
-      settings: { ...row.settings, redeem_mode: redeemMode },
+      settings: { ...row.settings, redeem_mode: redeemMode, chips_by_attitude: chipsByAttitude },
     });
     setSaving(false);
     router.push('/settings/');
@@ -80,6 +83,10 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           value={redeemMode}
           onChange={(v) => setRedeemMode(v as RedeemMode)}
         />
+      </div>
+      <div className={styles.toggleRow}>
+        <span className={styles.settingLabel}>Colour chips by attitude</span>
+        <Switch label="Colour chips by attitude" checked={chipsByAttitude} onChange={setChipsByAttitude} />
       </div>
       <Button variant="primary" size="lg" fullWidth onClick={() => void save()} loading={saving}>
         Save

@@ -1,7 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import type { Location } from '@chipperly/shared/schemas/location';
+import type { ChipLedger } from '@chipperly/shared/schemas/chips';
 import type { Reward } from '@chipperly/shared/schemas/reward';
-import { computeRedeemDelta, computeWorkingFor } from './chips';
+import { computeRedeemDelta, computeWorkingFor, chipTone, chipTones } from './chips';
+
+function ledgerRow(overrides: Partial<ChipLedger> = {}): ChipLedger {
+  return {
+    id: 'ledger-1',
+    profile_id: 'profile-1',
+    version: 0,
+    client_updated_at: 0,
+    updated_by: 'user-1',
+    deleted_at: null,
+    location_id: null,
+    delta: 1,
+    reason: 'manual',
+    ref_id: null,
+    created_at: 0,
+    created_by: 'user-1',
+    mood_level: null,
+    ...overrides,
+  };
+}
 
 function location(overrides: Partial<Location> = {}): Location {
   return {
@@ -73,5 +93,56 @@ describe('computeRedeemDelta', () => {
 
   it('reset mode with a balance below the cost still empties to zero, not negative', () => {
     expect(computeRedeemDelta('reset', 8, 3)).toBe(-3);
+  });
+});
+
+describe('chipTone', () => {
+  it('is positive at and above 1, negative at and below -1', () => {
+    expect(chipTone(1)).toBe('positive');
+    expect(chipTone(5)).toBe('positive');
+    expect(chipTone(-1)).toBe('negative');
+    expect(chipTone(-5)).toBe('negative');
+  });
+
+  it('is neutral at 0, and null with no mood event', () => {
+    expect(chipTone(0)).toBe('neutral');
+    expect(chipTone(null)).toBeNull();
+  });
+});
+
+describe('chip_ledger row', () => {
+  it('carries mood_level, null or a number', () => {
+    const withMood = ledgerRow({ mood_level: 3 });
+    const withoutMood = ledgerRow({ mood_level: null });
+    expect(withMood.mood_level).toBe(3);
+    expect(withoutMood.mood_level).toBeNull();
+  });
+});
+
+describe('chipTones', () => {
+  it('tags each unit of a positive-delta row with that row\'s tone, oldest first', () => {
+    const ledger = [
+      ledgerRow({ id: 'a', delta: 2, mood_level: 3, created_at: 1000 }),
+      ledgerRow({ id: 'b', delta: 1, mood_level: -2, created_at: 2000 }),
+    ];
+    expect(chipTones(ledger, null, 3)).toEqual(['positive', 'positive', 'negative']);
+  });
+
+  it('a later negative delta removes the most recently earned tone first', () => {
+    const ledger = [
+      ledgerRow({ id: 'a', delta: 2, mood_level: 3, created_at: 1000 }),
+      ledgerRow({ id: 'b', delta: 1, mood_level: -2, created_at: 2000 }),
+      ledgerRow({ id: 'c', delta: -1, mood_level: null, reason: 'redeem', created_at: 3000 }),
+    ];
+    expect(chipTones(ledger, null, 2)).toEqual(['positive', 'positive']);
+  });
+
+  it('ignores rows for a different location and soft-deleted rows', () => {
+    const ledger = [
+      ledgerRow({ id: 'a', delta: 1, mood_level: 1, location_id: 'other', created_at: 1000 }),
+      ledgerRow({ id: 'b', delta: 1, mood_level: -3, deleted_at: 500, created_at: 2000 }),
+      ledgerRow({ id: 'c', delta: 1, mood_level: 0, created_at: 3000 }),
+    ];
+    expect(chipTones(ledger, 'loc-1', 1)).toEqual(['neutral']);
   });
 });

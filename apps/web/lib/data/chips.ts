@@ -7,11 +7,23 @@ import type { Location } from '@chipperly/shared/schemas/location';
 import type { RedeemMode } from '@chipperly/shared/schemas/profile';
 import type { Reward } from '@chipperly/shared/schemas/reward';
 import { balanceFor } from '@chipperly/shared/helpers/chips';
+import { todayIso } from '@chipperly/shared/helpers/date';
 import { db } from '../db/db';
 import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert } from '../sync/mutate';
 import { getCurrentUserId } from './_util';
+import { getMoodLevel } from './mood';
+
+export type ChipTone = 'positive' | 'neutral' | 'negative';
+
+/** Pure: attitude-bonus idea, first slice. Positive >= 1, negative <= -1, everything else (incl. no mood event) is neutral or unknown. */
+export function chipTone(level: number | null): ChipTone | null {
+  if (level === null) return null;
+  if (level >= 1) return 'positive';
+  if (level <= -1) return 'negative';
+  return 'neutral';
+}
 
 // perf-2 (chip_ledger half): the [profile_id+location_id] compound index
 // can't serve this. IndexedDB drops a record from a compound index entirely
@@ -34,6 +46,7 @@ export async function addChip(
   delta = 1,
 ): Promise<void> {
   const created_by = await getCurrentUserId();
+  const mood_level = await getMoodLevel(profileId, todayIso());
   const row: ChipLedger = {
     id: newId(),
     profile_id: profileId,
@@ -47,6 +60,7 @@ export async function addChip(
     ref_id: refId,
     created_at: now(),
     created_by,
+    mood_level,
   };
   await upsert('chip_ledger', row);
 }
@@ -83,6 +97,33 @@ export function useLedger(profileId: string, locationId?: string | null): ChipLe
     );
     return filtered.slice().sort((a, b) => b.created_at - a.created_at);
   }, [rows, locationId]);
+}
+
+/**
+ * Pure: tones for the `filled` chips currently on the board, oldest first.
+ * Replays the ledger like a stack (same location scoping as `balanceFor`)
+ * so a later redeem/adjust removes the most recently earned chip's tone
+ * first, same as the board visually pops the newest chip.
+ */
+export function chipTones(
+  ledger: readonly Pick<ChipLedger, 'location_id' | 'delta' | 'deleted_at' | 'created_at' | 'mood_level'>[],
+  locationId: string | null,
+  filled: number,
+): Array<ChipTone | null> {
+  const ordered = ledger
+    .filter((row) => row.deleted_at === null && (row.location_id === locationId || row.location_id === null))
+    .slice()
+    .sort((a, b) => a.created_at - b.created_at);
+
+  const units: Array<ChipTone | null> = [];
+  for (const row of ordered) {
+    if (row.delta > 0) {
+      for (let i = 0; i < row.delta; i++) units.push(chipTone(row.mood_level ?? null));
+    } else if (row.delta < 0) {
+      units.length = Math.max(0, units.length + row.delta);
+    }
+  }
+  return units.slice(-filled);
 }
 
 export interface WorkingFor {

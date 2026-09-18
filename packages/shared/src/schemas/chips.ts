@@ -13,5 +13,12 @@ export const ChipLedgerSchema = SyncColumnsSchema.extend({
   ref_id: uuidSchema.nullable(),
   created_at: msTimestampSchema,
   created_by: uuidSchema,
+  /**
+   * The profile's Chipper Chart level at the moment this chip was earned,
+   * null when there was no mood event that day. Optional (not just
+   * nullable) so rows written before this column existed still parse.
+   * First slice of the attitude-bonus idea; see chips_by_attitude below.
+   */
+  mood_level: z.number().int().min(-5).max(5).nullable().optional(),
 });
 export type ChipLedger = z.infer<typeof ChipLedgerSchema>;

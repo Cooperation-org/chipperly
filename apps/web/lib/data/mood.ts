@@ -71,6 +71,16 @@ export function dayHistory(events: readonly MoodEvent[]): DayMoodSummary[] {
   return days.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
+/**
+ * Async, non-hook version of the day's level: `level_after` of the newest
+ * live event for `isoDate`, or null with none. Used to stamp
+ * chip_ledger.mood_level at the moment a chip is earned (lib/data/chips.ts).
+ */
+export async function getMoodLevel(profileId: string, isoDate: string): Promise<number | null> {
+  const events = await db.mood_events.where('[profile_id+date]').equals([profileId, isoDate]).toArray();
+  return newestOf(events.filter((e) => e.deleted_at === null))?.level_after ?? null;
+}
+
 export function useMoodLevel(profileId: string, isoDate: string): number {
   const events = useLiveQuery(
     () => db.mood_events.where('[profile_id+date]').equals([profileId, isoDate]).toArray(),

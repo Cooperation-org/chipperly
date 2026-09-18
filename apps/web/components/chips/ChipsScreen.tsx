@@ -6,7 +6,7 @@ import type { Location } from '@chipperly/shared/schemas/location';
 import { COST_MAX } from '@chipperly/shared/constants/limits';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useLocations, useActiveLocation, saveLocation } from '@/lib/data/locations';
-import { useWorkingFor, setWorkingFor, addChip, redeem, useBalance } from '@/lib/data/chips';
+import { useWorkingFor, setWorkingFor, addChip, redeem, useBalance, useLedger, chipTones } from '@/lib/data/chips';
 import { toast } from '@/lib/toast';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
@@ -51,6 +51,8 @@ export function ChipsScreen() {
   const locationId = location?.id ?? null;
   const balance = useBalance(profileId, locationId);
   const working = useWorkingFor(profileId, locationId);
+  const ledger = useLedger(profileId, locationId);
+  const tones = profile?.settings.chips_by_attitude ? chipTones(ledger, locationId, working.filled) : undefined;
   const [celebrating, setCelebrating] = useState(false);
 
   if (!profile) return null;
@@ -160,7 +162,7 @@ export function ChipsScreen() {
       </button>
 
       <div className={styles.boardWrap}>
-        <ChipBoard filled={working.filled} total={working.goal} />
+        <ChipBoard filled={working.filled} total={working.goal} tones={tones} />
         {celebrating ? (
           <div className={styles.celebrationWrap}>
             <Celebration kind="redeem" onDone={() => setCelebrating(false)} />

@@ -12,6 +12,8 @@ export type RedeemMode = z.infer<typeof RedeemModeSchema>;
 export const ProfileSettingsSchema = z
   .object({
     redeem_mode: RedeemModeSchema.optional(),
+    /** Attitude-bonus idea, first slice: color the chip board by the Chipper Chart level a chip was earned with. Off by default. */
+    chips_by_attitude: z.boolean().optional(),
   })
   .partial();
 export type ProfileSettings = z.infer<typeof ProfileSettingsSchema>;

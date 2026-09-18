@@ -14,6 +14,8 @@ export const chip_ledger = pgTable(
     ref_id: uuid('ref_id'),
     created_at: bigint('created_at', { mode: 'number' }).notNull(),
     created_by: uuid('created_by').notNull(),
+    /** Chipper Chart level at the moment this chip was earned, null when there was no mood event that day. Migration 0006. */
+    mood_level: integer('mood_level'),
   },
   (t) => [index('chip_ledger_profile_version_idx').on(t.profile_id, t.version)],
 );
