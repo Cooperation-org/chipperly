@@ -6,7 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
-import type { MediaUploadResponse } from '@chipperly/shared/schemas/media';
+import type { MediaStatus, MediaUploadResponse } from '@chipperly/shared/schemas/media';
 import { env } from '../env.js';
 import { db } from '../db/client.js';
 import { media } from '../db/schema/media.js';
@@ -58,11 +58,27 @@ function mediaUrl(id: string): string {
   return `${env.BASE_PATH}/api/media/${id}`;
 }
 
+/** The client-generated id it wants for this upload, if it sent one (must be sent before the `file` field to be seen here). */
+function requestedMediaId(file: Awaited<ReturnType<FastifyRequest['file']>>): string | undefined {
+  const field = file?.fields.media_id;
+  const part = Array.isArray(field) ? field[0] : field;
+  if (!part || part.type !== 'field' || typeof part.value !== 'string') return undefined;
+  const parsed = uuidSchema.safeParse(part.value);
+  if (!parsed.success) throw new AppError(400, 'invalid_media_id', 'media_id must be a uuid');
+  return parsed.data;
+}
+
+/** Row for an existing upload of this id, scoped to the account (never reused across accounts). */
+async function existingMediaRow(id: string, accountId: string) {
+  const [row] = await db.select().from(media).where(eq(media.id, id)).limit(1);
+  return row && row.account_id === accountId ? row : undefined;
+}
+
 export default async function mediaRoutes(app: FastifyInstance): Promise<void> {
   app.post('/media', { preHandler: [requireUser, requireAccount] }, async (
     request,
     reply,
-  ): Promise<MediaUploadResponse | { id: string; status: 'processing' }> => {
+  ): Promise<MediaUploadResponse | { id: string; status: MediaStatus }> => {
     const user = request.user;
     const accountId = request.accountId;
     if (!user || !accountId) throw new AppError(401, 'unauthorized', 'Sign-in required');
@@ -78,7 +94,28 @@ export default async function mediaRoutes(app: FastifyInstance): Promise<void> {
       throw new AppError(415, 'unsupported_media_type', `Unsupported content type: ${file.mimetype}`);
     }
 
-    const mediaId = randomUUID();
+    const requestedId = requestedMediaId(file);
+    const existing = requestedId ? await existingMediaRow(requestedId, accountId) : undefined;
+    if (existing) {
+      // Idempotent re-upload: the client already got a 200/201/202 for this id and is retrying
+      // (e.g. it never saw the earlier response). Don't reprocess or insert again.
+      reply.code(200);
+      // Image rows are always inserted with width/height set (never null); video rows never
+      // carry them, hence the two response shapes below.
+      return existing.kind === 'image'
+        ? {
+            id: existing.id,
+            url: mediaUrl(existing.id),
+            kind: 'image',
+            status: existing.status,
+            width: existing.width as number,
+            height: existing.height as number,
+            bytes: existing.bytes,
+          }
+        : { id: existing.id, status: existing.status };
+    }
+
+    const mediaId = requestedId ?? randomUUID();
     const createdAt = Date.now();
 
     if (kind === 'image') {

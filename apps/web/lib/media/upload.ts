@@ -27,6 +27,17 @@ export async function uploadPending(): Promise<void> {
     const res = await fetch(`${apiBase}/media`, { method: 'POST', headers, body: form });
     if (!res.ok) continue;
 
+    if (process.env.NODE_ENV === 'development') {
+      const body = (await res.json().catch(() => null)) as { id?: string } | null;
+      if (body?.id && body.id !== item.media_id) {
+        // ponytail: older API without the media_id fix mints its own id, which the synced
+        // rows referencing item.media_id will never resolve. Server now honours the id we
+        // send, so this should stay unreachable; upgrade path is reconciling referencing
+        // rows if it ever fires.
+        console.error(`uploadPending: server returned id ${body.id} for uploaded media_id ${item.media_id}`);
+      }
+    }
+
     await db.media_blobs.update(item.media_id, { uploaded: 1 });
   }
 }
