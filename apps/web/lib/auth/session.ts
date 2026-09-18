@@ -2,7 +2,7 @@
 
 import { createElement, Fragment, useEffect, useSyncExternalStore, type ReactElement, type ReactNode } from 'react';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
-import type { MeAccount, MeResponse, TokensResponse } from '@chipperly/shared/schemas/auth';
+import { MeResponseSchema, TokensResponseSchema, type MeAccount, type MeResponse, type TokensResponse } from '@chipperly/shared/schemas/auth';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { api, ApiError, getTokens, setTokens } from '../api/client';
 import { getKv, setKv } from '../db/kv';
@@ -81,12 +81,12 @@ export async function clearSession(): Promise<void> {
 
 /** Re-fetches `/me` and re-caches it; the offline-first source is kv + Dexie, this refreshes both. */
 export async function refreshMe(): Promise<void> {
-  const me = await api.get<MeResponse>('/me');
+  const me = await api.get<MeResponse>('/me', { schema: MeResponseSchema });
   await applyMe(me);
 }
 
 export async function signInWithPassword(email: string, password: string): Promise<void> {
-  const tokens = await api.post<TokensResponse>('/auth/login', { email, password });
+  const tokens = await api.post<TokensResponse>('/auth/login', { email, password }, { schema: TokensResponseSchema });
   await setTokens(tokens);
   await refreshMe();
 }
@@ -99,13 +99,17 @@ export async function signUp(
   display_name: string,
   invite?: { invite_code?: string; invite_token?: string },
 ): Promise<void> {
-  const tokens = await api.post<TokensResponse>('/auth/register', {
-    email,
-    password,
-    display_name,
-    invite_code: invite?.invite_code,
-    invite_token: invite?.invite_token,
-  });
+  const tokens = await api.post<TokensResponse>(
+    '/auth/register',
+    {
+      email,
+      password,
+      display_name,
+      invite_code: invite?.invite_code,
+      invite_token: invite?.invite_token,
+    },
+    { schema: TokensResponseSchema },
+  );
   await setTokens(tokens);
   await refreshMe();
 }
@@ -114,11 +118,15 @@ export async function signInWithGoogle(
   idToken: string,
   invite?: { invite_code?: string; invite_token?: string },
 ): Promise<void> {
-  const tokens = await api.post<TokensResponse>('/auth/google', {
-    id_token: idToken,
-    invite_code: invite?.invite_code,
-    invite_token: invite?.invite_token,
-  });
+  const tokens = await api.post<TokensResponse>(
+    '/auth/google',
+    {
+      id_token: idToken,
+      invite_code: invite?.invite_code,
+      invite_token: invite?.invite_token,
+    },
+    { schema: TokensResponseSchema },
+  );
   await setTokens(tokens);
   await refreshMe();
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { TokensResponse } from '@chipperly/shared/schemas/auth';
+import { TokensResponseSchema, type TokensResponse } from '@chipperly/shared/schemas/auth';
 import { api, ApiError, setTokens } from '@/lib/api/client';
 import { withBase } from '@/lib/api/base';
 import { refreshMe } from '@/lib/auth/session';
@@ -99,11 +99,15 @@ export function AppleButton() {
       }
       const result = await window.AppleID.auth.signIn();
       const invite_token = (await getPendingInviteToken()) ?? undefined;
-      const tokens = await api.post<TokensResponse>('/auth/apple', {
-        id_token: result.authorization.id_token,
-        invite_code: inviteCode || undefined,
-        invite_token,
-      });
+      const tokens = await api.post<TokensResponse>(
+        '/auth/apple',
+        {
+          id_token: result.authorization.id_token,
+          invite_code: inviteCode || undefined,
+          invite_token,
+        },
+        { schema: TokensResponseSchema },
+      );
       await setTokens(tokens);
       await refreshMe();
       await redirectAfterAuth(router);

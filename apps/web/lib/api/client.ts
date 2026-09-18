@@ -1,4 +1,5 @@
-import type { TokensResponse } from '@chipperly/shared/schemas/auth';
+import type { z } from 'zod';
+import { TokensResponseSchema, type TokensResponse } from '@chipperly/shared/schemas/auth';
 import { apiBase } from './base';
 import { getKv, setKv } from '../db/kv';
 import { setServerDate } from '../clock';
@@ -54,6 +55,8 @@ export interface ApiOptions {
   /** Sends `X-Locked: 1` (child-mode restricted writes). */
   locked?: boolean;
   signal?: AbortSignal;
+  /** Validates the JSON body against this shared zod schema; a mismatch throws ApiError('bad_response') instead of handing back a shape the caller didn't ask for. */
+  schema?: z.ZodType;
 }
 
 interface ErrorPayload {
@@ -93,8 +96,13 @@ async function refreshTokens(refreshToken: string): Promise<boolean> {
       await setTokens(null);
       return false;
     }
-    const tokens = (await res.json()) as TokensResponse;
-    await setTokens(tokens);
+    const parsed = TokensResponseSchema.safeParse(await res.json());
+    if (!parsed.success) {
+      if (process.env.NODE_ENV === 'development') console.error('bad /auth/refresh response', parsed.error);
+      await setTokens(null);
+      return false;
+    }
+    await setTokens(parsed.data);
     return true;
   } catch {
     return false;
@@ -142,7 +150,16 @@ async function request<T>(
   }
 
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const json: unknown = await res.json();
+  if (opts?.schema) {
+    const parsed = opts.schema.safeParse(json);
+    if (!parsed.success) {
+      if (process.env.NODE_ENV === 'development') console.error(`bad response from ${path}`, parsed.error);
+      throw new ApiError(502, 'bad_response', parsed.error.issues[0]?.message);
+    }
+    return parsed.data as T;
+  }
+  return json as T;
 }
 
 export const api = {

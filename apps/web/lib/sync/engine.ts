@@ -1,7 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { SYNCED_TABLES } from '@chipperly/shared/schemas/sync';
+import { SYNCED_TABLES, SyncPullResponseSchema, SyncPushResponseSchema } from '@chipperly/shared/schemas/sync';
 import type { Mutation, SyncPullResponse, SyncPushResponse } from '@chipperly/shared/schemas/sync';
 import type { SyncedTable } from '@chipperly/shared/constants/tables';
 import type { Profile } from '@chipperly/shared/schemas/profile';
@@ -153,6 +153,7 @@ export async function pullProfile(profileId: string): Promise<void> {
   while (hasMore) {
     const res = await api.get<SyncPullResponse>(
       `/sync/pull?profile_id=${encodeURIComponent(profileId)}&since=${cursor}`,
+      { schema: SyncPullResponseSchema },
     );
     await applyChanges(res.changes);
     cursor = res.version;
@@ -224,7 +225,11 @@ async function pushOutbox(): Promise<void> {
   }
 
   for (const [profileId, mutations] of byProfile) {
-    const res = await api.post<SyncPushResponse>('/sync/push', { profile_id: profileId, mutations });
+    const res = await api.post<SyncPushResponse>(
+      '/sync/push',
+      { profile_id: profileId, mutations },
+      { schema: SyncPushResponseSchema },
+    );
 
     for (const id of res.applied) {
       await db.outbox.where('id').equals(id).delete();
