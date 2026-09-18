@@ -26,6 +26,7 @@ const EnvSchema = z.object({
   APPLE_SIGNIN_TEAM_ID: z.string().min(1).optional(),
   APPLE_SIGNIN_KEY_ID: z.string().min(1).optional(),
   APPLE_SIGNIN_PRIVATE_KEY: z.string().min(1).optional(),
+  BETA_INVITE_CODE: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(1).default('Chipperly <no-reply@chipperlyapp.com>'),
   APP_ORIGIN: z.string().min(1).optional(),
@@ -54,6 +55,8 @@ export const env = {
   ),
   /** True when Resend is configured; false = mail is logged to stdout. */
   mailEnabled: Boolean(parsed.RESEND_API_KEY),
+  /** True when a closed beta invite code gates /auth/register and new-user /auth/google, /auth/apple. */
+  inviteCodeRequired: Boolean(parsed.BETA_INVITE_CODE),
 };
 
 export type Env = typeof env;

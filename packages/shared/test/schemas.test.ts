@@ -344,7 +344,7 @@ describe('auth schemas', () => {
   });
 
   it('round-trips a providers response', () => {
-    expectRoundTrip(ProvidersResponseSchema, { google: true, apple: false });
+    expectRoundTrip(ProvidersResponseSchema, { google: true, apple: false, invite_code_required: true });
   });
 
   it('round-trips a create-account body', () => {

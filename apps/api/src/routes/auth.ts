@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
@@ -14,7 +14,7 @@ import {
 } from '@chipperly/shared/schemas/auth';
 import { env } from '../env.js';
 import { db } from '../db/client.js';
-import { email_verifications, password_resets, sessions, users } from '../db/schema/accounts.js';
+import { email_verifications, invites, password_resets, sessions, users } from '../db/schema/accounts.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { sendMail } from '../lib/mailer.js';
 import { verifyGoogleIdToken, type VerifiedIdentity } from '../lib/google.js';
@@ -73,11 +73,35 @@ async function sendVerificationEmail(userId: string, email: string): Promise<voi
 }
 
 /**
+ * Constant-time invite code check (sec: avoids leaking the code length or
+ * value through response-time differences). No configured code = nothing to
+ * check. Length mismatch is simply invalid, same as `timingSafeEqual` requires.
+ */
+export function isValidInviteCode(configured: string | undefined, provided: string | undefined): boolean {
+  if (!configured) return true;
+  if (!provided) return false;
+  const a = Buffer.from(configured);
+  const b = Buffer.from(provided);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** A pending account invite bypasses the beta code: valid token, not expired. Accepting it still needs sign-in. */
+async function isValidPendingInvite(rawToken: string): Promise<boolean> {
+  const [invite] = await db
+    .select({ expires_at: invites.expires_at })
+    .from(invites)
+    .where(eq(invites.token_hash, hashToken(rawToken)))
+    .limit(1);
+  return invite !== undefined && invite.expires_at > Date.now();
+}
+
+/**
  * Finds the user for a verified OAuth identity, linking the provider to an
  * existing password account by email when the provider says that email is
- * verified, or creating a new user otherwise.
+ * verified. Returns null when no user exists yet, so the caller can check
+ * the beta invite code before `createOAuthUser` actually creates one.
  */
-async function findOrCreateOAuthUser(provider: 'google' | 'apple', identity: VerifiedIdentity): Promise<string> {
+async function findOAuthUser(provider: 'google' | 'apple', identity: VerifiedIdentity): Promise<string | null> {
   const email = identity.email.toLowerCase();
 
   const [byProvider] = await db
@@ -99,13 +123,17 @@ async function findOrCreateOAuthUser(provider: 'google' | 'apple', identity: Ver
     return byEmail.id;
   }
 
+  return null;
+}
+
+async function createOAuthUser(provider: 'google' | 'apple', identity: VerifiedIdentity): Promise<string> {
   const newUserId = uuidv7();
   await db.insert(users).values({
     id: newUserId,
-    email,
+    email: identity.email.toLowerCase(),
     auth_provider: provider,
     auth_provider_id: identity.sub,
-    display_name: identity.name ?? email,
+    display_name: identity.name ?? identity.email,
     email_verified_at: identity.email_verified ? Date.now() : null,
     created_at: Date.now(),
   });
@@ -116,6 +144,13 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/register', AUTH_RATE_LIMIT, async (request): Promise<TokensResponse> => {
     const body = RegisterBodySchema.parse(request.body);
     const email = body.email.toLowerCase();
+
+    if (env.BETA_INVITE_CODE) {
+      const bypassed = body.invite_token ? await isValidPendingInvite(body.invite_token) : false;
+      if (!bypassed && !isValidInviteCode(env.BETA_INVITE_CODE, body.invite_code)) {
+        throw new AppError(403, 'invite_code_invalid', "That invite code isn't right.");
+      }
+    }
 
     const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
     if (existing) throw new AppError(409, 'email_taken', 'An account with this email already exists');
@@ -148,14 +183,20 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/auth/providers', async () => {
-    return { google: env.googleEnabled, apple: env.appleEnabled };
+    return { google: env.googleEnabled, apple: env.appleEnabled, invite_code_required: env.inviteCodeRequired };
   });
 
   app.post('/auth/google', async (request): Promise<TokensResponse> => {
     if (!env.googleEnabled) throw new AppError(404, 'not_enabled', 'Google sign-in is not enabled');
     const body = GoogleAuthBodySchema.parse(request.body);
     const identity = await verifyGoogleIdToken(body.id_token);
-    const userId = await findOrCreateOAuthUser('google', identity);
+    let userId = await findOAuthUser('google', identity);
+    if (!userId) {
+      if (env.BETA_INVITE_CODE && !isValidInviteCode(env.BETA_INVITE_CODE, body.invite_code)) {
+        throw new AppError(403, 'invite_code_invalid', "That invite code isn't right.");
+      }
+      userId = await createOAuthUser('google', identity);
+    }
     return issueTokens(userId, undefined, userAgentOf(request));
   });
 
@@ -163,7 +204,13 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!env.appleEnabled) throw new AppError(404, 'not_enabled', 'Sign in with Apple is not enabled');
     const body = AppleAuthBodySchema.parse(request.body);
     const identity = await verifyAppleIdToken(body.id_token);
-    const userId = await findOrCreateOAuthUser('apple', identity);
+    let userId = await findOAuthUser('apple', identity);
+    if (!userId) {
+      if (env.BETA_INVITE_CODE && !isValidInviteCode(env.BETA_INVITE_CODE, body.invite_code)) {
+        throw new AppError(403, 'invite_code_invalid', "That invite code isn't right.");
+      }
+      userId = await createOAuthUser('apple', identity);
+    }
     return issueTokens(userId, undefined, userAgentOf(request));
   });
 

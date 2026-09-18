@@ -2,6 +2,7 @@ import type { useRouter } from 'next/navigation';
 import type { MeResponse } from '@chipperly/shared/schemas/auth';
 import { api } from '@/lib/api/client';
 import { getKv, setKv } from '@/lib/db/kv';
+import { inviteTokenFromRedirect } from './inviteToken';
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -10,6 +11,15 @@ const POST_AUTH_REDIRECT_KEY = 'post_auth_redirect';
 
 export async function setPostAuthRedirect(path: string): Promise<void> {
   await setKv<string>(POST_AUTH_REDIRECT_KEY, path);
+}
+
+/**
+ * The invite token from a pending post-auth redirect (S33's `/invite/?token=...`), if any. A user who
+ * reaches S2 this way registers with that token instead of a beta invite code (see auth.ts's
+ * isValidPendingInvite): being invited to an account already proves they're expected.
+ */
+export async function getPendingInviteToken(): Promise<string | null> {
+  return inviteTokenFromRedirect(await getKv<string>(POST_AUTH_REDIRECT_KEY));
 }
 
 /**

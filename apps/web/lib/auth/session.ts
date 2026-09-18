@@ -80,14 +80,27 @@ export async function signInWithPassword(email: string, password: string): Promi
   await refreshMe();
 }
 
-export async function signUp(email: string, password: string, display_name: string): Promise<void> {
-  const tokens = await api.post<TokensResponse>('/auth/register', { email, password, display_name });
+/** `invite` carries the closed-beta gate (see docs/CONTRACTS.md): a code the owner hands out, or a
+ * pending account invite's token, which bypasses the code entirely (components/auth/postAuthRedirect.ts). */
+export async function signUp(
+  email: string,
+  password: string,
+  display_name: string,
+  invite?: { invite_code?: string; invite_token?: string },
+): Promise<void> {
+  const tokens = await api.post<TokensResponse>('/auth/register', {
+    email,
+    password,
+    display_name,
+    invite_code: invite?.invite_code,
+    invite_token: invite?.invite_token,
+  });
   await setTokens(tokens);
   await refreshMe();
 }
 
-export async function signInWithGoogle(idToken: string): Promise<void> {
-  const tokens = await api.post<TokensResponse>('/auth/google', { id_token: idToken });
+export async function signInWithGoogle(idToken: string, invite_code?: string): Promise<void> {
+  const tokens = await api.post<TokensResponse>('/auth/google', { id_token: idToken, invite_code });
   await setTokens(tokens);
   await refreshMe();
 }

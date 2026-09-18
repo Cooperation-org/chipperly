@@ -34,6 +34,7 @@ const env = {
   WEB_DIR: webOutDir,
   APP_ORIGIN: 'http://127.0.0.1:8123',
   UPLOAD_DIR: uploadDir,
+  BETA_INVITE_CODE: 'e2e-beta-code',
   TEST_ENDPOINTS: '1',
   LOG_LEVEL: 'warn',
   NODE_ENV: 'production',

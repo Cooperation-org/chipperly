@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { GoogleButton } from './GoogleButton';
 import { AppleButton } from './AppleButton';
-import { redirectAfterAuth } from './postAuthRedirect';
+import { getAuthProviders } from './providers';
+import { getPendingInviteToken, redirectAfterAuth } from './postAuthRedirect';
 import styles from './SignUpForm.module.css';
 
 const HAS_OAUTH = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) || Boolean(process.env.NEXT_PUBLIC_APPLE_CLIENT_ID);
@@ -21,12 +22,18 @@ export function SignUpForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCodeRequired, setInviteCodeRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'signed_in') router.replace('/today/');
   }, [status, router]);
+
+  useEffect(() => {
+    void getAuthProviders().then((providers) => setInviteCodeRequired(providers.invite_code_required));
+  }, []);
 
   if (status === 'signed_in') return null;
 
@@ -35,13 +42,16 @@ export function SignUpForm() {
     setLoading(true);
     setError(null);
     try {
-      await signUp(email, password, name);
+      const invite_token = (await getPendingInviteToken()) ?? undefined;
+      await signUp(email, password, name, { invite_code: inviteCode || undefined, invite_token });
       await redirectAfterAuth(router);
     } catch (err) {
       setError(
         err instanceof ApiError && err.code === 'email_taken'
           ? 'An account with this email already exists.'
-          : "Couldn't create your account. Try again.",
+          : err instanceof ApiError && err.code === 'invite_code_invalid'
+            ? err.message
+            : "Couldn't create your account. Try again.",
       );
     } finally {
       setLoading(false);
@@ -79,6 +89,15 @@ export function SignUpForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        {inviteCodeRequired ? (
+          <TextField
+            label="Beta invite code"
+            placeholder="Ask Chipperly for the code"
+            autoComplete="off"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+          />
+        ) : null}
         {error ? (
           <p className={styles.error} role="alert">
             {error}

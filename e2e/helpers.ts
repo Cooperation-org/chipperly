@@ -11,6 +11,9 @@ export interface SignUpResult {
   name: string;
 }
 
+// e2e/server.mjs sets BETA_INVITE_CODE so every real sign-up in this suite needs it.
+const BETA_INVITE_CODE = 'e2e-beta-code';
+
 /**
  * Real UI sign-up flow: /sign-up/ -> onboarding kind "My family" -> first
  * profile (name + an emoji) -> Ready -> /today/. Tokens live in IndexedDB
@@ -38,6 +41,8 @@ export async function signUp(page: Page, opts: { name: string }): Promise<SignUp
     await page.getByLabel('Name', { exact: true }).fill(opts.name);
     await page.getByLabel('Email', { exact: true }).fill(email);
     await page.getByLabel('Password', { exact: true }).fill(password);
+    const inviteCodeField = page.getByLabel('Beta invite code', { exact: true });
+    if (await inviteCodeField.isVisible()) await inviteCodeField.fill(BETA_INVITE_CODE);
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
     landed = await page

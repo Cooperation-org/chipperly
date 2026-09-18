@@ -10,6 +10,10 @@ export const RegisterBodySchema = z.object({
   password: passwordSchema,
   display_name: z.string().min(1),
   device_id: z.string().min(1).optional(),
+  /** Closed beta gate (env.BETA_INVITE_CODE); ignored once the account is created. */
+  invite_code: z.string().min(1).optional(),
+  /** A pending account invite's raw token; a valid, unexpired one bypasses invite_code. */
+  invite_token: z.string().min(1).optional(),
 });
 export type RegisterBody = z.infer<typeof RegisterBodySchema>;
 
@@ -21,11 +25,15 @@ export type LoginBody = z.infer<typeof LoginBodySchema>;
 
 export const GoogleAuthBodySchema = z.object({
   id_token: z.string().min(1),
+  /** Closed beta gate; required only when this sign-in creates a new user. */
+  invite_code: z.string().min(1).optional(),
 });
 export type GoogleAuthBody = z.infer<typeof GoogleAuthBodySchema>;
 
 export const AppleAuthBodySchema = z.object({
   id_token: z.string().min(1),
+  /** Closed beta gate; required only when this sign-in creates a new user. */
+  invite_code: z.string().min(1).optional(),
 });
 export type AppleAuthBody = z.infer<typeof AppleAuthBodySchema>;
 
@@ -61,6 +69,7 @@ export type TokensResponse = z.infer<typeof TokensResponseSchema>;
 export const ProvidersResponseSchema = z.object({
   google: z.boolean(),
   apple: z.boolean(),
+  invite_code_required: z.boolean(),
 });
 export type ProvidersResponse = z.infer<typeof ProvidersResponseSchema>;
 

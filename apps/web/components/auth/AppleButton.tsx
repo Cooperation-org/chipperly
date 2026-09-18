@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { TokensResponse } from '@chipperly/shared/schemas/auth';
-import { api, setTokens } from '@/lib/api/client';
+import { api, ApiError, setTokens } from '@/lib/api/client';
 import { withBase } from '@/lib/api/base';
 import { refreshMe } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
-import { getAuthProviders } from './providers';
+import { TextField } from '@/components/ui/TextField';
+import { getAuthProviders, type AuthProviders } from './providers';
 import { redirectAfterAuth } from './postAuthRedirect';
 import styles from './AppleButton.module.css';
 
@@ -58,7 +59,8 @@ function loadAppleJs(): Promise<void> {
 
 /** "Continue with Apple", shown only when the client id is configured and the server has it enabled. */
 export function AppleButton() {
-  const [enabled, setEnabled] = useState(false);
+  const [providers, setProviders] = useState<AuthProviders | null>(null);
+  const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -66,13 +68,15 @@ export function AppleButton() {
   useEffect(() => {
     if (!APPLE_CLIENT_ID) return;
     let cancelled = false;
-    void getAuthProviders().then((providers) => {
-      if (!cancelled && providers.apple) setEnabled(true);
+    void getAuthProviders().then((result) => {
+      if (!cancelled) setProviders(result);
     });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const enabled = providers?.apple ?? false;
 
   if (!APPLE_CLIENT_ID || !enabled) return null;
 
@@ -94,19 +98,33 @@ export function AppleButton() {
         appleInitialized = true;
       }
       const result = await window.AppleID.auth.signIn();
-      const tokens = await api.post<TokensResponse>('/auth/apple', { id_token: result.authorization.id_token });
+      const tokens = await api.post<TokensResponse>('/auth/apple', {
+        id_token: result.authorization.id_token,
+        invite_code: inviteCode || undefined,
+      });
       await setTokens(tokens);
       await refreshMe();
       await redirectAfterAuth(router);
-    } catch {
-      setError("Couldn't sign in with Apple.");
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.code === 'invite_code_invalid' ? err.message : "Couldn't sign in with Apple.",
+      );
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div>
+    <div className={styles.container}>
+      {providers?.invite_code_required ? (
+        <TextField
+          label="Beta invite code"
+          placeholder="Ask Chipperly for the code"
+          autoComplete="off"
+          value={inviteCode}
+          onChange={(e) => setInviteCode(e.target.value)}
+        />
+      ) : null}
       <Button variant="secondary" fullWidth loading={loading} onClick={() => void handleClick()}>
         Continue with Apple
       </Button>

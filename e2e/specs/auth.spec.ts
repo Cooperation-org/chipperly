@@ -30,9 +30,17 @@ test.describe('auth', () => {
   let email = '';
   let password = '';
 
-  test('S2 create account', async () => {
+  test('providers reports the beta invite code as required', async () => {
+    const providers = await page.request.get('/api/auth/providers').then((r) => r.json());
+    expect(providers.invite_code_required).toBe(true);
+  });
+
+  test('S2 create account: wrong code shows the error, right code proceeds', async () => {
     await page.goto('/sign-up/');
     await expect(page.getByRole('heading', { name: 'Create account' })).toBeVisible();
+    const inviteCodeField = page.getByLabel('Beta invite code', { exact: true });
+    await expect(inviteCodeField).toBeVisible();
+    await expect(inviteCodeField).toHaveAttribute('placeholder', 'Ask Chipperly for the code');
     await expectNoOverflow(page, 'S2 create account');
     await snap(page, 's2-create-account');
 
@@ -43,6 +51,11 @@ test.describe('auth', () => {
     await page.getByLabel('Name', { exact: true }).fill('Auth Tester');
     await page.getByLabel('Email', { exact: true }).fill(email);
     await page.getByLabel('Password', { exact: true }).fill(password);
+    await inviteCodeField.fill('not-the-code');
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await expect(page.getByText("That invite code isn't right.")).toBeVisible();
+
+    await inviteCodeField.fill('e2e-beta-code');
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
     await page.waitForURL('**/onboarding/kind/');
   });

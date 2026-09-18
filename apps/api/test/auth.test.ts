@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { TokensResponse } from '@chipperly/shared/schemas/auth';
 import { buildTestApp, request } from './helpers.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
+import { isValidInviteCode } from '../src/routes/auth.js';
 
 function extractToken(mailText: string): string {
   const match = mailText.match(/token=(\S+)/);
@@ -197,7 +198,20 @@ describe('auth routes', () => {
   it('reports provider availability from env', async () => {
     const response = await request(app, { method: 'GET', url: '/api/auth/providers' });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ google: false, apple: false });
+    expect(response.json()).toEqual({ google: false, apple: false, invite_code_required: false });
+  });
+
+  // env.BETA_INVITE_CODE is unset for this test run (apps/api/test/globalSetup.ts doesn't set it), so
+  // registration here stays open; the gated 403/bypass paths (wrong code, right code, invite_token bypass)
+  // are exercised in e2e/specs/auth.spec.ts against a server started with BETA_INVITE_CODE set, since
+  // env.ts parses process.env once at import and can't be flipped per-test in-process.
+  it('registers without an invite_code when no beta code is configured', async () => {
+    const response = await request(app, {
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'no-invite-code@example.com', password: 'correct-horse', display_name: 'Open Beta' },
+    });
+    expect(response.statusCode).toBe(200);
   });
 
   it('404s google and apple sign-in when disabled', async () => {
@@ -212,5 +226,19 @@ describe('auth routes', () => {
     const apple = await request(app, { method: 'POST', url: '/api/auth/apple', payload: { id_token: 'whatever' } });
     expect(apple.statusCode).toBe(404);
     expect(apple.json().error.code).toBe('not_enabled');
+  });
+});
+
+describe('isValidInviteCode', () => {
+  it('has nothing to check when no code is configured', () => {
+    expect(isValidInviteCode(undefined, undefined)).toBe(true);
+    expect(isValidInviteCode(undefined, 'anything')).toBe(true);
+  });
+
+  it('rejects a missing or wrong code, accepts the right one', () => {
+    expect(isValidInviteCode('e2e-beta-code', undefined)).toBe(false);
+    expect(isValidInviteCode('e2e-beta-code', 'wrong')).toBe(false);
+    expect(isValidInviteCode('e2e-beta-code', 'e2e-beta-cod')).toBe(false);
+    expect(isValidInviteCode('e2e-beta-code', 'e2e-beta-code')).toBe(true);
   });
 });
