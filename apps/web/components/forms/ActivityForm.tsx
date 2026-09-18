@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import type { ActivityStep, Recurrence } from '@chipperly/shared/schemas/activity';
+import type { Activity, ActivityStep, Recurrence } from '@chipperly/shared/schemas/activity';
 import { CHIP_MAX } from '@chipperly/shared/constants/limits';
 import { db } from '@/lib/db/db';
 import { deleteActivity, saveActivity, useActivity, type SaveActivityStepInput } from '@/lib/data/activities';
@@ -14,11 +14,13 @@ import { restore } from '@/lib/sync/mutate';
 import { newId } from '@/lib/ids';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Picture } from '@/components/media/Picture';
+import { Picker } from '@/components/picker/Picker';
 import { TextField } from '@/components/ui/TextField';
 import { Stepper } from '@/components/ui/Stepper';
 import { Segmented } from '@/components/ui/Segmented';
 import { BigButton } from '@/components/ui/BigButton';
 import { IconButton } from '@/components/ui/IconButton';
+import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { EditPageHeader } from './EditPageHeader';
 import { FormRow } from './FormRow';
@@ -45,8 +47,10 @@ interface DraftStep extends SaveActivityStepInput {
 export function ActivityForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { open, close } = useSheet();
   const editingId = searchParams.get('id');
   const addTo = searchParams.get('add_to');
+  const routineParam = searchParams.get('routine') === '1';
   const { profile } = useActiveProfile();
   const profileId = profile?.id ?? '';
   const locations = useLocations(profileId);
@@ -60,8 +64,11 @@ export function ActivityForm() {
   const [repeat, setRepeat] = useState<'none' | Recurrence>('none');
   const [weekday, setWeekday] = useState(0);
   const [recurrenceTime, setRecurrenceTime] = useState<string | null>(null);
-  const [steps, setSteps] = useState<DraftStep[]>([]);
-  const [openField, setOpenField] = useState<FieldKey | null>(editingId ? null : 'name');
+  // New routine flow (?routine=1, no id yet): start with one empty step row, Steps expanded, ready to type into.
+  const [steps, setSteps] = useState<DraftStep[]>(() =>
+    routineParam && !editingId ? [{ key: newId(), name: '', emoji: null, photo_id: null }] : [],
+  );
+  const [openField, setOpenField] = useState<FieldKey | null>(editingId ? null : routineParam ? 'steps' : 'name');
   const [saving, setSaving] = useState(false);
 
   const seededRef = useRef(false);
@@ -69,6 +76,10 @@ export function ActivityForm() {
     () => (editingId ? db.activity_steps.where('activity_id').equals(editingId).toArray() : Promise.resolve([])),
     [editingId],
   );
+  // The loaded activity's own steps (not the in-progress draft below), so the title stays put
+  // as the user adds/removes step rows before saving.
+  const loadedHasSteps = rawSteps !== undefined && rawSteps.some((s) => s.deleted_at === null);
+  const isRoutineMode = routineParam || loadedHasSteps;
 
   useEffect(() => {
     if (!editingId || seededRef.current || !activity || rawSteps === undefined) return;
@@ -80,12 +91,9 @@ export function ActivityForm() {
     setRepeat(activity.recurrence ?? 'none');
     setWeekday(activity.recurrence_weekday ?? 0);
     setRecurrenceTime(activity.recurrence_time);
-    setSteps(
-      rawSteps
-        .filter((s) => s.deleted_at === null)
-        .sort((a, b) => a.position - b.position)
-        .map((s) => ({ key: s.id, id: s.id, name: s.name, emoji: s.emoji, photo_id: s.photo_id })),
-    );
+    const liveSteps = rawSteps.filter((s) => s.deleted_at === null).sort((a, b) => a.position - b.position);
+    setSteps(liveSteps.map((s) => ({ key: s.id, id: s.id, name: s.name, emoji: s.emoji, photo_id: s.photo_id })));
+    setOpenField(liveSteps.length > 0 ? 'steps' : null);
   }, [editingId, activity, rawSteps]);
 
   function toggle(field: FieldKey): void {
@@ -109,6 +117,27 @@ export function ActivityForm() {
       next.splice(to, 0, moved as DraftStep);
       return next;
     });
+  }
+
+  /** Mirrors the Rails routine steps that referenced activities: copies name/emoji/photo into the step. */
+  function openFromActivity(index: number): void {
+    open(
+      <Picker
+        kind="activity"
+        profileId={profileId}
+        title="Choose an activity"
+        routines={false}
+        onPick={(picked) => {
+          const pickedActivity = picked as Activity;
+          updateStep(index, { name: pickedActivity.name, emoji: pickedActivity.emoji, photo_id: pickedActivity.photo_id });
+          close();
+        }}
+        // ponytail: "Create new" inside this nested picker has nowhere sensible to send you
+        // mid-draft; closing back to the step you were editing is the safe default.
+        onCreateNew={close}
+      />,
+      { title: 'Choose an activity' },
+    );
   }
 
   function removeStep(index: number): void {
@@ -179,7 +208,9 @@ export function ActivityForm() {
 
   return (
     <div className={styles.page}>
-      <EditPageHeader title={editingId ? 'Edit activity' : 'New activity'} />
+      <EditPageHeader
+        title={editingId ? (isRoutineMode ? 'Edit routine' : 'Edit activity') : isRoutineMode ? 'New routine' : 'New activity'}
+      />
 
       <FormRow label="Name" summary={name || 'Required'} open={openField === 'name'} onToggle={() => toggle('name')}>
         <div className={styles.nameField}>
@@ -233,12 +264,18 @@ export function ActivityForm() {
           {steps.map((step, i) => (
             <div key={step.key} className={styles.stepRow}>
               <Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name || 'Step'} size="list" />
-              <TextField
-                label={`Step ${i + 1}`}
-                value={step.name}
-                onChange={(e) => updateStep(i, { name: e.target.value })}
-                className={styles.stepInput}
-              />
+              <div className={styles.stepMain}>
+                <TextField
+                  label={`Step ${i + 1}`}
+                  value={step.name}
+                  onChange={(e) => updateStep(i, { name: e.target.value })}
+                  className={styles.stepInput}
+                  autoFocus={routineParam && !editingId && i === 0}
+                />
+                <button type="button" className={styles.fromActivityButton} onClick={() => openFromActivity(i)}>
+                  From activity
+                </button>
+              </div>
               <div className={styles.stepActions}>
                 <IconButton icon="chevron" aria-label={`Move step ${i + 1} up`} className={styles.rotateUp} disabled={i === 0} onClick={() => moveStep(i, -1)} />
                 <IconButton icon="chevron" aria-label={`Move step ${i + 1} down`} className={styles.rotateDown} disabled={i === steps.length - 1} onClick={() => moveStep(i, 1)} />

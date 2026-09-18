@@ -100,9 +100,9 @@ describe('secondaryText', () => {
     expect(secondaryText(makeDay({ id: 'a', start_time: '08:00', stepCount: 3 }))).toBe('8:00 AM');
   });
 
-  it('falls back to step count', () => {
-    expect(secondaryText(makeDay({ id: 'a', stepCount: 1 }))).toBe('1 step');
-    expect(secondaryText(makeDay({ id: 'a', stepCount: 3 }))).toBe('3 steps');
+  it('falls back to "Routine · N steps"', () => {
+    expect(secondaryText(makeDay({ id: 'a', stepCount: 1 }))).toBe('Routine · 1 step');
+    expect(secondaryText(makeDay({ id: 'a', stepCount: 3 }))).toBe('Routine · 3 steps');
   });
 
   it('is undefined with neither', () => {

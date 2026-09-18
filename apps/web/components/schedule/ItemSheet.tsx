@@ -76,7 +76,9 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
       <Segmented label="Part of day" items={PART_OF_DAY_ITEMS} value={item.part_of_day ?? 'none'} onChange={(v) => void setPartOfDay(v)} />
 
       {day.steps.length > 0 ? (
-        <ul className={styles.steps}>
+        <>
+          <p className={styles.routineCaption}>Routine</p>
+          <ul className={styles.steps}>
           {day.steps.map((s) => (
             <li key={s.step.id}>
               <StepRow
@@ -89,7 +91,8 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
               />
             </li>
           ))}
-        </ul>
+          </ul>
+        </>
       ) : null}
 
       {day.activity.chip_value > 0 ? (

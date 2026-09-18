@@ -25,6 +25,18 @@ export function useActivity(id: string): Activity | undefined {
   return useLiveQuery(() => db.activities.get(id), [id]);
 }
 
+/** Pure: an activity IS a routine when it has at least one non-deleted step (docs/technical-plan.md section 5). */
+export function isRoutine(activity: Activity, steps: readonly ActivityStep[]): boolean {
+  return steps.some((step) => step.activity_id === activity.id && step.deleted_at === null);
+}
+
+/** Activities that are routines (have steps), alphabetical — same source as useActivities, just filtered. */
+export function useRoutines(profileId: string): Activity[] {
+  const activities = useActivities(profileId);
+  const steps = useLiveQuery(() => db.activity_steps.where('profile_id').equals(profileId).toArray(), [profileId], []);
+  return useMemo(() => activities.filter((activity) => isRoutine(activity, steps)), [activities, steps]);
+}
+
 export interface SaveActivityStepInput {
   id?: string;
   name: string;

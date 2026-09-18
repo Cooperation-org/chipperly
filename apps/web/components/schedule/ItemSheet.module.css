@@ -57,6 +57,15 @@
   border: 0;
 }
 
+.routineCaption {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .steps {
   list-style: none;
   margin: 0;

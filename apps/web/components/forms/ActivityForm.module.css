@@ -58,9 +58,33 @@
   gap: var(--space-2);
 }
 
-.stepInput {
+.stepMain {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-width: 0;
+  gap: var(--space-1);
+}
+
+.stepInput {
+  min-width: 0;
+}
+
+.fromActivityButton {
+  align-self: flex-start;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.fromActivityButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .stepActions {

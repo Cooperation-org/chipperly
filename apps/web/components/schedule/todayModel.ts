@@ -42,7 +42,7 @@ export function formatTime(hhmm: string): string {
 /** S6 row secondary text: start time, else step count, else nothing. */
 export function secondaryText(day: DayItem): string | undefined {
   if (day.item.start_time) return formatTime(day.item.start_time);
-  if (day.steps.length > 0) return `${day.steps.length} step${day.steps.length === 1 ? '' : 's'}`;
+  if (day.steps.length > 0) return `Routine · ${day.steps.length} step${day.steps.length === 1 ? '' : 's'}`;
   return undefined;
 }
 

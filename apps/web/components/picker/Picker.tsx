@@ -20,14 +20,19 @@ export interface PickerProps {
   title: string;
   onPick: (item: Activity | Reward) => void;
   onCreateNew: () => void;
+  /** kind 'activity' only: show the Routines section (activities with steps). Default true; pass false to offer plain activities only, e.g. the "From activity" picker in a routine's step editor. */
+  routines?: boolean;
+  /** kind 'activity' only: the dashed "New routine" tile at the end of the Routines section. Omit to not show that tile (e.g. callers with nowhere sensible to send it). */
+  onCreateRoutine?: () => void;
 }
 
 const RECENT_COUNT = 8;
 const SEARCH_THRESHOLD = 12;
 
 /** Sheet content for adding an activity to the day or picking a working-for reward. One component, two data sources. */
-export function Picker({ kind, profileId, locationId, onPick, onCreateNew }: PickerProps) {
+export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routines = true, onCreateRoutine }: PickerProps) {
   const [query, setQuery] = useState('');
+  const showRoutines = kind === 'activity' && routines;
 
   const activities = useActivities(profileId);
   const recentActivities = useRecentActivities(profileId, RECENT_COUNT);
@@ -54,6 +59,14 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew }: Pic
   const filteredRewards = useMemo(
     () => filterAndSection(rewards, query).slice().sort((a, b) => a.name.localeCompare(b.name)),
     [rewards, query],
+  );
+  const plainActivities = useMemo(
+    () => filteredActivities.filter((a) => (stepCountByActivity.get(a.id) ?? 0) === 0),
+    [filteredActivities, stepCountByActivity],
+  );
+  const routineActivities = useMemo(
+    () => (showRoutines ? filteredActivities.filter((a) => (stepCountByActivity.get(a.id) ?? 0) > 0) : []),
+    [filteredActivities, stepCountByActivity, showRoutines],
   );
 
   return (
@@ -91,21 +104,48 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew }: Pic
         </section>
       ) : null}
 
-      <section>
-        <h3 className={styles.sectionLabel}>All</h3>
-        <div className={styles.grid}>
-          {kind === 'activity'
-            ? filteredActivities.map((activity) => (
-                <ActivityTile
-                  key={activity.id}
-                  activity={activity}
-                  stepCount={stepCountByActivity.get(activity.id) ?? 0}
-                  onPick={onPick}
-                />
-              ))
-            : filteredRewards.map((reward) => <RewardTile key={reward.id} reward={reward} onPick={onPick} />)}
-        </div>
-      </section>
+      {kind === 'activity' ? (
+        <>
+          <section>
+            <h3 className={styles.sectionLabel}>Activities</h3>
+            <div className={styles.grid}>
+              {plainActivities.map((activity) => (
+                <ActivityTile key={activity.id} activity={activity} stepCount={0} onPick={onPick} />
+              ))}
+            </div>
+          </section>
+          {showRoutines ? (
+            <section>
+              <h3 className={styles.sectionLabel}>Routines</h3>
+              <div className={styles.grid}>
+                {routineActivities.map((activity) => (
+                  <ActivityTile
+                    key={activity.id}
+                    activity={activity}
+                    stepCount={stepCountByActivity.get(activity.id) ?? 0}
+                    onPick={onPick}
+                  />
+                ))}
+                {onCreateRoutine ? (
+                  <button type="button" className={styles.createNew} onClick={onCreateRoutine} aria-label="New routine">
+                    <Icon name="plus" size={24} />
+                    <span>New routine</span>
+                  </button>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+        </>
+      ) : (
+        <section>
+          <h3 className={styles.sectionLabel}>All</h3>
+          <div className={styles.grid}>
+            {filteredRewards.map((reward) => (
+              <RewardTile key={reward.id} reward={reward} onPick={onPick} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

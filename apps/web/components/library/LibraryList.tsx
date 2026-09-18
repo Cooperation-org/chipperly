@@ -16,14 +16,14 @@ import { useSheet } from '@/components/ui/Sheet';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { db } from '@/lib/db/db';
 import { restore } from '@/lib/sync/mutate';
-import { useActivities, deleteActivity } from '@/lib/data/activities';
+import { useActivities, useRoutines, deleteActivity } from '@/lib/data/activities';
 import { useRewards, deleteReward } from '@/lib/data/rewards';
 import { useLocations, saveLocation, deleteLocation } from '@/lib/data/locations';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import styles from './LibraryList.module.css';
 
-export type LibraryKind = 'activity' | 'reward' | 'location';
+export type LibraryKind = 'activity' | 'reward' | 'location' | 'routine';
 
 export interface LibraryListProps {
   kind: LibraryKind;
@@ -88,6 +88,7 @@ export function LibraryList({ kind }: LibraryListProps) {
   const profileId = profile?.id;
 
   const activities = useActivities(profileId ?? '');
+  const routines = useRoutines(profileId ?? '');
   const rewards = useRewards(profileId ?? '');
   const locations = useLocations(profileId ?? '');
   const steps = useLiveQuery(() => (profileId ? db.activity_steps.where('profile_id').equals(profileId).toArray() : []), [profileId], []);
@@ -100,24 +101,25 @@ export function LibraryList({ kind }: LibraryListProps) {
     }
     return counts;
   }, [steps]);
+  const routineIds = useMemo(() => new Set(routines.map((r) => r.id)), [routines]);
+  const plainActivities = useMemo(() => activities.filter((a) => !routineIds.has(a.id)), [activities, routineIds]);
 
   if (!profileId) return null;
   const pid = profileId;
 
   function addNew(): void {
     if (kind === 'activity') router.push('/activity/edit/');
+    else if (kind === 'routine') router.push('/activity/edit/?routine=1');
     else if (kind === 'reward') router.push('/reward/edit/');
     else open(<LocationSheet profileId={pid} />, { title: 'Add location' });
   }
 
   const rows =
     kind === 'activity'
-      ? activities.map((a) => ({
+      ? plainActivities.map((a) => ({
           id: a.id,
           name: a.name,
-          secondary: [`${stepCounts.get(a.id) ?? 0} step${(stepCounts.get(a.id) ?? 0) === 1 ? '' : 's'}`, repeatLabel(a)]
-            .filter(Boolean)
-            .join(' · '),
+          secondary: repeatLabel(a),
           tile: <Picture emoji={a.emoji} photo_id={a.photo_id} name={a.name} size="list" />,
           onTap: () => router.push(`/activity/edit/?id=${a.id}`),
           onDelete: () => {
@@ -125,7 +127,19 @@ export function LibraryList({ kind }: LibraryListProps) {
             toast(`Deleted ${a.name}`, { undo: () => void restore('activities', a.id) });
           },
         }))
-      : kind === 'reward'
+      : kind === 'routine'
+        ? routines.map((a) => ({
+            id: a.id,
+            name: a.name,
+            secondary: `${stepCounts.get(a.id) ?? 0} step${(stepCounts.get(a.id) ?? 0) === 1 ? '' : 's'}`,
+            tile: <Picture emoji={a.emoji} photo_id={a.photo_id} name={a.name} size="list" />,
+            onTap: () => router.push(`/activity/edit/?id=${a.id}`),
+            onDelete: () => {
+              void deleteActivity(a.id);
+              toast(`Deleted ${a.name}`, { undo: () => void restore('activities', a.id) });
+            },
+          }))
+        : kind === 'reward'
         ? rewards.map((r) => ({
             id: r.id,
             name: r.name,
@@ -149,9 +163,16 @@ export function LibraryList({ kind }: LibraryListProps) {
             },
           }));
 
-  const addLabel = kind === 'activity' ? 'Add activity' : kind === 'reward' ? 'Add reward' : 'Add location';
+  const addLabel =
+    kind === 'activity' ? 'Add activity' : kind === 'routine' ? 'Add routine' : kind === 'reward' ? 'Add reward' : 'Add location';
   const emptySentence =
-    kind === 'activity' ? 'No activities yet.' : kind === 'reward' ? 'No rewards yet.' : 'No locations yet.';
+    kind === 'activity'
+      ? 'No activities yet.'
+      : kind === 'routine'
+        ? 'No routines yet.'
+        : kind === 'reward'
+          ? 'No rewards yet.'
+          : 'No locations yet.';
 
   return (
     <div className={styles.page}>
