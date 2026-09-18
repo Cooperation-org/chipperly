@@ -1,20 +1,6 @@
 import type { EntityTable } from 'dexie';
-import { getKv } from '../db/kv';
 
-const CURRENT_USER_KEY = 'current_user_id';
-
-/**
- * Mirrors lib/sync/mutate.ts's own private helper: a couple of writes here
- * (chip ledger `created_by`, attitude checks, the `profiles` row patched
- * directly since mutate.ts does not cover that table yet — see this
- * package's report) need the signed-in user id and don't already have it
- * passed in by the caller.
- */
-export async function getCurrentUserId(): Promise<string> {
-  const id = await getKv<string>(CURRENT_USER_KEY);
-  if (!id) throw new Error('lib/data: no signed-in user');
-  return id;
-}
+export { getCurrentUserId } from '../auth/session';
 
 /** Next position for a new row appended at the end of a profile-scoped list. */
 export async function nextPosition<

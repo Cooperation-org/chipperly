@@ -1,16 +1,8 @@
 import type { MutationTable } from '@chipperly/shared/constants/tables';
 import { db, tableForMutation, type MutationRow } from '../db/db';
-import { getKv } from '../db/kv';
+import { getCurrentUserId } from '../auth/session';
 import { now } from '../clock';
 import { nextClientUpdatedAt } from './nextClientUpdatedAt';
-
-const CURRENT_USER_KEY = 'current_user_id';
-
-async function currentUserId(): Promise<string> {
-  const id = await getKv<string>(CURRENT_USER_KEY);
-  if (!id) throw new Error('mutate: no signed-in user');
-  return id;
-}
 
 /**
  * Writes the row to its Dexie table and appends the matching outbox entry
@@ -19,7 +11,7 @@ async function currentUserId(): Promise<string> {
  * of a row that already synced.
  */
 export async function upsert<T extends MutationTable>(table: T, row: MutationRow<T>): Promise<void> {
-  const updated_by = await currentUserId();
+  const updated_by = await getCurrentUserId();
   const tbl = tableForMutation(table);
 
   await db.transaction('rw', tbl, db.outbox, async () => {
@@ -44,7 +36,7 @@ export async function upsert<T extends MutationTable>(table: T, row: MutationRow
 }
 
 export async function softDelete(table: MutationTable, id: string): Promise<void> {
-  const updated_by = await currentUserId();
+  const updated_by = await getCurrentUserId();
   const tbl = tableForMutation(table);
 
   await db.transaction('rw', tbl, db.outbox, async () => {
@@ -69,7 +61,7 @@ export async function softDelete(table: MutationTable, id: string): Promise<void
 }
 
 export async function restore(table: MutationTable, id: string): Promise<void> {
-  const updated_by = await currentUserId();
+  const updated_by = await getCurrentUserId();
   const tbl = tableForMutation(table);
 
   await db.transaction('rw', tbl, db.outbox, async () => {

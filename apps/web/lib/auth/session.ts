@@ -44,6 +44,17 @@ export function useSession(): SessionState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
+/**
+ * The signed-in user's id, for writes that need `created_by`/`updated_by`
+ * and don't already have it passed in by the caller (lib/sync/mutate.ts,
+ * lib/data/_util.ts and their callers).
+ */
+export async function getCurrentUserId(): Promise<string> {
+  const id = await getKv<string>(CURRENT_USER_KEY);
+  if (!id) throw new Error('session: no signed-in user');
+  return id;
+}
+
 async function applyMe(me: MeResponse): Promise<void> {
   await setKv<MeResponse>(ME_KEY, me);
   await setKv<string>(CURRENT_USER_KEY, me.user.id);
