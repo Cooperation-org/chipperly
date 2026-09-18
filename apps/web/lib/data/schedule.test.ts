@@ -17,7 +17,7 @@ function activity(overrides: Partial<Activity> = {}): Activity {
     chip_value: 1,
     location_id: null,
     recurrence: null,
-    recurrence_weekday: null,
+    recurrence_weekdays: null,
     recurrence_time: null,
     position: 0,
     ...overrides,
@@ -57,6 +57,7 @@ function step(overrides: Partial<ActivityStep> = {}): ActivityStep {
     name: 'Wet brush',
     emoji: null,
     photo_id: null,
+    duration_minutes: null,
     ...overrides,
   };
 }

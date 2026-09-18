@@ -10,7 +10,7 @@ export const MATERIALIZED_ID_NAMESPACE = 'e6e6c6b0-6b5a-4b8e-9b1e-7f6a5c4d3e2f';
  * any recorded skips for it.
  */
 export function occursOn(
-  activity: Pick<Activity, 'recurrence' | 'recurrence_weekday'>,
+  activity: Pick<Activity, 'recurrence' | 'recurrence_weekdays'>,
   isoDate: string,
   skips: readonly Pick<RecurrenceSkip, 'date'>[],
 ): boolean {
@@ -26,7 +26,7 @@ export function occursOn(
     case 'weekends':
       return wd === 0 || wd === 6;
     case 'weekly':
-      return activity.recurrence_weekday === wd;
+      return (activity.recurrence_weekdays ?? []).includes(wd);
   }
 }
 

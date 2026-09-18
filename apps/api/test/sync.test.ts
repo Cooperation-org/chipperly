@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
-import { ActivitySchema } from '@chipperly/shared/schemas/activity';
+import { ActivitySchema, ActivityStepSchema } from '@chipperly/shared/schemas/activity';
 import { ScheduleItemSchema } from '@chipperly/shared/schemas/schedule';
 import { ChipLedgerSchema } from '@chipperly/shared/schemas/chips';
 import { SyncPullResponseSchema, SyncPushResponseSchema } from '@chipperly/shared/schemas/sync';
@@ -85,9 +85,34 @@ function activityRow(
     chip_value: 1,
     location_id: null,
     recurrence: null,
-    recurrence_weekday: null,
+    recurrence_weekdays: null,
     recurrence_time: null,
     position: 0,
+    ...overrides,
+  };
+}
+
+function activityStepRow(
+  id: string,
+  profileId: string,
+  activityId: string,
+  updatedBy: string,
+  clientUpdatedAt: number,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id,
+    profile_id: profileId,
+    version: 0,
+    client_updated_at: clientUpdatedAt,
+    updated_by: updatedBy,
+    deleted_at: null,
+    activity_id: activityId,
+    position: 0,
+    name: 'Brush teeth',
+    emoji: null,
+    photo_id: null,
+    duration_minutes: null,
     ...overrides,
   };
 }
@@ -259,6 +284,48 @@ describe('sync', () => {
     const balanceFromB = balanceFor(bodyBFull.changes.chip_ledger as never, null);
     expect(balanceFromA).toBe(2);
     expect(balanceFromB).toBe(2);
+  });
+
+  it('pushes an activity with recurrence_weekdays and a timed step and pulls it back', async () => {
+    const { admin, profileId } = await setupProfile();
+
+    const activityId = uuidv7();
+    const stepId = uuidv7();
+    const t0 = Date.now();
+
+    const push = await pushRequest(app, admin.token, profileId, [
+      {
+        table: 'activities',
+        id: activityId,
+        op: 'upsert',
+        row: activityRow(activityId, profileId, admin.id, t0, { recurrence: 'weekly', recurrence_weekdays: [1, 3] }),
+        client_updated_at: t0,
+      },
+      {
+        table: 'activity_steps',
+        id: stepId,
+        op: 'upsert',
+        row: activityStepRow(stepId, profileId, activityId, admin.id, t0, { duration_minutes: 5 }),
+        client_updated_at: t0,
+      },
+    ]);
+    expect(push.statusCode).toBe(200);
+    const pushBody = expectShape(push, SyncPushResponseSchema);
+    expect(pushBody.applied.sort()).toEqual([activityId, stepId].sort());
+    expect(pushBody.rejected).toEqual([]);
+
+    const pull = await pullRequest(app, admin.token, profileId, 0);
+    expect(pull.statusCode).toBe(200);
+    const pullBody = expectShape(pull, SyncPullResponseSchema);
+    expectChangesShape(pullBody.changes);
+
+    const [pulledActivity] = pullBody.changes.activities ?? [];
+    expect(pulledActivity).toMatchObject({ id: activityId, recurrence: 'weekly', recurrence_weekdays: [1, 3] });
+    ActivitySchema.parse(pulledActivity);
+
+    const [pulledStep] = pullBody.changes.activity_steps ?? [];
+    expect(pulledStep).toMatchObject({ id: stepId, duration_minutes: 5 });
+    ActivityStepSchema.parse(pulledStep);
   });
 
   it('rejects a stale LWW push and returns the current server row', async () => {

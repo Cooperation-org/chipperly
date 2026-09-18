@@ -1,4 +1,4 @@
-import { date, index, integer, pgTable, smallint, text, uuid } from 'drizzle-orm/pg-core';
+import { date, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import type { Recurrence } from '@chipperly/shared/schemas/activity';
 import { syncColumns } from './_sync.js';
 
@@ -13,8 +13,8 @@ export const activities = pgTable(
     /** Null means "everywhere". */
     location_id: uuid('location_id'),
     recurrence: text('recurrence').$type<Recurrence>(),
-    /** 0 (Sunday) - 6 (Saturday); set only for `weekly`. */
-    recurrence_weekday: smallint('recurrence_weekday'),
+    /** Days of the week (0 Sunday - 6 Saturday) this recurs on; empty/null when recurrence is not `weekly`. */
+    recurrence_weekdays: integer('recurrence_weekdays').array(),
     /** HH:MM, e.g. "07:30". */
     recurrence_time: text('recurrence_time'),
     position: integer('position').notNull(),
@@ -32,6 +32,8 @@ export const activity_steps = pgTable(
     name: text('name').notNull(),
     emoji: text('emoji'),
     photo_id: uuid('photo_id'),
+    /** Minutes for an optional "start a timer for this step" affordance; untimed when null. */
+    duration_minutes: integer('duration_minutes'),
   },
   (t) => [index('activity_steps_profile_version_idx').on(t.profile_id, t.version)],
 );

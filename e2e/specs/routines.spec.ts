@@ -92,4 +92,49 @@ test.describe('routines', () => {
     await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
     await expect(page.locator('button[class*="ListRow_main"]', { hasText: 'Morning Routine' })).toHaveCount(0);
   });
+
+  test('set an activity to weekly on two days in the editor and see the label', async () => {
+    await page.goto('/settings/library/activities/');
+    await page.locator('button[class*="ListRow_main"]', { hasText: 'Brush Teeth' }).click();
+    await page.waitForURL('**/activity/edit/**');
+
+    await page.getByRole('button', { name: /^Repeat/ }).click();
+    // Not getByLabel: Playwright's label-text match folds in the <select>'s
+    // own rendered option text (e.g. "RepeatNone"), so an exact 'Repeat'
+    // match never resolves. getByRole reads the accessible name off the
+    // accessibility tree instead, which correctly excludes it.
+    await page.getByRole('combobox', { name: 'Repeat', exact: true }).selectOption('weekly');
+    await page.getByRole('button', { name: 'Tuesday', exact: true }).click();
+    await page.getByRole('button', { name: 'Thursday', exact: true }).click();
+    await expectNoOverflow(page, 'S9 weekly on two days');
+    await snap(page, 's9-weekly-two-days');
+
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.waitForURL('**/settings/library/activities/**');
+    await expect(page.locator('button[class*="ListRow_main"]', { hasText: 'Brush Teeth' })).toContainText('Weekly on Tue, Thu');
+  });
+
+  test('add a 5-minute step then start its timer from the item sheet', async () => {
+    await page.goto('/settings/library/routines/');
+    await page.locator('button[class*="ListRow_main"]', { hasText: 'Morning Routine' }).click();
+    await page.waitForURL('**/activity/edit/**');
+
+    await page.getByRole('button', { name: 'Add step', exact: true }).click();
+    await page.getByLabel('Step 3', { exact: true }).fill('Get dressed');
+    await page.getByLabel('Minutes for step 3', { exact: true }).fill('5');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.waitForURL('**/settings/library/routines/**');
+
+    await page.goto('/today/');
+    await page.locator('button[class*="ListRow_main"]', { hasText: 'Morning Routine' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('5 min')).toBeVisible();
+    await expectNoOverflow(page, 'S7 item sheet with timed step');
+    await snap(page, 's7-item-sheet-timed-step');
+
+    await sheet.getByRole('button', { name: 'Start 5 minute timer for Get dressed', exact: true }).click();
+    await page.waitForURL('**/timer/');
+    await expect(page.getByText('5:00')).toBeVisible();
+  });
 });

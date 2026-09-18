@@ -62,11 +62,11 @@ export function ActivityForm() {
   const [chips, setChips] = useState(0);
   const [locationId, setLocationId] = useState<string | null>(null);
   const [repeat, setRepeat] = useState<'none' | Recurrence>('none');
-  const [weekday, setWeekday] = useState(0);
+  const [weekdays, setWeekdays] = useState<number[]>([]);
   const [recurrenceTime, setRecurrenceTime] = useState<string | null>(null);
   // New routine flow (?routine=1, no id yet): start with one empty step row, Steps expanded, ready to type into.
   const [steps, setSteps] = useState<DraftStep[]>(() =>
-    routineParam && !editingId ? [{ key: newId(), name: '', emoji: null, photo_id: null }] : [],
+    routineParam && !editingId ? [{ key: newId(), name: '', emoji: null, photo_id: null, duration_minutes: null }] : [],
   );
   const [openField, setOpenField] = useState<FieldKey | null>(editingId ? null : routineParam ? 'steps' : 'name');
   const [saving, setSaving] = useState(false);
@@ -89,10 +89,19 @@ export function ActivityForm() {
     setChips(activity.chip_value);
     setLocationId(activity.location_id);
     setRepeat(activity.recurrence ?? 'none');
-    setWeekday(activity.recurrence_weekday ?? 0);
+    setWeekdays(activity.recurrence_weekdays ?? []);
     setRecurrenceTime(activity.recurrence_time);
     const liveSteps = rawSteps.filter((s) => s.deleted_at === null).sort((a, b) => a.position - b.position);
-    setSteps(liveSteps.map((s) => ({ key: s.id, id: s.id, name: s.name, emoji: s.emoji, photo_id: s.photo_id })));
+    setSteps(
+      liveSteps.map((s) => ({
+        key: s.id,
+        id: s.id,
+        name: s.name,
+        emoji: s.emoji,
+        photo_id: s.photo_id,
+        duration_minutes: s.duration_minutes,
+      })),
+    );
     setOpenField(liveSteps.length > 0 ? 'steps' : null);
   }, [editingId, activity, rawSteps]);
 
@@ -101,7 +110,11 @@ export function ActivityForm() {
   }
 
   function addStep(): void {
-    setSteps((prev) => [...prev, { key: newId(), name: '', emoji: null, photo_id: null }]);
+    setSteps((prev) => [...prev, { key: newId(), name: '', emoji: null, photo_id: null, duration_minutes: null }]);
+  }
+
+  function toggleWeekday(day: number): void {
+    setWeekdays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => a - b)));
   }
 
   function updateStep(index: number, patch: Partial<DraftStep>): void {
@@ -155,8 +168,10 @@ export function ActivityForm() {
     });
   }
 
+  const weeklyNeedsDay = repeat === 'weekly' && weekdays.length === 0;
+
   async function onSave(): Promise<void> {
-    if (!name.trim() || !profileId || saving) return;
+    if (!name.trim() || !profileId || saving || weeklyNeedsDay) return;
     setSaving(true);
     try {
       const id = await saveActivity({
@@ -168,11 +183,11 @@ export function ActivityForm() {
         chip_value: chips,
         location_id: locationId,
         recurrence: repeat === 'none' ? null : repeat,
-        recurrence_weekday: repeat === 'weekly' ? weekday : null,
+        recurrence_weekdays: repeat === 'weekly' ? weekdays : null,
         recurrence_time: repeat === 'none' ? null : recurrenceTime,
         steps: steps
           .filter((s) => s.name.trim().length > 0)
-          .map((s) => ({ id: s.id, name: s.name.trim(), emoji: s.emoji, photo_id: s.photo_id })),
+          .map((s) => ({ id: s.id, name: s.name.trim(), emoji: s.emoji, photo_id: s.photo_id, duration_minutes: s.duration_minutes })),
       });
 
       if (addTo) {
@@ -210,6 +225,7 @@ export function ActivityForm() {
     <div className={styles.page}>
       <PageHeader
         title={editingId ? (isRoutineMode ? 'Edit routine' : 'Edit activity') : isRoutineMode ? 'New routine' : 'New activity'}
+        compact
       />
 
       <FormRow label="Name" summary={name || 'Required'} open={openField === 'name'} onToggle={() => toggle('name')}>
@@ -238,21 +254,23 @@ export function ActivityForm() {
           onChange={(v) => setRepeat(v as 'none' | Recurrence)}
         />
         {repeat === 'weekly' ? (
-          <div className={styles.weekdayRow} role="radiogroup" aria-label="Day of the week">
-            {WEEKDAY_LABELS.map((label, i) => (
-              <button
-                key={i}
-                type="button"
-                role="radio"
-                aria-checked={weekday === i}
-                aria-label={WEEKDAY_NAMES[i]}
-                className={[styles.weekdayButton, weekday === i ? styles.weekdayActive : ''].filter(Boolean).join(' ')}
-                onClick={() => setWeekday(i)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className={styles.weekdayRow} role="group" aria-label="Days of the week">
+              {WEEKDAY_LABELS.map((label, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-pressed={weekdays.includes(i)}
+                  aria-label={WEEKDAY_NAMES[i]}
+                  className={[styles.weekdayButton, weekdays.includes(i) ? styles.weekdayActive : ''].filter(Boolean).join(' ')}
+                  onClick={() => toggleWeekday(i)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {weeklyNeedsDay ? <p className={styles.weekdayError}>Pick at least one day</p> : null}
+          </>
         ) : null}
         {repeat !== 'none' ? (
           <TextField label="Time" type="time" value={recurrenceTime ?? ''} onChange={(e) => setRecurrenceTime(e.target.value || null)} />
@@ -272,9 +290,25 @@ export function ActivityForm() {
                   className={styles.stepInput}
                   autoFocus={routineParam && !editingId && i === 0}
                 />
-                <button type="button" className={styles.fromActivityButton} onClick={() => openFromActivity(i)}>
-                  From activity
-                </button>
+                <div className={styles.stepRow2}>
+                  <button type="button" className={styles.fromActivityButton} onClick={() => openFromActivity(i)}>
+                    From activity
+                  </button>
+                  <TextField
+                    label={`Minutes for step ${i + 1}`}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={120}
+                    placeholder="min"
+                    className={styles.durationInput}
+                    value={step.duration_minutes ?? ''}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      updateStep(i, { duration_minutes: raw === '' ? null : Math.max(1, Math.min(120, Number(raw))) });
+                    }}
+                  />
+                </div>
               </div>
               <div className={styles.stepActions}>
                 <IconButton icon="chevron" aria-label={`Move step ${i + 1} up`} className={styles.rotateUp} disabled={i === 0} onClick={() => moveStep(i, -1)} />
@@ -290,7 +324,7 @@ export function ActivityForm() {
       </FormRow>
 
       <div className={styles.saveBar}>
-        <BigButton variant="primary" fullWidth disabled={!name.trim() || saving} onClick={() => void onSave()}>
+        <BigButton variant="primary" fullWidth disabled={!name.trim() || saving || weeklyNeedsDay} onClick={() => void onSave()}>
           Save
         </BigButton>
       </div>

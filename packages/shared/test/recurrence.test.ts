@@ -9,37 +9,49 @@ const saturday = '2026-03-07';
 
 describe('occursOn', () => {
   it('is false when recurrence is null', () => {
-    expect(occursOn({ recurrence: null, recurrence_weekday: null }, monday, [])).toBe(false);
+    expect(occursOn({ recurrence: null, recurrence_weekdays: null }, monday, [])).toBe(false);
   });
 
   it('daily occurs every day', () => {
-    const activity = { recurrence: 'daily' as const, recurrence_weekday: null };
+    const activity = { recurrence: 'daily' as const, recurrence_weekdays: null };
     expect(occursOn(activity, monday, [])).toBe(true);
     expect(occursOn(activity, saturday, [])).toBe(true);
   });
 
   it('weekdays occurs Monday through Friday only', () => {
-    const activity = { recurrence: 'weekdays' as const, recurrence_weekday: null };
+    const activity = { recurrence: 'weekdays' as const, recurrence_weekdays: null };
     expect(occursOn(activity, monday, [])).toBe(true);
     expect(occursOn(activity, saturday, [])).toBe(false);
     expect(occursOn(activity, sunday, [])).toBe(false);
   });
 
   it('weekends occurs Saturday and Sunday only', () => {
-    const activity = { recurrence: 'weekends' as const, recurrence_weekday: null };
+    const activity = { recurrence: 'weekends' as const, recurrence_weekdays: null };
     expect(occursOn(activity, saturday, [])).toBe(true);
     expect(occursOn(activity, sunday, [])).toBe(true);
     expect(occursOn(activity, monday, [])).toBe(false);
   });
 
-  it('weekly occurs only on the matching weekday', () => {
-    const activity = { recurrence: 'weekly' as const, recurrence_weekday: 1 };
+  it('weekly occurs only on a listed weekday', () => {
+    const activity = { recurrence: 'weekly' as const, recurrence_weekdays: [1] };
     expect(occursOn(activity, monday, [])).toBe(true);
     expect(occursOn(activity, wednesday, [])).toBe(false);
   });
 
+  it('weekly occurs on any of several listed weekdays', () => {
+    const activity = { recurrence: 'weekly' as const, recurrence_weekdays: [1, 3] };
+    expect(occursOn(activity, monday, [])).toBe(true);
+    expect(occursOn(activity, wednesday, [])).toBe(true);
+    expect(occursOn(activity, saturday, [])).toBe(false);
+  });
+
+  it('weekly with no weekdays set never occurs', () => {
+    const activity = { recurrence: 'weekly' as const, recurrence_weekdays: null };
+    expect(occursOn(activity, monday, [])).toBe(false);
+  });
+
   it('a skip for the date suppresses the occurrence', () => {
-    const activity = { recurrence: 'daily' as const, recurrence_weekday: null };
+    const activity = { recurrence: 'daily' as const, recurrence_weekdays: null };
     expect(occursOn(activity, monday, [{ date: monday }])).toBe(false);
     expect(occursOn(activity, monday, [{ date: wednesday }])).toBe(true);
   });

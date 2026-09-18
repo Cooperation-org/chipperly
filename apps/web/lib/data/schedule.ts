@@ -332,7 +332,7 @@ export async function reorder(profileId: string, isoDate: string, orderedIds: re
  * upsert treats the second push as a no-op (technical-plan.md "Recurrence
  * on the client").
  */
-export async function materializeRecurring(profileId: string, isoDate: string): Promise<void> {
+async function materializeRecurring(profileId: string, isoDate: string): Promise<void> {
   const activities = (await db.activities.where('profile_id').equals(profileId).toArray()).filter(
     (activity) => activity.deleted_at === null && activity.recurrence !== null,
   );

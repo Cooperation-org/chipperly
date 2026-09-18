@@ -42,6 +42,7 @@ export interface SaveActivityStepInput {
   name: string;
   emoji: string | null;
   photo_id: string | null;
+  duration_minutes: number | null;
 }
 
 export interface SaveActivityInput {
@@ -53,7 +54,7 @@ export interface SaveActivityInput {
   chip_value: number;
   location_id: string | null;
   recurrence: Recurrence | null;
-  recurrence_weekday: number | null;
+  recurrence_weekdays: number[] | null;
   recurrence_time: string | null;
   steps: SaveActivityStepInput[];
 }
@@ -77,7 +78,7 @@ export async function saveActivity(input: SaveActivityInput): Promise<string> {
     chip_value: input.chip_value,
     location_id: input.location_id,
     recurrence: input.recurrence,
-    recurrence_weekday: input.recurrence_weekday,
+    recurrence_weekdays: input.recurrence_weekdays,
     recurrence_time: input.recurrence_time,
     position,
   } satisfies Activity);
@@ -106,6 +107,7 @@ export async function saveActivity(input: SaveActivityInput): Promise<string> {
       name: stepInput.name,
       emoji: stepInput.emoji,
       photo_id: stepInput.photo_id,
+      duration_minutes: stepInput.duration_minutes,
     } satisfies ActivityStep);
   }
 
@@ -117,7 +119,7 @@ export async function deleteActivity(id: string): Promise<void> {
 }
 
 /** Pure: the ids of the last `n` distinct activities used, newest first. */
-export function recentActivityIds(items: readonly ScheduleItem[], n: number): string[] {
+function recentActivityIds(items: readonly ScheduleItem[], n: number): string[] {
   const sorted = items.filter((item) => item.deleted_at === null).sort((a, b) => b.client_updated_at - a.client_updated_at);
   const seen = new Set<string>();
   const ids: string[] = [];

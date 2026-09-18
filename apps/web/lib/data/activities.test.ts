@@ -16,7 +16,7 @@ function makeActivity(id: string): Activity {
     chip_value: 0,
     location_id: null,
     recurrence: null,
-    recurrence_weekday: null,
+    recurrence_weekdays: null,
     recurrence_time: null,
     position: 0,
   };
@@ -35,6 +35,7 @@ function makeStep(activityId: string, overrides: { id?: string; deleted_at?: num
     name: 'Step',
     emoji: null,
     photo_id: null,
+    duration_minutes: null,
   };
 }
 

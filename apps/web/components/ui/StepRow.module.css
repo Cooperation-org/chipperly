@@ -2,6 +2,12 @@
   padding-left: var(--space-6);
 }
 
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 /* Child mode already scales row height and tap targets via --tap; only the
    indent needs to come down so the step tile has room on a narrower screen. */
 :global(html[data-mode='child']) .indent {

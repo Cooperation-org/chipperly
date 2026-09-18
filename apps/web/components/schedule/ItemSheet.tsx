@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { DayItem } from '@/lib/data/schedule';
 import { removeFromDay, setCompleted, setStepCompleted } from '@/lib/data/schedule';
 import { upsert, restore } from '@/lib/sync/mutate';
+import { setDuration, start } from '@/lib/timer/store';
 import { Picture } from '@/components/media/Picture';
 import { StepRow } from '@/components/ui/StepRow';
 import { Segmented } from '@/components/ui/Segmented';
@@ -54,6 +55,13 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
     });
   }
 
+  function startStepTimer(minutes: number): void {
+    setDuration(minutes * 60_000);
+    start();
+    close();
+    router.push('/timer/');
+  }
+
   async function onRemove(scope: 'today' | 'always'): Promise<void> {
     await removeFromDay(item.id, scope);
     close();
@@ -88,6 +96,8 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
                 onChange={(next) => {
                   void setStepCompleted(item.id, s.step.id, next, userId);
                 }}
+                durationMinutes={s.step.duration_minutes}
+                onStartTimer={s.step.duration_minutes ? () => startStepTimer(s.step.duration_minutes as number) : undefined}
               />
             </li>
           ))}

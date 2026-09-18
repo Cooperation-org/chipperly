@@ -29,7 +29,7 @@ export interface LibraryListProps {
   kind: LibraryKind;
 }
 
-const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function repeatLabel(activity: Activity): string | undefined {
   if (!activity.recurrence) return undefined;
@@ -40,8 +40,10 @@ function repeatLabel(activity: Activity): string | undefined {
       return 'Weekdays';
     case 'weekends':
       return 'Weekends';
-    case 'weekly':
-      return activity.recurrence_weekday !== null ? `Every ${WEEKDAY_NAMES[activity.recurrence_weekday]}` : 'Weekly';
+    case 'weekly': {
+      const days = activity.recurrence_weekdays ?? [];
+      return days.length > 0 ? `Weekly on ${days.map((d) => WEEKDAY_ABBR[d]).join(', ')}` : 'Weekly';
+    }
   }
 }
 

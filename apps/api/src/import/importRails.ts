@@ -370,7 +370,7 @@ async function writeProfile(
           chip_value: a.chip_value ?? 0,
           location_id: a.location ? (locationIdByName.get(a.location) ?? null) : null,
           recurrence,
-          recurrence_weekday: recurrence === 'weekly' ? weekdayFromDate(a.created_at) : null,
+          recurrence_weekdays: recurrence === 'weekly' ? [weekdayFromDate(a.created_at)] : null,
           recurrence_time: hhmmFromDate(a.recurrence_time),
           position,
         })
@@ -395,7 +395,7 @@ async function writeProfile(
           chip_value: 0,
           location_id: null,
           recurrence,
-          recurrence_weekday: recurrence === 'weekly' ? weekdayFromDate(r.created_at) : null,
+          recurrence_weekdays: recurrence === 'weekly' ? [weekdayFromDate(r.created_at)] : null,
           recurrence_time: hhmmFromDate(r.recurrence_time),
           position,
         })
