@@ -1,5 +1,6 @@
 .indent {
-  padding-left: var(--space-6);
+  --step-indent-base: var(--space-6);
+  padding-left: calc(var(--step-indent-base) + var(--space-3) * var(--depth, 0));
 }
 
 .trailing {
@@ -8,8 +9,12 @@
   gap: var(--space-1);
 }
 
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
 /* Child mode already scales row height and tap targets via --tap; only the
-   indent needs to come down so the step tile has room on a narrower screen. */
+   base indent needs to come down so the step tile has room on a narrower screen. */
 :global(html[data-mode='child']) .indent {
-  padding-left: var(--space-4);
+  --step-indent-base: var(--space-4);
 }

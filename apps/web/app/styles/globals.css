@@ -109,4 +109,14 @@ a {
   [data-shell-tabbar] {
     display: none !important;
   }
+
+  /* S36 Visual schedule (components/schedule/VisualSchedule.tsx) sets this on
+     <html> while its full-screen overlay is open, so its printed copy is the
+     only thing on the page: the overlay's own print rules live with the
+     component (VisualSchedule.module.css), but hiding every other `body`
+     child has to happen here, a selector with no local class isn't allowed
+     in a CSS Module file. */
+  html[data-printing] body > *:not([data-visual-schedule-root]) {
+    display: none !important;
+  }
 }

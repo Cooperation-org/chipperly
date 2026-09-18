@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { addDays, isWeekend, todayIso } from '@chipperly/shared/helpers/date';
 import type { Activity } from '@chipperly/shared/schemas/activity';
@@ -15,8 +15,10 @@ import {
   reorder,
   setCompleted,
   setStepCompleted,
+  stepTree,
   useDayItems,
   type DayItem,
+  type StepNode,
 } from '@/lib/data/schedule';
 import { useActiveLocation } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
@@ -98,6 +100,43 @@ export function TodayScreen() {
       else next.add(id);
       return next;
     });
+  }
+
+  // Separate from expandedIds (which shows/hides an item's whole step list):
+  // once steps show, level 1 is always visible and anything nested under a
+  // level-1+ step (S36) stays collapsed until its own chevron is tapped.
+  const [expandedStepIds, setExpandedStepIds] = useState<ReadonlySet<string>>(new Set());
+  function toggleStepExpanded(stepId: string): void {
+    setExpandedStepIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) next.delete(stepId);
+      else next.add(stepId);
+      return next;
+    });
+  }
+
+  function renderStepNode(node: StepNode, itemId: string, depth: number): ReactNode {
+    const step = node.node.step;
+    const hasChildren = node.children.length > 0;
+    const expanded = expandedStepIds.has(step.id);
+    return (
+      <li key={step.id}>
+        <StepRow
+          tile={<Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="list" />}
+          name={step.name}
+          checked={node.done}
+          onChange={(next) => void setStepCompleted(itemId, step.id, next, userId)}
+          durationMinutes={step.duration_minutes}
+          depth={depth}
+          hasChildren={hasChildren}
+          expanded={expanded}
+          onToggle={hasChildren ? () => toggleStepExpanded(step.id) : undefined}
+        />
+        {hasChildren && expanded ? (
+          <ul className={styles.steps}>{node.children.map((child) => renderStepNode(child, itemId, depth + 1))}</ul>
+        ) : null}
+      </li>
+    );
   }
 
   const [celebrating, setCelebrating] = useState(false);
@@ -336,18 +375,7 @@ export function TodayScreen() {
                       }
                     />
                     {expanded && day.steps.length > 0 ? (
-                      <ul className={styles.steps}>
-                        {day.steps.map((s) => (
-                          <li key={s.step.id}>
-                            <StepRow
-                              tile={<Picture emoji={s.step.emoji} photo_id={s.step.photo_id} name={s.step.name} size="list" />}
-                              name={s.step.name}
-                              checked={s.completed_at !== null}
-                              onChange={(next) => void setStepCompleted(day.item.id, s.step.id, next, userId)}
-                            />
-                          </li>
-                        ))}
-                      </ul>
+                      <ul className={styles.steps}>{stepTree(day.steps).map((node) => renderStepNode(node, day.item.id, 0))}</ul>
                     ) : null}
                   </div>
                 );

@@ -1,9 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import type { DayItem } from '@/lib/data/schedule';
-import { removeFromDay, setCompleted, setStepCompleted } from '@/lib/data/schedule';
+import { useLiveQuery } from 'dexie-react-hooks';
+import type { DayItem, DayStep, StepNode } from '@/lib/data/schedule';
+import { removeFromDay, setCompleted, setStepCompleted, stepTree } from '@/lib/data/schedule';
+import { db } from '@/lib/db/db';
 import { upsert, restore } from '@/lib/sync/mutate';
 import { setDuration, start } from '@/lib/timer/store';
 import { Picture } from '@/components/media/Picture';
@@ -15,7 +17,18 @@ import { Icon } from '@/components/ui/Icon';
 import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { formatTime } from './todayModel';
+import { VisualSchedule } from './VisualSchedule';
 import styles from './ItemSheet.module.css';
+
+/** Finds a node anywhere in a tree by its step id (depth-first). */
+function findNode(nodes: readonly StepNode[], stepId: string): StepNode | undefined {
+  for (const node of nodes) {
+    if (node.node.step.id === stepId) return node;
+    const found = findNode(node.children, stepId);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 export interface ItemSheetProps {
   day: DayItem;
@@ -35,6 +48,62 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
   const { close } = useSheet();
   const [removing, setRemoving] = useState(false);
   const item = day.item;
+
+  // `day` is a snapshot from whenever this sheet was opened (Sheet content
+  // isn't re-rendered by its caller), so step completion state is re-derived
+  // live here: `day.steps[].step` (structure) rarely changes mid-sheet, but
+  // completions do, especially with cascading checks in and out of the
+  // visual schedule overlay below.
+  const liveCompletions = useLiveQuery(
+    () => db.step_completions.where('schedule_item_id').equals(item.id).toArray(),
+    [item.id],
+    [],
+  );
+  const liveSteps = useMemo<DayStep[]>(() => {
+    const byStep = new Map(liveCompletions.filter((c) => c.deleted_at === null).map((c) => [c.activity_step_id, c]));
+    return day.steps.map((s) => {
+      const completion = byStep.get(s.step.id);
+      return { ...s, completed_at: completion?.completed_at ?? null, completed_by: completion?.completed_by ?? null, completion_id: completion?.id ?? null };
+    });
+  }, [day.steps, liveCompletions]);
+  const tree = useMemo(() => stepTree(liveSteps), [liveSteps]);
+
+  const [expandedStepIds, setExpandedStepIds] = useState<ReadonlySet<string>>(new Set());
+  function toggleStepExpanded(stepId: string): void {
+    setExpandedStepIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) next.delete(stepId);
+      else next.add(stepId);
+      return next;
+    });
+  }
+
+  // null = closed; 'item' = the whole routine; a step id = that step's sub-tree.
+  const [scheduleView, setScheduleView] = useState<null | 'item' | string>(null);
+
+  function renderStepNode(node: StepNode, depth: number): ReactNode {
+    const step = node.node.step;
+    const hasChildren = node.children.length > 0;
+    const expanded = expandedStepIds.has(step.id);
+    return (
+      <li key={step.id}>
+        <StepRow
+          tile={<Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="list" />}
+          name={step.name}
+          checked={node.done}
+          onChange={(next) => void setStepCompleted(item.id, step.id, next, userId)}
+          durationMinutes={step.duration_minutes}
+          onStartTimer={step.duration_minutes ? () => startStepTimer(step.duration_minutes as number) : undefined}
+          depth={depth}
+          hasChildren={hasChildren}
+          expanded={expanded}
+          onToggle={hasChildren ? () => toggleStepExpanded(step.id) : undefined}
+          onOpenVisualSchedule={hasChildren ? () => setScheduleView(step.id) : undefined}
+        />
+        {hasChildren && expanded ? <ul className={styles.steps}>{node.children.map((child) => renderStepNode(child, depth + 1))}</ul> : null}
+      </li>
+    );
+  }
 
   async function setTime(value: string | null): Promise<void> {
     await upsert('schedule_items', { ...item, start_time: value });
@@ -72,76 +141,82 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
     });
   }
 
+  const scheduleNode = scheduleView && scheduleView !== 'item' ? findNode(tree, scheduleView) : undefined;
+
   return (
-    <div className={styles.sheet}>
-      <div className={styles.header}>
-        <Picture emoji={day.activity.emoji} photo_id={day.activity.photo_id} name={day.activity.name} size="grid" />
-        <h3 className={styles.name}>{day.activity.name}</h3>
+    <>
+      <div className={styles.sheet}>
+        <div className={styles.header}>
+          <Picture emoji={day.activity.emoji} photo_id={day.activity.photo_id} name={day.activity.name} size="grid" />
+          <h3 className={styles.name}>{day.activity.name}</h3>
+        </div>
+
+        <TimeRow value={item.start_time} onChange={setTime} />
+
+        <Segmented label="Part of day" items={PART_OF_DAY_ITEMS} value={item.part_of_day ?? 'none'} onChange={(v) => void setPartOfDay(v)} />
+
+        {tree.length > 0 ? (
+          <>
+            <p className={styles.routineCaption}>Routine</p>
+            <ul className={styles.steps}>{tree.map((node) => renderStepNode(node, 0))}</ul>
+            <Button variant="secondary" icon="expand" onClick={() => setScheduleView('item')}>
+              Open as visual schedule
+            </Button>
+          </>
+        ) : null}
+
+        {day.activity.chip_value > 0 ? (
+          <p className={styles.chips}>
+            Earns {day.activity.chip_value} chip{day.activity.chip_value === 1 ? '' : 's'}
+          </p>
+        ) : null}
+
+        <div className={styles.actions}>
+          <BigButton variant="primary" fullWidth onClick={() => void onDone()}>
+            Done
+          </BigButton>
+          {removing ? (
+            <div className={styles.removeChoice}>
+              <Button variant="secondary" fullWidth onClick={() => void onRemove('today')}>
+                Just today
+              </Button>
+              <Button variant="secondary" fullWidth onClick={() => void onRemove('always')}>
+                Every day
+              </Button>
+            </div>
+          ) : (
+            <Button variant="ghost" fullWidth onClick={() => (item.source === 'recurring' ? setRemoving(true) : void onRemove('today'))}>
+              Remove from today
+            </Button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          className={styles.editLink}
+          onClick={() => {
+            close();
+            router.push(`/activity/edit/?id=${day.activity.id}`);
+          }}
+        >
+          Edit activity
+        </button>
       </div>
 
-      <TimeRow value={item.start_time} onChange={setTime} />
-
-      <Segmented label="Part of day" items={PART_OF_DAY_ITEMS} value={item.part_of_day ?? 'none'} onChange={(v) => void setPartOfDay(v)} />
-
-      {day.steps.length > 0 ? (
-        <>
-          <p className={styles.routineCaption}>Routine</p>
-          <ul className={styles.steps}>
-          {day.steps.map((s) => (
-            <li key={s.step.id}>
-              <StepRow
-                tile={<Picture emoji={s.step.emoji} photo_id={s.step.photo_id} name={s.step.name} size="list" />}
-                name={s.step.name}
-                checked={s.completed_at !== null}
-                onChange={(next) => {
-                  void setStepCompleted(item.id, s.step.id, next, userId);
-                }}
-                durationMinutes={s.step.duration_minutes}
-                onStartTimer={s.step.duration_minutes ? () => startStepTimer(s.step.duration_minutes as number) : undefined}
-              />
-            </li>
-          ))}
-          </ul>
-        </>
+      {scheduleView ? (
+        <VisualSchedule
+          title={scheduleView === 'item' ? day.activity.name : (scheduleNode?.node.step.name ?? '')}
+          picture={
+            scheduleView === 'item'
+              ? { emoji: day.activity.emoji, photo_id: day.activity.photo_id }
+              : { emoji: scheduleNode?.node.step.emoji, photo_id: scheduleNode?.node.step.photo_id }
+          }
+          nodes={scheduleView === 'item' ? tree : (scheduleNode?.children ?? [])}
+          onToggle={(stepId, next) => void setStepCompleted(item.id, stepId, next, userId)}
+          onClose={() => setScheduleView(null)}
+        />
       ) : null}
-
-      {day.activity.chip_value > 0 ? (
-        <p className={styles.chips}>
-          Earns {day.activity.chip_value} chip{day.activity.chip_value === 1 ? '' : 's'}
-        </p>
-      ) : null}
-
-      <div className={styles.actions}>
-        <BigButton variant="primary" fullWidth onClick={() => void onDone()}>
-          Done
-        </BigButton>
-        {removing ? (
-          <div className={styles.removeChoice}>
-            <Button variant="secondary" fullWidth onClick={() => void onRemove('today')}>
-              Just today
-            </Button>
-            <Button variant="secondary" fullWidth onClick={() => void onRemove('always')}>
-              Every day
-            </Button>
-          </div>
-        ) : (
-          <Button variant="ghost" fullWidth onClick={() => (item.source === 'recurring' ? setRemoving(true) : void onRemove('today'))}>
-            Remove from today
-          </Button>
-        )}
-      </div>
-
-      <button
-        type="button"
-        className={styles.editLink}
-        onClick={() => {
-          close();
-          router.push(`/activity/edit/?id=${day.activity.id}`);
-        }}
-      >
-        Edit activity
-      </button>
-    </div>
+    </>
   );
 }
 

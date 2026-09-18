@@ -27,7 +27,9 @@ export type IconName =
   | 'book'
   | 'timer'
   | 'split'
-  | 'chips';
+  | 'chips'
+  | 'print'
+  | 'expand';
 
 const paths: Record<IconName, ReactNode> = {
   check: <polyline points="5 13 10 18 19 7" />,
@@ -179,6 +181,21 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <circle cx="8" cy="16" r="5" />
       <circle cx="15" cy="9" r="5" />
+    </>
+  ),
+  print: (
+    <>
+      <path d="M6 9V3h12v6" />
+      <rect x="3" y="9" width="18" height="8" rx="1.5" />
+      <rect x="7" y="13" width="10" height="8" />
+    </>
+  ),
+  expand: (
+    <>
+      <path d="M9 3H3v6" />
+      <path d="M15 3h6v6" />
+      <path d="M9 21H3v-6" />
+      <path d="M15 21h6v-6" />
     </>
   ),
 };

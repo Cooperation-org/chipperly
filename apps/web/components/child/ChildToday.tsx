@@ -1,12 +1,20 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { db } from '@/lib/db/db';
-import { materializeRecurringFresh, setCompleted, setStepCompleted, useDayItems, type DayItem } from '@/lib/data/schedule';
+import {
+  materializeRecurringFresh,
+  setCompleted,
+  setStepCompleted,
+  stepTree,
+  useDayItems,
+  type DayItem,
+  type StepNode,
+} from '@/lib/data/schedule';
 import { useActiveLocation, useLocations } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
 import { useTimer, useTimerRunning, setDuration, start } from '@/lib/timer/store';
@@ -25,6 +33,7 @@ import { FirstThenPanels } from '@/components/firstThen/FirstThenPanels';
 import { TimerFullScreen } from '@/components/timer/TimerFullScreen';
 import { formatTimerTime } from '@/components/timer/time';
 import { ChipperChartSheet } from '@/components/chipperChart/ChipperChartSheet';
+import { VisualSchedule } from '@/components/schedule/VisualSchedule';
 import { AttitudePrompt } from './AttitudePrompt';
 import { UnlockOverlay } from './UnlockOverlay';
 import styles from './ChildToday.module.css';
@@ -114,6 +123,9 @@ export function ChildToday() {
   const [promptIds, setPromptIds] = useState<ReadonlySet<string>>(new Set());
   const [celebrating, setCelebrating] = useState(false);
   const wasAllDoneRef = useRef(false);
+  // The item id whose steps are open as a full-screen visual schedule (S36), or null.
+  const [scheduleItemId, setScheduleItemId] = useState<string | null>(null);
+  const scheduleDay = scheduleItemId ? dayItems.find((d) => d.item.id === scheduleItemId) : undefined;
 
   const isAllDone = dayItems.length > 0 && dayItems.every((day) => day.item.completed_at !== null);
   useEffect(() => {
@@ -192,6 +204,30 @@ export function ChildToday() {
     );
   }
 
+  // Child mode never collapses (S32 "steps shown expanded"): the lock option
+  // just gates whether the tree shows at all, so every level renders here.
+  function renderStepNode(day: DayItem, node: StepNode): ReactNode {
+    const step = node.node.step;
+    return (
+      <li key={step.id}>
+        <StepRow
+          tile={<Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="child" />}
+          name={step.name}
+          checked={node.done}
+          onChange={(next) => void handleStepToggle(day, step.id, next)}
+          durationMinutes={step.duration_minutes}
+          depth={node.node.depth}
+          onStartTimer={
+            options.show_step_timers && step.duration_minutes ? () => startStepTimer(step.duration_minutes as number) : undefined
+          }
+        />
+        {node.children.length > 0 ? (
+          <ul className={styles.steps}>{node.children.map((child) => renderStepNode(day, child))}</ul>
+        ) : null}
+      </li>
+    );
+  }
+
   function openWorkingFor(): void {
     sheet.open(
       <div className={styles.workingForSheet}>
@@ -265,25 +301,14 @@ export function ChildToday() {
                   />
                 </div>
 
+                {day.steps.length > 0 && options.show_visual_schedule ? (
+                  <BigButton variant="secondary" icon="expand" onClick={() => setScheduleItemId(day.item.id)}>
+                    Steps
+                  </BigButton>
+                ) : null}
+
                 {options.expand_steps && day.steps.length > 0 ? (
-                  <ul className={styles.steps}>
-                    {day.steps.map((s) => (
-                      <li key={s.step.id}>
-                        <StepRow
-                          tile={<Picture emoji={s.step.emoji} photo_id={s.step.photo_id} name={s.step.name} size="child" />}
-                          name={s.step.name}
-                          checked={s.completed_at !== null}
-                          onChange={(next) => void handleStepToggle(day, s.step.id, next)}
-                          durationMinutes={s.step.duration_minutes}
-                          onStartTimer={
-                            options.show_step_timers && s.step.duration_minutes
-                              ? () => startStepTimer(s.step.duration_minutes as number)
-                              : undefined
-                          }
-                        />
-                      </li>
-                    ))}
-                  </ul>
+                  <ul className={styles.steps}>{stepTree(day.steps).map((node) => renderStepNode(day, node))}</ul>
                 ) : null}
 
                 {promptIds.has(day.item.id) ? (
@@ -359,6 +384,15 @@ export function ChildToday() {
 
       {timerOpen ? <TimerFullScreen onClose={() => setTimerOpen(false)} /> : null}
       {unlocking ? <UnlockOverlay onClose={() => setUnlocking(false)} /> : null}
+      {scheduleDay ? (
+        <VisualSchedule
+          title={scheduleDay.activity.name}
+          picture={{ emoji: scheduleDay.activity.emoji, photo_id: scheduleDay.activity.photo_id }}
+          nodes={stepTree(scheduleDay.steps)}
+          onToggle={(stepId, next) => void handleStepToggle(scheduleDay, stepId, next)}
+          onClose={() => setScheduleItemId(null)}
+        />
+      ) : null}
     </div>
   );
 }

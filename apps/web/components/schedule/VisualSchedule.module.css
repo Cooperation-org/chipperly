@@ -1,0 +1,107 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  overflow-y: auto;
+  background: var(--color-bg);
+  padding: var(--space-4) var(--space-3) var(--space-6);
+}
+
+.chrome {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 640px;
+  margin: 0 auto var(--space-4);
+  padding-top: var(--space-6);
+  text-align: center;
+}
+
+.title {
+  font-size: var(--text-2xl);
+  color: var(--color-text);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  padding-left: calc(var(--space-6) * var(--depth, 0));
+}
+
+.row .rows {
+  margin-top: var(--space-3);
+  max-width: none;
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  color: var(--color-text);
+  overflow-wrap: break-word;
+}
+
+.check {
+  flex-shrink: 0;
+}
+
+/* The rule hiding every other `body` child while this is open lives in
+   app/styles/globals.css (a plain, non-module stylesheet): a selector with
+   no local class isn't allowed in a CSS Module file, and that rule has to
+   reach outside this component anyway. */
+@media print {
+  .overlay {
+    position: static !important;
+    overflow: visible !important;
+    background: none !important;
+    padding: 0 !important;
+    z-index: auto !important;
+  }
+
+  .chrome {
+    display: none !important;
+  }
+
+  .check {
+    display: none !important;
+  }
+
+  .header {
+    padding-top: 0;
+    break-after: avoid;
+  }
+
+  .rowMain {
+    background: none;
+    border: 1px solid var(--color-border);
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

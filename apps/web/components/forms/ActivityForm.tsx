@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity, ActivityStep, Recurrence } from '@chipperly/shared/schemas/activity';
 import { CHIP_MAX } from '@chipperly/shared/constants/limits';
 import { db } from '@/lib/db/db';
 import { deleteActivity, saveActivity, useActivity, type SaveActivityStepInput } from '@/lib/data/activities';
-import { addToDay } from '@/lib/data/schedule';
+import { addToDay, stepTree, type DayStep, type StepNode } from '@/lib/data/schedule';
 import { useLocations } from '@/lib/data/locations';
 import { useActiveProfile } from '@/lib/profile/active';
 import { restore } from '@/lib/sync/mutate';
@@ -15,10 +15,12 @@ import { newId } from '@/lib/ids';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Picture } from '@/components/media/Picture';
 import { Picker } from '@/components/picker/Picker';
+import { VisualSchedule } from '@/components/schedule/VisualSchedule';
 import { TextField } from '@/components/ui/TextField';
 import { Stepper } from '@/components/ui/Stepper';
 import { Segmented } from '@/components/ui/Segmented';
 import { BigButton } from '@/components/ui/BigButton';
+import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
 import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
@@ -39,8 +41,101 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
 
 type FieldKey = 'name' | 'picture' | 'chips' | 'where' | 'repeat' | 'steps';
 
+/** Every draft step always has its own `id`, minted client-side at creation, so a
+ * sub-step can reference it as `parent_step_id` right away (see SaveActivityStepInput). */
 interface DraftStep extends SaveActivityStepInput {
-  key: string;
+  id: string;
+}
+
+function newDraftStep(parent_step_id: string | null): DraftStep {
+  return { id: newId(), parent_step_id, name: '', emoji: null, photo_id: null, duration_minutes: null };
+}
+
+/** 0 for a root step, +1 per ancestor, walking `parent_step_id` through the flat draft list. */
+function depthOf(steps: readonly DraftStep[], index: number): number {
+  let depth = 0;
+  let parentId = steps[index]?.parent_step_id ?? null;
+  while (parentId) {
+    depth += 1;
+    const parentIndex = steps.findIndex((s) => s.id === parentId);
+    parentId = parentIndex >= 0 ? (steps[parentIndex]?.parent_step_id ?? null) : null;
+    if (depth > 20) break; // guards a corrupt/cyclic parent chain, never a real tree this deep
+  }
+  return depth;
+}
+
+/** The [start, end) slice of `index` and every descendant, given the list stays in
+ * depth-first order (a step's children are always the run right after it). */
+function subtreeRange(steps: readonly DraftStep[], index: number): [number, number] {
+  const depth = depthOf(steps, index);
+  let end = index + 1;
+  while (end < steps.length && depthOf(steps, end) > depth) end += 1;
+  return [index, end];
+}
+
+function siblingsOf(steps: readonly DraftStep[], parentId: string | null): DraftStep[] {
+  return steps.filter((s) => (s.parent_step_id ?? null) === parentId);
+}
+
+/** Loaded `activity_steps` rows -> draft rows in depth-first order (reuses `stepTree`'s
+ * per-parent position ordering rather than sorting the whole flat list by `position`,
+ * which is only meaningful within one parent group). */
+function toDraftSteps(activitySteps: readonly ActivityStep[]): DraftStep[] {
+  const daySteps: DayStep[] = activitySteps.map((step) => ({ step, completed_at: null, completed_by: null, completion_id: null, depth: 0 }));
+  const result: DraftStep[] = [];
+  function walk(nodes: readonly StepNode[]): void {
+    for (const node of nodes) {
+      const s = node.node.step;
+      result.push({ id: s.id, parent_step_id: s.parent_step_id, name: s.name, emoji: s.emoji, photo_id: s.photo_id, duration_minutes: s.duration_minutes });
+      walk(node.children);
+    }
+  }
+  walk(stepTree(daySteps));
+  return result;
+}
+
+/** Draft rows with a blank name are dropped on save (pre-existing behaviour); their
+ * whole sub-tree goes with them so a save never leaves a child pointing at a step
+ * that no longer exists. */
+function blankSubtreeIds(steps: readonly DraftStep[]): Set<string> {
+  const drop = new Set<string>();
+  steps.forEach((s, i) => {
+    if (s.name.trim().length > 0) return;
+    const [start, end] = subtreeRange(steps, i);
+    for (let j = start; j < end; j += 1) drop.add((steps[j] as DraftStep).id);
+  });
+  return drop;
+}
+
+/** The in-progress draft, as a `StepNode` tree for the "Print visual schedule" preview —
+ * there's no schedule item yet, so every node is simply un-done (readOnly hides the check
+ * circles anyway). Blank rows are left out the same way a save would drop them. */
+function draftStepTree(steps: readonly DraftStep[], activityId: string): StepNode[] {
+  const drop = blankSubtreeIds(steps);
+  const daySteps: DayStep[] = steps
+    .filter((s) => !drop.has(s.id))
+    .map((s, i) => ({
+      step: {
+        id: s.id,
+        profile_id: '',
+        version: 0,
+        client_updated_at: 0,
+        updated_by: '',
+        deleted_at: null,
+        activity_id: activityId,
+        parent_step_id: s.parent_step_id ?? null,
+        position: i,
+        name: s.name,
+        emoji: s.emoji,
+        photo_id: s.photo_id,
+        duration_minutes: s.duration_minutes,
+      },
+      completed_at: null,
+      completed_by: null,
+      completion_id: null,
+      depth: 0,
+    }));
+  return stepTree(daySteps);
 }
 
 /** S9: edit/create activity page. Reads ?id= (edit) and ?add_to= (add the saved activity to that day). */
@@ -65,11 +160,10 @@ export function ActivityForm() {
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [recurrenceTime, setRecurrenceTime] = useState<string | null>(null);
   // New routine flow (?routine=1, no id yet): start with one empty step row, Steps expanded, ready to type into.
-  const [steps, setSteps] = useState<DraftStep[]>(() =>
-    routineParam && !editingId ? [{ key: newId(), name: '', emoji: null, photo_id: null, duration_minutes: null }] : [],
-  );
+  const [steps, setSteps] = useState<DraftStep[]>(() => (routineParam && !editingId ? [newDraftStep(null)] : []));
   const [openField, setOpenField] = useState<FieldKey | null>(editingId ? null : routineParam ? 'steps' : 'name');
   const [saving, setSaving] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
 
   const seededRef = useRef(false);
   const rawSteps = useLiveQuery<ActivityStep[]>(
@@ -91,17 +185,8 @@ export function ActivityForm() {
     setRepeat(activity.recurrence ?? 'none');
     setWeekdays(activity.recurrence_weekdays ?? []);
     setRecurrenceTime(activity.recurrence_time);
-    const liveSteps = rawSteps.filter((s) => s.deleted_at === null).sort((a, b) => a.position - b.position);
-    setSteps(
-      liveSteps.map((s) => ({
-        key: s.id,
-        id: s.id,
-        name: s.name,
-        emoji: s.emoji,
-        photo_id: s.photo_id,
-        duration_minutes: s.duration_minutes,
-      })),
-    );
+    const liveSteps = rawSteps.filter((s) => s.deleted_at === null);
+    setSteps(toDraftSteps(liveSteps));
     setOpenField(liveSteps.length > 0 ? 'steps' : null);
   }, [editingId, activity, rawSteps]);
 
@@ -110,7 +195,20 @@ export function ActivityForm() {
   }
 
   function addStep(): void {
-    setSteps((prev) => [...prev, { key: newId(), name: '', emoji: null, photo_id: null, duration_minutes: null }]);
+    setSteps((prev) => [...prev, newDraftStep(null)]);
+  }
+
+  /** Inserts a new sub-step as the last child of `steps[index]` (S36 "Break down"). */
+  function breakDown(index: number): void {
+    const parent = steps[index];
+    if (!parent) return;
+    const [, end] = subtreeRange(steps, index);
+    const child = newDraftStep(parent.id);
+    setSteps((prev) => {
+      const next = [...prev];
+      next.splice(end, 0, child);
+      return next;
+    });
   }
 
   function toggleWeekday(day: number): void {
@@ -121,13 +219,26 @@ export function ActivityForm() {
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
   }
 
+  /** Reorders `steps[index]` among its own siblings (S9 "sub-steps reorder among siblings"),
+   * swapping the two adjacent sub-trees rather than a plain array-index swap, so a step
+   * with children carries them along and never crosses into another parent's group. */
   function moveStep(index: number, direction: -1 | 1): void {
-    const to = index + direction;
-    if (to < 0 || to >= steps.length) return;
     setSteps((prev) => {
+      const step = prev[index];
+      if (!step) return prev;
+      const siblings = siblingsOf(prev, step.parent_step_id ?? null);
+      const pos = siblings.findIndex((s) => s.id === step.id);
+      const otherId = siblings[pos + direction]?.id;
+      if (otherId === undefined) return prev;
+      const otherIndex = prev.findIndex((s) => s.id === otherId);
+      const firstIndex = Math.min(index, otherIndex);
+      const secondIndex = Math.max(index, otherIndex);
+      const [firstStart, firstEnd] = subtreeRange(prev, firstIndex);
+      const [, secondEnd] = subtreeRange(prev, secondIndex);
+      const firstBlock = prev.slice(firstStart, firstEnd);
+      const secondBlock = prev.slice(firstEnd, secondEnd);
       const next = [...prev];
-      const [moved] = next.splice(index, 1);
-      next.splice(to, 0, moved as DraftStep);
+      next.splice(firstStart, secondEnd - firstStart, ...secondBlock, ...firstBlock);
       return next;
     });
   }
@@ -153,15 +264,21 @@ export function ActivityForm() {
     );
   }
 
+  /** Removes `steps[index]` and every sub-step under it (S9 "removing a step removes its sub-steps");
+   * undo restores the whole removed block, sub-steps included, at the same position. */
   function removeStep(index: number): void {
     const removed = steps[index];
     if (!removed) return;
-    setSteps((prev) => prev.filter((_, i) => i !== index));
-    toast(`Removed ${removed.name || 'step'}`, {
+    const [start, end] = subtreeRange(steps, index);
+    const removedBlock = steps.slice(start, end);
+    const subStepCount = removedBlock.length - 1;
+    const label = subStepCount > 0 ? `${removed.name || 'step'} and ${subStepCount} sub-step${subStepCount === 1 ? '' : 's'}` : removed.name || 'step';
+    setSteps((prev) => prev.filter((_, i) => i < start || i >= end));
+    toast(`Removed ${label}`, {
       undo: () => {
         setSteps((prev) => {
           const next = [...prev];
-          next.splice(index, 0, removed);
+          next.splice(start, 0, ...removedBlock);
           return next;
         });
       },
@@ -185,9 +302,19 @@ export function ActivityForm() {
         recurrence: repeat === 'none' ? null : repeat,
         recurrence_weekdays: repeat === 'weekly' ? weekdays : null,
         recurrence_time: repeat === 'none' ? null : recurrenceTime,
-        steps: steps
-          .filter((s) => s.name.trim().length > 0)
-          .map((s) => ({ id: s.id, name: s.name.trim(), emoji: s.emoji, photo_id: s.photo_id, duration_minutes: s.duration_minutes })),
+        steps: (() => {
+          const drop = blankSubtreeIds(steps);
+          return steps
+            .filter((s) => !drop.has(s.id))
+            .map((s) => ({
+              id: s.id,
+              parent_step_id: s.parent_step_id ?? null,
+              name: s.name.trim(),
+              emoji: s.emoji,
+              photo_id: s.photo_id,
+              duration_minutes: s.duration_minutes,
+            }));
+        })(),
       });
 
       if (addTo) {
@@ -221,12 +348,21 @@ export function ActivityForm() {
   const locationLabel = locationId ? (locations.find((l) => l.id === locationId)?.name ?? 'Everywhere') : 'Everywhere';
   const repeatLabel = REPEAT_ITEMS.find((i) => i.value === repeat)?.label ?? 'None';
 
+  const hasNamedSteps = steps.some((s) => s.name.trim().length > 0);
+
   return (
     <div className={styles.page}>
       <PageHeader
         title={editingId ? (isRoutineMode ? 'Edit routine' : 'Edit activity') : isRoutineMode ? 'New routine' : 'New activity'}
         compact
       />
+      {hasNamedSteps ? (
+        <div className={styles.headerRow}>
+          <Button variant="ghost" size="md" icon="print" onClick={() => setShowSchedule(true)}>
+            Print visual schedule
+          </Button>
+        </div>
+      ) : null}
 
       <FormRow label="Name" summary={name || 'Required'} open={openField === 'name'} onToggle={() => toggle('name')}>
         <div className={styles.nameField}>
@@ -279,44 +415,70 @@ export function ActivityForm() {
 
       <FormRow label="Steps" summary={steps.length > 0 ? `${steps.length} step${steps.length === 1 ? '' : 's'}` : 'None'} open={openField === 'steps'} onToggle={() => toggle('steps')}>
         <div className={styles.steps}>
-          {steps.map((step, i) => (
-            <div key={step.key} className={styles.stepRow}>
-              <Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name || 'Step'} size="list" />
-              <div className={styles.stepMain}>
-                <TextField
-                  label={`Step ${i + 1}`}
-                  value={step.name}
-                  onChange={(e) => updateStep(i, { name: e.target.value })}
-                  className={styles.stepInput}
-                  autoFocus={routineParam && !editingId && i === 0}
-                />
-                <div className={styles.stepRow2}>
-                  <button type="button" className={styles.fromActivityButton} onClick={() => openFromActivity(i)}>
-                    From activity
-                  </button>
+          {steps.map((step, i) => {
+            const depth = depthOf(steps, i);
+            const siblings = siblingsOf(steps, step.parent_step_id ?? null);
+            const siblingPos = siblings.findIndex((s) => s.id === step.id);
+            return (
+              <div
+                key={step.id}
+                className={styles.stepRow}
+                style={depth > 0 ? ({ '--depth': depth } as CSSProperties) : undefined}
+              >
+                <Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name || 'Step'} size="list" />
+                <div className={styles.stepMain}>
                   <TextField
-                    label={`Minutes for step ${i + 1}`}
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={120}
-                    placeholder="min"
-                    className={styles.durationInput}
-                    value={step.duration_minutes ?? ''}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      updateStep(i, { duration_minutes: raw === '' ? null : Math.max(1, Math.min(120, Number(raw))) });
-                    }}
+                    label={`Step ${i + 1}`}
+                    value={step.name}
+                    onChange={(e) => updateStep(i, { name: e.target.value })}
+                    className={styles.stepInput}
+                    autoFocus={routineParam && !editingId && i === 0}
                   />
+                  <div className={styles.stepRow2}>
+                    <button type="button" className={styles.fromActivityButton} onClick={() => openFromActivity(i)}>
+                      From activity
+                    </button>
+                    {depth < 2 ? (
+                      <button type="button" className={styles.fromActivityButton} onClick={() => breakDown(i)}>
+                        Break down
+                      </button>
+                    ) : null}
+                    <TextField
+                      label={`Minutes for step ${i + 1}`}
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={120}
+                      placeholder="min"
+                      className={styles.durationInput}
+                      value={step.duration_minutes ?? ''}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        updateStep(i, { duration_minutes: raw === '' ? null : Math.max(1, Math.min(120, Number(raw))) });
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className={styles.stepActions}>
+                  <IconButton
+                    icon="chevron"
+                    aria-label={`Move step ${i + 1} up`}
+                    className={styles.rotateUp}
+                    disabled={siblingPos <= 0}
+                    onClick={() => moveStep(i, -1)}
+                  />
+                  <IconButton
+                    icon="chevron"
+                    aria-label={`Move step ${i + 1} down`}
+                    className={styles.rotateDown}
+                    disabled={siblingPos < 0 || siblingPos >= siblings.length - 1}
+                    onClick={() => moveStep(i, 1)}
+                  />
+                  <IconButton icon="close" aria-label={`Remove step ${i + 1}`} onClick={() => removeStep(i)} />
                 </div>
               </div>
-              <div className={styles.stepActions}>
-                <IconButton icon="chevron" aria-label={`Move step ${i + 1} up`} className={styles.rotateUp} disabled={i === 0} onClick={() => moveStep(i, -1)} />
-                <IconButton icon="chevron" aria-label={`Move step ${i + 1} down`} className={styles.rotateDown} disabled={i === steps.length - 1} onClick={() => moveStep(i, 1)} />
-                <IconButton icon="close" aria-label={`Remove step ${i + 1}`} onClick={() => removeStep(i)} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <BigButton variant="secondary" icon="plus" onClick={addStep}>
             Add step
           </BigButton>
@@ -333,6 +495,17 @@ export function ActivityForm() {
         <button type="button" className={styles.deleteLink} onClick={() => void onDelete()}>
           Delete activity
         </button>
+      ) : null}
+
+      {showSchedule ? (
+        <VisualSchedule
+          title={name || 'Activity'}
+          picture={picture}
+          nodes={draftStepTree(steps, editingId ?? '')}
+          onToggle={() => {}}
+          onClose={() => setShowSchedule(false)}
+          readOnly
+        />
       ) : null}
     </div>
   );

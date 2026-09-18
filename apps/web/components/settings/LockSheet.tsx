@@ -23,6 +23,7 @@ const DEFAULT_OPTIONS: LockOptions = {
   show_chipper_chart: true,
   allow_child_location: false,
   show_step_timers: false,
+  show_visual_schedule: true,
 };
 
 type Step = 'set' | 'confirm' | 'ready';
@@ -135,6 +136,14 @@ export function LockSheet({ profileId }: LockSheetProps) {
             label="Let the child start step timers"
             checked={options.show_step_timers}
             onChange={(v) => setOptions((o) => ({ ...o, show_step_timers: v }))}
+          />
+        </div>
+        <div className={styles.toggleRow}>
+          <span className={styles.toggleLabel}>Let {profileName} open a step list</span>
+          <Switch
+            label={`Let ${profileName} open a step list`}
+            checked={options.show_visual_schedule}
+            onChange={(v) => setOptions((o) => ({ ...o, show_visual_schedule: v }))}
           />
         </div>
       </div>

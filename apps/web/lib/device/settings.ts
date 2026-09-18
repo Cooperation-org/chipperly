@@ -31,6 +31,8 @@ export interface LockOptions {
   allow_child_location: boolean;
   /** SOW Q6, decided: off by default; on lets the child start a timed step's timer themselves. */
   show_step_timers: boolean;
+  /** On by default; on lets the child open a routine's steps as a full-screen visual schedule (S32, S36). */
+  show_visual_schedule: boolean;
 }
 
 export interface LockState {
@@ -49,6 +51,7 @@ const DEFAULT_LOCK_OPTIONS: LockOptions = {
   show_chipper_chart: true,
   allow_child_location: false,
   show_step_timers: false,
+  show_visual_schedule: true,
 };
 const DEFAULT_LOCK_STATE: LockState = { locked_profile_id: null, options: DEFAULT_LOCK_OPTIONS };
 
