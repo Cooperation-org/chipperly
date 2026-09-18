@@ -12,13 +12,13 @@ import { useActiveProfile } from '@/lib/profile/active';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
-import styles from './ProfileForm.module.css';
+import styles from './FirstProfileForm.module.css';
 
 /** kv key documented in CONTRACTS.md's lib/db/db.ts; set by S3 (KindPicker) via useActiveAccount().setActiveAccountId. */
 const ACTIVE_ACCOUNT_KEY = 'active_account_id';
 
 /** S4: first profile, for household and agency accounts. */
-export function ProfileForm() {
+export function FirstProfileForm() {
   const router = useRouter();
   const accountId = useKv<string | null>(ACTIVE_ACCOUNT_KEY, null);
   const { setActiveProfileId } = useActiveProfile();

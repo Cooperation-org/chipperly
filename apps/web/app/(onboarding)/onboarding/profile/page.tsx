@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { ProfileForm } from '@/components/onboarding/ProfileForm';
+import { FirstProfileForm } from '@/components/onboarding/FirstProfileForm';
 
 export const metadata: Metadata = { title: 'Who is this for' };
 
 export default function OnboardingProfilePage() {
-  return <ProfileForm />;
+  return <FirstProfileForm />;
 }
