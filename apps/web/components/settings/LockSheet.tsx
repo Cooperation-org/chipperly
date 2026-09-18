@@ -21,6 +21,8 @@ const DEFAULT_OPTIONS: LockOptions = {
   attitude_prompt: false,
   expand_steps: true,
   show_chipper_chart: true,
+  allow_child_location: false,
+  show_step_timers: false,
 };
 
 type Step = 'set' | 'confirm' | 'ready';
@@ -118,6 +120,22 @@ export function LockSheet({ profileId }: LockSheetProps) {
         <div className={styles.toggleRow}>
           <span className={styles.toggleLabel}>Show Chipper Chart</span>
           <Switch label="Show Chipper Chart" checked={options.show_chipper_chart} onChange={(v) => setOptions((o) => ({ ...o, show_chipper_chart: v }))} />
+        </div>
+        <div className={styles.toggleRow}>
+          <span className={styles.toggleLabel}>Let {profileName} switch location</span>
+          <Switch
+            label={`Let ${profileName} switch location`}
+            checked={options.allow_child_location}
+            onChange={(v) => setOptions((o) => ({ ...o, allow_child_location: v }))}
+          />
+        </div>
+        <div className={styles.toggleRow}>
+          <span className={styles.toggleLabel}>Let the child start step timers</span>
+          <Switch
+            label="Let the child start step timers"
+            checked={options.show_step_timers}
+            onChange={(v) => setOptions((o) => ({ ...o, show_step_timers: v }))}
+          />
         </div>
       </div>
       <BigButton fullWidth icon="lock" onClick={() => void handleLock()} disabled={locking}>

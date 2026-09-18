@@ -114,4 +114,40 @@ test.describe('chips and first-then', () => {
     await expect(page.getByRole('button', { name: 'Choose an activity', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Choose a reward', exact: true })).toBeVisible();
   });
+
+  test('SOW Q1 decided: "Start over" redeem mode empties the whole balance, not just the cost', async () => {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.waitForURL('**/settings/');
+    await page.getByRole('button', { name: 'Edit profile' }).click();
+    await page.waitForURL('**/settings/profile/edit/**');
+
+    const redeemMode = page.getByRole('radiogroup', { name: 'After a reward' });
+    await redeemMode.getByRole('radio', { name: 'Start over', exact: true }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.waitForURL('**/settings/');
+    await gotoTab(page, 'chips');
+
+    // Every seeded reward costs 5 chips; bank more than that before picking
+    // one so "start over" (whole balance) and "subtract the cost" (only 5)
+    // would land on visibly different balances.
+    const board = page.getByRole('img', { name: /of 5 chips/ });
+    for (let i = 0; i < 7; i += 1) {
+      await page.getByRole('button', { name: /Add chip/ }).click();
+    }
+    await expect(board).toHaveAttribute('aria-label', '5 of 5 chips');
+
+    await page.getByRole('button', { name: /^Working for/ }).click();
+    const sheet = page.getByRole('dialog');
+    await sheet.getByRole('button', { name: /^Toy/ }).click();
+
+    const redeemButton = page.getByRole('button', { name: /^Redeem/ });
+    await expect(redeemButton).toBeVisible();
+    await redeemButton.click();
+    await expect(toast(page)).toContainText('Redeemed Toy');
+
+    // Reward cleared on redeem, so the board goes back to the location's
+    // goal (5); a subtract-mode redeem here would have left a balance
+    // behind instead of zero, since the bank held more than the cost.
+    await expect(page.getByRole('img', { name: /of 5 chips/ })).toHaveAttribute('aria-label', '0 of 5 chips');
+  });
 });

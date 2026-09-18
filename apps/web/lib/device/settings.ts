@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getKv, setKv, useKv } from '../db/kv';
+import { getKv, setKv, useKv, useKvLoaded } from '../db/kv';
 
 export interface DeviceSettings {
   sounds: boolean;
@@ -27,6 +27,10 @@ export interface LockOptions {
   attitude_prompt: boolean;
   expand_steps: boolean;
   show_chipper_chart: boolean;
+  /** SOW Q3, decided: off by default; on lets the child switch location from their own header. */
+  allow_child_location: boolean;
+  /** SOW Q6, decided: off by default; on lets the child start a timed step's timer themselves. */
+  show_step_timers: boolean;
 }
 
 export interface LockState {
@@ -43,11 +47,18 @@ const DEFAULT_LOCK_OPTIONS: LockOptions = {
   attitude_prompt: false,
   expand_steps: true,
   show_chipper_chart: true,
+  allow_child_location: false,
+  show_step_timers: false,
 };
 const DEFAULT_LOCK_STATE: LockState = { locked_profile_id: null, options: DEFAULT_LOCK_OPTIONS };
 
 export function useLock(): LockState {
   return useKv<LockState>(LOCK_KEY, DEFAULT_LOCK_STATE);
+}
+
+/** True once `useLock`'s underlying query has resolved (see useKvLoaded); gates ChildShell's redirect. */
+export function useLockLoaded(): boolean {
+  return useKvLoaded(LOCK_KEY);
 }
 
 export async function lockTo(profileId: string, options: Partial<LockOptions> = {}): Promise<void> {

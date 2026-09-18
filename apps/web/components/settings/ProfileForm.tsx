@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
+import type { RedeemMode } from '@chipperly/shared/schemas/profile';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import { Segmented } from '@/components/ui/Segmented';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { db } from '@/lib/db/db';
@@ -25,6 +27,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
 
   const [name, setName] = useState('');
   const [picture, setPicture] = useState<PicturePickerValue>({});
+  const [redeemMode, setRedeemMode] = useState<RedeemMode>('subtract');
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -34,6 +37,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   if (row && loadedFor !== row.id) {
     setName(row.name);
     setPicture({ emoji: row.avatar_emoji, photo_id: row.avatar_photo_id });
+    setRedeemMode(row.settings.redeem_mode ?? 'subtract');
     setLoadedFor(row.id);
   }
 
@@ -47,6 +51,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
       name: name.trim(),
       avatar_emoji: picture.emoji ?? null,
       avatar_photo_id: picture.photo_id ?? null,
+      settings: { ...row.settings, redeem_mode: redeemMode },
     });
     setSaving(false);
     router.push('/settings/');
@@ -64,6 +69,18 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     <div className={styles.form}>
       <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
       <PicturePicker value={picture} onChange={setPicture} name={name || row.name} />
+      <div className={styles.setting}>
+        <span className={styles.settingLabel}>After a reward</span>
+        <Segmented
+          label="After a reward"
+          items={[
+            { value: 'subtract', label: 'Subtract the cost' },
+            { value: 'reset', label: 'Start over' },
+          ]}
+          value={redeemMode}
+          onChange={(v) => setRedeemMode(v as RedeemMode)}
+        />
+      </div>
       <Button variant="primary" size="lg" fullWidth onClick={() => void save()} loading={saving}>
         Save
       </Button>

@@ -119,11 +119,13 @@ export function ChipsScreen() {
   async function handleRedeem() {
     if (!location || !working.reward) return;
     const reward = working.reward;
-    await redeem(profileId, location.id, reward);
+    // redeem() may remove more than reward.chip_cost (reset mode empties the
+    // whole board), so undo compensates with what it actually returns.
+    const removed = await redeem(profileId, location.id, reward);
     setCelebrating(true);
     toast(`Redeemed ${reward.name}`, {
       undo: () => {
-        void addChip(profileId, location.id, 'adjust', reward.id, reward.chip_cost ?? 0);
+        void addChip(profileId, location.id, 'adjust', reward.id, removed);
         void setWorkingFor(location.id, reward.id);
       },
     });

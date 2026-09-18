@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Location } from '@chipperly/shared/schemas/location';
 import type { Reward } from '@chipperly/shared/schemas/reward';
-import { computeWorkingFor } from './chips';
+import { computeRedeemDelta, computeWorkingFor } from './chips';
 
 function location(overrides: Partial<Location> = {}): Location {
   return {
@@ -57,5 +57,21 @@ describe('computeWorkingFor', () => {
 
   it('is zero goal/filled with nothing chosen and no location', () => {
     expect(computeWorkingFor(0, undefined, null)).toEqual({ reward: null, goal: 0, filled: 0 });
+  });
+});
+
+describe('computeRedeemDelta', () => {
+  it('subtract mode removes just the cost', () => {
+    expect(computeRedeemDelta('subtract', 8, 8)).toBe(-8);
+    expect(computeRedeemDelta('subtract', 8, 20)).toBe(-8);
+  });
+
+  it('reset mode empties the whole balance, cost included', () => {
+    expect(computeRedeemDelta('reset', 8, 8)).toBe(-8);
+    expect(computeRedeemDelta('reset', 8, 20)).toBe(-20);
+  });
+
+  it('reset mode with a balance below the cost still empties to zero, not negative', () => {
+    expect(computeRedeemDelta('reset', 8, 3)).toBe(-3);
   });
 });

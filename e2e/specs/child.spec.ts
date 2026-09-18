@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, signUp, snap, tapTarget, toast } from '../helpers';
+import { expectNoOverflow, gotoTab, signUp, snap, tapTarget, toast } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -25,6 +25,10 @@ test.describe('child mode', () => {
     await sheet.getByRole('button', { name: 'Wake Up', exact: true }).click();
     await expect(toast(page)).toContainText('Added Wake Up');
 
+    // The empty state's button unmounts once the Dexie live query re-resolves
+    // with the new item, which can lag behind the toast assertion (ipad-webkit).
+    // Wait for it to go so the click below is unambiguous.
+    await expect(page.locator('div[class*="EmptyState_wrap"]')).toHaveCount(0);
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     sheet = page.getByRole('dialog');
     await sheet.getByRole('button', { name: 'Create new', exact: true }).click();
@@ -133,5 +137,55 @@ test.describe('child mode', () => {
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
     await expectNoOverflow(page, 'back at today after unlock');
+  });
+
+  test('SOW Q3 decided: lock with "Let Benny switch location" on, child taps location, chip strip follows', async () => {
+    // Give School a balance that's visibly different from Home's before
+    // locking, and leave School as the active location (the child's header
+    // opens onto whichever location the device last had active).
+    await gotoTab(page, 'chips');
+    await page.getByRole('radiogroup', { name: 'Location' }).getByRole('radio', { name: 'School' }).click();
+    const board = page.getByRole('img', { name: /of 5 chips/ });
+    await page.getByRole('button', { name: /Add chip/ }).click();
+    await page.getByRole('button', { name: /Add chip/ }).click();
+    await expect(board).toHaveAttribute('aria-label', '2 of 5 chips');
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.waitForURL('**/settings/');
+    await page.getByRole('button', { name: /Lock this device to/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await expect(sheet).toBeVisible();
+
+    const locationToggle = sheet.getByRole('switch', { name: 'Let Benny switch location' });
+    await expect(locationToggle).toHaveAttribute('aria-checked', 'false');
+    await locationToggle.click();
+    await expect(locationToggle).toHaveAttribute('aria-checked', 'true');
+
+    await sheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await page.waitForURL('**/child/');
+
+    const locationButton = page.getByRole('button', { name: 'School', exact: true });
+    await expect(locationButton).toBeVisible();
+    await tapTarget(locationButton);
+    const chipStrip = page.getByRole('button', { name: /of \d+ chips/ });
+    await expect(chipStrip).toHaveAttribute('aria-label', /^2 of 5 chips/);
+
+    await locationButton.click();
+    const picker = page.getByRole('dialog', { name: 'Choose location' });
+    await expect(picker).toBeVisible();
+    await expectNoOverflow(page, 'S32 child location picker');
+    await snap(page, 's32-child-location-picker');
+
+    await picker.getByRole('button', { name: 'Home', exact: true }).click();
+    await expect(picker).toBeHidden();
+
+    await expect(page.getByRole('button', { name: 'Home', exact: true })).toBeVisible();
+    // Home earned its one chip back in "check off a row: chip strip updates...".
+    await expect(chipStrip).toHaveAttribute('aria-label', /^1 of 5 chips/);
+
+    // Leave the suite unlocked.
+    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await enterPin(page, '1234');
+    await page.waitForURL('**/today/', { timeout: 5_000 });
   });
 });

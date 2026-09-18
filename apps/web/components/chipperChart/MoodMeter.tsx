@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { levelEmoji, MOOD_MAX, MOOD_MIN } from '@/lib/data/mood';
 import { Icon } from '@/components/ui/Icon';
 import styles from './MoodMeter.module.css';
@@ -29,10 +29,31 @@ function levelFromClientX(clientX: number, rect: DOMRect): number {
 export function MoodMeter({ level, onChange }: MoodMeterProps) {
   const barRef = useRef<HTMLDivElement>(null);
 
+  // `level` is driven by an async Dexie live query (upstream `useMoodLevel`):
+  // two taps fired before it round-trips (slow on webkit) would both read
+  // the same stale `level` and request the same target instead of
+  // compounding. This ref tracks what we've actually requested so far and
+  // drives the *next* request only; rendering below still always uses the
+  // confirmed `level` prop, so the displayed value (and what a reload right
+  // after a tap sees) never gets ahead of what's actually been persisted.
+  const requestedRef = useRef(level);
+  // Only resyncs `requestedRef` toward the confirmed value after render
+  // commits, so it never races a request() call happening inside the same
+  // synchronous click handler that produced this render.
+  useEffect(() => {
+    requestedRef.current = level;
+  }, [level]);
+
+  function request(next: number): void {
+    const clamped = Math.max(MOOD_MIN, Math.min(MOOD_MAX, next));
+    requestedRef.current = clamped;
+    onChange(clamped);
+  }
+
   function tapToLevel(clientX: number): void {
     const rect = barRef.current?.getBoundingClientRect();
     if (!rect) return;
-    onChange(levelFromClientX(clientX, rect));
+    request(levelFromClientX(clientX, rect));
   }
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>): void {
@@ -42,16 +63,16 @@ export function MoodMeter({ level, onChange }: MoodMeterProps) {
   function handleKeyDown(e: ReactKeyboardEvent<HTMLDivElement>): void {
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
       e.preventDefault();
-      onChange(level + 1);
+      request(requestedRef.current + 1);
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
       e.preventDefault();
-      onChange(level - 1);
+      request(requestedRef.current - 1);
     } else if (e.key === 'Home') {
       e.preventDefault();
-      onChange(MOOD_MIN);
+      request(MOOD_MIN);
     } else if (e.key === 'End') {
       e.preventDefault();
-      onChange(MOOD_MAX);
+      request(MOOD_MAX);
     }
   }
 
@@ -62,7 +83,7 @@ export function MoodMeter({ level, onChange }: MoodMeterProps) {
         className={styles.minus}
         aria-label="Decrease mood"
         disabled={level <= MOOD_MIN}
-        onClick={() => onChange(level - 1)}
+        onClick={() => request(requestedRef.current - 1)}
       >
         <Icon name="minus" size={24} />
       </button>
@@ -93,7 +114,7 @@ export function MoodMeter({ level, onChange }: MoodMeterProps) {
         className={styles.plus}
         aria-label="Increase mood"
         disabled={level >= MOOD_MAX}
-        onClick={() => onChange(level + 1)}
+        onClick={() => request(requestedRef.current + 1)}
       >
         <Icon name="plus" size={24} />
       </button>

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { ChipLedger, ChipReason } from '@chipperly/shared/schemas/chips';
 import type { Location } from '@chipperly/shared/schemas/location';
+import type { RedeemMode } from '@chipperly/shared/schemas/profile';
 import type { Reward } from '@chipperly/shared/schemas/reward';
 import { balanceFor } from '@chipperly/shared/helpers/chips';
 import { db } from '../db/db';
@@ -50,15 +51,26 @@ export async function addChip(
   await upsert('chip_ledger', row);
 }
 
-/** Appends the redeem entry and clears the location's working-for reward. */
-export async function redeem(profileId: string, locationId: string | null, reward: Reward): Promise<void> {
-  const cost = reward.chip_cost ?? 0;
-  await addChip(profileId, locationId, 'redeem', reward.id, -cost);
+/** Pure: SOW Q1, decided. 'reset' takes the whole balance so the board empties to zero; 'subtract' just removes the cost. */
+export function computeRedeemDelta(mode: RedeemMode, cost: number, balance: number): number {
+  return mode === 'reset' ? -balance : -cost;
+}
 
-  if (!locationId) return;
-  const location = await db.locations.get(locationId);
-  if (!location) return;
-  await upsert('locations', { ...location, working_for_reward_id: null });
+/** Appends the redeem entry and clears the location's working-for reward. Returns the amount removed (for undo). */
+export async function redeem(profileId: string, locationId: string | null, reward: Reward): Promise<number> {
+  const cost = reward.chip_cost ?? 0;
+  const profile = await db.profiles.get(profileId);
+  const mode: RedeemMode = profile?.settings.redeem_mode ?? 'subtract';
+  const ledger = await db.chip_ledger.where('profile_id').equals(profileId).toArray();
+  const balance = balanceFor(ledger, locationId);
+  const delta = computeRedeemDelta(mode, cost, balance);
+  await addChip(profileId, locationId, 'redeem', reward.id, delta);
+
+  if (locationId) {
+    const location = await db.locations.get(locationId);
+    if (location) await upsert('locations', { ...location, working_for_reward_id: null });
+  }
+  return -delta;
 }
 
 export function useLedger(profileId: string, locationId?: string | null): ChipLedger[] {

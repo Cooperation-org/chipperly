@@ -1,11 +1,19 @@
 import { z } from 'zod';
 import { msTimestampSchema, uuidSchema } from './common.js';
 
+/** SOW Q1, decided: per profile, whether redeeming a reward subtracts its cost or empties the board. */
+export const RedeemModeSchema = z.enum(['subtract', 'reset']);
+export type RedeemMode = z.infer<typeof RedeemModeSchema>;
+
 /**
- * Reserved for future per-profile settings (technical-plan.md section 5);
- * currently empty. Existing rows still hold `{}`.
+ * Per-profile settings (technical-plan.md section 5). Existing rows still
+ * hold `{}`; every field here is optional so old rows keep parsing.
  */
-export const ProfileSettingsSchema = z.object({}).partial();
+export const ProfileSettingsSchema = z
+  .object({
+    redeem_mode: RedeemModeSchema.optional(),
+  })
+  .partial();
 export type ProfileSettings = z.infer<typeof ProfileSettingsSchema>;
 
 /**

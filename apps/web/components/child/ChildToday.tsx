@@ -7,9 +7,9 @@ import { useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { db } from '@/lib/db/db';
 import { materializeRecurringFresh, setCompleted, setStepCompleted, useDayItems, type DayItem } from '@/lib/data/schedule';
-import { useActiveLocation } from '@/lib/data/locations';
+import { useActiveLocation, useLocations } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
-import { useTimer, useTimerRunning } from '@/lib/timer/store';
+import { useTimer, useTimerRunning, setDuration, start } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { ChipStrip } from '@/components/ui/ChipStrip';
@@ -55,7 +55,8 @@ export function ChildToday() {
 
   const profile = useLiveQuery(() => (profileId ? db.profiles.get(profileId) : undefined), [profileId]);
   const dayItems = useDayItems(profileId, isoDate);
-  const { location: activeLocation } = useActiveLocation(profileId);
+  const { location: activeLocation, setActiveLocationId } = useActiveLocation(profileId);
+  const locations = useLocations(profileId);
   const workingFor = useWorkingFor(profileId, activeLocation?.id ?? null);
 
   useEffect(() => {
@@ -156,6 +157,41 @@ export function ChildToday() {
     showPromptFor(day.item.id);
   }
 
+  // ponytail: opens the same full-screen timer already used for the running-timer
+  // pill below instead of routing to /timer/ — this screen traps back-navigation
+  // and has no nav chrome to return from, so leaving the route would strand the child.
+  function startStepTimer(minutes: number): void {
+    setDuration(minutes * 60_000);
+    start();
+    setTimerOpen(true);
+  }
+
+  // SOW Q3, decided: a lock option lets the child pick their own location
+  // from their header, big picture tiles, no text-only choices.
+  function openLocationPicker(): void {
+    sheet.open(
+      <ul className={styles.locationList}>
+        {locations.map((loc) => (
+          <li key={loc.id}>
+            <button
+              type="button"
+              className={styles.locationTile}
+              aria-label={loc.name}
+              onClick={() => {
+                setActiveLocationId(loc.id);
+                sheet.close();
+              }}
+            >
+              <Picture emoji={loc.emoji} photo_id={loc.photo_id} name={loc.name} size="child" />
+              <span>{loc.name}</span>
+            </button>
+          </li>
+        ))}
+      </ul>,
+      { title: 'Choose location' },
+    );
+  }
+
   function openWorkingFor(): void {
     sheet.open(
       <div className={styles.workingForSheet}>
@@ -182,6 +218,11 @@ export function ChildToday() {
           <Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="child" />
           <h1 className={styles.name}>{profile.name}</h1>
         </div>
+        {options.allow_child_location && locations.length > 0 ? (
+          <button type="button" className={styles.locationButton} onClick={openLocationPicker}>
+            {activeLocation?.name ?? 'Location'}
+          </button>
+        ) : null}
         {workingFor.reward || workingFor.filled > 0 ? (
           <ChipStrip
             filled={workingFor.filled}
@@ -233,6 +274,12 @@ export function ChildToday() {
                           name={s.step.name}
                           checked={s.completed_at !== null}
                           onChange={(next) => void handleStepToggle(day, s.step.id, next)}
+                          durationMinutes={s.step.duration_minutes}
+                          onStartTimer={
+                            options.show_step_timers && s.step.duration_minutes
+                              ? () => startStepTimer(s.step.duration_minutes as number)
+                              : undefined
+                          }
                         />
                       </li>
                     ))}

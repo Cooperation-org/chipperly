@@ -35,6 +35,40 @@
   flex-shrink: 0;
 }
 
+.locationButton {
+  flex-shrink: 0;
+  min-height: 64px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.locationList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+
+.locationTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2);
+  border: none;
+  background: none;
+  font-size: var(--text-md);
+  text-align: center;
+}
+
 .list {
   display: flex;
   flex-direction: column;
