@@ -21,7 +21,7 @@ echo "== build shared"; pnpm -F @chipperly/shared build 2>&1 | tail -1
 
 # web export with the demo base path
 cat > apps/web/.env.production <<EOF
-NEXT_PUBLIC_BASE_PATH=/chipperly
+NEXT_PUBLIC_BASE_PATH=/chipperly-next
 NEXT_PUBLIC_API_ORIGIN=
 NEXT_PUBLIC_SITE_ORIGIN=https://demos.linkedtrust.us
 EOF
@@ -40,7 +40,7 @@ PORT=8064
 HOST=127.0.0.1
 JWT_SECRET=$JWT
 WEB_DIR=../web/out
-BASE_PATH=/chipperly
+BASE_PATH=/chipperly-next
 UPLOAD_DIR=$HOME/chipperly-uploads
 APP_ORIGIN=https://demos.linkedtrust.us
 BETA_INVITE_CODE=chipper-demo
@@ -48,6 +48,8 @@ LOG_LEVEL=info
 EOF
   chmod 600 apps/api/.env
 fi
+# keep the mount path in step with the export on every run
+sed -i 's|^BASE_PATH=.*|BASE_PATH=/chipperly-next|' apps/api/.env
 
 # embedded postgres (throwaway demo db, kept in the project dir per the dev VM guide)
 mkdir -p "$HOME/chipperly-logs"
@@ -63,8 +65,8 @@ echo "== migrate"; (cd apps/api && node --env-file=.env --import tsx src/db/migr
 pkill -f 'apps/api/dist/server.js' 2>/dev/null || true
 sleep 1
 (cd apps/api && setsid nohup node --env-file=.env dist/server.js > "$HOME/chipperly-logs/api.log" 2>&1 &)
-for i in $(seq 1 30); do sleep 1; curl -s -o /dev/null http://127.0.0.1:8064/chipperly/api/health && break; done
-echo "health: $(curl -s http://127.0.0.1:8064/chipperly/api/health)"
-echo "root:   $(curl -s -o /dev/null -w '%{http_code} %{content_type}' http://127.0.0.1:8064/chipperly/)"
-echo "today:  $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8064/chipperly/today/)"
-echo "sw:     $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8064/chipperly/sw.js)"
+for i in $(seq 1 30); do sleep 1; curl -s -o /dev/null http://127.0.0.1:8064/chipperly-next/api/health && break; done
+echo "health: $(curl -s http://127.0.0.1:8064/chipperly-next/api/health)"
+echo "root:   $(curl -s -o /dev/null -w '%{http_code} %{content_type}' http://127.0.0.1:8064/chipperly-next/)"
+echo "today:  $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8064/chipperly-next/today/)"
+echo "sw:     $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8064/chipperly-next/sw.js)"

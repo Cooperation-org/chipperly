@@ -1,11 +1,11 @@
 [Unit]
-Description=tmp: Chipperly demo embedded Postgres (expires 2026-11-18)
+Description=tmp: Chipperly (new app) demo embedded Postgres (expires 2026-11-18)
 After=network.target
 
 [Service]
 User=mhany
 WorkingDirectory=/home/mhany/chipperly/apps/api
-ExecStart=/home/mhany/.nvm/versions/node/v22.22.1/bin/node scripts/dev-db.mjs
+ExecStart=/usr/bin/node scripts/dev-db.mjs
 Restart=always
 RestartSec=5
 
