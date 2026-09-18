@@ -21,3 +21,18 @@
   display: block;
   margin: 0 auto;
 }
+
+.footer {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.footer a {
+  color: var(--color-text-muted);
+  text-decoration: underline;
+}
+

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPassword, useSession } from '@/lib/auth/session';
@@ -22,9 +22,12 @@ export function SignInForm() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // See SignUpForm's identical guard: without it this effect's own
+  // router.replace('/today/') races redirectAfterAuth's destination.
+  const submittingRef = useRef(false);
 
   useEffect(() => {
-    if (status === 'signed_in') router.replace('/today/');
+    if (status === 'signed_in' && !submittingRef.current) router.replace('/today/');
   }, [status, router]);
 
   if (status === 'signed_in') return null;
@@ -33,6 +36,7 @@ export function SignInForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    submittingRef.current = true;
     try {
       await signInWithPassword(email, password);
       await redirectAfterAuth(router);
@@ -40,6 +44,7 @@ export function SignInForm() {
       setError(err instanceof ApiError ? "Couldn't sign in. Check your email and password." : "Couldn't sign in. Try again.");
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   }
 
@@ -49,8 +54,9 @@ export function SignInForm() {
       <p className={styles.subtitle}>Visual supports for the whole care team.</p>
       {HAS_OAUTH ? (
         <div className={styles.form}>
-          <GoogleButton />
-          <AppleButton />
+          {/* Existing users only: no consent checkbox on this screen, see components/auth/GoogleButton.tsx. */}
+          <GoogleButton consented />
+          <AppleButton consented />
           <div className={styles.divider}>or</div>
         </div>
       ) : null}

@@ -48,15 +48,21 @@ test.describe('auth', () => {
     email = `e2e-auth-${unique}@example.com`;
     password = 'correct-horse-battery-staple';
 
+    const consentCheckbox = page.getByRole('checkbox', { name: /parent, guardian, or an authorised caregiver/i });
+    const createButton = page.getByRole('button', { name: 'Create account', exact: true });
+    await expect(createButton).toBeDisabled();
+
     await page.getByLabel('Name', { exact: true }).fill('Auth Tester');
     await page.getByLabel('Email', { exact: true }).fill(email);
     await page.getByLabel('Password', { exact: true }).fill(password);
     await inviteCodeField.fill('not-the-code');
-    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await consentCheckbox.check();
+    await expect(createButton).toBeEnabled();
+    await createButton.click();
     await expect(page.getByText("That invite code isn't right.")).toBeVisible();
 
     await inviteCodeField.fill('e2e-beta-code');
-    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await createButton.click();
     await page.waitForURL('**/onboarding/kind/');
   });
 
@@ -107,11 +113,32 @@ test.describe('auth', () => {
     await snap(page, 'verify-expired');
   });
 
+  test('/privacy/ and /terms/ render (SOW Q21)', async () => {
+    await page.goto('/privacy/');
+    await expect(page.getByRole('heading', { name: 'Privacy policy' })).toBeVisible();
+    await expect(page.getByText("Draft: to be reviewed by Chipperly's counsel before launch.")).toBeVisible();
+    await expectNoOverflow(page, 'privacy policy');
+    await snap(page, 'privacy');
+
+    await page.goto('/terms/');
+    await expect(page.getByRole('heading', { name: 'Terms' })).toBeVisible();
+    await expect(page.getByText("Draft: to be reviewed by Chipperly's counsel before launch.")).toBeVisible();
+    await expectNoOverflow(page, 'terms');
+    await snap(page, 'terms');
+  });
+
   test('sign out from /settings/account/ returns to /', async () => {
     await page.goto('/settings/account/');
     await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
     await expectNoOverflow(page, 'account');
     await snap(page, 's30-account');
+
+    // "Download my data" (SOW Q21): saves a chipperly-export-<date>.json via a Blob link.
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download my data', exact: true }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^chipperly-export-\d{4}-\d{2}-\d{2}\.json$/);
 
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await page.waitForURL('http://127.0.0.1:8123/');

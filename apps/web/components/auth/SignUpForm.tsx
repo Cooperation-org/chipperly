@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signUp, useSession } from '@/lib/auth/session';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { GoogleButton } from './GoogleButton';
 import { AppleButton } from './AppleButton';
+import { ConsentCheckbox } from './ConsentCheckbox';
 import { getAuthProviders } from './providers';
 import { getPendingInviteToken, redirectAfterAuth } from './postAuthRedirect';
 import styles from './SignUpForm.module.css';
@@ -24,11 +25,19 @@ export function SignUpForm() {
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [inviteCodeRequired, setInviteCodeRequired] = useState(false);
+  const [consented, setConsented] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True for the span of our own handleSubmit, incl. the setState('signed_in') that
+  // refreshMe() triggers: without this, that status flip re-runs the effect below and
+  // races its router.replace('/today/') against redirectAfterAuth's own destination
+  // (e.g. back to an invite) -- a race Chromium usually won but WebKit didn't, landing
+  // signed-up invitees on /today/ (then CaregiverShell's empty-profiles guard bounced
+  // them to /onboarding/kind/) instead of back at the invite they came from.
+  const submittingRef = useRef(false);
 
   useEffect(() => {
-    if (status === 'signed_in') router.replace('/today/');
+    if (status === 'signed_in' && !submittingRef.current) router.replace('/today/');
   }, [status, router]);
 
   useEffect(() => {
@@ -41,9 +50,10 @@ export function SignUpForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    submittingRef.current = true;
     try {
       const invite_token = (await getPendingInviteToken()) ?? undefined;
-      await signUp(email, password, name, { invite_code: inviteCode || undefined, invite_token });
+      await signUp(email, password, name, Date.now(), { invite_code: inviteCode || undefined, invite_token });
       await redirectAfterAuth(router);
     } catch (err) {
       setError(
@@ -55,16 +65,18 @@ export function SignUpForm() {
       );
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   }
 
   return (
     <div>
       <h1 className={styles.title}>Create account</h1>
+      <ConsentCheckbox checked={consented} onChange={setConsented} required />
       {HAS_OAUTH ? (
         <div className={styles.form}>
-          <GoogleButton />
-          <AppleButton />
+          <GoogleButton consented={consented} />
+          <AppleButton consented={consented} />
           <div className={styles.divider}>or</div>
         </div>
       ) : null}
@@ -103,7 +115,7 @@ export function SignUpForm() {
             {error}
           </p>
         ) : null}
-        <Button type="submit" fullWidth loading={loading}>
+        <Button type="submit" fullWidth loading={loading} disabled={!consented}>
           Create account
         </Button>
       </form>

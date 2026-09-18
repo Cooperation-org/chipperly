@@ -139,7 +139,11 @@ async function findOAuthUser(provider: 'google' | 'apple', identity: VerifiedIde
   return null;
 }
 
-async function createOAuthUser(provider: 'google' | 'apple', identity: VerifiedIdentity): Promise<string> {
+async function createOAuthUser(
+  provider: 'google' | 'apple',
+  identity: VerifiedIdentity,
+  consentedAt: number,
+): Promise<string> {
   const newUserId = uuidv7();
   await db.insert(users).values({
     id: newUserId,
@@ -148,6 +152,7 @@ async function createOAuthUser(provider: 'google' | 'apple', identity: VerifiedI
     auth_provider_id: identity.sub,
     display_name: identity.name ?? identity.email,
     email_verified_at: identity.email_verified ? Date.now() : null,
+    consented_at: consentedAt,
     created_at: Date.now(),
   });
   return newUserId;
@@ -170,6 +175,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       email,
       password_hash: passwordHash,
       display_name: body.display_name,
+      consented_at: body.consented_at,
       created_at: Date.now(),
     });
 
@@ -201,7 +207,8 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     let userId = await findOAuthUser('google', identity);
     if (!userId) {
       await requireInviteGate(body.invite_code, body.invite_token);
-      userId = await createOAuthUser('google', identity);
+      if (!body.consented_at) throw new AppError(409, 'consent_required', 'Agree to the Terms and Privacy Policy first');
+      userId = await createOAuthUser('google', identity, body.consented_at);
     }
     return issueTokens(userId, undefined, userAgentOf(request));
   });
@@ -213,7 +220,8 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     let userId = await findOAuthUser('apple', identity);
     if (!userId) {
       await requireInviteGate(body.invite_code, body.invite_token);
-      userId = await createOAuthUser('apple', identity);
+      if (!body.consented_at) throw new AppError(409, 'consent_required', 'Agree to the Terms and Privacy Policy first');
+      userId = await createOAuthUser('apple', identity, body.consented_at);
     }
     return issueTokens(userId, undefined, userAgentOf(request));
   });

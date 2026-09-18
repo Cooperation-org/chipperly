@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AccountSchema, Role, UserPublicSchema } from './account.js';
 import { uuidSchema } from './common.js';
+import { MediaKind } from './media.js';
 import { ProfileSchema } from './profile.js';
 
 const passwordSchema = z.string().min(8);
@@ -14,6 +15,8 @@ export const RegisterBodySchema = z.object({
   invite_code: z.string().min(1).optional(),
   /** A pending account invite's raw token; a valid, unexpired one bypasses invite_code. */
   invite_token: z.string().min(1).optional(),
+  /** Epoch ms when the "I'm a parent/guardian/caregiver, 18+, agree to Terms and Privacy" checkbox was ticked (S2). */
+  consented_at: z.number(),
 });
 export type RegisterBody = z.infer<typeof RegisterBodySchema>;
 
@@ -29,6 +32,8 @@ export const GoogleAuthBodySchema = z.object({
   invite_code: z.string().min(1).optional(),
   /** A pending account invite's raw token; a valid, unexpired one bypasses invite_code when this creates a new user. */
   invite_token: z.string().min(1).optional(),
+  /** Epoch ms the consent checkbox was ticked; required only when this sign-in creates a new user (missing -> 409 consent_required). */
+  consented_at: z.number().optional(),
 });
 export type GoogleAuthBody = z.infer<typeof GoogleAuthBodySchema>;
 
@@ -38,6 +43,8 @@ export const AppleAuthBodySchema = z.object({
   invite_code: z.string().min(1).optional(),
   /** A pending account invite's raw token; a valid, unexpired one bypasses invite_code when this creates a new user. */
   invite_token: z.string().min(1).optional(),
+  /** Epoch ms the consent checkbox was ticked; required only when this sign-in creates a new user (missing -> 409 consent_required). */
+  consented_at: z.number().optional(),
 });
 export type AppleAuthBody = z.infer<typeof AppleAuthBodySchema>;
 
@@ -89,6 +96,30 @@ export const MeResponseSchema = z.object({
   profiles: z.array(ProfileSchema),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+/**
+ * GET /me/export (S30 "Download my data"): everything the signed-in user can
+ * see. `tables` is keyed by every synced table name (packages/shared/src/
+ * constants/tables.ts); each row keeps its own table's shape, so this stays a
+ * loose record instead of a second copy of every table schema.
+ */
+export const ExportResponseSchema = z.object({
+  exported_at: z.number(),
+  user: UserPublicSchema.omit({ pin_hash: true }),
+  accounts: z.array(AccountSchema),
+  memberships: z.array(z.object({ account_id: uuidSchema, role: Role })),
+  profiles: z.array(ProfileSchema),
+  tables: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))),
+  media: z.array(
+    z.object({
+      id: uuidSchema,
+      url: z.string(),
+      kind: MediaKind,
+      created_at: z.number(),
+    }),
+  ),
+});
+export type ExportResponse = z.infer<typeof ExportResponseSchema>;
 
 export const CreateAccountBodySchema = z.object({
   kind: z.enum(['individual', 'household', 'agency']),

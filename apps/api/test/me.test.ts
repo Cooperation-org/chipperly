@@ -2,19 +2,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import { MeResponseSchema, type MeResponse, type TokensResponse } from '@chipperly/shared/schemas/auth';
+import { ExportResponseSchema, MeResponseSchema, type MeResponse, type TokensResponse } from '@chipperly/shared/schemas/auth';
 import { buildTestApp, expectShape, request } from './helpers.js';
-import { addMember, createAccount, createUser } from './fixtures.js';
+import { addMember, createAccount, createUser, setupProfile } from './fixtures.js';
 import { db } from '../src/db/client.js';
 import { account_members, accounts, users } from '../src/db/schema/accounts.js';
 import { profile_members, profiles } from '../src/db/schema/profiles.js';
+import { locations } from '../src/db/schema/locations.js';
+import { media } from '../src/db/schema/media.js';
 import { verifyPin } from '../src/lib/password.js';
 
 async function registerAndSignIn(app: FastifyInstance, email: string): Promise<{ userId: string; token: string }> {
   const response = await request(app, {
     method: 'POST',
     url: '/api/auth/register',
-    payload: { email, password: 'correct-horse', display_name: 'Sam' },
+    payload: { email, password: 'correct-horse', display_name: 'Sam', consented_at: Date.now() },
   });
   const tokens = response.json() as TokensResponse;
   const me = await request(app, {
@@ -307,6 +309,81 @@ describe('DELETE /me', () => {
 
   it('rejects an unauthenticated request', async () => {
     const response = await request(app, { method: 'DELETE', url: '/api/me' });
+    expect(response.statusCode).toBe(401);
+  });
+});
+
+describe('GET /me/export', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('returns the user, accounts, profiles, synced table rows and media the caller can see', async () => {
+    const { admin, accountId, profileId } = await setupProfile();
+
+    const locationId = uuidv7();
+    await db.insert(locations).values({
+      id: locationId,
+      profile_id: profileId,
+      client_updated_at: Date.now(),
+      updated_by: admin.id,
+      name: 'Home',
+      position: 0,
+    });
+    const deletedLocationId = uuidv7();
+    await db.insert(locations).values({
+      id: deletedLocationId,
+      profile_id: profileId,
+      client_updated_at: Date.now(),
+      updated_by: admin.id,
+      name: 'Old place',
+      position: 1,
+      deleted_at: Date.now(),
+    });
+
+    const mediaId = uuidv7();
+    await db.insert(media).values({
+      id: mediaId,
+      account_id: accountId,
+      kind: 'image',
+      status: 'ready',
+      storage_key: `${accountId}/${mediaId}.webp`,
+      content_type: 'image/webp',
+      bytes: 100,
+      original_bytes: 200,
+      created_by: admin.id,
+      created_at: Date.now(),
+    });
+
+    const response = await request(app, {
+      method: 'GET',
+      url: '/api/me/export',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = expectShape(response, ExportResponseSchema);
+
+    expect(body.user.id).toBe(admin.id);
+    expect(body.accounts.map((a) => a.id)).toContain(accountId);
+    expect(body.profiles.map((p) => p.id)).toContain(profileId);
+
+    const locationIds = body.tables.locations?.map((row) => row.id) ?? [];
+    expect(locationIds).toContain(locationId);
+    expect(locationIds).not.toContain(deletedLocationId); // soft-deleted rows aren't "what we have" for the export
+
+    expect(body.media.map((m) => m.id)).toContain(mediaId);
+    const mediaRow = body.media.find((m) => m.id === mediaId);
+    expect(mediaRow?.url).toBe(`/api/media/${mediaId}`);
+  });
+
+  it('rejects an unauthenticated request', async () => {
+    const response = await request(app, { method: 'GET', url: '/api/me/export' });
     expect(response.statusCode).toBe(401);
   });
 });

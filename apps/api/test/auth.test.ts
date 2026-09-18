@@ -56,7 +56,7 @@ describe('auth routes', () => {
     const response = await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'Parent@Example.com', password: 'correct-horse', display_name: 'Sam' },
+      payload: { email: 'Parent@Example.com', password: 'correct-horse', display_name: 'Sam', consented_at: Date.now() },
     });
     expect(response.statusCode).toBe(200);
     const body = expectShape(response, TokensResponseSchema);
@@ -70,12 +70,12 @@ describe('auth routes', () => {
     await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'dup@example.com', password: 'correct-horse', display_name: 'Dup' },
+      payload: { email: 'dup@example.com', password: 'correct-horse', display_name: 'Dup', consented_at: Date.now() },
     });
     const response = await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'dup@example.com', password: 'another-password', display_name: 'Dup Two' },
+      payload: { email: 'dup@example.com', password: 'another-password', display_name: 'Dup Two', consented_at: Date.now() },
     });
     expect(response.statusCode).toBe(409);
     expect(response.json().error.code).toBe('email_taken');
@@ -85,7 +85,7 @@ describe('auth routes', () => {
     await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'login@example.com', password: 'correct-horse', display_name: 'Login' },
+      payload: { email: 'login@example.com', password: 'correct-horse', display_name: 'Login', consented_at: Date.now() },
     });
 
     const ok = await request(app, {
@@ -117,7 +117,7 @@ describe('auth routes', () => {
     const registered = await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'refresh@example.com', password: 'correct-horse', display_name: 'Refresh' },
+      payload: { email: 'refresh@example.com', password: 'correct-horse', display_name: 'Refresh', consented_at: Date.now() },
     });
     const tokens = registered.json() as TokensResponse;
 
@@ -143,7 +143,7 @@ describe('auth routes', () => {
     const registered = await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'logout@example.com', password: 'correct-horse', display_name: 'Logout' },
+      payload: { email: 'logout@example.com', password: 'correct-horse', display_name: 'Logout', consented_at: Date.now() },
     });
     const tokens = registered.json() as TokensResponse;
 
@@ -167,7 +167,7 @@ describe('auth routes', () => {
     await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'forgot@example.com', password: 'correct-horse', display_name: 'Forgot' },
+      payload: { email: 'forgot@example.com', password: 'correct-horse', display_name: 'Forgot', consented_at: Date.now() },
     });
 
     const forgot = await request(app, {
@@ -208,7 +208,7 @@ describe('auth routes', () => {
     const registered = await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'verify@example.com', password: 'correct-horse', display_name: 'Verify' },
+      payload: { email: 'verify@example.com', password: 'correct-horse', display_name: 'Verify', consented_at: Date.now() },
     });
     expect(registered.statusCode).toBe(200);
 
@@ -243,7 +243,7 @@ describe('auth routes', () => {
     const response = await request(app, {
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'no-invite-code@example.com', password: 'correct-horse', display_name: 'Open Beta' },
+      payload: { email: 'no-invite-code@example.com', password: 'correct-horse', display_name: 'Open Beta', consented_at: Date.now() },
     });
     expect(response.statusCode).toBe(200);
   });
@@ -332,7 +332,23 @@ describe('POST /auth/google, new user, closed beta', () => {
     expect(response.json().error.code).toBe('invite_code_invalid');
   });
 
-  it('accepts a brand-new Google sign-in with a valid invite_token, without marking the invite accepted', async () => {
+  it('409s a brand-new Google sign-in with a valid invite_token but no consented_at', async () => {
+    vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce({
+      sub: 'google-sub-no-consent',
+      email: 'google-new-no-consent@example.com',
+      email_verified: true,
+      name: 'No Consent Googler',
+    });
+    const response = await request(app, {
+      method: 'POST',
+      url: '/api/auth/google',
+      payload: { id_token: 'stubbed', invite_token: inviteToken },
+    });
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe('consent_required');
+  });
+
+  it('accepts a brand-new Google sign-in with a valid invite_token and consented_at, without marking the invite accepted', async () => {
     vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce({
       sub: 'google-sub-accepted',
       email: 'google-new-accepted@example.com',
@@ -342,7 +358,7 @@ describe('POST /auth/google, new user, closed beta', () => {
     const response = await request(app, {
       method: 'POST',
       url: '/api/auth/google',
-      payload: { id_token: 'stubbed', invite_token: inviteToken },
+      payload: { id_token: 'stubbed', invite_token: inviteToken, consented_at: Date.now() },
     });
     expect(response.statusCode).toBe(200);
     expect((response.json() as TokensResponse).access_token).toBeTruthy();
@@ -350,5 +366,26 @@ describe('POST /auth/google, new user, closed beta', () => {
     // Sign-in via the invite_token bypass isn't accepting the invite; only POST /invites/:token/accept does.
     const [inviteRow] = await db.select().from(invites).where(eq(invites.account_id, account.id));
     expect(inviteRow?.accepted_at).toBeNull();
+  });
+});
+
+describe('register requires consent', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('400s registration without consented_at', async () => {
+    const response = await request(app, {
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'no-consent@example.com', password: 'correct-horse', display_name: 'No Consent' },
+    });
+    expect(response.statusCode).toBe(400);
   });
 });

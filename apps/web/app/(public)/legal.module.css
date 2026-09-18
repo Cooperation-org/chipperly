@@ -1,0 +1,37 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.banner {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.title {
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.updated {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.page h2 {
+  font-size: var(--text-md);
+  margin: var(--space-2) 0 0;
+}
+
+.page a {
+  color: var(--color-primary);
+  font-weight: 600;
+}

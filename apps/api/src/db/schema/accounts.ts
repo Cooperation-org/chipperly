@@ -20,6 +20,8 @@ export const users = pgTable(
     display_name: text('display_name').notNull(),
     pin_hash: text('pin_hash'),
     email_verified_at: bigint('email_verified_at', { mode: 'number' }),
+    /** Epoch ms the "parent/guardian/caregiver, 18+, agree to Terms and Privacy" checkbox was ticked (SOW Q21 / COPPA). Nullable: null for accounts created before this column existed. */
+    consented_at: bigint('consented_at', { mode: 'number' }),
     created_at: bigint('created_at', { mode: 'number' }).notNull(),
   },
   // Belt-and-suspenders: callers should already lowercase before insert.

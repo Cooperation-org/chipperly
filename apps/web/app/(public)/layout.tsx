@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import Script from 'next/script';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import { withBase } from '@/lib/api/base';
@@ -16,8 +17,14 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   return (
     <div className={styles.page}>
       <div className={styles.card}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API */}
         <img src={withBase('/brand/mark.svg')} alt="Chipperly" width={40} height={40} className={styles.mark} />
         {children}
+        <p className={styles.footer}>
+          <Link href="/privacy/">Privacy</Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/terms/">Terms</Link>
+        </p>
       </div>
       {ga4MeasurementId ? <GoogleAnalytics gaId={ga4MeasurementId} /> : null}
       {clarityProjectId ? (

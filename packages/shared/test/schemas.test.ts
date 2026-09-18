@@ -169,10 +169,41 @@ describe('activity schemas', () => {
       chip_value: 1,
       location_id: null,
       recurrence: 'daily',
-      recurrence_weekday: null,
+      recurrence_weekdays: null,
       recurrence_time: '08:00',
       position: 0,
     });
+  });
+
+  it('round-trips a weekly activity with several weekdays', () => {
+    expectRoundTrip(ActivitySchema, {
+      ...syncCols,
+      name: 'Piano',
+      emoji: '🎹',
+      photo_id: null,
+      chip_value: 1,
+      location_id: null,
+      recurrence: 'weekly',
+      recurrence_weekdays: [1, 3],
+      recurrence_time: null,
+      position: 0,
+    });
+  });
+
+  it('rejects unsorted or duplicate recurrence_weekdays', () => {
+    const base = {
+      ...syncCols,
+      name: 'Piano',
+      emoji: null,
+      photo_id: null,
+      chip_value: 1,
+      location_id: null,
+      recurrence: 'weekly' as const,
+      recurrence_time: null,
+      position: 0,
+    };
+    expect(ActivitySchema.safeParse({ ...base, recurrence_weekdays: [3, 1] }).success).toBe(false);
+    expect(ActivitySchema.safeParse({ ...base, recurrence_weekdays: [1, 1] }).success).toBe(false);
   });
 
   it('round-trips an activity step', () => {
@@ -183,6 +214,19 @@ describe('activity schemas', () => {
       name: 'Turn on tap',
       emoji: '🚰',
       photo_id: null,
+      duration_minutes: null,
+    });
+  });
+
+  it('round-trips a timed activity step', () => {
+    expectRoundTrip(ActivityStepSchema, {
+      ...syncCols,
+      activity_id: id2,
+      position: 0,
+      name: 'Brush teeth',
+      emoji: '🪥',
+      photo_id: null,
+      duration_minutes: 5,
     });
   });
 
@@ -307,6 +351,7 @@ describe('auth schemas', () => {
       email: 'parent@example.com',
       password: 'correct-horse',
       display_name: 'Sam',
+      consented_at: 1_700_000_000_000,
     });
   });
 

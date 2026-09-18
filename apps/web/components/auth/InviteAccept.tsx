@@ -115,8 +115,9 @@ export function InviteAccept() {
         </>
       ) : (
         <div className={styles.auth}>
-          <GoogleButton />
-          <AppleButton />
+          {/* No consent checkbox on this screen (S33); same treatment as S1 -- see components/auth/GoogleButton.tsx. */}
+          <GoogleButton consented />
+          <AppleButton consented />
           <div className={styles.divider}>or</div>
           <div className={styles.authLinks}>
             <Link href="/sign-up/" className={styles.link}>

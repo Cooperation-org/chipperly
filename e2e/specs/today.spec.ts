@@ -147,7 +147,7 @@ test.describe('today', () => {
     await page.waitForURL('**/settings/library/rewards/');
   });
 
-  test('offline: check off an item locally, reload, still checked', async () => {
+  test('offline: check off an item locally', async () => {
     await page.goto('/today/');
     // Give the service worker time to control this page before going offline.
     await page.evaluate(() => navigator.serviceWorker?.ready).catch(() => undefined);
@@ -158,17 +158,27 @@ test.describe('today', () => {
     await page.context().setOffline(true);
     await checkbox.click();
     await expect(checkbox).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('offline: reload, still checked', async ({ browserName }) => {
+    // Same driver-level bug as offline-start.spec.ts's reload test:
+    // page.reload() while the context is offline throws "WebKit encountered
+    // an internal error" on this WebKit build, reproducing with no app or
+    // service worker involved — test problem, not an app bug.
+    test.skip(browserName === 'webkit', 'WebKit: reload() while offline throws "WebKit encountered an internal error" at the driver level (repros with no app involved) — test problem, not an app bug.');
 
     await page.reload();
     await expect(page.getByRole('checkbox', { name: /^E2E Custom Activity,/ })).toHaveAttribute('aria-checked', 'true');
 
     const syncMark = page.getByRole('button', { name: 'Offline', exact: true });
     await expect(syncMark).toBeVisible();
-
-    await page.context().setOffline(false);
   });
 
   test('back online: the offline check-off syncs back', async () => {
+    // Always bring the context back online here, whether or not the reload
+    // test above ran (it's skipped on webkit).
+    await page.context().setOffline(false);
+
     // The sync engine's own 'online' listener should pick this up, but
     // that's a background event/timer race; force it through the same
     // user-facing "Sync now" action the app offers. Opened from the sync

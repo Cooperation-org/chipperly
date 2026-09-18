@@ -10,6 +10,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
     <RequireSession>
       <div className={styles.page}>
         <header className={styles.header}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API */}
           <img src={withBase('/brand/mark.svg')} alt="" width={24} height={24} className={styles.mark} />
           <span className={styles.wordmark}>chipperly</span>
         </header>

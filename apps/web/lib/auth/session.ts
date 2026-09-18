@@ -92,11 +92,13 @@ export async function signInWithPassword(email: string, password: string): Promi
 }
 
 /** `invite` carries the closed-beta gate (see docs/CONTRACTS.md): a code the owner hands out, or a
- * pending account invite's token, which bypasses the code entirely (components/auth/postAuthRedirect.ts). */
+ * pending account invite's token, which bypasses the code entirely (components/auth/postAuthRedirect.ts).
+ * `consented_at` (S2's required checkbox, ms) is sent with every register (SOW Q21 / COPPA). */
 export async function signUp(
   email: string,
   password: string,
   display_name: string,
+  consented_at: number,
   invite?: { invite_code?: string; invite_token?: string },
 ): Promise<void> {
   const tokens = await api.post<TokensResponse>(
@@ -105,6 +107,7 @@ export async function signUp(
       email,
       password,
       display_name,
+      consented_at,
       invite_code: invite?.invite_code,
       invite_token: invite?.invite_token,
     },
@@ -114,9 +117,10 @@ export async function signUp(
   await refreshMe();
 }
 
+/** `consented_at`: only required when this sign-in creates a new user; the API 409s consent_required without it then. */
 export async function signInWithGoogle(
   idToken: string,
-  invite?: { invite_code?: string; invite_token?: string },
+  invite?: { invite_code?: string; invite_token?: string; consented_at?: number },
 ): Promise<void> {
   const tokens = await api.post<TokensResponse>(
     '/auth/google',
@@ -124,6 +128,7 @@ export async function signInWithGoogle(
       id_token: idToken,
       invite_code: invite?.invite_code,
       invite_token: invite?.invite_token,
+      consented_at: invite?.consented_at,
     },
     { schema: TokensResponseSchema },
   );

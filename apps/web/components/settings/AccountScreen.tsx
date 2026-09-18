@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ExportResponseSchema, type ExportResponse } from '@chipperly/shared/schemas/auth';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { ListRow } from '@/components/ui/ListRow';
@@ -53,6 +54,7 @@ export function AccountScreen() {
   const { profiles, setActiveProfileId } = useActiveProfile();
   const { setActiveAccountId } = useActiveAccount();
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   if (!user) return null;
 
@@ -69,6 +71,25 @@ export function AccountScreen() {
   async function handleSignOut(): Promise<void> {
     await signOut();
     router.replace('/');
+  }
+
+  /** "Download my data" (SOW Q21): fetches GET /me/export and saves it as one JSON file. */
+  async function handleExport(): Promise<void> {
+    setExporting(true);
+    try {
+      const data = await api.get<ExportResponse>('/me/export', { schema: ExportResponseSchema });
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `chipperly-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast("Couldn't download your data. Try again.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function handleDelete(): Promise<void> {
@@ -138,12 +159,25 @@ export function AccountScreen() {
           />
         ) : null}
         <ListRow
+          tile={<Icon name="share" size={20} />}
+          name="Download my data"
+          secondary={exporting ? 'Preparing your file…' : undefined}
+          trailing={<Icon name="chevron" size={20} />}
+          onTap={() => void handleExport()}
+        />
+        <ListRow
           tile={<Icon name="arrowRight" size={20} />}
           name="Sign out"
           trailing={<Icon name="chevron" size={20} />}
           onTap={() => void handleSignOut()}
         />
       </div>
+
+      <p className={styles.legalLinks}>
+        <Link href="/privacy/">Privacy policy</Link>
+        <span aria-hidden="true">·</span>
+        <Link href="/terms/">Terms</Link>
+      </p>
 
       <Button
         variant="danger"

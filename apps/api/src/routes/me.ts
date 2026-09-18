@@ -3,9 +3,11 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
-import { PinBodySchema, type MeAccount, type MeResponse } from '@chipperly/shared/schemas/auth';
+import { PinBodySchema, type ExportResponse, type MeAccount, type MeResponse } from '@chipperly/shared/schemas/auth';
 import type { Profile } from '@chipperly/shared/schemas/profile';
-import { db } from '../db/client.js';
+import { TABLE_NAMES } from '@chipperly/shared/constants/tables';
+import { db, sql } from '../db/client.js';
+import { env } from '../env.js';
 import { account_members, accounts, invites, sessions, users } from '../db/schema/accounts.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
 import { locations } from '../db/schema/locations.js';
@@ -19,6 +21,7 @@ import { media } from '../db/schema/media.js';
 import { hashPin, verifyPin } from '../lib/password.js';
 import { canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
+import { normalizeRow } from './sync.js';
 
 const LockBodySchema = z.object({ profile_id: uuidSchema });
 
@@ -76,6 +79,83 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
       user,
       accounts: meAccounts,
       profiles: [...profileById.values()],
+    };
+  });
+
+  /** S30 "Download my data" (SOW Q21): every record the signed-in user can see, as one JSON file. */
+  app.get('/me/export', { preHandler: requireUser }, async (request): Promise<ExportResponse> => {
+    const authUser = request.user;
+    if (!authUser) throw new AppError(401, 'unauthorized', 'Sign-in required');
+    const userId = authUser.id;
+
+    const [userRow] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        display_name: users.display_name,
+        email_verified_at: users.email_verified_at,
+        created_at: users.created_at,
+        auth_provider: users.auth_provider,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!userRow) throw new AppError(401, 'unauthorized', 'Sign-in required');
+
+    const memberships = await db.select().from(account_members).where(eq(account_members.user_id, userId));
+    const accountIds = memberships.map((m) => m.account_id);
+    const accountRows =
+      accountIds.length > 0 ? await db.select().from(accounts).where(inArray(accounts.id, accountIds)) : [];
+
+    const adminAccountIds = memberships.filter((m) => m.role === 'admin').map((m) => m.account_id);
+    const adminProfiles =
+      adminAccountIds.length > 0
+        ? await db
+            .select()
+            .from(profiles)
+            .where(and(inArray(profiles.account_id, adminAccountIds), isNull(profiles.deleted_at)))
+        : [];
+    const memberProfileRows = await db
+      .select({ profile: profiles })
+      .from(profile_members)
+      .innerJoin(profiles, eq(profile_members.profile_id, profiles.id))
+      .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at)));
+
+    const profileById = new Map<string, Profile>();
+    for (const profile of adminProfiles) profileById.set(profile.id, profile);
+    for (const { profile } of memberProfileRows) profileById.set(profile.id, profile);
+    const exportProfiles = [...profileById.values()];
+
+    // ponytail: tombstoned (deleted_at set) rows are left out — a parent asking
+    // "what do you have on my child" wants what's live, not what they already
+    // deleted. Same 12-table list and per-profile_id read as routes/sync.ts's
+    // pull, just unfiltered by version and read once instead of paginated.
+    const tables: Record<string, Record<string, unknown>[]> = {};
+    for (const table of TABLE_NAMES) tables[table] = [];
+    for (const profile of exportProfiles) {
+      for (const table of TABLE_NAMES) {
+        // eslint-disable-next-line no-await-in-loop -- export-only, small N; not worth parallelizing.
+        const rows = await sql`select * from ${sql(table)} where profile_id = ${profile.id} and deleted_at is null`;
+        for (const row of rows) tables[table].push(normalizeRow(row));
+      }
+    }
+
+    const mediaRows =
+      accountIds.length > 0 ? await db.select().from(media).where(inArray(media.account_id, accountIds)) : [];
+
+    return {
+      exported_at: Date.now(),
+      user: userRow,
+      accounts: accountRows,
+      memberships: memberships.map((m) => ({ account_id: m.account_id, role: m.role })),
+      profiles: exportProfiles,
+      tables,
+      media: mediaRows.map((m) => ({
+        id: m.id,
+        url: `${env.BASE_PATH}/api/media/${m.id}`,
+        kind: m.kind,
+        created_at: m.created_at,
+      })),
     };
   });
 
