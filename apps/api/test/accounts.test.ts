@@ -2,7 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { eq } from 'drizzle-orm';
-import { buildTestApp, request } from './helpers.js';
+import {
+  AccountMembersResponseSchema,
+  InviteDetailsSchema,
+  InvitePublicSchema,
+} from '@chipperly/shared/schemas/account';
+import { buildTestApp, expectShape, request } from './helpers.js';
 import { db } from '../src/db/client.js';
 import { account_members, users } from '../src/db/schema/accounts.js';
 import { activities } from '../src/db/schema/activities.js';
@@ -131,13 +136,13 @@ describe('accounts routes', () => {
       payload: { email: 'family-member@example.com', role: 'member', profile_ids: [profileA.id] },
     });
     expect(inviteRes.statusCode).toBe(201);
-    const invite = inviteRes.json() as { email: string };
+    const invite = expectShape(inviteRes, InvitePublicSchema);
     expect(invite).not.toHaveProperty('token_hash');
     const rawToken = captureInviteToken();
 
     const detailsRes = await request(app, { method: 'GET', url: `/api/invites/${rawToken}` });
     expect(detailsRes.statusCode).toBe(200);
-    const details = detailsRes.json() as { account_name: string; profiles: { id: string }[]; expired: boolean };
+    const details = expectShape(detailsRes, InviteDetailsSchema);
     expect(details.account_name).toBe('The family');
     expect(details.expired).toBe(false);
     expect(details.profiles.map((p) => p.id)).toEqual([profileA.id]);
@@ -173,10 +178,7 @@ describe('accounts routes', () => {
       headers: auth(admin.token),
     });
     expect(membersRes.statusCode).toBe(200);
-    const membersBody = membersRes.json() as {
-      members: { user: { id: string }; role: string; profile_ids: string[] }[];
-      invites: unknown[];
-    };
+    const membersBody = expectShape(membersRes, AccountMembersResponseSchema);
     const memberRow = membersBody.members.find((m) => m.user.id === member.id);
     expect(memberRow?.role).toBe('member');
     expect(memberRow?.profile_ids).toEqual([profileA.id]);

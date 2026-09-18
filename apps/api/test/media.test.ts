@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
-import { buildTestApp, request } from './helpers.js';
+import { MediaUploadResponseSchema } from '@chipperly/shared/schemas/media';
+import { buildTestApp, expectShape, request } from './helpers.js';
 import { setupProfile } from './fixtures.js';
 
 function buildMultipart(fieldName: string, filename: string, contentType: string, data: Buffer): { body: Buffer; contentType: string } {
@@ -41,15 +42,7 @@ describe('media', () => {
     });
 
     expect(upload.statusCode).toBe(201);
-    const uploaded = upload.json() as {
-      id: string;
-      url: string;
-      kind: string;
-      status: string;
-      width: number;
-      height: number;
-      bytes: number;
-    };
+    const uploaded = expectShape(upload, MediaUploadResponseSchema);
     expect(uploaded.kind).toBe('image');
     expect(uploaded.status).toBe('ready');
     expect(uploaded.width).toBe(20);

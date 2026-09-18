@@ -26,8 +26,12 @@ type SyncRow = Record<string, unknown>;
 
 const APPEND_ONLY_TABLES = new Set<MutationTable>(['recurrence_skips', 'step_completions', 'chip_ledger', 'attitude_checks', 'mood_events']);
 
-/** One shared zod schema per pushable table; validates and strips unknown keys before any DB write. */
-const TABLE_SCHEMAS: Record<MutationTable, z.ZodType> = {
+/**
+ * One shared zod schema per pushable table; validates and strips unknown keys before any DB write.
+ * Exported so test/sync.test.ts can check pull responses against the same row schemas, instead of
+ * keeping a second copy of this table that could drift from the one the route actually enforces.
+ */
+export const TABLE_SCHEMAS: Record<MutationTable, z.ZodType> = {
   locations: LocationSchema,
   activities: ActivitySchema,
   activity_steps: ActivityStepSchema,

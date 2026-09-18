@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import type { TokensResponse } from '@chipperly/shared/schemas/auth';
-import { buildTestApp, request } from './helpers.js';
+import { ProvidersResponseSchema, TokensResponseSchema, type TokensResponse } from '@chipperly/shared/schemas/auth';
+import { buildTestApp, expectShape, request } from './helpers.js';
 import { db } from '../src/db/client.js';
 import { invites, users } from '../src/db/schema/accounts.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
@@ -59,7 +59,7 @@ describe('auth routes', () => {
       payload: { email: 'Parent@Example.com', password: 'correct-horse', display_name: 'Sam' },
     });
     expect(response.statusCode).toBe(200);
-    const body = response.json() as TokensResponse;
+    const body = expectShape(response, TokensResponseSchema);
     expect(typeof body.access_token).toBe('string');
     expect(typeof body.refresh_token).toBe('string');
     expect(body.token_type).toBe('Bearer');
@@ -94,7 +94,7 @@ describe('auth routes', () => {
       payload: { email: 'login@example.com', password: 'correct-horse' },
     });
     expect(ok.statusCode).toBe(200);
-    expect((ok.json() as TokensResponse).access_token).toBeTruthy();
+    expect(expectShape(ok, TokensResponseSchema).access_token).toBeTruthy();
 
     const wrong = await request(app, {
       method: 'POST',
@@ -127,7 +127,7 @@ describe('auth routes', () => {
       payload: { refresh_token: tokens.refresh_token },
     });
     expect(rotated.statusCode).toBe(200);
-    const rotatedTokens = rotated.json() as TokensResponse;
+    const rotatedTokens = expectShape(rotated, TokensResponseSchema);
     expect(rotatedTokens.refresh_token).not.toBe(tokens.refresh_token);
 
     const reused = await request(app, {
@@ -228,7 +228,11 @@ describe('auth routes', () => {
   it('reports provider availability from env', async () => {
     const response = await request(app, { method: 'GET', url: '/api/auth/providers' });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ google: false, apple: false, invite_code_required: false });
+    expect(expectShape(response, ProvidersResponseSchema)).toEqual({
+      google: false,
+      apple: false,
+      invite_code_required: false,
+    });
   });
 
   // env.BETA_INVITE_CODE is unset for this test run (apps/api/test/globalSetup.ts doesn't set it), so

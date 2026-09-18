@@ -4,11 +4,22 @@ import { v7 as uuidv7 } from 'uuid';
 import { ActivitySchema } from '@chipperly/shared/schemas/activity';
 import { ScheduleItemSchema } from '@chipperly/shared/schemas/schedule';
 import { ChipLedgerSchema } from '@chipperly/shared/schemas/chips';
+import { SyncPullResponseSchema, SyncPushResponseSchema } from '@chipperly/shared/schemas/sync';
+import type { MutationTable } from '@chipperly/shared/constants/tables';
 import { balanceFor } from '@chipperly/shared/helpers/chips';
 import { todayIso } from '@chipperly/shared/helpers/date';
-import { buildTestApp, request } from './helpers.js';
+import { buildTestApp, expectShape, request } from './helpers.js';
 import { addMember, createUser, setupProfile, type TestProfileSetup } from './fixtures.js';
 import { sql } from '../src/db/client.js';
+import { TABLE_SCHEMAS } from '../src/routes/sync.js';
+
+/** Every row of every table in a pull's `changes`, checked against that table's own shared row schema. */
+function expectChangesShape(changes: Record<string, unknown[]>): void {
+  for (const [table, rows] of Object.entries(changes)) {
+    const schema = TABLE_SCHEMAS[table as MutationTable];
+    for (const row of rows) schema.parse(row);
+  }
+}
 
 interface MutationInput {
   table: string;
@@ -186,7 +197,7 @@ describe('sync', () => {
       },
     ]);
     expect(pushA.statusCode).toBe(200);
-    const pushABody = pushA.json() as { applied: string[]; rejected: unknown[]; version: number };
+    const pushABody = expectShape(pushA, SyncPushResponseSchema);
     expect(pushABody.applied.sort()).toEqual([activityId, itemId].sort());
     expect(pushABody.rejected).toEqual([]);
 
@@ -204,7 +215,7 @@ describe('sync', () => {
       },
     ]);
     expect(pushB.statusCode).toBe(200);
-    const pushBBody = pushB.json() as { applied: string[]; rejected: unknown[]; version: number };
+    const pushBBody = expectShape(pushB, SyncPushResponseSchema);
     expect(pushBBody.applied.sort()).toEqual([ledgerId, itemId].sort());
     expect(pushBBody.rejected).toEqual([]);
 
@@ -212,8 +223,10 @@ describe('sync', () => {
     const pullAFull = await pullRequest(app, admin.token, profileId, 0);
     const pullBFull = await pullRequest(app, admin.token, profileId, 0);
     expect(pullAFull.statusCode).toBe(200);
-    const bodyAFull = pullAFull.json() as { changes: Record<string, Record<string, unknown>[]>; version: number; has_more: boolean };
-    const bodyBFull = pullBFull.json() as { changes: Record<string, Record<string, unknown>[]>; version: number; has_more: boolean };
+    const bodyAFull = expectShape(pullAFull, SyncPullResponseSchema);
+    const bodyBFull = expectShape(pullBFull, SyncPullResponseSchema);
+    expectChangesShape(bodyAFull.changes);
+    expectChangesShape(bodyBFull.changes);
     expect(bodyBFull.changes).toEqual(bodyAFull.changes);
     expect(bodyBFull.version).toBe(bodyAFull.version);
 
@@ -230,13 +243,14 @@ describe('sync', () => {
 
     // Pulling from each client's own cursor only returns what happened after it.
     const pullFromACursor = await pullRequest(app, admin.token, profileId, pushABody.version);
-    const bodyFromACursor = pullFromACursor.json() as { changes: Record<string, Record<string, unknown>[]>; has_more: boolean };
+    const bodyFromACursor = expectShape(pullFromACursor, SyncPullResponseSchema);
+    expectChangesShape(bodyFromACursor.changes);
     expect(bodyFromACursor.changes.chip_ledger).toHaveLength(1);
     expect(bodyFromACursor.changes.schedule_items).toHaveLength(1);
     expect(bodyFromACursor.changes.activities ?? []).toHaveLength(0);
 
     const pullFromBCursor = await pullRequest(app, admin.token, profileId, pushBBody.version);
-    const bodyFromBCursor = pullFromBCursor.json() as { changes: Record<string, Record<string, unknown>[]>; has_more: boolean };
+    const bodyFromBCursor = expectShape(pullFromBCursor, SyncPullResponseSchema);
     for (const rows of Object.values(bodyFromBCursor.changes)) expect(rows).toHaveLength(0);
     expect(bodyFromBCursor.has_more).toBe(false);
 
@@ -255,7 +269,7 @@ describe('sync', () => {
     const first = await pushRequest(app, admin.token, profileId, [
       { table: 'activities', id: activityId, op: 'upsert', row: activityRow(activityId, profileId, admin.id, t0, { name: 'First' }), client_updated_at: t0 },
     ]);
-    expect((first.json() as { applied: string[] }).applied).toEqual([activityId]);
+    expect(expectShape(first, SyncPushResponseSchema).applied).toEqual([activityId]);
 
     const stale = await pushRequest(app, admin.token, profileId, [
       {
@@ -267,7 +281,7 @@ describe('sync', () => {
       },
     ]);
     expect(stale.statusCode).toBe(200);
-    const staleBody = stale.json() as { applied: string[]; rejected: Array<{ id: string; reason: string; server_row: Record<string, unknown> | null }> };
+    const staleBody = expectShape(stale, SyncPushResponseSchema);
     expect(staleBody.applied).toEqual([]);
     expect(staleBody.rejected).toHaveLength(1);
     expect(staleBody.rejected[0]?.reason).toBe('stale');
@@ -282,17 +296,18 @@ describe('sync', () => {
     const first = await pushRequest(app, admin.token, profileId, [
       { table: 'chip_ledger', id: ledgerId, op: 'upsert', row: chipLedgerRow(ledgerId, profileId, admin.id, t0, { delta: 3 }), client_updated_at: t0 },
     ]);
-    expect((first.json() as { applied: string[] }).applied).toEqual([ledgerId]);
+    expect(expectShape(first, SyncPushResponseSchema).applied).toEqual([ledgerId]);
 
     const second = await pushRequest(app, admin.token, profileId, [
       { table: 'chip_ledger', id: ledgerId, op: 'upsert', row: chipLedgerRow(ledgerId, profileId, admin.id, t0 + 1, { delta: 999 }), client_updated_at: t0 + 1 },
     ]);
-    const secondBody = second.json() as { applied: string[]; rejected: unknown[] };
+    const secondBody = expectShape(second, SyncPushResponseSchema);
     expect(secondBody.applied).toEqual([ledgerId]);
     expect(secondBody.rejected).toEqual([]);
 
     const pull = await pullRequest(app, admin.token, profileId, 0);
-    const body = pull.json() as { changes: Record<string, Record<string, unknown>[]> };
+    const body = expectShape(pull, SyncPullResponseSchema);
+    expectChangesShape(body.changes);
     const rows = body.changes.chip_ledger ?? [];
     expect(rows).toHaveLength(1);
     expect(rows[0]?.delta).toBe(3);
@@ -314,17 +329,18 @@ describe('sync', () => {
         client_updated_at: t0,
       },
     ]);
-    expect((checked.json() as { applied: string[] }).applied).toEqual([completionId]);
+    expect(expectShape(checked, SyncPushResponseSchema).applied).toEqual([completionId]);
 
     const unchecked = await pushRequest(app, admin.token, profileId, [
       { table: 'step_completions', id: completionId, op: 'delete', client_updated_at: t0 + 1000 },
     ]);
-    const uncheckedBody = unchecked.json() as { applied: string[]; rejected: unknown[] };
+    const uncheckedBody = expectShape(unchecked, SyncPushResponseSchema);
     expect(uncheckedBody.applied).toEqual([completionId]);
     expect(uncheckedBody.rejected).toEqual([]);
 
     const pull = await pullRequest(app, admin.token, profileId, 0);
-    const body = pull.json() as { changes: Record<string, Record<string, unknown>[]> };
+    const body = expectShape(pull, SyncPullResponseSchema);
+    expectChangesShape(body.changes);
     const row = (body.changes.step_completions ?? []).find((r) => r.id === completionId);
     expect(row?.deleted_at).not.toBeNull();
   });
@@ -353,7 +369,7 @@ describe('sync', () => {
       [{ table: 'step_completions', id: completionId, op: 'delete', client_updated_at: t0 + 1000 }],
       true,
     );
-    const body = lockedDelete.json() as { applied: string[]; rejected: Array<{ reason: string }> };
+    const body = expectShape(lockedDelete, SyncPushResponseSchema);
     expect(body.applied).toEqual([completionId]);
     expect(body.rejected).toEqual([]);
   });
@@ -392,7 +408,7 @@ describe('sync', () => {
     const res = await pushPromise;
     expect(pushSettled).toBe(true);
     expect(res.statusCode).toBe(200);
-    expect((res.json() as { applied: string[] }).applied).toEqual([ledgerId]);
+    expect(expectShape(res, SyncPushResponseSchema).applied).toEqual([ledgerId]);
   });
 
   it('under a server-side lock (POST /me/lock), rejects an activity upsert but allows a completion', async () => {
@@ -425,7 +441,7 @@ describe('sync', () => {
       true,
     );
     expect(lockedPush.statusCode).toBe(200);
-    const body = lockedPush.json() as { applied: string[]; rejected: Array<{ id: string; table: string; reason: string }> };
+    const body = expectShape(lockedPush, SyncPushResponseSchema);
     expect(body.applied).toEqual([itemId]);
     expect(body.rejected).toHaveLength(1);
     expect(body.rejected[0]).toMatchObject({ id: otherActivityId, table: 'activities', reason: 'locked' });
@@ -448,7 +464,7 @@ describe('sync', () => {
       },
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { applied: string[]; rejected: unknown[] };
+    const body = expectShape(res, SyncPushResponseSchema);
     expect(body.applied).toEqual([activityId]);
     expect(body.rejected).toEqual([]);
   });
@@ -465,10 +481,11 @@ describe('sync', () => {
       { table: 'chip_ledger', id: ledgerId, op: 'upsert', row: chipLedgerRow(ledgerId, profileId, spoofedId, t0), client_updated_at: t0 },
     ]);
     expect(res.statusCode).toBe(200);
-    expect((res.json() as { applied: string[] }).applied).toEqual([activityId, ledgerId]);
+    expect(expectShape(res, SyncPushResponseSchema).applied).toEqual([activityId, ledgerId]);
 
     const pull = await pullRequest(app, admin.token, profileId, 0);
-    const body = pull.json() as { changes: Record<string, Record<string, unknown>[]> };
+    const body = expectShape(pull, SyncPullResponseSchema);
+    expectChangesShape(body.changes);
     expect(body.changes.activities?.find((r) => r.id === activityId)?.updated_by).toBe(admin.id);
     expect(body.changes.chip_ledger?.find((r) => r.id === ledgerId)?.updated_by).toBe(admin.id);
   });
@@ -506,14 +523,15 @@ describe('sync', () => {
     }
     const push = await pushRequest(app, admin.token, profileId, mutations);
     expect(push.statusCode).toBe(200);
-    const pushBody = push.json() as { applied: string[]; rejected: unknown[] };
+    const pushBody = expectShape(push, SyncPushResponseSchema);
     expect(pushBody.applied).toHaveLength(600);
     expect(pushBody.rejected).toEqual([]);
 
     // The profile's own row is part of the same synced stream (created before any ledger row,
     // so it sorts first) and takes one of the 500 slots on the first page.
     const firstPage = await pullRequest(app, admin.token, profileId, 0);
-    const firstBody = firstPage.json() as { changes: Record<string, unknown[]>; version: number; has_more: boolean };
+    const firstBody = expectShape(firstPage, SyncPullResponseSchema);
+    expectChangesShape(firstBody.changes);
     const firstPageTotal = Object.values(firstBody.changes).reduce((sum, rows) => sum + rows.length, 0);
     expect(firstPageTotal).toBe(500);
     expect(firstBody.changes.profiles).toHaveLength(1);
@@ -521,7 +539,8 @@ describe('sync', () => {
     expect(firstBody.has_more).toBe(true);
 
     const secondPage = await pullRequest(app, admin.token, profileId, firstBody.version);
-    const secondBody = secondPage.json() as { changes: Record<string, unknown[]>; has_more: boolean };
+    const secondBody = expectShape(secondPage, SyncPullResponseSchema);
+    expectChangesShape(secondBody.changes);
     const secondPageTotal = Object.values(secondBody.changes).reduce((sum, rows) => sum + rows.length, 0);
     expect(secondPageTotal).toBe(101);
     expect(secondBody.changes.chip_ledger).toHaveLength(101);

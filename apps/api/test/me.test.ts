@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import type { MeResponse, TokensResponse } from '@chipperly/shared/schemas/auth';
-import { buildTestApp, request } from './helpers.js';
+import { MeResponseSchema, type MeResponse, type TokensResponse } from '@chipperly/shared/schemas/auth';
+import { buildTestApp, expectShape, request } from './helpers.js';
 import { addMember, createAccount, createUser } from './fixtures.js';
 import { db } from '../src/db/client.js';
 import { account_members, accounts, users } from '../src/db/schema/accounts.js';
@@ -71,7 +71,7 @@ describe('me routes', () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(response.statusCode).toBe(200);
-    const body = response.json() as MeResponse;
+    const body = expectShape(response, MeResponseSchema);
 
     expect(body.user.id).toBe(userId);
     expect(body.user.email).toBe('me@example.com');

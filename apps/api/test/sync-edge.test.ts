@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { todayIso } from '@chipperly/shared/helpers/date';
-import { buildTestApp, request } from './helpers.js';
+import { SyncPullResponseSchema, SyncPushResponseSchema } from '@chipperly/shared/schemas/sync';
+import { buildTestApp, expectShape, request } from './helpers.js';
 import { setupProfile } from './fixtures.js';
 
 interface MutationInput {
@@ -11,12 +12,6 @@ interface MutationInput {
   op: 'upsert' | 'delete';
   row?: Record<string, unknown>;
   client_updated_at: number;
-}
-
-interface PushBody {
-  applied: string[];
-  rejected: Array<{ id: string; table: string; reason: string; server_row: Record<string, unknown> | null }>;
-  version: number;
 }
 
 function pushRequest(app: FastifyInstance, token: string, profileId: string, mutations: MutationInput[]): Promise<LightMyRequestResponse> {
@@ -116,7 +111,7 @@ describe('sync push edge cases', () => {
 
     const pull = await pullRequest(app, admin.token, profileId, 0);
     expect(pull.statusCode).toBe(200);
-    const pullBody = pull.json() as { changes: Record<string, Record<string, unknown>[]> };
+    const pullBody = expectShape(pull, SyncPullResponseSchema);
     const [storedProfile] = pullBody.changes.profiles ?? [];
     expect(storedProfile).toBeTruthy();
     const baseClientUpdatedAt = storedProfile!.client_updated_at as number;
@@ -134,12 +129,12 @@ describe('sync push edge cases', () => {
       },
     ]);
     expect(applied.statusCode).toBe(200);
-    const appliedBody = applied.json() as PushBody;
+    const appliedBody = expectShape(applied, SyncPushResponseSchema);
     expect(appliedBody.rejected).toEqual([]);
     expect(appliedBody.applied).toEqual([profileId]);
 
     const afterApply = await pullRequest(app, admin.token, profileId, 0);
-    const afterApplyProfile = ((afterApply.json() as { changes: Record<string, Record<string, unknown>[]> }).changes.profiles ?? [])[0];
+    const afterApplyProfile = (expectShape(afterApply, SyncPullResponseSchema).changes.profiles ?? [])[0];
     expect(afterApplyProfile).toMatchObject({ share_token: shareToken });
     // The jsonb `settings` column round-trips as an object, never the
     // "[object Object]" string a missing sql.json() wrapper would produce.
@@ -157,7 +152,7 @@ describe('sync push edge cases', () => {
       },
     ]);
     expect(stale.statusCode).toBe(200);
-    const staleBody = stale.json() as PushBody;
+    const staleBody = expectShape(stale, SyncPushResponseSchema);
     expect(staleBody.applied).toEqual([]);
     expect(staleBody.rejected).toHaveLength(1);
     expect(staleBody.rejected[0]?.reason).toBe('stale');
@@ -181,7 +176,7 @@ describe('sync push edge cases', () => {
       },
     ]);
     expect(messy.statusCode).toBe(200);
-    const messyBody = messy.json() as PushBody;
+    const messyBody = expectShape(messy, SyncPushResponseSchema);
     expect(messyBody.rejected).toEqual([]);
     expect(messyBody.applied).toEqual([profileId]);
   });
@@ -203,7 +198,7 @@ describe('sync push edge cases', () => {
       },
     ]);
     expect(create.statusCode).toBe(200);
-    const createBody = create.json() as PushBody;
+    const createBody = expectShape(create, SyncPushResponseSchema);
     expect(createBody.rejected).toEqual([]);
     expect(createBody.applied.sort()).toEqual([activityId, itemId].sort());
 
@@ -218,7 +213,7 @@ describe('sync push edge cases', () => {
       },
     ]);
     expect(complete.statusCode).toBe(200);
-    const completeBody = complete.json() as PushBody;
+    const completeBody = expectShape(complete, SyncPushResponseSchema);
     expect(completeBody.rejected).toEqual([]);
     expect(completeBody.applied).toEqual([itemId]);
   });
@@ -238,7 +233,7 @@ describe('sync push edge cases', () => {
       },
     ]);
     expect(invalid.statusCode).toBe(200);
-    const body = invalid.json() as PushBody;
+    const body = expectShape(invalid, SyncPushResponseSchema);
     expect(body.applied).toEqual([]);
     expect(body.rejected).toHaveLength(1);
     expect(body.rejected[0]).toMatchObject({ id: activityId, table: 'activities', reason: 'invalid' });
@@ -262,7 +257,7 @@ describe('sync push edge cases', () => {
     expect(elapsedMs).toBeLessThan(15_000);
     for (const result of results) {
       expect(result.statusCode).toBe(200);
-      expect((result.json() as PushBody).rejected).toEqual([]);
+      expect(expectShape(result, SyncPushResponseSchema).rejected).toEqual([]);
     }
   }, 20_000);
 });

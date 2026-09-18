@@ -3,7 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { asc, eq } from 'drizzle-orm';
 import { todayIso } from '@chipperly/shared/helpers/date';
-import { buildTestApp, request } from './helpers.js';
+import { ShareViewSchema } from '@chipperly/shared/schemas/share';
+import { buildTestApp, expectShape, request } from './helpers.js';
 import { db } from '../src/db/client.js';
 import { users } from '../src/db/schema/accounts.js';
 import { profiles } from '../src/db/schema/profiles.js';
@@ -163,20 +164,7 @@ describe('share route', () => {
 
     const shareRes = await request(app, { method: 'GET', url: `/api/share/${shareToken}` });
     expect(shareRes.statusCode).toBe(200);
-    const view = shareRes.json() as {
-      profile_name: string;
-      profile_emoji: string | null;
-      profile_avatar_photo_id: string | null;
-      items: {
-        activity_name: string;
-        activity_photo_id: string | null;
-        completed_at: number | null;
-        steps: { name: string; emoji: string | null; completed: boolean }[];
-      }[];
-      chip_balance: number;
-      working_for_reward: { name: string; emoji: string | null; chip_cost: number | null } | null;
-      updated_at: number;
-    };
+    const view = expectShape(shareRes, ShareViewSchema);
     expect(view.profile_name).toBe('Sharey');
     expect(view.profile_emoji).toBe('🌟');
     expect(view.profile_avatar_photo_id).toBeNull();
