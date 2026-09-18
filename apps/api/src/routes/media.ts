@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
+import type { MediaUploadResponse } from '@chipperly/shared/schemas/media';
 import { env } from '../env.js';
 import { db } from '../db/client.js';
 import { media } from '../db/schema/media.js';
@@ -58,7 +59,10 @@ function mediaUrl(id: string): string {
 }
 
 export default async function mediaRoutes(app: FastifyInstance): Promise<void> {
-  app.post('/media', { preHandler: [requireUser, requireAccount] }, async (request, reply) => {
+  app.post('/media', { preHandler: [requireUser, requireAccount] }, async (
+    request,
+    reply,
+  ): Promise<MediaUploadResponse | { id: string; status: 'processing' }> => {
     const user = request.user;
     const accountId = request.accountId;
     if (!user || !accountId) throw new AppError(401, 'unauthorized', 'Sign-in required');

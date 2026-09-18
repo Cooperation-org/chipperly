@@ -24,3 +24,15 @@ export const MediaSchema = z.object({
   created_at: msTimestampSchema,
 });
 export type Media = z.infer<typeof MediaSchema>;
+
+/** POST /media's actual reply for an image upload: a reduced projection of `MediaSchema`, not the row itself. */
+export const MediaUploadResponseSchema = z.object({
+  id: uuidSchema,
+  url: z.string().min(1),
+  kind: MediaKind,
+  status: MediaStatus,
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  bytes: z.number().int().nonnegative(),
+});
+export type MediaUploadResponse = z.infer<typeof MediaUploadResponseSchema>;

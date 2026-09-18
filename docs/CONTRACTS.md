@@ -88,7 +88,7 @@ schemas/chips.ts         ChipLedgerSchema, ChipReason
 schemas/story.ts         SocialStorySchema, StoryPageSchema
 schemas/attitude.ts      AttitudeCheckSchema
 schemas/mood.ts           MoodEventSchema (Chipper Chart; append-only)
-schemas/media.ts         MediaSchema
+schemas/media.ts         MediaSchema, MediaUploadResponseSchema
 schemas/auth.ts          RegisterBody, LoginBody, TokensResponse, ProvidersResponse, MeResponse, PinBody, ...
 schemas/sync.ts          SYNCED_TABLES, APPEND_ONLY_TABLES, SyncPullResponseSchema, SyncPushRequestSchema, SyncPushResponseSchema, MutationSchema
 schemas/share.ts         ShareViewSchema
