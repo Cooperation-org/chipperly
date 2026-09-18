@@ -130,6 +130,31 @@ export class ChipperlyDB extends Dexie {
       media_blobs: 'media_id',
       sync_cursors: 'profile_id',
     });
+
+    // v3: adds the activity_steps.parent_step_id index (step tree).
+    this.version(3).stores({
+      locations: 'id, profile_id',
+      activities: 'id, profile_id',
+      activity_steps: 'id, profile_id, activity_id, parent_step_id',
+      recurrence_skips: 'id, profile_id, activity_id',
+      rewards: 'id, profile_id, [profile_id+location_id]',
+      schedule_items: 'id, profile_id, [profile_id+date], [profile_id+activity_id]',
+      step_completions: 'id, profile_id, schedule_item_id',
+      chip_ledger: 'id, profile_id, [profile_id+location_id]',
+      social_stories: 'id, profile_id',
+      story_pages: 'id, profile_id, story_id',
+      attitude_checks: 'id, profile_id',
+      mood_events: 'id, profile_id, [profile_id+date]',
+
+      profiles: 'id, account_id',
+      accounts: 'id',
+      users: 'id',
+
+      outbox: '++seq, id, table',
+      kv: 'key',
+      media_blobs: 'media_id',
+      sync_cursors: 'profile_id',
+    });
   }
 }
 

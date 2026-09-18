@@ -7,12 +7,14 @@ import type { ScheduleItem, StepCompletion } from '@chipperly/shared/schemas/sch
 import type { RecurrenceSkip } from '@chipperly/shared/schemas/activity';
 import type { ChipLedger } from '@chipperly/shared/schemas/chips';
 import { occursOn, materializedId } from '@chipperly/shared/helpers/recurrence';
+import { todayIso } from '@chipperly/shared/helpers/date';
 import { db } from '../db/db';
 import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert, softDelete } from '../sync/mutate';
 import { pullProfile } from '../sync/engine';
 import { getActiveLocationId } from './locations';
+import { getMoodLevel } from './mood';
 
 export interface DayStep {
   step: ActivityStep;
@@ -20,12 +22,75 @@ export interface DayStep {
   completed_by: string | null;
   /** id of the step_completion row backing this state, for undo. */
   completion_id: string | null;
+  /** 0 for a root step, +1 per ancestor; lets a flat list render indented. */
+  depth: number;
 }
 
 export interface DayItem {
   item: ScheduleItem;
   activity: Activity;
   steps: DayStep[];
+}
+
+/** One step tree node: its own day state plus its ordered children. */
+export interface StepNode {
+  node: DayStep;
+  children: StepNode[];
+  done: boolean;
+}
+
+/**
+ * Pure: groups flat steps into a tree by `parent_step_id`, siblings ordered
+ * by `step.position`. A leaf is done when it has its own completion; a
+ * parent is done when every child is done, or it has its own completion
+ * (the cascade in `setStepCompleted` keeps that in sync either way).
+ */
+export function stepTree(steps: readonly DayStep[]): StepNode[] {
+  const childrenByParent = new Map<string | null, DayStep[]>();
+  for (const day of steps) {
+    const parentId = day.step.parent_step_id;
+    const list = childrenByParent.get(parentId) ?? [];
+    list.push(day);
+    childrenByParent.set(parentId, list);
+  }
+  for (const list of childrenByParent.values()) list.sort((a, b) => a.step.position - b.step.position);
+
+  function build(day: DayStep, depth: number): StepNode {
+    const children = (childrenByParent.get(day.step.id) ?? []).map((child) => build(child, depth + 1));
+    const done = children.length > 0 ? children.every((child) => child.done) || day.completed_at !== null : day.completed_at !== null;
+    return { node: { ...day, depth }, children, done };
+  }
+
+  return (childrenByParent.get(null) ?? []).map((root) => build(root, 0));
+}
+
+/** Pure: every id of `stepId`'s descendants (children, grandchildren, ...), depth-first. */
+export function descendantsOf(steps: readonly Pick<ActivityStep, 'id' | 'parent_step_id'>[], stepId: string): string[] {
+  const childrenOf = new Map<string, string[]>();
+  for (const step of steps) {
+    if (step.parent_step_id === null) continue;
+    const list = childrenOf.get(step.parent_step_id) ?? [];
+    list.push(step.id);
+    childrenOf.set(step.parent_step_id, list);
+  }
+  const result: string[] = [];
+  const stack = [...(childrenOf.get(stepId) ?? [])];
+  while (stack.length > 0) {
+    const id = stack.pop() as string;
+    result.push(id);
+    stack.push(...(childrenOf.get(id) ?? []));
+  }
+  return result;
+}
+
+/** Flattens a step tree depth-first (parent immediately followed by its children). */
+function flattenPreOrder(nodes: readonly StepNode[]): DayStep[] {
+  const result: DayStep[] = [];
+  for (const node of nodes) {
+    result.push(node.node);
+    result.push(...flattenPreOrder(node.children));
+  }
+  return result;
 }
 
 /**
@@ -50,8 +115,6 @@ export function joinDayItems(
     list.push(step);
     stepsByActivity.set(step.activity_id, list);
   }
-  for (const list of stepsByActivity.values()) list.sort((a, b) => a.position - b.position);
-
   const completionsByItem = new Map<string, StepCompletion[]>();
   for (const completion of completions) {
     if (completion.deleted_at !== null) continue;
@@ -77,10 +140,12 @@ export function joinDayItems(
         completed_at: completion?.completed_at ?? null,
         completed_by: completion?.completed_by ?? null,
         completion_id: completion?.id ?? null,
+        depth: 0,
       };
     });
 
-    result.push({ item, activity, steps: daySteps });
+    // Pre-order walk of the step tree so a flat consumer can indent by depth.
+    result.push({ item, activity, steps: flattenPreOrder(stepTree(daySteps)) });
   }
 
   result.sort((a, b) => {
@@ -234,6 +299,7 @@ async function appendLedgerRow(
   delta: number,
   userId: string,
 ): Promise<void> {
+  const mood_level = await getMoodLevel(profileId, todayIso());
   await upsert('chip_ledger', {
     id: newId(),
     profile_id: profileId,
@@ -247,40 +313,67 @@ async function appendLedgerRow(
     ref_id: refId,
     created_at: now(),
     created_by: userId,
+    mood_level,
   } satisfies ChipLedger);
 }
 
-/** Inserts/soft-deletes one step_completion, then applies the "all steps done completes the parent" rule upward. */
+/**
+ * Toggles one step and cascades through the tree: checking a parent
+ * completes it and every descendant not already complete; unchecking a
+ * parent un-completes it and every descendant. Either way, every ancestor
+ * above `stepId` is then recomputed (done iff all of that ancestor's
+ * children are), so completing the last sibling completes the parent and
+ * so on up the chain. The activity completes when every root step is done.
+ */
 export async function setStepCompleted(itemId: string, stepId: string, done: boolean, userId: string): Promise<void> {
   const item = await db.schedule_items.get(itemId);
   if (!item) return;
-
-  const existing = (await db.step_completions.where('schedule_item_id').equals(itemId).toArray()).find(
-    (completion) => completion.activity_step_id === stepId && completion.deleted_at === null,
-  );
-
-  if (done && !existing) {
-    await upsert('step_completions', {
-      id: newId(),
-      profile_id: item.profile_id,
-      version: 0,
-      client_updated_at: now(),
-      updated_by: userId,
-      deleted_at: null,
-      schedule_item_id: itemId,
-      activity_step_id: stepId,
-      completed_at: now(),
-      completed_by: userId,
-    } satisfies StepCompletion);
-  } else if (!done && existing) {
-    await softDelete('step_completions', existing.id);
-  }
+  const profileId = item.profile_id;
 
   const steps = (await db.activity_steps.where('activity_id').equals(item.activity_id).toArray()).filter(
     (step) => step.deleted_at === null,
   );
+  const stepById = new Map(steps.map((step) => [step.id, step]));
+
   const completions = await db.step_completions.where('schedule_item_id').equals(itemId).toArray();
-  const complete = allStepsComplete(steps, completions);
+  const liveByStep = new Map(
+    completions.filter((completion) => completion.deleted_at === null).map((completion) => [completion.activity_step_id, completion]),
+  );
+
+  async function set(id: string, isDone: boolean): Promise<void> {
+    const existing = liveByStep.get(id);
+    if (isDone && !existing) {
+      const row: StepCompletion = {
+        id: newId(),
+        profile_id: profileId,
+        version: 0,
+        client_updated_at: now(),
+        updated_by: userId,
+        deleted_at: null,
+        schedule_item_id: itemId,
+        activity_step_id: id,
+        completed_at: now(),
+        completed_by: userId,
+      };
+      await upsert('step_completions', row);
+      liveByStep.set(id, row);
+    } else if (!isDone && existing) {
+      await softDelete('step_completions', existing.id);
+      liveByStep.delete(id);
+    }
+  }
+
+  await set(stepId, done);
+  for (const descendantId of descendantsOf(steps, stepId)) await set(descendantId, done);
+
+  for (let current = stepById.get(stepId); current?.parent_step_id; current = stepById.get(current.parent_step_id)) {
+    const parentId = current.parent_step_id;
+    const siblings = steps.filter((step) => step.parent_step_id === parentId);
+    await set(parentId, siblings.every((sibling) => liveByStep.has(sibling.id)));
+  }
+
+  const roots = steps.filter((step) => step.parent_step_id === null);
+  const complete = allStepsComplete(roots, [...liveByStep.values()]);
   if (complete !== (item.completed_at !== null)) {
     await markItemCompletion(item, complete, userId);
   }

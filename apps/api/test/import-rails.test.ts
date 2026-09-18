@@ -229,6 +229,7 @@ describe('import-rails', () => {
     expect(steps).toHaveLength(2);
     expect(steps[0]?.name).toBe('Brush teeth'); // copied from routine_step -> activities(1)
     expect(steps[1]?.name).toBe('Make bed'); // copied from routine_step -> activities(3)
+    expect(steps.every((step) => step.parent_step_id === null)).toBe(true); // Rails steps are flat
 
     const skip = await deps.db
       .select()

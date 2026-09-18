@@ -108,6 +108,7 @@ function activityStepRow(
     updated_by: updatedBy,
     deleted_at: null,
     activity_id: activityId,
+    parent_step_id: null,
     position: 0,
     name: 'Brush teeth',
     emoji: null,
@@ -326,6 +327,53 @@ describe('sync', () => {
     const [pulledStep] = pullBody.changes.activity_steps ?? [];
     expect(pulledStep).toMatchObject({ id: stepId, duration_minutes: 5 });
     ActivityStepSchema.parse(pulledStep);
+  });
+
+  it('pushes a nested step (parent_step_id) and pulls it back on the tree', async () => {
+    const { admin, profileId } = await setupProfile();
+
+    const activityId = uuidv7();
+    const rootStepId = uuidv7();
+    const childStepId = uuidv7();
+    const t0 = Date.now();
+
+    const push = await pushRequest(app, admin.token, profileId, [
+      { table: 'activities', id: activityId, op: 'upsert', row: activityRow(activityId, profileId, admin.id, t0), client_updated_at: t0 },
+      {
+        table: 'activity_steps',
+        id: rootStepId,
+        op: 'upsert',
+        row: activityStepRow(rootStepId, profileId, activityId, admin.id, t0, { name: 'Get dressed' }),
+        client_updated_at: t0,
+      },
+      {
+        table: 'activity_steps',
+        id: childStepId,
+        op: 'upsert',
+        row: activityStepRow(childStepId, profileId, activityId, admin.id, t0, {
+          name: 'Put on socks',
+          parent_step_id: rootStepId,
+          position: 0,
+        }),
+        client_updated_at: t0,
+      },
+    ]);
+    expect(push.statusCode).toBe(200);
+    const pushBody = expectShape(push, SyncPushResponseSchema);
+    expect(pushBody.applied.sort()).toEqual([activityId, rootStepId, childStepId].sort());
+    expect(pushBody.rejected).toEqual([]);
+
+    const pull = await pullRequest(app, admin.token, profileId, 0);
+    const pullBody = expectShape(pull, SyncPullResponseSchema);
+    expectChangesShape(pullBody.changes);
+
+    const steps = pullBody.changes.activity_steps ?? [];
+    const pulledRoot = steps.find((s) => (s as { id: string }).id === rootStepId);
+    const pulledChild = steps.find((s) => (s as { id: string }).id === childStepId);
+    expect(pulledRoot).toMatchObject({ id: rootStepId, parent_step_id: null });
+    expect(pulledChild).toMatchObject({ id: childStepId, parent_step_id: rootStepId });
+    ActivityStepSchema.parse(pulledRoot);
+    ActivityStepSchema.parse(pulledChild);
   });
 
   it('rejects a stale LWW push and returns the current server row', async () => {

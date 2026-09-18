@@ -52,6 +52,7 @@ function makeDay(overrides: {
         updated_by: 'u',
         deleted_at: null,
         activity_id: `a-${overrides.id}`,
+        parent_step_id: null,
         position: i,
         name: `step ${i}`,
         emoji: null,
@@ -61,6 +62,7 @@ function makeDay(overrides: {
       completed_at: null,
       completed_by: null,
       completion_id: null,
+      depth: 0,
     })),
   };
 }

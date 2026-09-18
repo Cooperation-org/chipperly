@@ -43,6 +43,13 @@
       "when": 1789656581559,
       "tag": "0005_consent",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789656581560,
+      "tag": "0006_step_tree",
+      "breakpoints": true
     }
   ]
 }

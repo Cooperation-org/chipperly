@@ -28,9 +28,15 @@ export const ActivitySchema = SyncColumnsSchema.extend({
 });
 export type Activity = z.infer<typeof ActivitySchema>;
 
-/** An activity with steps is a routine; there is no separate routines table. */
+/**
+ * An activity with steps is a routine; there is no separate routines table.
+ * Steps can nest (a visual-schedule step broken into sub-steps): a root
+ * step's `parent_step_id` is null, and siblings are ordered by `position`
+ * within the same parent (not globally).
+ */
 export const ActivityStepSchema = SyncColumnsSchema.extend({
   activity_id: uuidSchema,
+  parent_step_id: uuidSchema.nullable(),
   position: z.number().int(),
   name: z.string().min(1),
   emoji: z.string().nullable(),

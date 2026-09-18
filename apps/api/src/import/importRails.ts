@@ -418,6 +418,8 @@ async function writeProfile(
             updated_by: adminUserId,
             deleted_at: null,
             activity_id: routineActivityId,
+            // Rails routine steps have no parent/child structure: every imported step is a root.
+            parent_step_id: null,
             position: stepPosition,
             name: sourceActivity.name,
             emoji: sourceActivity.emoji,

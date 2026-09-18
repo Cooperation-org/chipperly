@@ -9,6 +9,7 @@ import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert, softDelete } from '../sync/mutate';
 import { nextPosition } from './_util';
+import { descendantsOf } from './schedule';
 
 export function useActivities(profileId: string): Activity[] {
   const rows = useLiveQuery(() => db.activities.where('profile_id').equals(profileId).toArray(), [profileId], []);
@@ -39,6 +40,8 @@ export function useRoutines(profileId: string): Activity[] {
 
 export interface SaveActivityStepInput {
   id?: string;
+  /** Another step's `id` in this same array; null/omitted for a root step. Must reference a step that has its own `id` set. */
+  parent_step_id?: string | null;
   name: string;
   emoji: string | null;
   photo_id: string | null;
@@ -59,7 +62,12 @@ export interface SaveActivityInput {
   steps: SaveActivityStepInput[];
 }
 
-/** Upserts the activity, then reconciles steps: upsert kept ones, soft-delete removed ones, renumber positions. */
+/**
+ * Upserts the activity, then reconciles the whole step set: upsert kept
+ * ones, soft-delete removed ones (and every descendant of a removed step,
+ * even one still listed in `input.steps` — the parent's removal wins), and
+ * renumber `position` per parent group in array order.
+ */
 export async function saveActivity(input: SaveActivityInput): Promise<string> {
   const existing = input.id ? await db.activities.get(input.id) : undefined;
   const id = input.id ?? newId();
@@ -87,13 +95,31 @@ export async function saveActivity(input: SaveActivityInput): Promise<string> {
   const existingById = new Map(existingSteps.map((step) => [step.id, step]));
   const keepIds = new Set(input.steps.filter((step) => step.id).map((step) => step.id as string));
 
-  for (const step of existingSteps) {
-    if (step.deleted_at === null && !keepIds.has(step.id)) await softDelete('activity_steps', step.id);
+  const removedIds = existingSteps.filter((step) => step.deleted_at === null && !keepIds.has(step.id)).map((step) => step.id);
+  const toRemove = new Set(removedIds);
+  for (const removedId of removedIds) {
+    for (const descendantId of descendantsOf(existingSteps, removedId)) toRemove.add(descendantId);
   }
+  for (const stepId of toRemove) {
+    if (existingById.get(stepId)?.deleted_at === null) await softDelete('activity_steps', stepId);
+  }
+
+  // Final id per input step (existing steps keep theirs; new ones get one
+  // now so a step can be referenced as another's parent within this call).
+  const stepIds = input.steps.map((step) => step.id ?? newId());
+  const idByGivenId = new Map(input.steps.map((step, i) => [step.id, stepIds[i] as string]));
+  const positionByParent = new Map<string | null, number>();
 
   for (let i = 0; i < input.steps.length; i += 1) {
     const stepInput = input.steps[i] as SaveActivityStepInput;
-    const stepId = stepInput.id ?? newId();
+    const stepId = stepIds[i] as string;
+    if (toRemove.has(stepId)) continue;
+
+    const parentGivenId = stepInput.parent_step_id ?? null;
+    const parent_step_id = parentGivenId !== null ? (idByGivenId.get(parentGivenId) ?? null) : null;
+    const position = positionByParent.get(parent_step_id) ?? 0;
+    positionByParent.set(parent_step_id, position + 1);
+
     const priorStep = existingById.get(stepId);
     await upsert('activity_steps', {
       id: stepId,
@@ -103,7 +129,8 @@ export async function saveActivity(input: SaveActivityInput): Promise<string> {
       updated_by: '',
       deleted_at: null,
       activity_id: id,
-      position: i,
+      parent_step_id,
+      position,
       name: stepInput.name,
       emoji: stepInput.emoji,
       photo_id: stepInput.photo_id,

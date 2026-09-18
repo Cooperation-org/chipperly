@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Activity, ActivityStep } from '@chipperly/shared/schemas/activity';
 import type { ScheduleItem, StepCompletion } from '@chipperly/shared/schemas/schedule';
-import { allStepsComplete, joinDayItems } from './schedule';
+import { allStepsComplete, descendantsOf, joinDayItems, stepTree, type DayStep } from './schedule';
 
 function activity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -53,6 +53,7 @@ function step(overrides: Partial<ActivityStep> = {}): ActivityStep {
     updated_by: 'user-1',
     deleted_at: null,
     activity_id: 'act-1',
+    parent_step_id: null,
     position: 0,
     name: 'Wet brush',
     emoji: null,
@@ -60,6 +61,16 @@ function step(overrides: Partial<ActivityStep> = {}): ActivityStep {
     duration_minutes: null,
     ...overrides,
   };
+}
+
+function daySteps(steps: readonly ActivityStep[], completedIds: readonly string[] = []): DayStep[] {
+  return steps.map((s) => ({
+    step: s,
+    completed_at: completedIds.includes(s.id) ? 100 : null,
+    completed_by: completedIds.includes(s.id) ? 'user-1' : null,
+    completion_id: completedIds.includes(s.id) ? `comp-${s.id}` : null,
+    depth: 0,
+  }));
 }
 
 function completion(overrides: Partial<StepCompletion> = {}): StepCompletion {
@@ -143,5 +154,121 @@ describe('allStepsComplete', () => {
     const steps = [step({ id: 's1', deleted_at: 999 }), step({ id: 's2' })];
     const completions = [completion({ activity_step_id: 's2' })];
     expect(allStepsComplete(steps, completions)).toBe(true);
+  });
+});
+
+describe('stepTree', () => {
+  it('nests by parent_step_id, siblings ordered by position', () => {
+    const steps = [
+      step({ id: 'r2', parent_step_id: null, position: 1, name: 'Root 2' }),
+      step({ id: 'r1', parent_step_id: null, position: 0, name: 'Root 1' }),
+      step({ id: 'c2', parent_step_id: 'r2', position: 1, name: 'Child 2' }),
+      step({ id: 'c1', parent_step_id: 'r2', position: 0, name: 'Child 1' }),
+    ];
+    const tree = stepTree(daySteps(steps));
+
+    expect(tree.map((n) => n.node.step.id)).toEqual(['r1', 'r2']);
+    expect(tree[1]?.children.map((n) => n.node.step.id)).toEqual(['c1', 'c2']);
+    expect(tree[0]?.children).toEqual([]);
+  });
+
+  it('assigns depth by nesting level', () => {
+    const steps = [
+      step({ id: 'r1', parent_step_id: null }),
+      step({ id: 'c1', parent_step_id: 'r1' }),
+      step({ id: 'g1', parent_step_id: 'c1' }),
+    ];
+    const [root] = stepTree(daySteps(steps));
+    expect(root?.node.depth).toBe(0);
+    expect(root?.children[0]?.node.depth).toBe(1);
+    expect(root?.children[0]?.children[0]?.node.depth).toBe(2);
+  });
+
+  it('a leaf is done only by its own completion', () => {
+    const steps = [step({ id: 'r1' })];
+    expect(stepTree(daySteps(steps))[0]?.done).toBe(false);
+    expect(stepTree(daySteps(steps, ['r1']))[0]?.done).toBe(true);
+  });
+
+  it('a parent is done once every child is done, with no completion of its own', () => {
+    const steps = [
+      step({ id: 'r1', parent_step_id: null }),
+      step({ id: 'c1', parent_step_id: 'r1', position: 0 }),
+      step({ id: 'c2', parent_step_id: 'r1', position: 1 }),
+    ];
+    expect(stepTree(daySteps(steps, ['c1']))[0]?.done).toBe(false);
+    expect(stepTree(daySteps(steps, ['c1', 'c2']))[0]?.done).toBe(true);
+  });
+
+  it('a parent with an unfinished child is still done if it has its own completion', () => {
+    const steps = [
+      step({ id: 'r1', parent_step_id: null }),
+      step({ id: 'c1', parent_step_id: 'r1', position: 0 }),
+    ];
+    expect(stepTree(daySteps(steps, ['r1']))[0]?.done).toBe(true);
+  });
+});
+
+describe('descendantsOf', () => {
+  it('is empty for a leaf', () => {
+    expect(descendantsOf([step({ id: 'r1' })], 'r1')).toEqual([]);
+  });
+
+  it('returns direct children', () => {
+    const steps = [step({ id: 'r1' }), step({ id: 'c1', parent_step_id: 'r1' }), step({ id: 'c2', parent_step_id: 'r1' })];
+    expect(descendantsOf(steps, 'r1').sort()).toEqual(['c1', 'c2']);
+  });
+
+  it('walks every level, not just direct children', () => {
+    const steps = [
+      step({ id: 'r1' }),
+      step({ id: 'c1', parent_step_id: 'r1' }),
+      step({ id: 'g1', parent_step_id: 'c1' }),
+      step({ id: 'g2', parent_step_id: 'c1' }),
+    ];
+    expect(descendantsOf(steps, 'r1').sort()).toEqual(['c1', 'g1', 'g2']);
+  });
+});
+
+describe('cascade rules (pure, via stepTree + descendantsOf)', () => {
+  it('checking a step also completes every descendant', () => {
+    const steps = [
+      step({ id: 'r1' }),
+      step({ id: 'c1', parent_step_id: 'r1', position: 0 }),
+      step({ id: 'g1', parent_step_id: 'c1', position: 0 }),
+    ];
+    // Simulates setStepCompleted(itemId, 'r1', true, userId): completing r1
+    // means r1 and every id from descendantsOf(steps, 'r1') get a completion.
+    const completed = ['r1', ...descendantsOf(steps, 'r1')];
+    const [root] = stepTree(daySteps(steps, completed));
+    expect(root?.done).toBe(true);
+    expect(root?.children[0]?.done).toBe(true);
+    expect(root?.children[0]?.children[0]?.done).toBe(true);
+  });
+
+  it('completing the last sibling completes the parent, and up the chain', () => {
+    const steps = [
+      step({ id: 'root' }),
+      step({ id: 'mid', parent_step_id: 'root', position: 0 }),
+      step({ id: 'leaf1', parent_step_id: 'mid', position: 0 }),
+      step({ id: 'leaf2', parent_step_id: 'mid', position: 1 }),
+    ];
+
+    const beforeLast = stepTree(daySteps(steps, ['leaf1']));
+    expect(beforeLast[0]?.children[0]?.done).toBe(false);
+    expect(beforeLast[0]?.done).toBe(false);
+
+    const afterLast = stepTree(daySteps(steps, ['leaf1', 'leaf2']));
+    expect(afterLast[0]?.children[0]?.done).toBe(true); // mid: both leaves done
+    expect(afterLast[0]?.done).toBe(true); // root: its only child (mid) is done
+  });
+
+  it('unchecking a parent leaves its descendants without a completion (nothing "done")', () => {
+    const steps = [step({ id: 'r1' }), step({ id: 'c1', parent_step_id: 'r1' })];
+    // Simulates setStepCompleted(itemId, 'r1', false, userId) after everything
+    // was complete: neither r1 nor its descendants keep a live completion.
+    const [root] = stepTree(daySteps(steps, []));
+    expect(root?.done).toBe(false);
+    expect(root?.children[0]?.done).toBe(false);
   });
 });

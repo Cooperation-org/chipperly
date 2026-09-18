@@ -31,6 +31,7 @@ function makeStep(activityId: string, overrides: { id?: string; deleted_at?: num
     updated_by: 'u',
     deleted_at: overrides.deleted_at ?? null,
     activity_id: activityId,
+    parent_step_id: null,
     position: 0,
     name: 'Step',
     emoji: null,

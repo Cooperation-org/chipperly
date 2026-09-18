@@ -206,10 +206,11 @@ describe('activity schemas', () => {
     expect(ActivitySchema.safeParse({ ...base, recurrence_weekdays: [1, 1] }).success).toBe(false);
   });
 
-  it('round-trips an activity step', () => {
+  it('round-trips a root activity step', () => {
     expectRoundTrip(ActivityStepSchema, {
       ...syncCols,
       activity_id: id2,
+      parent_step_id: null,
       position: 0,
       name: 'Turn on tap',
       emoji: '🚰',
@@ -222,11 +223,25 @@ describe('activity schemas', () => {
     expectRoundTrip(ActivityStepSchema, {
       ...syncCols,
       activity_id: id2,
+      parent_step_id: null,
       position: 0,
       name: 'Brush teeth',
       emoji: '🪥',
       photo_id: null,
       duration_minutes: 5,
+    });
+  });
+
+  it('round-trips a nested activity step (child of another step)', () => {
+    expectRoundTrip(ActivityStepSchema, {
+      ...syncCols,
+      activity_id: id2,
+      parent_step_id: id3,
+      position: 1,
+      name: 'Squeeze toothpaste',
+      emoji: null,
+      photo_id: null,
+      duration_minutes: null,
     });
   });
 

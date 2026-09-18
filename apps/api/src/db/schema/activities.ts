@@ -28,6 +28,8 @@ export const activity_steps = pgTable(
   {
     ...syncColumns(),
     activity_id: uuid('activity_id').notNull(),
+    /** Null for a root step; siblings are ordered by `position` within the same parent. */
+    parent_step_id: uuid('parent_step_id'),
     position: integer('position').notNull(),
     name: text('name').notNull(),
     emoji: text('emoji'),
@@ -35,7 +37,10 @@ export const activity_steps = pgTable(
     /** Minutes for an optional "start a timer for this step" affordance; untimed when null. */
     duration_minutes: integer('duration_minutes'),
   },
-  (t) => [index('activity_steps_profile_version_idx').on(t.profile_id, t.version)],
+  (t) => [
+    index('activity_steps_profile_version_idx').on(t.profile_id, t.version),
+    index('activity_steps_parent_step_id_idx').on(t.parent_step_id),
+  ],
 );
 
 /** One row per suppressed occurrence of a recurring activity. Append-only. */
