@@ -163,11 +163,8 @@ describe('sync push edge cases', () => {
     expect(staleBody.rejected[0]?.reason).toBe('stale');
     expect(staleBody.rejected[0]?.server_row).toMatchObject({ id: profileId, share_token: shareToken });
 
-    // (c) extra unknown keys + a missing optional (nested settings) key -> still a clean 200.
-    const { timer_default_minutes: _dropped, ...settingsWithoutOptionalKey } = (afterApplyProfile?.settings ?? {}) as Record<
-      string,
-      unknown
-    >;
+    // (c) extra unknown top-level key + an unknown nested key inside settings -> still a clean 200
+    // (ProfileSettingsSchema is an empty partial object, so unknown settings keys are stripped, not rejected).
     const messyAt = applyAt + 1;
     const messy = await pushRequest(app, admin.token, profileId, [
       {
@@ -176,7 +173,7 @@ describe('sync push edge cases', () => {
         op: 'upsert',
         row: {
           ...afterApplyProfile,
-          settings: settingsWithoutOptionalKey,
+          settings: { ...((afterApplyProfile?.settings ?? {}) as Record<string, unknown>), unknown_setting: true },
           this_key_does_not_exist: 'ignored',
           client_updated_at: messyAt,
         },

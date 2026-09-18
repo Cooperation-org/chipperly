@@ -179,7 +179,7 @@ Two modeling choices made here that the client should confirm (they are also in 
 1. Rewards and the choice board are one table. `always_available = true` means "free-time choice, costs nothing". The client's own doc suggested this merge.
 2. Routine steps are free-text rows on an activity, not references to other activities. Simpler to author, and steps with photos still work.
 
-Screentime control and timer settings live in `profiles.settings` until they need their own tables. The Chipper Chart (SOW Q5, resolved to match the client's beta) writes to its own `mood_events` table, not `attitude_checks`.
+`profiles.settings` is reserved for future per-profile settings and currently empty; screentime control ships as default rewards (below) and the Chipper Chart (SOW Q5, resolved to match the client's beta) writes to its own `mood_events` table, not `attitude_checks`.
 
 ### Seed data
 

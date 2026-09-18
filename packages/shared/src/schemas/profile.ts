@@ -2,17 +2,10 @@ import { z } from 'zod';
 import { msTimestampSchema, uuidSchema } from './common.js';
 
 /**
- * Chipper chart, screentime control and timer defaults live here until they
- * need their own tables (technical-plan.md section 5). All optional: an
- * absent key means "use the app default".
+ * Reserved for future per-profile settings (technical-plan.md section 5);
+ * currently empty. Existing rows still hold `{}`.
  */
-export const ProfileSettingsSchema = z
-  .object({
-    attitude_chart_enabled: z.boolean(),
-    screentime_control_enabled: z.boolean(),
-    timer_default_minutes: z.number().int().positive().nullable(),
-  })
-  .partial();
+export const ProfileSettingsSchema = z.object({}).partial();
 export type ProfileSettings = z.infer<typeof ProfileSettingsSchema>;
 
 /**
