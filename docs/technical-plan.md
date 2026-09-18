@@ -165,6 +165,8 @@ chip_ledger       id, profile_id, location_id (nullable), delta int,
 social_stories    id, profile_id, title, emoji, cover_photo_id, position
 story_pages       id, story_id, position, text, emoji, photo_id
 attitude_checks   id, profile_id, schedule_item_id (nullable), value (good|grumpy), created_at, created_by
+mood_events       id, profile_id, date, delta int (-10..10), level_after int (-5..5), created_at, created_by
+                  (append-only; Chipper Chart. The day's level is level_after of the newest row for that date, or 0.)
 media             id, account_id, kind (image|video), status (processing|ready|failed), storage_key,
                   content_type, width, height, duration_ms (nullable), bytes, original_bytes, created_by, created_at
 
@@ -177,7 +179,7 @@ Two modeling choices made here that the client should confirm (they are also in 
 1. Rewards and the choice board are one table. `always_available = true` means "free-time choice, costs nothing". The client's own doc suggested this merge.
 2. Routine steps are free-text rows on an activity, not references to other activities. Simpler to author, and steps with photos still work.
 
-Chipper chart, screentime control, and timer settings live in `profiles.settings` until they need their own tables. The chart writes to `attitude_checks`.
+Screentime control and timer settings live in `profiles.settings` until they need their own tables. The Chipper Chart (SOW Q5, resolved to match the client's beta) writes to its own `mood_events` table, not `attitude_checks`.
 
 ### Seed data
 
@@ -392,9 +394,11 @@ All under `${basePath}/api`. JSON. Access token in `Authorization: Bearer`. `X-A
 Auth (public)
   POST /auth/register          email, password, display_name → tokens
   POST /auth/login             email, password → tokens
-  GET  /auth/providers         { google: bool, apple: bool }  (client renders only enabled buttons)
-  POST /auth/google            id_token → tokens        (team contract; 404 when GOOGLE_OAUTH_CLIENT_ID unset)
-  POST /auth/apple             id_token → tokens        (404 when APPLE_SIGNIN_CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY unset)
+  GET  /auth/providers         { google: bool, apple: bool, invite_code_required: bool }  (client renders only enabled buttons)
+  POST /auth/google            id_token, invite_code? → tokens   (team contract; 404 when GOOGLE_OAUTH_CLIENT_ID unset;
+                                                                   invite_code required only when it creates a new user)
+  POST /auth/apple             id_token, invite_code? → tokens   (404 when APPLE_SIGNIN_CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY unset;
+                                                                   invite_code required only when it creates a new user)
   POST /auth/refresh           refresh_token → tokens   (rotates)
   POST /auth/logout            revokes the refresh token
   POST /auth/password/forgot   email

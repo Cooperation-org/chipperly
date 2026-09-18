@@ -51,6 +51,9 @@ STORAGE_DRIVER             local | s3 (default local)
 S3_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY MEDIA_PUBLIC_BASE
 GOOGLE_OAUTH_CLIENT_ID     unset = /auth/google 404 and providers.google=false
 APPLE_SIGNIN_CLIENT_ID APPLE_SIGNIN_TEAM_ID APPLE_SIGNIN_KEY_ID APPLE_SIGNIN_PRIVATE_KEY   all set or apple=false
+BETA_INVITE_CODE           unset = registration is open. Set = /auth/register requires a matching invite_code
+                            (a valid invite_token bypasses it), /auth/google and /auth/apple require it only
+                            when they'd create a new user, and providers.invite_code_required=true
 RESEND_API_KEY             unset = mail is logged to stdout
 MAIL_FROM                  default "Chipperly <no-reply@chipperlyapp.com>"
 APP_ORIGIN                 public origin used in emails and share links, e.g. https://demos.linkedtrust.us
@@ -83,6 +86,7 @@ schemas/reward.ts        RewardSchema
 schemas/chips.ts         ChipLedgerSchema, ChipReason
 schemas/story.ts         SocialStorySchema, StoryPageSchema
 schemas/attitude.ts      AttitudeCheckSchema
+schemas/mood.ts           MoodEventSchema (Chipper Chart; append-only)
 schemas/media.ts         MediaSchema
 schemas/auth.ts          RegisterBody, LoginBody, TokensResponse, ProvidersResponse, MeResponse, PinBody, ...
 schemas/sync.ts          SYNCED_TABLES, APPEND_ONLY_TABLES, SyncPullResponseSchema, SyncPushRequestSchema, SyncPushResponseSchema, MutationSchema
@@ -100,8 +104,8 @@ Field names are `snake_case` in every schema, every API payload, every Dexie row
 Sync columns (on every synced table): `id, profile_id, version, client_updated_at, updated_by, deleted_at`. `version` is `number` (server-assigned, 0 on unsynced local rows). `updated_by` is also server-assigned on every push, overwritten with the authenticated user's id regardless of what the client sends.
 
 SYNCED_TABLES, in dependency order (parents first):
-`locations, activities, activity_steps, recurrence_skips, rewards, schedule_items, step_completions, chip_ledger, social_stories, story_pages, attitude_checks`.
-Plus `profiles` is synced read-only through pull (profile row edits go through pull too; `first_then_activity_id`, `first_then_reward_id`, `name`, `avatar_*`, `settings` are pushed as an upsert on table `profiles`). APPEND_ONLY_TABLES: `recurrence_skips, step_completions, chip_ledger, attitude_checks`.
+`locations, activities, activity_steps, recurrence_skips, rewards, schedule_items, step_completions, chip_ledger, social_stories, story_pages, attitude_checks, mood_events`.
+Plus `profiles` is synced read-only through pull (profile row edits go through pull too; `first_then_activity_id`, `first_then_reward_id`, `name`, `avatar_*`, `settings` are pushed as an upsert on table `profiles`). APPEND_ONLY_TABLES: `recurrence_skips, step_completions, chip_ledger, attitude_checks, mood_events`.
 
 Child tables carry `profile_id` too (denormalized) so pull can filter by profile with one index: `activity_steps.profile_id`, `story_pages.profile_id`, `step_completions.profile_id`, `recurrence_skips.profile_id`.
 
@@ -147,7 +151,7 @@ static.ts              serves WEB_DIR under BASE_PATH with SPA-ish fallback: `/x
 
 Every route validates body/query with the shared zod schema and replies with shared shapes. All routes mount under `${BASE_PATH}/api`. Auth: `Authorization: Bearer <access>`. Account-scoped: `X-Account-Id`. Errors: `{ error: { code: 'invalid_credentials', message } }` with proper status.
 
-Sync authorization: user may read/write profile P if P.account_id is an account where user is `admin`, or user is `member` and (P.id in profile_members for user). A device is child-locked when this session's `sessions.locked_profile_id` is set (POST `/me/lock`; cleared by POST `/me/unlock`, which requires the caregiver's PIN, checked server-side against `users.pin_hash`). While locked, sync/push restricts writes to `schedule_items` (only `completed_at`, `completed_by`, `client_updated_at` may change), `step_completions`, `attitude_checks`, `chip_ledger` with reason `task|step`.
+Sync authorization: user may read/write profile P if P.account_id is an account where user is `admin`, or user is `member` and (P.id in profile_members for user). A device is child-locked when this session's `sessions.locked_profile_id` is set (POST `/me/lock`; cleared by POST `/me/unlock`, which requires the caregiver's PIN, checked server-side against `users.pin_hash`). While locked, sync/push restricts writes to `schedule_items` (only `completed_at`, `completed_by`, `client_updated_at` may change), `step_completions`, `attitude_checks`, `mood_events`, `chip_ledger` with reason `task|step`.
 
 Push semantics exactly as `docs/technical-plan.md` section 6. One transaction per request. `version` from `sync_version_seq` via trigger `set_sync_version()`.
 
@@ -183,12 +187,13 @@ Tests: vitest, `apps/api/test/*.test.ts`, `test/setup.ts` creates schema in `chi
   /settings/                 S20 (+ S23 lock, S28 share, S31 sync sheets)
   /settings/profiles/        S21
   /settings/profile/edit/?id=  S22
-  /settings/library/activities/  /settings/library/rewards/  /settings/library/locations/   S25
+  /settings/library/activities/  /settings/library/routines/  /settings/library/rewards/  /settings/library/locations/   S25
   /settings/care-team/       S26 (+ S27 sheet)
   /settings/attitude/        S29
   /settings/account/         S30
+  /chipper-chart/            S35
 (child)                      client-only
-  /child/                    S32 (+ S24 pin pad, S11, S14, S17 overlays)
+  /child/                    S32 (+ S24 pin pad, S11, S14, S17, S35 overlays)
 ```
 
 Query params are read with `useSearchParams()` inside `<Suspense>`. Navigation with `next/link` and `useRouter`; never hard-coded `${basePath}` in hrefs (Next adds it). Raw `src`/`fetch` URLs go through `withBase()` from `lib/api/base.ts`.
@@ -245,6 +250,7 @@ lib/data/locations.ts    useLocations(profileId) ; saveLocation ; deleteLocation
 lib/data/chips.ts        useBalance(profileId, locationId) ; addChip(profileId, locationId, reason, ref_id?, delta=1) ; redeem(profileId, locationId, reward) ; useLedger(profileId, locationId?) ; useWorkingFor(profileId, locationId)
 lib/data/stories.ts      useStories(profileId) ; useStory(id) ; saveStory ; deleteStory ; duplicateStory ; createFromTemplate(templateKey)
 lib/data/attitude.ts     recordAttitude(profileId, itemId, value) ; useAttitudeHistory(profileId)
+lib/data/mood.ts         useMoodLevel(profileId, isoDate) ; useMoodHistory(profileId) ; setMood(profileId, isoDate, nextLevel, userId) ; levelEmoji(level) ; dayHistory(events)
 lib/data/firstThen.ts    useFirstThen(profileId) ; setFirst ; setThen ; clear ; completeFirst
 lib/data/media.ts        pickAndStoreImage(file) -> media_id (client resize, Dexie blob, queued upload) ; useMediaUrl(media_id) -> object URL or remote URL ; uploadPending()
 lib/timer/store.ts       useTimer(): { remaining_ms, total_ms, running, reveal_media_id, sound } ; setDuration ; start ; pause ; reset ; setReveal ; (module singleton + useSyncExternalStore; survives route changes)

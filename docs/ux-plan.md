@@ -117,7 +117,7 @@ No tabs. No top bar except the profile picture, the chip strip, and a small lock
 | S22 | Edit profile | Caregiver | page | Save |
 | S23 | Lock this device | Caregiver | sheet | Lock |
 | S24 | PIN pad | Child → Caregiver | overlay | digits |
-| S25 | Library: activities, rewards, locations | Caregiver | page | Add |
+| S25 | Library: activities, routines, rewards, locations | Caregiver | page | Add |
 | S26 | Care team | Caregiver (admin) | page | Invite |
 | S27 | Invite form | Caregiver (admin) | sheet | Send |
 | S28 | Share link | Caregiver (admin) | sheet | Copy |
@@ -127,8 +127,9 @@ No tabs. No top bar except the profile picture, the chip strip, and a small lock
 | S32 | Child today | Child | full screen | Check off |
 | S33 | Accept invite | Signed out → Caregiver | page | Accept |
 | S34 | Share viewer | Viewer | page | none (read) |
+| S35 | Chipper Chart | Caregiver, Child (optional) | page (child: sheet) | +/- the mood level |
 
-Thirty-four, of which twelve are sheets or overlays over an existing screen. A caregiver's daily loop touches S6, S7, S10, S13, S15 and nothing else.
+Thirty-five, of which twelve are sheets or overlays over an existing screen (thirteen counting S35 in child mode). A caregiver's daily loop touches S6, S7, S10, S13, S15 and nothing else.
 
 ## 6. Screen specifications
 
@@ -229,7 +230,7 @@ Shared between activities and rewards. One component, two data sources.
 - Title: "Add to Wednesday" or "Working for..." depending on caller.
 - Search field (filters as you type; hidden until the list exceeds 12 items).
 - Grid of tiles, 3 across on phones, 4 on tablets. Each tile: picture, name, and for activities a tiny step count badge. First tile is always **Create new** (dashed outline).
-- Sections: Recent (last 8 used) then All, alphabetical.
+- Sections: Recent (last 8 used), then, for activities, **Activities** (no steps, alphabetical) and **Routines** (has steps, alphabetical, with a dashed **New routine** tile at the end). For rewards, one **All** section, alphabetical. An activity IS a routine once it has a step (docs/technical-plan.md section 5); there is no separate routines table.
 - Tap adds immediately and closes. No time prompt, no confirm. A toast: "Added Brush teeth. Undo."
 - For rewards, tiles show the chip cost. Tiles not available at the current location are hidden, not greyed.
 
@@ -242,8 +243,10 @@ A page. Fields in this order, each a single row that expands when tapped:
 3. Chips: stepper 0 to 10. (Reward: cost stepper 1 to 20, or "Always available" toggle which hides the cost.)
 4. Where: chips for each location plus "Everywhere" (default).
 5. Repeat: none / every day / weekdays / weekends / weekly. Weekly reveals weekday buttons. Optional time.
-6. Steps: list of rows (picture + short text), add step, drag to reorder, swipe to delete. Empty by default.
+6. Steps: list of rows (picture + short text), add step, drag to reorder, swipe to delete. Empty by default. Each row also has a small **From activity** button, opening the activities picker (no routines offered) to copy that activity's name, emoji and photo into the step.
 7. Save (sticky bottom). Delete at the very bottom, plain text, with undo toast.
+
+Routine mode: entered via `?routine=1` (from the picker's "New routine" tile) or by editing an activity that already has steps. The page title reads "New routine" / "Edit routine" instead of "...activity", and the Steps section starts expanded (new routine: one empty step row, focused).
 
 Must not have: tabs within the form, required fields beyond name, a preview pane.
 
@@ -333,7 +336,7 @@ Page. Title and cover picture at top. Then the pages as a vertical list: each ro
 A menu page. Sections and rows:
 
 - **[Profile name]**: Edit profile, Lock this device to [name], Attitude history, Share link.
-- **Library**: Activities, Rewards, Locations.
+- **Library**: Activities, Routines, Rewards, Locations.
 - **Care team** (admin only).
 - **Profiles**: switch, add.
 - **Account**: name, email, sign-in methods, device PIN, switch account (if more than one), sign out.
@@ -345,7 +348,7 @@ S21: list of profiles the user can see, avatar and name, current one marked. Add
 
 ### S23 Lock this device
 
-Sheet. "Lock this device to Benny's view. You'll need your PIN to get back." If no PIN exists yet: set a 4 to 6 digit PIN here, twice. Toggles: "Show free-time choices", "Show First-Then", "Ask how it went after each task" (the attitude prompt). Button: Lock.
+Sheet. "Lock this device to Benny's view. You'll need your PIN to get back." If no PIN exists yet: set a 4 to 6 digit PIN here, twice. Toggles: "Show free-time choices", "Show First-Then", "Ask how it went after each task" (the attitude prompt, off by default now that S35 replaces it), "Show steps expanded", "Show Chipper Chart" (on by default). Button: Lock.
 
 ### S24 PIN pad
 
@@ -353,7 +356,7 @@ Overlay from the lock glyph in child mode. Large digit pad, dots for entered dig
 
 ### S25 Library
 
-Three simple lists (activities, rewards, locations) with pictures, an Add at the top, tap to edit, swipe to delete with undo. Locations edit sheet: name, picture, goal. Renaming a location keeps everything attached (it is an id underneath).
+Four simple lists (activities, routines, rewards, locations) with pictures, an Add at the top, tap to edit, swipe to delete with undo. Activities lists activities with no steps; Routines lists activities with at least one step (secondary text "N steps") and Add opens the activity form in routine mode (`?routine=1`) — same underlying table, two lists. Locations edit sheet: name, picture, goal. Renaming a location keeps everything attached (it is an id underneath).
 
 ### S26 Care team, S27 Invite
 
@@ -404,7 +407,7 @@ Sheet from the ⟳ mark. "Up to date, 2 minutes ago" or "3 changes waiting" or "
 - Rows are tall (at least 72px), picture at least 56px, check circle at least 64px. Steps show expanded by default under their parent; the caregiver can collapse them in S23 if that is too much.
 - Check: fills, chip sound if it earns a chip, the chip strip updates. Then, if enabled, the attitude prompt appears inline under the row: "How did it go?" with two large tiles, a smiling face and a grumpy face, and no text beyond the labels. Tap either, or ignore it; it fades after ten seconds.
 - All done: the list ends with a large "All done!" picture. The screen does not change otherwise.
-- Bottom: a Free time button if enabled (opens S11) and the timer pill if a timer is running (opens S14). First-Then, if enabled, is a third button.
+- Bottom: a Free time button if enabled (opens S11) and the timer pill if a timer is running (opens S14). First-Then, if enabled, is a third button. Chipper Chart, if enabled (default on), is a fourth button opening S35 as a sheet reduced to bar, face, and minus/plus only.
 - Screen stays awake while a timer runs.
 
 Must not have: back navigation, settings, the tab bar, any text-only button, any destructive action.
@@ -417,7 +420,17 @@ From the email link. Shows who invited them and to which children. If signed out
 
 A page, no sign-in. Profile picture and name, the chip strip, today's list with check states, "Updated 3 minutes ago" with a refresh. Footer: "Shared from Chipperly". `noindex`. Nothing tappable except refresh.
 
-## 7. Key flows
+### S35 Chipper Chart
+
+A daily mood meter, matching the client's beta exactly (SOW Q5, resolved in favor of the beta's design; the per-task attitude prompt of S32 stays as an off-by-default toggle rather than being removed). Page header: Back, "Chipper Chart" and 😊.
+
+White card: a "Basic" theme select and the sound mute toggle (🔊/🔇, the app-wide sounds setting) on one row; the meter row (round minus, a red-to-orange-to-green bar with tick marks at -3, -1, 1 and 3 and a round face marker, round plus); a big emoji for the current level; the paragraph "Approach your day with a chipperly attitude! Give yourself a plus when you did things with a positive mindset. Give yourself a minus for having a bad attitude."
+
+Under the card: "Today" as words ("+2") and the last seven days (date, emoji, level, plus/minus tap counts).
+
+The level runs -5 to +5, starts at 0, and is stored per day (`mood_events`, append-only): tapping minus/plus moves it by one, tapping the bar jumps straight to that point. A tone plays on every change (660Hz up, 330Hz down) unless muted.
+
+Reached from a face button next to Today's chip strip (caregiver) and, if the lock option is on (default yes), a "Chipper Chart" button in S32's bottom row (opens this screen as a sheet, bar/face/minus-plus only, no theme, mute, blurb or history).
 
 Each flow is counted in taps from the caregiver's Today tab.
 
