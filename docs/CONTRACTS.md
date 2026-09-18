@@ -89,7 +89,7 @@ schemas/story.ts         SocialStorySchema, StoryPageSchema
 schemas/attitude.ts      AttitudeCheckSchema
 schemas/mood.ts           MoodEventSchema (Chipper Chart; append-only)
 schemas/media.ts         MediaSchema, MediaUploadResponseSchema
-schemas/auth.ts          RegisterBody, LoginBody, TokensResponse, ProvidersResponse, MeResponse, PinBody, ...
+schemas/auth.ts          RegisterBody, LoginBody, TokensResponse, ProvidersResponse, MeResponse, ExportResponse, PinBody, ...
 schemas/sync.ts          SYNCED_TABLES, APPEND_ONLY_TABLES, SyncPullResponseSchema, SyncPushRequestSchema, SyncPushResponseSchema, MutationSchema
 schemas/share.ts         ShareViewSchema
 constants/emoji.ts       EMOJI_CHOICES (96 friendly emoji for the picker), AVATAR_EMOJI (24)
@@ -118,6 +118,8 @@ Tokens response (team contract): `{ access_token, refresh_token, token_type: 'Be
 
 PIN: hashed as `pbkdf2$100000$<salt b64url>$<hash b64url>` with PBKDF2-SHA256, 32-byte output, on both server (Node `crypto.pbkdf2`) and client (WebCrypto). `helpers/pin.ts` in shared exports `formatPinHash(salt, hash, iterations)` and `parsePinHash(str)` only (no crypto in shared).
 
+Consent (SOW Q21 / COPPA): `RegisterBody.consented_at` (ms) is required on every `/auth/register`; `users.consented_at` stores it, nullable for accounts that predate this column. `/auth/google` and `/auth/apple` only require `consented_at` when the sign-in creates a new user; missing it there is a `409 consent_required`, which the web client answers by showing the same consent checkbox inline and retrying with the credential it already has. `ExportResponse` (`GET /me/export`) is everything the signed-in user can see: their own row (no hashes), accounts, memberships, profiles, every synced table row for those profiles (tombstones excluded), and media ids/urls.
+
 ## API: `apps/api/src`
 
 ```text
@@ -132,7 +134,7 @@ plugins/auth.ts        request.user, request.accountId (from X-Account-Id, membe
 plugins/errors.ts      error -> { error: { code, message } } ; zod errors -> 400
 routes/health.ts       GET /health
 routes/auth.ts         /auth/*
-routes/me.ts           GET /me, PATCH /me/pin, POST /me/lock, POST /me/unlock
+routes/me.ts           GET /me, GET /me/export, PATCH /me/pin, POST /me/lock, POST /me/unlock
 routes/accounts.ts     /accounts/*, /invites/:token/accept
 routes/sync.ts         /sync/pull, /sync/push
 routes/media.ts        /media
@@ -171,6 +173,8 @@ Tests: vitest, `apps/api/test/*.test.ts`, `test/setup.ts` creates schema in `chi
   /verify/?token=            email verification landing
   /invite/?token=            S33 accept invite
   /share/?token=             S34 viewer (noindex)
+  /privacy/                  privacy policy, draft copy (SOW Q21)
+  /terms/                    terms, draft copy (SOW Q21)
 (onboarding)                 requires session
   /onboarding/kind/          S3
   /onboarding/profile/       S4

@@ -131,6 +131,8 @@ No tabs. No top bar except the profile picture, the chip strip, and a small lock
 
 Thirty-five, of which twelve are sheets or overlays over an existing screen (thirteen counting S35 in child mode). A caregiver's daily loop touches S6, S7, S10, S13, S15 and nothing else.
 
+Two more public, unnumbered pages sit alongside forgot/reset-password and verify: `/privacy/` and `/terms/`, plain-language draft policy and terms pages (SOW Q21), linked from the (public) footer and from S30.
+
 ## 6. Screen specifications
 
 Each spec lists: what is on it, top to bottom; the one primary action; states; what it must not have.
@@ -145,7 +147,7 @@ Each spec lists: what is on it, top to bottom; the one primary action; states; w
 
 ### S2 Create account
 
-Name, email, password, Create account. Google button above the form. Nothing else. Email verification is a banner on Today afterwards, not a blocking screen.
+Name, email, password, a required checkbox ("I'm a parent, guardian, or an authorised caregiver, and I'm 18 or older. I agree to the Terms and Privacy Policy," both linked), Create account. Google and Apple buttons above the form, disabled with a hint until the checkbox is checked. Create account itself stays disabled until it's checked too. Nothing else. Email verification is a banner on Today afterwards, not a blocking screen.
 
 ### S3 Who is this for
 
@@ -218,7 +220,7 @@ Opens from a row tap.
 - Picture, name.
 - Time (optional, tap to set via platform time input, Clear).
 - Part of day: none / morning / afternoon / evening (segmented).
-- Steps, if any, listed with check circles.
+- Steps, if any, listed with check circles. A step with a duration also shows "N min" and a small Start timer button that starts the timer and opens S14.
 - Chips: "Earns 2 chips" if chip value > 0.
 - Buttons: Done (checks it and closes), Remove from today. For a recurring item, Remove asks "Just today" or "Every day" in place, not in a new dialog.
 - Quiet link: Edit activity (goes to S9).
@@ -242,8 +244,8 @@ A page. Fields in this order, each a single row that expands when tapped:
 2. Picture: emoji (grid), photo (library), camera, paste image. One row, four choices, current picture shown large above.
 3. Chips: stepper 0 to 10. (Reward: cost stepper 1 to 20, or "Always available" toggle which hides the cost.)
 4. Where: chips for each location plus "Everywhere" (default).
-5. Repeat: none / every day / weekdays / weekends / weekly. Weekly reveals weekday buttons. Optional time.
-6. Steps: list of rows (picture + short text), add step, drag to reorder, swipe to delete. Empty by default. Each row also has a small **From activity** button, opening the activities picker (no routines offered) to copy that activity's name, emoji and photo into the step.
+5. Repeat: none / every day / weekdays / weekends / weekly. Weekly reveals seven day toggle buttons (multi-select, at least one required); the summary reads "Weekly on Tue, Thu". Optional time.
+6. Steps: list of rows (picture + short text), add step, drag to reorder, swipe to delete. Empty by default. Each row also has a small **From activity** button, opening the activities picker (no routines offered) to copy that activity's name, emoji and photo into the step, and a small "min" number field (1-120, empty = untimed) for an optional step timer.
 7. Save (sticky bottom). Delete at the very bottom, plain text, with undo toast.
 
 Routine mode: entered via `?routine=1` (from the picker's "New routine" tile) or by editing an activity that already has steps. The page title reads "New routine" / "Edit routine" instead of "...activity", and the Steps section starts expanded (new routine: one empty step row, focused).
@@ -344,11 +346,11 @@ A menu page. Sections and rows:
 
 ### S21 Profiles and S22 Edit profile
 
-S21: list of profiles the user can see, avatar and name, current one marked. Add child at the bottom (respects the account limit; when reached, the button explains why). S22: name, picture, and Delete profile at the bottom (this one confirms).
+S21: list of profiles the user can see, avatar and name, current one marked. Add child at the bottom (respects the account limit; when reached, the button explains why). S22: name, picture, "After a reward" (Subtract the cost / Start over, SOW Q1, decided), and Delete profile at the bottom (this one confirms).
 
 ### S23 Lock this device
 
-Sheet. "Lock this device to Benny's view. You'll need your PIN to get back." If no PIN exists yet: set a 4 to 6 digit PIN here, twice. Toggles: "Show free-time choices", "Show First-Then", "Ask how it went after each task" (the attitude prompt, off by default now that S35 replaces it), "Show steps expanded", "Show Chipper Chart" (on by default). Button: Lock.
+Sheet. "Lock this device to Benny's view. You'll need your PIN to get back." If no PIN exists yet: set a 4 to 6 digit PIN here, twice. Toggles: "Show free-time choices", "Show First-Then", "Ask how it went after each task" (the attitude prompt, off by default now that S35 replaces it), "Show steps expanded", "Show Chipper Chart" (on by default), "Let Benny switch location" (SOW Q3, decided; off by default), "Let the child start step timers" (SOW Q6, decided; off by default). Button: Lock.
 
 ### S24 PIN pad
 
@@ -373,7 +375,7 @@ List by day: count of good and grumpy, expandable to see which task. Read only.
 
 ### S30 Account
 
-Name, email, connected sign-ins (Google connected / connect), change password, PIN, switch account, sign out, delete account (confirms, explains).
+Name, email, connected sign-ins (Google connected / connect), change password, PIN, switch account, "Download my data" (fetches everything the account can see and saves it as one JSON file), sign out, delete account (confirms, explains). A small one-line Privacy policy / Terms link sits under the list.
 
 ### S31 Sync status
 
@@ -402,10 +404,11 @@ Sheet from the ⟳ mark. "Up to date, 2 minutes ago" or "3 changes waiting" or "
 └──────────────────────────────────────┘
 ```
 
-- Header: avatar, name, chip strip with the working-for picture, lock glyph. Nothing is tappable except the lock (S24) and the chip strip (opens a read-only view of S10 with just the chips and the reward, no buttons).
+- Header: avatar, name, chip strip with the working-for picture, lock glyph. Nothing is tappable except the lock (S24) and the chip strip (opens a read-only view of S10 with just the chips and the reward, no buttons) — plus, only when the caregiver's "Let [name] switch location" toggle (S23) is on, the location name itself: a 64px button opening a sheet of the profile's locations as big picture tiles, tap one to switch (SOW Q3, decided). The chip strip and board follow the chosen location like they do on S10.
 - Today only. No date navigation.
 - Rows are tall (at least 72px), picture at least 56px, check circle at least 64px. Steps show expanded by default under their parent; the caregiver can collapse them in S23 if that is too much.
 - Check: fills, chip sound if it earns a chip, the chip strip updates. Then, if enabled, the attitude prompt appears inline under the row: "How did it go?" with two large tiles, a smiling face and a grumpy face, and no text beyond the labels. Tap either, or ignore it; it fades after ten seconds.
+- A step with a duration shows "N min" and, only when the caregiver's "Let the child start step timers" toggle (S23) is on, a Start timer button that starts the timer full screen (S14, SOW Q6, decided).
 - All done: the list ends with a large "All done!" picture. The screen does not change otherwise.
 - Bottom: a Free time button if enabled (opens S11) and the timer pill if a timer is running (opens S14). First-Then, if enabled, is a third button. Chipper Chart, if enabled (default on), is a fourth button opening S35 as a sheet reduced to bar, face, and minus/plus only.
 - Screen stays awake while a timer runs.
@@ -549,9 +552,8 @@ These map to the SOW questions and are the only places the design branches.
 | --- | --- | --- |
 | What can the child do beyond check-off (SOW Q4) | Check off, steps, attitude prompt, see chips; free time, first-then, timer view behind caregiver toggles | Add or remove buttons from S32's bottom row |
 | Where the attitude prompt lives (SOW Q5) | After check-off, inline, dismissible | A smiley on every row instead, or a Today-level "how is today going" card |
-| Who picks the location (SOW Q3) | Caregiver on Chips; device remembers | Add the selector to the child header if the child should pick |
-| Redeem resets or subtracts (SOW Q1) | Subtracts; board refills from the remainder | Reset means the board empties fully; same screen |
-| Steps timed or not (SOW Q6) | Not timed | Add an optional duration to StepRow and a chained timer |
+| Who picks the location (SOW Q3) — decided | Caregiver on Chips by default; device remembers. A lock option ("Let [name] switch location", S23, off by default) lets the child pick from their own header (S32) instead | — |
+| Redeem resets or subtracts (SOW Q1) — decided | Both are available: a setting per child (Edit profile, S22) chooses whether redeeming subtracts the cost from the balance or starts the board over at zero | — |
 | Store apps (SOW Q12) | PWA install prompt on first visit | Adds an "Open in the app" banner and Apple sign-in on S1 |
 
 ## 15. What is deliberately not designed

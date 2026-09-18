@@ -150,8 +150,8 @@ locations         id, profile_id, name, emoji, photo_id, position,
                   chip_goal int (default 5), working_for_reward_id (nullable)
 activities        id, profile_id, name, emoji, photo_id, chip_value int (default 0),
                   location_id (nullable = everywhere), recurrence (null|daily|weekdays|weekends|weekly),
-                  recurrence_weekday smallint (for weekly), recurrence_time time (nullable), position
-activity_steps    id, activity_id, position, name, emoji, photo_id
+                  recurrence_weekdays integer[] (0-6, for weekly, one or more days), recurrence_time time (nullable), position
+activity_steps    id, activity_id, position, name, emoji, photo_id, duration_minutes int 1-120 (nullable = untimed)
                   (an activity with steps is a routine; no separate routines table)
 recurrence_skips  id, activity_id, date            (one row per suppressed occurrence, append-only)
 schedule_items    id, profile_id, date, position, activity_id, start_time (nullable),
@@ -179,7 +179,7 @@ Two modeling choices made here that the client should confirm (they are also in 
 1. Rewards and the choice board are one table. `always_available = true` means "free-time choice, costs nothing". The client's own doc suggested this merge.
 2. Routine steps are free-text rows on an activity, not references to other activities. Simpler to author, and steps with photos still work.
 
-`profiles.settings` is reserved for future per-profile settings and currently empty; screentime control ships as default rewards (below) and the Chipper Chart (SOW Q5, resolved to match the client's beta) writes to its own `mood_events` table, not `attitude_checks`.
+`profiles.settings` now carries `redeem_mode: 'subtract' | 'reset'` (SOW Q1, decided: both are available, per profile, set in Edit profile), optional and defaulting to `'subtract'` for existing rows. It stays reserved for other future per-profile settings otherwise; screentime control ships as default rewards (below) and the Chipper Chart (SOW Q5, resolved to match the client's beta) writes to its own `mood_events` table, not `attitude_checks`.
 
 ### Seed data
 
@@ -392,13 +392,15 @@ All under `${basePath}/api`. JSON. Access token in `Authorization: Bearer`. `X-A
 
 ```text
 Auth (public)
-  POST /auth/register          email, password, display_name → tokens
+  POST /auth/register          email, password, display_name, consented_at → tokens
   POST /auth/login             email, password → tokens
   GET  /auth/providers         { google: bool, apple: bool, invite_code_required: bool }  (client renders only enabled buttons)
-  POST /auth/google            id_token, invite_code?, invite_token? → tokens   (team contract; 404 when GOOGLE_OAUTH_CLIENT_ID unset;
-                                                                   invite_code or a valid invite_token required only when it creates a new user)
-  POST /auth/apple             id_token, invite_code?, invite_token? → tokens   (404 when APPLE_SIGNIN_CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY unset;
-                                                                   invite_code or a valid invite_token required only when it creates a new user)
+  POST /auth/google            id_token, invite_code?, invite_token?, consented_at? → tokens   (team contract; 404 when GOOGLE_OAUTH_CLIENT_ID unset;
+                                                                   invite_code/invite_token and consented_at required only when it creates a new user,
+                                                                   missing consented_at then -> 409 consent_required)
+  POST /auth/apple             id_token, invite_code?, invite_token?, consented_at? → tokens   (404 when APPLE_SIGNIN_CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY unset;
+                                                                   invite_code/invite_token and consented_at required only when it creates a new user,
+                                                                   missing consented_at then -> 409 consent_required)
   POST /auth/refresh           refresh_token → tokens   (rotates)
   POST /auth/logout            revokes the refresh token
   POST /auth/password/forgot   email
@@ -407,6 +409,9 @@ Auth (public)
 
 Account
   GET  /me                     user, accounts[], memberships
+  GET  /me/export               everything the signed-in user can see: their own row (no hashes), accounts,
+                                memberships, profiles, every synced table row for those profiles, media ids/urls.
+                                S30 "Download my data" (SOW Q21).
   POST /accounts               kind, name  (first account made at onboarding)
   GET  /accounts/:id/profiles
   POST /accounts/:id/profiles  name, emoji, photo_id → seeds defaults
@@ -448,6 +453,7 @@ Share link: token is 16 random base32 chars. Regenerating replaces it. `profiles
 - `member` on an account: only profiles listed in `profile_members`; can read and write those profiles' content; cannot invite or change profile settings.
 - Child view (locked profile): can complete items and steps, record an attitude check, view the chip board. Cannot edit anything. Enforced client-side by the locked shell and server-side by a `X-Locked: 1` header that the API uses to reject every write except `schedule_items.completed_at`, `step_completions`, and `attitude_checks`.
 - Every sync request is checked against `profile_members` or admin role. Every push mutation's `profile_id` must equal the request's `profile_id`.
+- Consent (SOW Q21 / COPPA): every new account records `consented_at`, the moment the "I'm a parent, guardian, or an authorised caregiver, and I'm 18 or older" checkbox was ticked. Password sign-up always requires it. Google/Apple sign-in requires it only when it creates a new user; a returning user's sign-in never needs it again.
 
 ## 10. Environment and infrastructure
 
