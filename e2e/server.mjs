@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
-import { ensureDatabase, connectionUrl } from '../apps/api/scripts/embedded.mjs';
+import { ensureDatabase, connectionUrl, stopServer } from '../apps/api/scripts/embedded.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
@@ -81,8 +81,13 @@ const server = spawn(process.execPath, ['--env-file=.env', '--import', 'tsx', 's
   stdio: 'inherit',
 });
 
+// Stop the embedded Postgres whenever the API child exits (clean shutdown,
+// SIGINT/SIGTERM below, or a crash) so runs never leave an orphan postgres
+// process or a stale .pgdata/postmaster.pid behind.
 server.on('exit', (code) => {
-  process.exit(code ?? 0);
+  stopServer()
+    .catch((err) => console.error('e2e: failed to stop embedded postgres', err))
+    .finally(() => process.exit(code ?? 0));
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

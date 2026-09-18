@@ -1,6 +1,7 @@
 // Reusable embedded-postgres helper, shared by scripts/dev-db.mjs and test/globalSetup.ts.
 import EmbeddedPostgres from 'embedded-postgres';
 import { existsSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,6 +41,19 @@ export async function ensureServer() {
   }
   await started;
   return instance;
+}
+
+/** Stops the cluster started by ensureServer()/ensureDatabase(), if any. Safe to call when nothing was started. */
+export async function stopServer() {
+  if (!started) return;
+  await started;
+  started = undefined;
+  await server.stop();
+  // On Windows, EmbeddedPostgres#stop() force-kills via `taskkill /f`, which
+  // doesn't give postgres a chance to remove its own postmaster.pid (same as
+  // a crash) — the process is confirmed dead at this point, so it's safe to
+  // clear it ourselves rather than leave it stale for the next run to trip over.
+  await rm(path.join(DATA_DIR, 'postmaster.pid'), { force: true });
 }
 
 /** Creates a database if it does not already exist. */

@@ -9,7 +9,7 @@ served by the real Fastify API, against a dedicated embedded Postgres database
 ```sh
 # from the repo root
 pnpm -F @chipperly/web build   # only needed if apps/web/out doesn't exist yet
-pnpm e2e                       # all specs, all three projects (phone, tablet, desktop)
+pnpm e2e                       # all specs, all four projects (phone, tablet, desktop, ipad-webkit)
 
 pnpm e2e --project=phone                       # one project
 pnpm e2e --project=phone e2e/specs/auth.spec.ts  # one spec, one project
@@ -23,10 +23,11 @@ database, and starts the API with `TEST_ENDPOINTS=1` on `127.0.0.1:8123`,
 serving the static export via `WEB_DIR`. It fails fast with a clear message
 if `apps/web/out` is missing.
 
-If the installed Chromium doesn't match this `@playwright/test` version:
+If the installed browsers don't match this `@playwright/test` version:
 
 ```sh
-npx playwright install chromium
+npx playwright install chromium   # phone, tablet, desktop
+npx playwright install webkit     # ipad-webkit
 ```
 
 ## What each spec covers
@@ -53,6 +54,16 @@ npx playwright install chromium
   horizontal overflow, one h1 or a titled top bar, every image has alt
   text, every button has a name, a visible focus ring, and the
   TabBar/TabRail split at the 1024px breakpoint.
+- `offline-start.spec.ts` — the full offline-first loop: sign up, add an
+  item, let it sync, go offline for a fresh reload (not just an in-session
+  offline write), confirm the service worker's precache serves the app and
+  the item and sync mark survive, check the item off, navigate to `/chips/`
+  and back, then reconnect and confirm Sync now catches up.
+- `photo-upload.spec.ts` — pick a photo for an activity and for a profile
+  avatar (Settings > Edit profile), confirm the tile updates and the row
+  shows the image, and that sync completes. Also carries two `test.fail()`
+  cases that assert the *correct* behaviour for a confirmed app bug (see
+  History) so they stay visibly red without failing the run.
 
 Every spec file runs its tests `serial` against one shared `page` (tokens
 live in IndexedDB, not cookies, so `storageState` doesn't carry auth —
@@ -72,9 +83,47 @@ file's email or data race another's.
 
 All four are gitignored.
 
+## ipad-webkit notes
+
+Two things about this Playwright WebKit build (not the app — repro'd with
+plain pages, no Chipperly code involved) currently make full offline/photo
+coverage impossible on this project, so the affected tests use
+`test.skip(({ browserName }) => browserName === 'webkit', '<reason>')`:
+
+- **Navigating while offline throws.** `page.reload()`, `page.goto()` and
+  `page.waitForURL()` all throw `"WebKit encountered an internal error"`
+  once `context.setOffline(true)` is active — confirmed against
+  `example.com` with no service worker at all. `offline-start.spec.ts`
+  skips only the specific assertions that need a real navigation (the
+  reload-survives-offline check, and the offline `/chips/` round trip);
+  everything else in that spec (going offline, checking an item off,
+  reconnecting) still runs and passes on webkit.
+- **Storing a Blob in IndexedDB throws.** `Dexie.put()`-ing a `Blob` (what
+  `pickAndStoreImage` in `lib/data/media.ts` does for every photo pick)
+  throws `"UnknownError: Error preparing Blob/File data to be stored in
+  object store"` every time, for both the activity and the avatar photo
+  flow. `photo-upload.spec.ts` skips entirely on webkit for this reason.
+  Real Safari has supported Blobs in IndexedDB for years, so this reads as
+  a defect in this specific WebKit build/version, not a Chipperly bug.
+
 ## History
 
 The first full run of this suite found four app bugs through the UI (invite accept rejected on an empty JSON body, PIN hashes that differed between server and client, sync pushes rejected as stale right after a row was created, and a first pull that ran before the new profile existed). All four are fixed with regression tests; the flows are ordinary passing tests now.
+
+`photo-upload.spec.ts` found a fifth: `POST /media`
+(`apps/api/src/routes/media.ts`) ignores the client's `media_id` multipart
+field and mints its own `randomUUID()` for the stored row, and
+`uploadPending()` (`apps/web/lib/media/upload.ts`) never reads the response
+body to learn that id. So the id a synced record actually references
+(`photo_id` / `avatar_photo_id`, assigned client-side before the upload
+even starts) never matches any media row the server holds — confirmed by
+intercepting the `POST /media` response, which 201s with a fresh id nothing
+ever reconciles back onto the row. `GET /api/media/<photo_id>` 404s
+forever, for every client that doesn't already hold the original local
+blob (any other caregiver device, or this one after its IndexedDB cache is
+cleared). Not fixed yet: the two `photo-upload.spec.ts` tests that assert
+the correct behaviour are marked `test.fail()` so they document this
+without failing the run.
 
 ## The one API route this suite owns
 

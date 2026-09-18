@@ -52,6 +52,16 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
       },
     },
+    {
+      name: 'ipad-webkit',
+      use: {
+        // Base: Playwright's own iPad (gen 7) descriptor (webkit engine,
+        // isMobile/hasTouch/deviceScaleFactor already right); only the
+        // viewport is overridden to match the "tablet" project's size.
+        ...devices['iPad (gen 7)'],
+        viewport: { width: 820, height: 1180 },
+      },
+    },
   ],
   webServer: {
     command: 'node e2e/server.mjs',
