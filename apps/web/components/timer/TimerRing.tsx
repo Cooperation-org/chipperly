@@ -66,6 +66,7 @@ export function TimerRing({ remaining_ms, total_ms, reveal, size, onTap }: Timer
       {reveal ? (
         <div className={styles.reveal} style={{ opacity: revealOpacity }}>
           {photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API
             <img src={photoUrl} alt="" className={styles.revealImg} />
           ) : reveal.emoji ? (
             <span className={styles.revealEmoji} aria-hidden="true">

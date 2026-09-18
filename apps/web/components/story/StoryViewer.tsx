@@ -122,6 +122,7 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
       <div className={styles.card}>
         <div className={styles.pictureBox}>
           {photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API
             <img src={photoUrl} alt="" className={styles.photo} />
           ) : page.emoji ? (
             <span className={styles.emoji} aria-hidden="true">

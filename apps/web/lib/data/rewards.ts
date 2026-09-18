@@ -15,7 +15,7 @@ export interface RewardsFilter {
 }
 
 /** Pure: not-deleted, optionally scoped to a location (null-location rewards are everywhere) and/or always-available. */
-export function filterRewards(rows: readonly Reward[], filter: RewardsFilter): Reward[] {
+function filterRewards(rows: readonly Reward[], filter: RewardsFilter): Reward[] {
   return rows
     .filter((row) => row.deleted_at === null)
     .filter((row) => filter.location_id === undefined || row.location_id === filter.location_id || row.location_id === null)

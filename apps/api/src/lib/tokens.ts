@@ -20,7 +20,7 @@ export interface AccessTokenPayload {
   readonly sid: string;
 }
 
-export async function signAccessToken(payload: AccessTokenPayload): Promise<string> {
+async function signAccessToken(payload: AccessTokenPayload): Promise<string> {
   return new SignJWT({ sid: payload.sid })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(payload.sub)

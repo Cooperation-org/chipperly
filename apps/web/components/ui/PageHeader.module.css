@@ -5,6 +5,10 @@
   margin-bottom: var(--space-4);
 }
 
+.compact {
+  margin-bottom: var(--space-3);
+}
+
 .title {
   font-size: var(--text-lg);
   color: var(--color-text);

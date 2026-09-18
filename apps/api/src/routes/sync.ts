@@ -22,7 +22,7 @@ import { canAccessProfile, canWriteProfile, requireUser } from '../plugins/auth.
 import { AppError } from '../plugins/errors.js';
 
 type Sql = postgres.TransactionSql<{}>;
-type SyncRow = Record<string, unknown>;
+export type SyncRow = Record<string, unknown>;
 
 const APPEND_ONLY_TABLES = new Set<MutationTable>(['recurrence_skips', 'step_completions', 'chip_ledger', 'attitude_checks', 'mood_events']);
 
@@ -53,9 +53,10 @@ export const TABLE_SCHEMAS: Record<MutationTable, z.ZodType> = {
  * `bigint` somewhere in the schema; converting by name is safe because the
  * name is unambiguous across tables (see db/schema/*.ts).
  */
-const BIGINT_FIELDS = ['version', 'client_updated_at', 'deleted_at', 'created_at', 'completed_at'] as const;
+/** Exported for routes/me.ts's GET /me/export, which reads the same tables the same raw way. */
+export const BIGINT_FIELDS = ['version', 'client_updated_at', 'deleted_at', 'created_at', 'completed_at'] as const;
 
-function normalizeRow(row: postgres.Row): SyncRow {
+export function normalizeRow(row: postgres.Row): SyncRow {
   const out: SyncRow = { ...row };
   for (const field of BIGINT_FIELDS) {
     const value = out[field];

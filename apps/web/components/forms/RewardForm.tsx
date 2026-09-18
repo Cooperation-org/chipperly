@@ -106,7 +106,7 @@ export function RewardForm() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title={editingId ? 'Edit reward' : 'New reward'} />
+      <PageHeader title={editingId ? 'Edit reward' : 'New reward'} compact />
 
       <FormRow label="Name" summary={name || 'Required'} open={openField === 'name'} onToggle={() => toggle('name')}>
         <div className={styles.nameField}>

@@ -21,6 +21,7 @@ export function PictureTile({ emoji, photo_id, photoUrl, name, size, className }
   if (photoUrl) {
     return (
       <span className={classes}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API */}
         <img src={photoUrl} alt={name} className={styles.img} />
       </span>
     );

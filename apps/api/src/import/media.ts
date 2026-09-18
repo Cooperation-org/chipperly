@@ -49,7 +49,7 @@ export function openRailsMediaSource(opts: RailsMediaSourceOptions): RailsMediaS
  * Throws on any read failure (missing file, network error, ...); callers
  * catch it and count the attachment as skipped rather than aborting the import.
  */
-export async function fetchRailsBlob(source: RailsMediaSource, key: string): Promise<Buffer> {
+async function fetchRailsBlob(source: RailsMediaSource, key: string): Promise<Buffer> {
   if (source.kind === 'disk') {
     const filePath = path.join(source.root, key.slice(0, 2), key.slice(2, 4), key);
     return readFile(filePath);
