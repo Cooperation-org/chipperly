@@ -44,8 +44,26 @@ export interface RailsProfileRow {
 }
 
 export interface RailsLocationPhotoRow {
+  readonly id: number;
   readonly profile_id: number;
   readonly location_name: string;
+}
+
+/** `active_storage_attachments`: one row per `has_one_attached` value actually set. */
+export interface RailsActiveStorageAttachmentRow {
+  readonly id: number;
+  readonly blob_id: number;
+  readonly record_type: string;
+  readonly record_id: number;
+  readonly name: string;
+}
+
+/** `active_storage_blobs`: the file itself, referenced by key into whichever `service_name` stored it. */
+export interface RailsActiveStorageBlobRow {
+  readonly id: number;
+  readonly key: string;
+  readonly filename: string;
+  readonly content_type: string | null;
 }
 
 export interface RailsActivityRow {

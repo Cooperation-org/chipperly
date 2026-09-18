@@ -102,13 +102,14 @@ export class S3Driver implements StorageDriver {
   private readonly bucket: string;
   private readonly accessKeyId: string;
   private readonly secretAccessKey: string;
-  private readonly region = 'auto';
+  private readonly region: string;
 
-  constructor(endpoint: string, bucket: string, accessKeyId: string, secretAccessKey: string) {
+  constructor(endpoint: string, bucket: string, accessKeyId: string, secretAccessKey: string, region = 'auto') {
     this.endpoint = endpoint.replace(/\/$/, '');
     this.bucket = bucket;
     this.accessKeyId = accessKeyId;
     this.secretAccessKey = secretAccessKey;
+    this.region = region;
   }
 
   // SigV4 needs the exact payload hash up front, so PUT bodies are buffered

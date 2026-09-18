@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { AccountKind } from '@chipperly/shared/schemas/account';
 import { env } from '../env.js';
@@ -16,6 +16,7 @@ import { sendMail } from '../lib/mailer.js';
 import { openRailsSource, type RailsSource } from './source.js';
 import { railsId, railsLocationId } from './ids.js';
 import { excludedSet } from './upsert.js';
+import { buildAttachmentIndex, resolveMediaId, type MediaLookup, type RailsMediaSource } from './media.js';
 import {
   displayNameFor,
   hhmmFromDate,
@@ -40,6 +41,8 @@ export interface ImportOptions {
   readonly dryRun: boolean;
   readonly onlyAccountId?: number;
   readonly sendResetEmails: boolean;
+  /** Where to read Rails Active Storage blobs from; unset = photos/videos are counted but not fetched. */
+  readonly mediaSource?: RailsMediaSource;
 }
 
 export interface AccountSummary {
@@ -95,9 +98,14 @@ export async function importRails(options: ImportOptions): Promise<ImportSummary
   const accountSummaries: AccountSummary[] = [];
   let resetEmailsSent = 0;
   try {
+    // `active_storage_attachments`/`_blobs` are global tables (no account column), same as
+    // `social_stories`, so they're fetched once for the whole run rather than per account.
+    const [attachments, blobs] = await Promise.all([source.allAttachments(), source.allBlobs()]);
+    const media: MediaLookup = { index: buildAttachmentIndex(attachments, blobs), source: options.mediaSource, dryRun: options.dryRun };
+
     const railsAccounts = await source.accounts(options.onlyAccountId);
     for (const railsAccount of railsAccounts) {
-      const outcome = await importOneAccount(source, railsAccount, options.dryRun);
+      const outcome = await importOneAccount(source, railsAccount, options.dryRun, media);
       accountSummaries.push(outcome.summary);
       if (options.sendResetEmails && !options.dryRun) {
         for (const user of outcome.importedUsers) {
@@ -116,11 +124,12 @@ async function importOneAccount(
   source: RailsSource,
   railsAccount: RailsAccountRow,
   dryRun: boolean,
+  media: MediaLookup,
 ): Promise<{ summary: AccountSummary; importedUsers: { id: string; email: string }[] }> {
   let outcome: { summary: AccountSummary; importedUsers: { id: string; email: string }[] } | undefined;
   try {
     await db.transaction(async (tx) => {
-      outcome = await writeAccount(tx, source, railsAccount);
+      outcome = await writeAccount(tx, source, railsAccount, media);
       if (dryRun) throw new DryRunRollback();
     });
   } catch (err) {
@@ -134,6 +143,7 @@ async function writeAccount(
   tx: Tx,
   source: RailsSource,
   railsAccount: RailsAccountRow,
+  media: MediaLookup,
 ): Promise<{ summary: AccountSummary; importedUsers: { id: string; email: string }[] }> {
   const counts: Record<string, number> = {};
   const notes: string[] = [];
@@ -215,14 +225,21 @@ async function writeAccount(
   }
 
   for (const p of profileRows) {
-    await writeProfile(tx, source, p, accountId, adminUserId, bump, notes);
+    await writeProfile(tx, source, p, accountId, adminUserId, bump, notes, media);
   }
 
   if (profileRows.length > 0) {
-    await writeSocialStories(tx, source, profileRows, adminUserId, bump);
+    await writeSocialStories(tx, source, profileRows, accountId, adminUserId, bump, notes, media);
   }
 
   await writePendingInvites(tx, source, railsAccount.id, accountId, adminUserId, profileIds, bump, notes);
+
+  // One summary line instead of one note per attachment when no --rails-storage-dir/--rails-s3-* was given.
+  const noStorageCount = counts['_media_no_storage'];
+  if (noStorageCount) {
+    delete counts['_media_no_storage'];
+    notes.push(`media: ${noStorageCount} attachment(s) found, skipped (no storage source given)`);
+  }
 
   return { summary: { rails_account_id: railsAccount.id, account_id: accountId, counts, notes }, importedUsers };
 }
@@ -235,6 +252,7 @@ async function writeProfile(
   adminUserId: string,
   bump: (key: string, n?: number) => void,
   notes: string[],
+  media: MediaLookup,
 ): Promise<void> {
   const profileId = railsId('profiles', p.id);
   const profileUpdatedAt = p.updated_at.getTime();
@@ -268,11 +286,9 @@ async function writeProfile(
   for (const r of rewardRows) addLocationName(r.location);
   for (const name of Object.keys(tokenBoard)) addLocationName(name);
 
-  if (locationPhotoRows.length > 0) {
-    notes.push(
-      `profile ${p.id}: ${locationPhotoRows.length} location photo(s) in Rails are not carried (media is out of scope); every imported location gets the default 🏠 emoji`,
-    );
-  }
+  // location_photos has no emoji column and isn't itself an entity in our model, only a photo source
+  // matched by name below; every imported location still gets the 🏠 default emoji regardless.
+  const locationPhotoIdByName = new Map(locationPhotoRows.map((lp) => [lp.location_name, lp.id]));
 
   const locationIdByName = new Map<string, string>();
   for (const [index, name] of locationNames.entries()) {
@@ -283,6 +299,11 @@ async function writeProfile(
       board?.reward_id !== null && board?.reward_id !== undefined && rewardIdsForProfile.has(board.reward_id)
         ? railsId('rewards', board.reward_id)
         : null;
+    const locationPhotoId = locationPhotoIdByName.get(name);
+    const photo =
+      locationPhotoId !== undefined
+        ? await resolveMediaId(tx, media, 'LocationPhoto', locationPhotoId, 'photo', accountId, adminUserId, bump, notes)
+        : { media_id: null };
     await tx
       .insert(locations)
       .values({
@@ -293,7 +314,7 @@ async function writeProfile(
         deleted_at: null,
         name,
         emoji: '🏠',
-        photo_id: null,
+        photo_id: photo.media_id,
         position: index,
         chip_goal: Math.min(20, Math.max(1, board?.goal ?? 5)),
         working_for_reward_id: workingForRewardId,
@@ -334,6 +355,7 @@ async function writeProfile(
       const a = entry.row;
       const activityId = railsId('activities', a.id);
       const recurrence = mapRecurrence(a.recurrence);
+      const photo = await resolveMediaId(tx, media, 'Activity', a.id, 'photo', accountId, adminUserId, bump, notes);
       await tx
         .insert(activities)
         .values({
@@ -344,7 +366,7 @@ async function writeProfile(
           deleted_at: null,
           name: a.name,
           emoji: a.emoji,
-          photo_id: null,
+          photo_id: photo.media_id,
           chip_value: a.chip_value ?? 0,
           location_id: a.location ? (locationIdByName.get(a.location) ?? null) : null,
           recurrence,
@@ -502,6 +524,8 @@ async function writeProfile(
   ].sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
 
   for (const [position, r] of rewardEntries.entries()) {
+    const recordType = r.source_table === 'rewards' ? 'Reward' : 'ChoiceOption';
+    const photo = await resolveMediaId(tx, media, recordType, r.id, 'photo', accountId, adminUserId, bump, notes);
     await tx
       .insert(rewards)
       .values({
@@ -512,7 +536,7 @@ async function writeProfile(
         deleted_at: null,
         name: r.name,
         emoji: r.emoji,
-        photo_id: null,
+        photo_id: photo.media_id,
         chip_cost: r.chip_cost,
         location_id: r.location ? (locationIdByName.get(r.location) ?? null) : null,
         always_available: r.always_available,
@@ -526,6 +550,7 @@ async function writeProfile(
   const firstThenActivityId = firstThen.activity_id !== null && activityById.has(firstThen.activity_id) ? railsId('activities', firstThen.activity_id) : null;
   const firstThenRewardId =
     firstThen.reward_id !== null && rewardIdsForProfile.has(firstThen.reward_id) ? railsId('rewards', firstThen.reward_id) : null;
+  const avatarPhoto = await resolveMediaId(tx, media, 'Profile', p.id, 'photo', accountId, adminUserId, bump, notes);
 
   await tx
     .insert(profiles)
@@ -534,7 +559,7 @@ async function writeProfile(
       account_id: accountId,
       name: p.name,
       avatar_emoji: p.emoji,
-      avatar_photo_id: null,
+      avatar_photo_id: avatarPhoto.media_id,
       share_token: null,
       first_then_activity_id: firstThenActivityId,
       first_then_reward_id: firstThenRewardId,
@@ -583,12 +608,24 @@ async function writeSocialStories(
   tx: Tx,
   source: RailsSource,
   profileRows: readonly RailsProfileRow[],
+  accountId: string,
   adminUserId: string,
   bump: (key: string, n?: number) => void,
+  notes: string[],
+  media: MediaLookup,
 ): Promise<void> {
   const stories = await source.allSocialStories();
   if (stories.length === 0) return;
   const pages = await source.socialStoryPages(stories.map((s) => s.id));
+
+  // `SocialStory#video` has no column in our model at all (only its pages' images do); note it once
+  // per Rails story regardless of how many profiles copy that story, not once per copy.
+  for (const story of stories) {
+    if (media.index.has(`SocialStory:${story.id}:video`)) {
+      bump('media_skipped');
+      notes.push(`social story ${story.id} ("${story.title}"): video attachment skipped, Chipperly has no place to put a story video`);
+    }
+  }
 
   for (const p of profileRows) {
     const profileId = railsId('profiles', p.id);
@@ -610,7 +647,13 @@ async function writeSocialStories(
         .onConflictDoUpdate({ target: social_stories.id, set: excludedSet(social_stories) });
       bump('social_stories');
 
-      for (const page of pages.filter((pg) => pg.social_story_id === story.id)) {
+      // `SocialStory` itself has no `:photo` attachment (only `:video`, skipped above), so its cover
+      // always comes from the first page's image, when that page has one.
+      let coverPhotoId: string | null = null;
+      const storyPages = pages.filter((pg) => pg.social_story_id === story.id);
+      for (const [pageIndex, page] of storyPages.entries()) {
+        const photo = await resolveMediaId(tx, media, 'SocialStoryPage', page.id, 'image', accountId, adminUserId, bump, notes);
+        if (pageIndex === 0) coverPhotoId = photo.media_id;
         await tx
           .insert(story_pages)
           .values({
@@ -624,10 +667,14 @@ async function writeSocialStories(
             // Rails column is `caption`, not `text`; our `story_pages.text` is not-null.
             text: page.caption ?? '',
             emoji: page.emoji,
-            photo_id: null,
+            photo_id: photo.media_id,
           })
           .onConflictDoUpdate({ target: story_pages.id, set: excludedSet(story_pages) });
         bump('story_pages');
+      }
+
+      if (coverPhotoId !== null) {
+        await tx.update(social_stories).set({ cover_photo_id: coverPhotoId }).where(eq(social_stories.id, storyId));
       }
     }
   }

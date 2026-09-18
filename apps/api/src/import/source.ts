@@ -2,6 +2,8 @@ import postgres from 'postgres';
 import type {
   RailsAccountMembershipRow,
   RailsAccountRow,
+  RailsActiveStorageAttachmentRow,
+  RailsActiveStorageBlobRow,
   RailsActivityRow,
   RailsChoiceOptionRow,
   RailsEventRow,
@@ -70,7 +72,7 @@ export function openRailsSource(url: string) {
 
     locationPhotosForProfile: (profileId: number) =>
       sql<RailsLocationPhotoRow[]>`
-        select profile_id, location_name from location_photos where profile_id = ${profileId}`,
+        select id, profile_id, location_name from location_photos where profile_id = ${profileId}`,
 
     activitiesForProfile: (profileId: number) =>
       sql<RailsActivityRow[]>`
@@ -124,6 +126,13 @@ export function openRailsSource(url: string) {
         : sql<RailsSocialStoryPageRow[]>`
             select id, social_story_id, position, caption, emoji, updated_at
             from social_story_pages where social_story_id in ${sql(storyIds)} order by social_story_id, position`,
+
+    // Global tables (no account/profile column, like `social_stories`): fetched once for the whole run.
+    allAttachments: () =>
+      sql<RailsActiveStorageAttachmentRow[]>`select id, blob_id, record_type, record_id, name from active_storage_attachments`,
+
+    allBlobs: () =>
+      sql<RailsActiveStorageBlobRow[]>`select id, key, filename, content_type from active_storage_blobs`,
 
     pendingInvitesForAccount: (accountId: number) =>
       sql<RailsInviteRow[]>`

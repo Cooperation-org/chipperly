@@ -44,8 +44,28 @@ create table profiles (
 );
 
 create table location_photos (
+  id bigint primary key,
   profile_id bigint not null,
   location_name text not null
+);
+
+create table active_storage_blobs (
+  id bigint primary key,
+  key text not null,
+  filename text not null,
+  content_type text,
+  byte_size bigint not null,
+  service_name text not null,
+  created_at timestamp not null
+);
+
+create table active_storage_attachments (
+  id bigint primary key,
+  blob_id bigint not null,
+  record_type text not null,
+  record_id bigint not null,
+  name text not null,
+  created_at timestamp not null
 );
 
 create table activities (
@@ -173,8 +193,28 @@ insert into profiles (id, account_id, name, emoji, first_then_state, token_board
 insert into profile_assignments (user_id, profile_id, relationship_label) values
   (2, 1, 'Aunt');
 
-insert into location_photos (profile_id, location_name) values
-  (1, 'Home');
+insert into location_photos (id, profile_id, location_name) values
+  (1, 1, 'Home');
+
+-- Blobs served from test/fixtures/rails-storage/<key[0,2]>/<key[2,4]>/<key> (Disk service layout);
+-- the story's video blob has no file on disk at all — it's never fetched, only counted as skipped.
+insert into active_storage_blobs (id, key, filename, content_type, byte_size, service_name, created_at) values
+  (1, 'actphotokey001', 'activity.png', 'image/png', 127, 'local', '2026-01-06 08:00:00'),
+  (2, 'proavatarkey01', 'avatar.png', 'image/png', 127, 'local', '2026-01-05 09:10:00'),
+  (3, 'pageimagekey01', 'page.png', 'image/png', 127, 'local', '2026-01-02 00:00:00'),
+  (4, 'storyvideokey1', 'story.mp4', 'video/mp4', 900000, 'local', '2026-01-02 00:00:00'),
+  (5, 'rewardphotokey1', 'reward.png', 'image/png', 127, 'local', '2026-01-06 09:00:00'),
+  (6, 'choicephotokey1', 'choice.png', 'image/png', 127, 'local', '2026-01-08 09:00:00'),
+  (7, 'locphotokey01', 'location.png', 'image/png', 127, 'local', '2026-01-06 08:00:00');
+
+insert into active_storage_attachments (id, blob_id, record_type, record_id, name, created_at) values
+  (1, 1, 'Activity', 1, 'photo', '2026-01-06 08:00:00'),
+  (2, 2, 'Profile', 1, 'photo', '2026-01-05 09:10:00'),
+  (3, 3, 'SocialStoryPage', 1, 'image', '2026-01-02 00:00:00'),
+  (4, 4, 'SocialStory', 1, 'video', '2026-01-02 00:00:00'),
+  (5, 5, 'Reward', 1, 'photo', '2026-01-06 09:00:00'),
+  (6, 6, 'ChoiceOption', 1, 'photo', '2026-01-08 09:00:00'),
+  (7, 7, 'LocationPhoto', 1, 'photo', '2026-01-06 08:00:00');
 
 insert into activities (id, profile_id, name, emoji, chip_value, location, recurrence, recurrence_time, skipped_dates, created_at, updated_at) values
   (1, 1, 'Brush teeth', '🪥', 1, 'Home', 'daily', null, '[]', '2026-01-06 08:00:00', '2026-01-06 08:00:00'),
