@@ -96,6 +96,19 @@ async function isValidPendingInvite(rawToken: string): Promise<boolean> {
 }
 
 /**
+ * Shared closed-beta gate for register and, when they'd create a new user, /auth/google and
+ * /auth/apple: no-op when no beta code is configured, otherwise a valid invite_token (a pending
+ * account invite) bypasses it, else invite_code must match.
+ */
+async function requireInviteGate(inviteCode: string | undefined, inviteToken: string | undefined): Promise<void> {
+  if (!env.BETA_INVITE_CODE) return;
+  const bypassed = inviteToken ? await isValidPendingInvite(inviteToken) : false;
+  if (!bypassed && !isValidInviteCode(env.BETA_INVITE_CODE, inviteCode)) {
+    throw new AppError(403, 'invite_code_invalid', "That invite code isn't right.");
+  }
+}
+
+/**
  * Finds the user for a verified OAuth identity, linking the provider to an
  * existing password account by email when the provider says that email is
  * verified. Returns null when no user exists yet, so the caller can check
@@ -145,12 +158,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     const body = RegisterBodySchema.parse(request.body);
     const email = body.email.toLowerCase();
 
-    if (env.BETA_INVITE_CODE) {
-      const bypassed = body.invite_token ? await isValidPendingInvite(body.invite_token) : false;
-      if (!bypassed && !isValidInviteCode(env.BETA_INVITE_CODE, body.invite_code)) {
-        throw new AppError(403, 'invite_code_invalid', "That invite code isn't right.");
-      }
-    }
+    await requireInviteGate(body.invite_code, body.invite_token);
 
     const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
     if (existing) throw new AppError(409, 'email_taken', 'An account with this email already exists');
@@ -192,9 +200,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     const identity = await verifyGoogleIdToken(body.id_token);
     let userId = await findOAuthUser('google', identity);
     if (!userId) {
-      if (env.BETA_INVITE_CODE && !isValidInviteCode(env.BETA_INVITE_CODE, body.invite_code)) {
-        throw new AppError(403, 'invite_code_invalid', "That invite code isn't right.");
-      }
+      await requireInviteGate(body.invite_code, body.invite_token);
       userId = await createOAuthUser('google', identity);
     }
     return issueTokens(userId, undefined, userAgentOf(request));
@@ -206,9 +212,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     const identity = await verifyAppleIdToken(body.id_token);
     let userId = await findOAuthUser('apple', identity);
     if (!userId) {
-      if (env.BETA_INVITE_CODE && !isValidInviteCode(env.BETA_INVITE_CODE, body.invite_code)) {
-        throw new AppError(403, 'invite_code_invalid', "That invite code isn't right.");
-      }
+      await requireInviteGate(body.invite_code, body.invite_token);
       userId = await createOAuthUser('apple', identity);
     }
     return issueTokens(userId, undefined, userAgentOf(request));

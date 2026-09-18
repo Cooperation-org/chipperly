@@ -9,7 +9,7 @@ import { refreshMe } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { getAuthProviders, type AuthProviders } from './providers';
-import { redirectAfterAuth } from './postAuthRedirect';
+import { getPendingInviteToken, redirectAfterAuth } from './postAuthRedirect';
 import styles from './AppleButton.module.css';
 
 // ponytail: technical-plan.md's web env vars don't list a public Apple client
@@ -98,9 +98,11 @@ export function AppleButton() {
         appleInitialized = true;
       }
       const result = await window.AppleID.auth.signIn();
+      const invite_token = (await getPendingInviteToken()) ?? undefined;
       const tokens = await api.post<TokensResponse>('/auth/apple', {
         id_token: result.authorization.id_token,
         invite_code: inviteCode || undefined,
+        invite_token,
       });
       await setTokens(tokens);
       await refreshMe();

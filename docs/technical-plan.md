@@ -395,10 +395,10 @@ Auth (public)
   POST /auth/register          email, password, display_name → tokens
   POST /auth/login             email, password → tokens
   GET  /auth/providers         { google: bool, apple: bool, invite_code_required: bool }  (client renders only enabled buttons)
-  POST /auth/google            id_token, invite_code? → tokens   (team contract; 404 when GOOGLE_OAUTH_CLIENT_ID unset;
-                                                                   invite_code required only when it creates a new user)
-  POST /auth/apple             id_token, invite_code? → tokens   (404 when APPLE_SIGNIN_CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY unset;
-                                                                   invite_code required only when it creates a new user)
+  POST /auth/google            id_token, invite_code?, invite_token? → tokens   (team contract; 404 when GOOGLE_OAUTH_CLIENT_ID unset;
+                                                                   invite_code or a valid invite_token required only when it creates a new user)
+  POST /auth/apple             id_token, invite_code?, invite_token? → tokens   (404 when APPLE_SIGNIN_CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY unset;
+                                                                   invite_code or a valid invite_token required only when it creates a new user)
   POST /auth/refresh           refresh_token → tokens   (rotates)
   POST /auth/logout            revokes the refresh token
   POST /auth/password/forgot   email

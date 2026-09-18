@@ -99,8 +99,15 @@ export async function signUp(
   await refreshMe();
 }
 
-export async function signInWithGoogle(idToken: string, invite_code?: string): Promise<void> {
-  const tokens = await api.post<TokensResponse>('/auth/google', { id_token: idToken, invite_code });
+export async function signInWithGoogle(
+  idToken: string,
+  invite?: { invite_code?: string; invite_token?: string },
+): Promise<void> {
+  const tokens = await api.post<TokensResponse>('/auth/google', {
+    id_token: idToken,
+    invite_code: invite?.invite_code,
+    invite_token: invite?.invite_token,
+  });
   await setTokens(tokens);
   await refreshMe();
 }

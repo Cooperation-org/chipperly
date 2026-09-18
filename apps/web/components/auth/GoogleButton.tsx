@@ -6,7 +6,7 @@ import { signInWithGoogle } from '@/lib/auth/session';
 import { ApiError } from '@/lib/api/client';
 import { TextField } from '@/components/ui/TextField';
 import { getAuthProviders, type AuthProviders } from './providers';
-import { redirectAfterAuth } from './postAuthRedirect';
+import { getPendingInviteToken, redirectAfterAuth } from './postAuthRedirect';
 import styles from './GoogleButton.module.css';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -91,7 +91,11 @@ export function GoogleButton() {
             void (async () => {
               try {
                 setError(null);
-                await signInWithGoogle(response.credential, inviteCodeRef.current || undefined);
+                const invite_token = (await getPendingInviteToken()) ?? undefined;
+                await signInWithGoogle(response.credential, {
+                  invite_code: inviteCodeRef.current || undefined,
+                  invite_token,
+                });
                 await redirectAfterAuth(router);
               } catch (err) {
                 setError(

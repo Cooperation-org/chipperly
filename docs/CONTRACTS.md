@@ -53,7 +53,8 @@ GOOGLE_OAUTH_CLIENT_ID     unset = /auth/google 404 and providers.google=false
 APPLE_SIGNIN_CLIENT_ID APPLE_SIGNIN_TEAM_ID APPLE_SIGNIN_KEY_ID APPLE_SIGNIN_PRIVATE_KEY   all set or apple=false
 BETA_INVITE_CODE           unset = registration is open. Set = /auth/register requires a matching invite_code
                             (a valid invite_token bypasses it), /auth/google and /auth/apple require it only
-                            when they'd create a new user, and providers.invite_code_required=true
+                            when they'd create a new user (same invite_token bypass there too), and
+                            providers.invite_code_required=true
 RESEND_API_KEY             unset = mail is logged to stdout
 MAIL_FROM                  default "Chipperly <no-reply@chipperlyapp.com>"
 APP_ORIGIN                 public origin used in emails and share links, e.g. https://demos.linkedtrust.us

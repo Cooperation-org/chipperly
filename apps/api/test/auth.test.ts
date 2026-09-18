@@ -1,14 +1,44 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { eq } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
 import type { TokensResponse } from '@chipperly/shared/schemas/auth';
 import { buildTestApp, request } from './helpers.js';
+import { db } from '../src/db/client.js';
+import { invites, users } from '../src/db/schema/accounts.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
+import { issueTokens } from '../src/lib/tokens.js';
 import { isValidInviteCode } from '../src/routes/auth.js';
+import { env } from '../src/env.js';
+import { verifyGoogleIdToken } from '../src/lib/google.js';
+
+// No real Google JWKS call in tests: lib/google.ts's verifyGoogleIdToken is
+// stubbed for the "new Google user" describe block below (no injectable
+// verifier existed before this; a full DI seam felt like more than this
+// needed, vi.mock does the same job in one line).
+vi.mock('../src/lib/google.js', () => ({ verifyGoogleIdToken: vi.fn() }));
 
 function extractToken(mailText: string): string {
   const match = mailText.match(/token=(\S+)/);
   if (!match) throw new Error(`no token found in mail text: ${mailText}`);
   return match[1];
+}
+
+function auth(token: string): Record<string, string> {
+  return { authorization: `Bearer ${token}` };
+}
+
+/** Mirrors test/accounts.test.ts's helper: a user row inserted directly, skipping the invite-gated /auth/register. */
+async function createUser(label: string): Promise<{ id: string; token: string }> {
+  const id = uuidv7();
+  await db.insert(users).values({
+    id,
+    email: `${label}-${id}@example.com`,
+    display_name: `${label} tester`,
+    created_at: Date.now(),
+  });
+  const tokens = await issueTokens(id);
+  return { id, token: tokens.access_token };
 }
 
 describe('auth routes', () => {
@@ -240,5 +270,81 @@ describe('isValidInviteCode', () => {
     expect(isValidInviteCode('e2e-beta-code', 'wrong')).toBe(false);
     expect(isValidInviteCode('e2e-beta-code', 'e2e-beta-cod')).toBe(false);
     expect(isValidInviteCode('e2e-beta-code', 'e2e-beta-code')).toBe(true);
+  });
+});
+
+// env.googleEnabled/env.BETA_INVITE_CODE are mutated directly around this block (see env.ts: the exported
+// object's fields aren't readonly) instead of via globalSetup, so this doesn't flip the closed-beta gate
+// for every other test file sharing this worker's module cache.
+describe('POST /auth/google, new user, closed beta', () => {
+  let app: FastifyInstance;
+  let account: { id: string };
+  let inviteToken: string;
+  const originalGoogleEnabled = env.googleEnabled;
+  const originalBetaCode = env.BETA_INVITE_CODE;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+    env.googleEnabled = true;
+    env.BETA_INVITE_CODE = 'e2e-google-beta-code';
+
+    const admin = await createUser('google-admin');
+    const accountRes = await request(app, {
+      method: 'POST',
+      url: '/api/accounts',
+      headers: auth(admin.token),
+      payload: { kind: 'household', name: 'Google beta household' },
+    });
+    account = (accountRes.json() as { account: { id: string } }).account;
+
+    await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${account.id}/invites`,
+      headers: auth(admin.token),
+      payload: { email: 'google-invitee@example.com', role: 'member', profile_ids: [] },
+    });
+    inviteToken = extractToken(getLastMailMessage()!.text);
+  });
+
+  afterAll(async () => {
+    env.googleEnabled = originalGoogleEnabled;
+    env.BETA_INVITE_CODE = originalBetaCode;
+    await app.close();
+  });
+
+  it('rejects a brand-new Google sign-in with neither an invite_code nor an invite_token', async () => {
+    vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce({
+      sub: 'google-sub-rejected',
+      email: 'google-new-rejected@example.com',
+      email_verified: true,
+      name: 'Rejected Googler',
+    });
+    const response = await request(app, {
+      method: 'POST',
+      url: '/api/auth/google',
+      payload: { id_token: 'stubbed' },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('invite_code_invalid');
+  });
+
+  it('accepts a brand-new Google sign-in with a valid invite_token, without marking the invite accepted', async () => {
+    vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce({
+      sub: 'google-sub-accepted',
+      email: 'google-new-accepted@example.com',
+      email_verified: true,
+      name: 'Accepted Googler',
+    });
+    const response = await request(app, {
+      method: 'POST',
+      url: '/api/auth/google',
+      payload: { id_token: 'stubbed', invite_token: inviteToken },
+    });
+    expect(response.statusCode).toBe(200);
+    expect((response.json() as TokensResponse).access_token).toBeTruthy();
+
+    // Sign-in via the invite_token bypass isn't accepting the invite; only POST /invites/:token/accept does.
+    const [inviteRow] = await db.select().from(invites).where(eq(invites.account_id, account.id));
+    expect(inviteRow?.accepted_at).toBeNull();
   });
 });
