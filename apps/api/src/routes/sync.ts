@@ -15,6 +15,7 @@ import { ScheduleItemSchema, StepCompletionSchema } from '@chipperly/shared/sche
 import { ChipLedgerSchema } from '@chipperly/shared/schemas/chips';
 import { SocialStorySchema, StoryPageSchema } from '@chipperly/shared/schemas/story';
 import { AttitudeCheckSchema } from '@chipperly/shared/schemas/attitude';
+import { MoodEventSchema } from '@chipperly/shared/schemas/mood';
 import { ProfileSchema } from '@chipperly/shared/schemas/profile';
 import { sql } from '../db/client.js';
 import { canAccessProfile, canWriteProfile, requireUser } from '../plugins/auth.js';
@@ -23,7 +24,7 @@ import { AppError } from '../plugins/errors.js';
 type Sql = postgres.TransactionSql<{}>;
 type SyncRow = Record<string, unknown>;
 
-const APPEND_ONLY_TABLES = new Set<MutationTable>(['recurrence_skips', 'step_completions', 'chip_ledger', 'attitude_checks']);
+const APPEND_ONLY_TABLES = new Set<MutationTable>(['recurrence_skips', 'step_completions', 'chip_ledger', 'attitude_checks', 'mood_events']);
 
 /** One shared zod schema per pushable table; validates and strips unknown keys before any DB write. */
 const TABLE_SCHEMAS: Record<MutationTable, z.ZodType> = {
@@ -38,6 +39,7 @@ const TABLE_SCHEMAS: Record<MutationTable, z.ZodType> = {
   social_stories: SocialStorySchema,
   story_pages: StoryPageSchema,
   attitude_checks: AttitudeCheckSchema,
+  mood_events: MoodEventSchema,
   profiles: ProfileSchema,
 };
 
@@ -212,6 +214,7 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
     case 'step_completions':
       return mutation.op === 'delete' || (mutation.op === 'upsert' && Boolean(mutation.row));
     case 'attitude_checks':
+    case 'mood_events':
       return mutation.op === 'upsert' && Boolean(mutation.row);
     case 'chip_ledger': {
       if (mutation.op !== 'upsert' || !mutation.row) return false;

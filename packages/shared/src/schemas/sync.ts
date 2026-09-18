@@ -13,6 +13,7 @@ export const APPEND_ONLY_TABLES: readonly SyncedTable[] = [
   'step_completions',
   'chip_ledger',
   'attitude_checks',
+  'mood_events',
 ];
 
 const unknownRowSchema = z.record(z.string(), z.unknown());
