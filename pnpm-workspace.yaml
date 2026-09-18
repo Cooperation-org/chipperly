@@ -4,6 +4,10 @@ packages:
 
 allowBuilds:
   '@embedded-postgres/windows-x64': true
+  '@embedded-postgres/linux-x64': true
+  '@embedded-postgres/linux-arm64': true
+  '@embedded-postgres/darwin-arm64': true
+  '@embedded-postgres/darwin-x64': true
   esbuild: true
   unrs-resolver: true
 
@@ -13,3 +17,7 @@ onlyBuiltDependencies:
   - embedded-postgres
   - unrs-resolver
   - "@embedded-postgres/windows-x64"
+  - "@embedded-postgres/linux-x64"
+  - "@embedded-postgres/linux-arm64"
+  - "@embedded-postgres/darwin-arm64"
+  - "@embedded-postgres/darwin-x64"
