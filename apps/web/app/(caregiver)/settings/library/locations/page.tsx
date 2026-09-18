@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { LibraryList } from '@/components/library/LibraryList';
-import { PageHeader } from '@/components/settings/PageHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
   title: 'Locations',

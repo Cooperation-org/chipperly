@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { CareTeamScreen } from '@/components/careTeam/CareTeamScreen';
-import { PageHeader } from '@/components/settings/PageHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
   title: 'Care team',

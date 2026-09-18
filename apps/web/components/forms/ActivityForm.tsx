@@ -22,7 +22,7 @@ import { BigButton } from '@/components/ui/BigButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
-import { EditPageHeader } from './EditPageHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { FormRow } from './FormRow';
 import styles from './ActivityForm.module.css';
 
@@ -208,7 +208,7 @@ export function ActivityForm() {
 
   return (
     <div className={styles.page}>
-      <EditPageHeader
+      <PageHeader
         title={editingId ? (isRoutineMode ? 'Edit routine' : 'Edit activity') : isRoutineMode ? 'New routine' : 'New activity'}
       />
 

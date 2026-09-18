@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { PageHeader } from '@/components/settings/PageHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { EditProfileClient } from './EditProfileClient';
 
 export const metadata: Metadata = {

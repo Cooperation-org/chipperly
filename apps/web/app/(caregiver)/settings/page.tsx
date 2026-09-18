@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { SettingsMenu } from '@/components/settings/SettingsMenu';
-import { PageHeader } from '@/components/settings/PageHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
   title: 'Settings',
