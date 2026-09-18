@@ -10,10 +10,10 @@ export interface SwitchProps {
 }
 
 // ponytail: CONTRACTS.md's UI primitive inventory has no toggle/switch, but
-// four screens in this task need one (Settings sounds, the four lock
-// options, share-link on/off). One small control here, reused across
-// components/settings, components/library and components/careTeam, beats
-// four bespoke checkboxes.
+// several screens need one (Settings sounds, the four lock options,
+// share-link on/off, reward "always available", timer sound). One small
+// control here, reused across every feature that needs one, beats N
+// bespoke hand-rolled role="switch" buttons.
 /** A 48x48 role="switch" control. State is shown by position and color together, never color alone. */
 export function Switch({ checked, onChange, label, disabled }: SwitchProps) {
   return (

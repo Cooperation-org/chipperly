@@ -10,6 +10,10 @@ Every component here reads color, spacing, radius and motion from `app/styles/to
 
 **IconButton** (`icon`, `aria-label` required, `variant: plain | solid | muted`, `size = 24`) — a 48×48 tap target holding one icon and nothing else. Always needs a real `aria-label`; there is no visible fallback label.
 
+**PageHeader** (`title`, `backHref?`, `onBack?`) — the Back + title row an edit page or a settings page/list puts above its own content (the caregiver shell's TopBar has no back mode). `onBack` wins when given; otherwise `backHref` pushes to that fixed parent route; with neither, it falls back to `router.back()`.
+
+**Switch** (`checked`, `onChange`, `label`, `disabled?`) — a 48×48 `role="switch"` control. State is shown by thumb position and color together, never color alone. `label` sets the `aria-label`; pair it with a visible `<span>` next to it when the row needs on-screen text too.
+
 **Sheet** (`SheetHost`, `useSheet()`, `Confirm`) — the bottom-sheet system. Mount `<SheetHost/>` once near the app root. Anywhere else, call `useSheet()` to get `{ open(content, opts?), replace(content, opts?), back(), close(), isOpen }`; `opts` is `{ title?, onClose? }`. `open` pushes onto a stack (only the top renders), `back` pops one level, `close` clears the whole stack. Traps focus, locks body scroll, closes on Escape or a >120px downward drag, returns focus on close, and centers itself at 560px wide on screens ≥1024px. `Confirm` (`title`, `body`, `confirmLabel`, `danger?`, `onConfirm`, `onCancel`) is a ready-made content component for the delete/remove/regenerate confirm pattern — pass it straight to `open()`.
 
 **toast / ToastHost** (`apps/web/lib/toast.tsx`) — `toast(message, { undo?, action?, onAction?, duration_ms = 5000 })` shows one message at a time above the tab bar for 5 seconds with an optional 48px action button (`undo` is shorthand for an "Undo" action). Mount `<ToastHost/>` once near the app root, same as `SheetHost`.

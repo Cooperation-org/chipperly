@@ -8,7 +8,7 @@ import { withBase } from '@/lib/api/base';
 import { upsert } from '@/lib/sync/mutate';
 import { useSession } from '@/lib/auth/session';
 import { toast } from '@/lib/toast';
-import { Switch } from './Switch';
+import { Switch } from '@/components/ui/Switch';
 import styles from './ShareSheet.module.css';
 
 export interface ShareSheetProps {

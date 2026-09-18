@@ -14,8 +14,9 @@ import { TextField } from '@/components/ui/TextField';
 import { Stepper } from '@/components/ui/Stepper';
 import { Segmented } from '@/components/ui/Segmented';
 import { BigButton } from '@/components/ui/BigButton';
+import { Switch } from '@/components/ui/Switch';
 import { toast } from '@/lib/toast';
-import { EditPageHeader } from './EditPageHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { FormRow } from './FormRow';
 import styles from './RewardForm.module.css';
 
@@ -105,7 +106,7 @@ export function RewardForm() {
 
   return (
     <div className={styles.page}>
-      <EditPageHeader title={editingId ? 'Edit reward' : 'New reward'} />
+      <PageHeader title={editingId ? 'Edit reward' : 'New reward'} />
 
       <FormRow label="Name" summary={name || 'Required'} open={openField === 'name'} onToggle={() => toggle('name')}>
         <div className={styles.nameField}>
@@ -123,18 +124,10 @@ export function RewardForm() {
       </FormRow>
 
       <FormRow label="Cost" summary={costSummary} open={openField === 'cost'} onToggle={() => toggle('cost')}>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={alwaysAvailable}
-          className={styles.switchRow}
-          onClick={() => setAlwaysAvailable((v) => !v)}
-        >
+        <div className={styles.switchRow}>
           <span>Always available</span>
-          <span className={[styles.switchTrack, alwaysAvailable ? styles.switchOn : ''].filter(Boolean).join(' ')}>
-            <span className={styles.switchThumb} />
-          </span>
-        </button>
+          <Switch label="Always available" checked={alwaysAvailable} onChange={setAlwaysAvailable} />
+        </div>
         {!alwaysAvailable ? <Stepper label="Chip cost" value={cost} min={1} max={COST_MAX} onChange={setCost} /> : null}
       </FormRow>
 

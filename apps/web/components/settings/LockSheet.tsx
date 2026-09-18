@@ -9,7 +9,7 @@ import { useSession, setPin } from '@/lib/auth/session';
 import { api } from '@/lib/api/client';
 import { lockTo, type LockOptions } from '@/lib/device/settings';
 import styles from './LockSheet.module.css';
-import { Switch } from './Switch';
+import { Switch } from '@/components/ui/Switch';
 
 export interface LockSheetProps {
   profileId: string;

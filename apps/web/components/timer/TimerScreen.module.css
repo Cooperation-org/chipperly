@@ -110,48 +110,6 @@ button.optionRow {
   font-size: var(--text-md);
 }
 
-.soundToggle {
-  min-width: var(--tap);
-  min-height: var(--tap);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.track {
-  position: relative;
-  width: 44px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  transition: background-color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
-}
-
-.trackOn {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-}
-
-.thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
-  transition: transform var(--motion-fast) var(--ease);
-}
-
-.trackOn .thumb {
-  transform: translateX(20px);
-}
-
 .durationSheet {
   display: flex;
   flex-direction: column;

@@ -12,7 +12,7 @@ import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useDeviceSettings, setDeviceSettings } from '@/lib/device/settings';
 import { toast } from '@/lib/toast';
-import { Switch } from './Switch';
+import { Switch } from '@/components/ui/Switch';
 import { LockSheet } from './LockSheet';
 import { ShareSheet } from './ShareSheet';
 import { SyncSheet } from '@/components/shell/SyncSheet';

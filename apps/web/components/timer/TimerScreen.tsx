@@ -11,6 +11,7 @@ import { BigButton } from '@/components/ui/BigButton';
 import { TextField } from '@/components/ui/TextField';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
+import { Switch } from '@/components/ui/Switch';
 import { Picker } from '@/components/picker/Picker';
 import { PicturePicker } from '@/components/picture/PicturePicker';
 import type { PicturePickerValue } from '@/components/picture/PicturePicker';
@@ -219,18 +220,7 @@ export function TimerScreen() {
 
           <div className={styles.optionRow}>
             <span className={styles.optionLabel}>Sound at the end</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={timer.sound}
-              aria-label="Sound at the end"
-              className={styles.soundToggle}
-              onClick={() => setSound(!timer.sound)}
-            >
-              <span className={[styles.track, timer.sound ? styles.trackOn : ''].filter(Boolean).join(' ')}>
-                <span className={styles.thumb} />
-              </span>
-            </button>
+            <Switch label="Sound at the end" checked={timer.sound} onChange={setSound} />
           </div>
         </div>
       </div>
