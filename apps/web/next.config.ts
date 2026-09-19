@@ -41,7 +41,10 @@ function additionalPrecacheEntries(): { url: string; revision: string }[] {
   // fires on a local dev build (see lib/pwaPrecacheRevision.ts).
   const revision = pwaPrecacheRevision(process.env.GIT_SHA);
   const prefix = basePath ?? '';
-  return pageRouteUrls(appRoot, appRoot).map((url) => ({ url: `${prefix}${url}`, revision }));
+  // Sounds are loaded by lib/sound.ts at runtime, not by the bundler, so the
+  // build manifest never sees them; offline they must already be cached.
+  const sounds = readdirSync(path.join(process.cwd(), 'public', 'sounds')).map((file) => `/sounds/${file}`);
+  return [...pageRouteUrls(appRoot, appRoot), ...sounds].map((url) => ({ url: `${prefix}${url}`, revision }));
 }
 
 const nextConfig: NextConfig = {

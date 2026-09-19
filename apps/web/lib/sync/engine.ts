@@ -137,7 +137,10 @@ async function runCycle(): Promise<void> {
       await clearSession();
       return;
     }
-    setStatus({ state: 'error' });
+    // A fetch that never reached the server (TypeError, not an ApiError) is
+    // the app being offline, which is a normal state here, not an error;
+    // navigator.onLine stays true on wifi with no internet.
+    setStatus({ state: err instanceof ApiError ? 'error' : 'offline' });
     backoffMs = backoffMs === 0 ? 5_000 : Math.min(backoffMs * 2, MAX_BACKOFF_MS);
     if (debounceHandle) clearTimeout(debounceHandle);
     debounceHandle = setTimeout(() => void runCycle(), backoffMs);
