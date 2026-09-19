@@ -195,20 +195,22 @@ export interface ConfirmProps {
   title: string;
   body: string;
   confirmLabel: string;
+  /** Defaults to "Cancel"; a redeem confirm reads "Not now" instead (ux-plan EI 6). */
+  cancelLabel?: string;
   danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 /** Content component for the confirm-sheet pattern: delete profile, remove member, etc. */
-export function Confirm({ title, body, confirmLabel, danger, onConfirm, onCancel }: ConfirmProps) {
+export function Confirm({ title, body, confirmLabel, cancelLabel = 'Cancel', danger, onConfirm, onCancel }: ConfirmProps) {
   return (
     <div>
       <h3 className={styles.confirmTitle}>{title}</h3>
       <p className={styles.confirmBody}>{body}</p>
       <div className={styles.confirmActions}>
         <Button variant="secondary" onClick={onCancel}>
-          Cancel
+          {cancelLabel}
         </Button>
         <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
           {confirmLabel}
