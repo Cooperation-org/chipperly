@@ -7,6 +7,7 @@ import type { Profile } from '@chipperly/shared/schemas/profile';
 import { api, ApiError, getTokens, setTokens } from '../api/client';
 import { getKv, setKv } from '../db/kv';
 import { db } from '../db/db';
+import { applySnapshotRow } from '../sync/applyPulledRow';
 
 export type SessionStatus = 'loading' | 'signed_out' | 'signed_in';
 
@@ -58,7 +59,15 @@ export async function getCurrentUserId(): Promise<string> {
 async function applyMe(me: MeResponse): Promise<void> {
   await setKv<MeResponse>(ME_KEY, me);
   await setKv<string>(CURRENT_USER_KEY, me.user.id);
-  if (me.profiles.length > 0) await db.profiles.bulkPut(me.profiles);
+  if (me.profiles.length > 0) {
+    // Not a bare bulkPut: `/me` is fetched on every boot and its response can
+    // land after a local profile edit that is already written (and pushed),
+    // which would roll that edit back — a day goal, a rename, any setting.
+    await db.transaction('rw', db.profiles, async () => {
+      const locals = await db.profiles.bulkGet(me.profiles.map((profile) => profile.id));
+      await db.profiles.bulkPut(me.profiles.map((incoming, i) => applySnapshotRow(locals[i], incoming)));
+    });
+  }
   if (me.accounts.length > 0) await db.accounts.bulkPut(me.accounts.map((a) => a.account));
   await db.users.put(me.user);
 
