@@ -20,8 +20,8 @@
   /* Fonts. app/fonts.ts loads the real Altone / Code Pro LC (or the Outfit /
      Montserrat stand-ins) via next/font and may override these two on :root
      once it exists; these defaults keep the app usable without it. */
-  --font-heading: 'Outfit', system-ui, sans-serif;
-  --font-body: 'Montserrat', system-ui, sans-serif;
+  --font-heading: 'Alegreya', Georgia, serif;
+  --font-body: 'Alegreya Sans', system-ui, sans-serif;
 
   /* Type scale: one body size, one secondary, one heading, one display */
   --text-sm: 0.875rem;
