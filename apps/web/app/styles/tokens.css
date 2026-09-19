@@ -17,11 +17,11 @@
   --color-danger: #b3261e;
   --color-focus: #1f6f78;
 
-  /* Fonts. app/fonts.ts loads the real Altone / Code Pro LC (or the Outfit /
-     Montserrat stand-ins) via next/font and may override these two on :root
-     once it exists; these defaults keep the app usable without it. */
-  --font-heading: 'Alegreya', Georgia, serif;
-  --font-body: 'Alegreya Sans', system-ui, sans-serif;
+  /* Fonts. app/fonts.ts self-hosts Alegreya, Alegreya Sans and the emoji
+     subset via next/font. The emoji face sits right after the text face so
+     letters come from Alegreya and every emoji from Twemoji, on every OS. */
+  --font-heading: 'Alegreya', var(--font-emoji, 'Twemoji Mozilla'), Georgia, serif;
+  --font-body: 'Alegreya Sans', var(--font-emoji, 'Twemoji Mozilla'), system-ui, sans-serif;
 
   /* Type scale: one body size, one secondary, one heading, one display */
   --text-sm: 0.875rem;

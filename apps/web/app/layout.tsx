@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { heading, body } from './fonts';
+import { heading, body, twemoji } from './fonts';
 import { Providers } from '@/components/providers/Providers';
 import './styles/globals.css';
 
@@ -33,7 +33,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${heading.variable} ${body.variable}`}>
+    <html lang="en" className={`${heading.variable} ${body.variable} ${twemoji.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>
