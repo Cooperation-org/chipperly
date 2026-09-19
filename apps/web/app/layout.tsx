@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   title: { default: 'Chipperly', template: '%s · Chipperly' },
   description: 'Visual supports for the whole care team.',
   icons: {
-    icon: '/icons/icon-192.png',
-    apple: '/icons/apple-touch-icon-180.png',
+    icon: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/icons/icon-192.png`,
+    apple: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/icons/apple-touch-icon-180.png`,
   },
   manifest: '/manifest.webmanifest',
   appleWebApp: {
