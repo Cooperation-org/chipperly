@@ -66,6 +66,8 @@ export function CareTeamScreen() {
     const issued = await api.post<InviteIssued>(`/accounts/${accountId}/invites/${inviteId}/resend`, undefined, {
       schema: InviteIssuedSchema,
     });
+    // Either way the server rotated the token and pushed out expires_at.
+    refetch();
     if (issued.email_sent) {
       toast('Invite resent');
       return;
@@ -73,7 +75,6 @@ export function CareTeamScreen() {
     // No mail provider on this server: the link is the only way in, so put it on the clipboard.
     await navigator.clipboard?.writeText(issued.invite_url);
     toast("Email isn't set up here. Link copied, send it to them yourself.");
-    refetch();
   }
 
   async function cancelInvite(inviteId: string): Promise<void> {

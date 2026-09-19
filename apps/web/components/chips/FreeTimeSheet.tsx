@@ -35,7 +35,10 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
   const earned = useRewards(profileId, { location_id: locationId, always_available: false }).filter(hasCost);
   const balance = useBalance(profileId, locationId);
   const profile = useLiveQuery(() => db.profiles.get(profileId), [profileId]);
-  const canRedeem = profile?.settings.child_redeems !== false;
+  // `canCreate` is only true for the caregiver's own Free time choices
+  // (ChipsScreen); the toggle is "Let [name] redeem rewards", so it must not
+  // take redeeming away from the caregiver too.
+  const canRedeem = canCreate || profile?.settings.child_redeems !== false;
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   function handleCreate() {
