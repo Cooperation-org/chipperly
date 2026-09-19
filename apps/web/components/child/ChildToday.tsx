@@ -35,6 +35,7 @@ import { formatTimerTime } from '@/components/timer/time';
 import { ChipperChartSheet } from '@/components/chipperChart/ChipperChartSheet';
 import { VisualSchedule } from '@/components/schedule/VisualSchedule';
 import { AttitudePrompt } from './AttitudePrompt';
+import { ReadStoryButton } from './ReadStoryButton';
 import { UnlockOverlay } from './UnlockOverlay';
 import styles from './ChildToday.module.css';
 
@@ -300,6 +301,8 @@ export function ChildToday() {
                     onChange={(next) => void handleToggle(day, next)}
                   />
                 </div>
+
+                {day.item.story_id ? <ReadStoryButton storyId={day.item.story_id} /> : null}
 
                 {day.steps.length > 0 && options.show_visual_schedule ? (
                   <BigButton variant="secondary" icon="expand" onClick={() => setScheduleItemId(day.item.id)}>
