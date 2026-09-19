@@ -62,7 +62,7 @@ sleep 2
 echo "== migrate"; (cd apps/api && node --env-file=.env --import tsx src/db/migrate.ts 2>&1 | tail -1)
 
 # api (serves the export too)
-pkill -f 'apps/api/dist/server.js' 2>/dev/null || true
+pkill -u "$(id -un)" -f 'dist/server.js' 2>/dev/null || true
 sleep 1
 (cd apps/api && setsid nohup node --env-file=.env dist/server.js > "$HOME/chipperly-logs/api.log" 2>&1 &)
 for i in $(seq 1 30); do sleep 1; curl -s -o /dev/null http://127.0.0.1:8064/chipperly-next/api/health && break; done
