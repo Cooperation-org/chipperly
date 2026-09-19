@@ -7,7 +7,7 @@ import { useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { db } from '@/lib/db/db';
 import {
-  materializeRecurringFresh,
+  useMaterializedDay,
   setCompleted,
   setStepCompleted,
   stepTree,
@@ -42,10 +42,6 @@ import { TomorrowBand } from './TomorrowBand';
 import { UnlockOverlay } from './UnlockOverlay';
 import styles from './ChildToday.module.css';
 
-// ponytail: same one-run-per-session guard TodayScreen uses; a kv/db dedupe
-// table would be more correct but this is enough for a screen that opens once.
-const materializedDates = new Set<string>();
-
 /**
  * S32: the child's locked Today screen. One list, big pictures, nothing to
  * navigate. `ChildShell` guarantees `locked_profile_id` is set before this
@@ -72,13 +68,7 @@ export function ChildToday() {
   const locations = useLocations(profileId);
   const workingFor = useWorkingFor(profileId, activeLocation?.id ?? null);
 
-  useEffect(() => {
-    if (!profileId) return;
-    const key = `${profileId}:${isoDate}`;
-    if (materializedDates.has(key)) return;
-    materializedDates.add(key);
-    void materializeRecurringFresh(profileId, isoDate);
-  }, [profileId, isoDate]);
+  useMaterializedDay(profileId, isoDate);
 
   // Best-effort back-gesture trap: every back navigation just re-pushes the
   // same entry, so there is nowhere for "back" to go while locked.

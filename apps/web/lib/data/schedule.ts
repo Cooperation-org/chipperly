@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity, ActivityStep } from '@chipperly/shared/schemas/activity';
 import type { ScheduleItem, StepCompletion } from '@chipperly/shared/schemas/schedule';
@@ -548,6 +548,27 @@ export async function materializeRecurringFresh(profileId: string, isoDate: stri
     await pullProfile(profileId).catch(() => {});
   }
   await materializeRecurring(profileId, isoDate);
+}
+
+// ponytail: module-level guard so a day is materialized once per
+// profile+date per browser session, not a full kv/db-backed dedupe table.
+const materializedDates = new Set<string>();
+
+/**
+ * Makes sure `isoDate`'s recurring items exist before a screen reads them.
+ * Every screen that shows a day needs this, not just Today: the Chips tab's
+ * Routine and Day views are reachable straight from a cold start (the view
+ * is remembered per profile), and without this they would report an empty
+ * day on the first visit of a new date.
+ */
+export function useMaterializedDay(profileId: string, isoDate: string): void {
+  useEffect(() => {
+    if (!profileId) return;
+    const key = `${profileId}:${isoDate}`;
+    if (materializedDates.has(key)) return;
+    materializedDates.add(key);
+    void materializeRecurringFresh(profileId, isoDate);
+  }, [profileId, isoDate]);
 }
 
 /** Copies non-deleted items from one day to another as new manual items. */

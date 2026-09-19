@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Location } from '@chipperly/shared/schemas/location';
 import { COST_MAX } from '@chipperly/shared/constants/limits';
+import { todayIso } from '@chipperly/shared/helpers/date';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useLocations, useActiveLocation, saveLocation } from '@/lib/data/locations';
 import { useWorkingFor, setWorkingFor, addChip, redeem, useBalance, useLedger, chipTones } from '@/lib/data/chips';
+import { useMaterializedDay } from '@/lib/data/schedule';
 import { useKv, setKv } from '@/lib/db/kv';
 import { toast } from '@/lib/toast';
 import { playChip } from '@/lib/sound';
@@ -62,6 +64,9 @@ export function ChipsScreen() {
   const { profile } = useActiveProfile();
   const profileId = profile?.id ?? '';
   const view = useKv<ChipsView>(chipsViewKey(profileId), 'place');
+  // The Routine and Day views read today's items, and this tab is reachable
+  // from a cold start (the view is remembered per profile).
+  useMaterializedDay(profileId, todayIso());
   const locations = useLocations(profileId);
   const { location, setActiveLocationId } = useActiveLocation(profileId);
   const locationId = location?.id ?? null;

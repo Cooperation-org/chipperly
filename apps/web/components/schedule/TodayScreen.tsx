@@ -11,6 +11,7 @@ import {
   addToDay,
   copyDay,
   materializeRecurringFresh,
+  useMaterializedDay,
   removeFromDay,
   reorder,
   setCompleted,
@@ -41,10 +42,6 @@ import { ItemSheet } from './ItemSheet';
 import { allDone, groupByPartOfDay, moveItem, secondaryText, weekdayName } from './todayModel';
 import styles from './TodayScreen.module.css';
 
-// ponytail: module-level guard so materializeRecurringFresh runs once per
-// profile+date per browser session, not a full kv/db-backed dedupe table.
-const materializedDates = new Set<string>();
-
 /** S6: the Today tab. */
 export function TodayScreen() {
   const router = useRouter();
@@ -60,13 +57,7 @@ export function TodayScreen() {
   const { location } = useActiveLocation(profileId);
   const workingFor = useWorkingFor(profileId, location?.id ?? null);
 
-  useEffect(() => {
-    if (!profileId) return;
-    const key = `${profileId}:${isoDate}`;
-    if (materializedDates.has(key)) return;
-    materializedDates.add(key);
-    void materializeRecurringFresh(profileId, isoDate);
-  }, [profileId, isoDate]);
+  useMaterializedDay(profileId, isoDate);
 
   // Local render order, seeded from the live query and re-seeded whenever
   // its ids change — except mid-drag, where the drag owns the order until drop.
