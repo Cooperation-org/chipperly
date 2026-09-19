@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
@@ -25,6 +25,7 @@ import { social_stories, story_pages } from '../db/schema/stories.js';
 import { attitude_checks } from '../db/schema/attitude.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
+import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
 import { seedProfile } from '../seed/seedProfile.js';
 import { env } from '../env.js';
@@ -74,8 +75,9 @@ async function sendInviteEmail(params: {
   rawToken: string;
   accountName: string;
   inviterName: string;
+  request: FastifyRequest;
 }): Promise<string> {
-  const link = `${env.APP_ORIGIN ?? ''}${env.BASE_PATH}/invite/?token=${params.rawToken}`;
+  const link = `${linkBase(params.request)}/invite/?token=${params.rawToken}`;
   await sendMail({
     to: params.to,
     subject: `${params.inviterName} invited you to ${params.accountName} on Chipperly`,
@@ -201,6 +203,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       rawToken,
       accountName: account.name,
       inviterName: inviter?.display_name ?? 'A caregiver',
+      request,
     });
 
     reply.code(201);
@@ -235,6 +238,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       rawToken,
       accountName: account?.name ?? '',
       inviterName: inviter?.display_name ?? 'A caregiver',
+      request,
     });
 
     return { ...toInvitePublic(invite!), invite_url: inviteUrl, email_sent: env.mailEnabled };

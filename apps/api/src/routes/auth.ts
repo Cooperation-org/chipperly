@@ -16,6 +16,7 @@ import { env } from '../env.js';
 import { db } from '../db/client.js';
 import { email_verifications, invites, password_resets, sessions, users } from '../db/schema/accounts.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
+import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
 import { verifyGoogleIdToken, type VerifiedIdentity } from '../lib/google.js';
 import { verifyAppleIdToken } from '../lib/apple.js';
@@ -55,7 +56,7 @@ function newRawToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
-async function sendVerificationEmail(userId: string, email: string): Promise<void> {
+async function sendVerificationEmail(userId: string, email: string, request: FastifyRequest): Promise<void> {
   const rawToken = newRawToken();
   await db.insert(email_verifications).values({
     id: uuidv7(),
@@ -64,7 +65,7 @@ async function sendVerificationEmail(userId: string, email: string): Promise<voi
     expires_at: Date.now() + EMAIL_VERIFICATION_TTL_MS,
     used_at: null,
   });
-  const link = `${env.APP_ORIGIN ?? ''}${env.BASE_PATH}/verify/?token=${rawToken}`;
+  const link = `${linkBase(request)}/verify/?token=${rawToken}`;
   await sendMail({
     to: email,
     subject: 'Verify your Chipperly email',
@@ -179,7 +180,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       created_at: Date.now(),
     });
 
-    await sendVerificationEmail(userId, email);
+    await sendVerificationEmail(userId, email, request);
 
     return issueTokens(userId, body.device_id, userAgentOf(request));
   });
@@ -264,7 +265,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
         expires_at: Date.now() + PASSWORD_RESET_TTL_MS,
         used_at: null,
       });
-      const link = `${env.APP_ORIGIN ?? ''}${env.BASE_PATH}/reset-password/?token=${rawToken}`;
+      const link = `${linkBase(request)}/reset-password/?token=${rawToken}`;
       await sendMail({
         to: email,
         subject: 'Reset your Chipperly password',
