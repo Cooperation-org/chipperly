@@ -35,6 +35,7 @@ function getServer() {
 // that user's last shell logs out, and every query with a parallel worker then fails with
 // "could not open shared memory segment". mmap keeps the segments as files under the data dir.
 function ensureMmapDynamicShm() {
+  if (process.platform === 'win32') return; // Windows has no logind and rejects mmap here
   const conf = path.join(DATA_DIR, 'postgresql.conf');
   if (!existsSync(conf)) return;
   const text = readFileSync(conf, 'utf8');
