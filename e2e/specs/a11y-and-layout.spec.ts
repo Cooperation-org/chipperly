@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, signUp, snap, toast } from '../helpers';
+import { expectNoOverflow, signUp, snap } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -127,17 +127,18 @@ test.describe('a11y and layout', () => {
   test('phone/tablet: Today content clears the tab bar', async ({}, testInfo) => {
     test.skip(testInfo.project.name === 'desktop', 'TabRail on desktop does not overlay content');
     await page.goto('/today/');
+    // The starter plan seeds rows on a fresh profile, so there's always at
+    // least one to check clearance against.
     const rows = page.locator('button[class*="ListRow_main"]');
-    if ((await rows.count()) === 0) {
-      // Empty-state route so far in this spec; add one row so the
-      // clearance check below is actually exercising something.
-      await page.locator('div[class*="EmptyState_wrap"]').getByRole('button', { name: 'Add activity', exact: true }).click();
-      await page.getByRole('dialog').getByRole('button', { name: 'Wake Up', exact: true }).click();
-      await expect(toast(page)).toContainText('Added Wake Up');
-    }
+    await expect(rows.first()).toBeVisible();
     const tabBar = page.locator('nav[aria-label="Primary"][data-shell-tabbar]');
     const tabBarBox = await tabBar.boundingBox();
     if (!tabBarBox) return;
+    // The starter plan's 9-12 rows no longer fit in one viewport (unlike the
+    // single row this test used to add), so scroll the last one into view
+    // before checking it clears the fixed tab bar; the page's own
+    // padding-bottom (CaregiverShell.module.css) is what should keep it clear.
+    await rows.last().scrollIntoViewIfNeeded();
     const lastRowBox = await rows.last().boundingBox();
     expect(lastRowBox).not.toBeNull();
     if (!lastRowBox) return;

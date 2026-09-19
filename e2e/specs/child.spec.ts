@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, gotoTab, signUp, snap, tapTarget, toast } from '../helpers';
+import { expectNoOverflow, gotoTab, signUp, snap, tapTarget } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -17,20 +17,15 @@ test.describe('child mode', () => {
     page = await browser.newPage();
     await signUp(page, { name: 'Child Tester' });
 
-    // Two items on today: a seeded activity, and a fresh one with a step.
-    // The empty state's "Add activity" Button and the floating + IconButton
-    // share that accessible name; the list is still empty here.
-    await page.locator('div[class*="EmptyState_wrap"]').getByRole('button', { name: 'Add activity', exact: true }).click();
-    let sheet = page.getByRole('dialog');
-    await sheet.getByRole('button', { name: 'Wake Up', exact: true }).click();
-    await expect(toast(page)).toContainText('Added Wake Up');
-
-    // The empty state's button unmounts once the Dexie live query re-resolves
-    // with the new item, which can lag behind the toast assertion (ipad-webkit).
-    // Wait for it to go so the click below is unambiguous.
-    await expect(page.locator('div[class*="EmptyState_wrap"]')).toHaveCount(0);
+    // The starter plan already seeds Wake Up (and 11 other recurring
+    // activities) on a fresh profile's Today, materialized async on mount;
+    // wait for it so the floating "Add activity" button (still ambiguous
+    // with the empty state's button of the same name until then) is the
+    // only match. Then add one more activity, with a step, so a routine row
+    // exists too.
+    await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
-    sheet = page.getByRole('dialog');
+    const sheet = page.getByRole('dialog');
     await sheet.getByRole('button', { name: 'Create new', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
     await page.getByLabel('Name', { exact: true }).fill('Get Dressed With Steps');

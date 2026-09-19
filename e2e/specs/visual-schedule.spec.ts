@@ -28,12 +28,19 @@ test.describe('visual schedule', () => {
   });
 
   test('Break down builds a step tree that saves and shows on Today', async () => {
-    await page.locator('div[class*="EmptyState_wrap"]').getByRole('button', { name: 'Add activity', exact: true }).click();
+    // The starter plan materializes async on mount; wait for it so the
+    // floating "Add activity" button is the only match (not still
+    // ambiguous with the empty state's button of the same name). Named "Get
+    // Ready", not "Get Dressed": the starter plan already seeds a recurring
+    // "Get Dressed", and a same-named activity here would make every
+    // row/checkbox lookup below ambiguous.
+    await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     const picker = page.getByRole('dialog');
     await picker.getByRole('button', { name: 'Create new', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
 
-    await page.getByLabel('Name', { exact: true }).fill('Get Dressed');
+    await page.getByLabel('Name', { exact: true }).fill('Get Ready');
     await page.getByRole('button', { name: /^Steps/ }).click();
     await page.getByRole('button', { name: 'Add step', exact: true }).click();
     await page.getByLabel('Step 1', { exact: true }).fill('Brush teeth');
@@ -50,16 +57,16 @@ test.describe('visual schedule', () => {
 
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/today/');
-    await expect(page.getByRole('checkbox', { name: /^Get Dressed,/ })).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: /^Get Ready,/ })).toBeVisible();
   });
 
   test('S7 item sheet: Open as visual schedule, check the parent cascades to both children, print', async () => {
-    await page.locator('button[class*="ListRow_main"]', { hasText: 'Get Dressed' }).click();
+    await page.locator('button[class*="ListRow_main"]', { hasText: 'Get Ready' }).click();
     const itemSheet = page.getByRole('dialog');
     await expect(itemSheet).toBeVisible();
 
     await itemSheet.getByRole('button', { name: 'Open as visual schedule', exact: true }).click();
-    const overlay = page.getByRole('dialog', { name: 'Get Dressed' });
+    const overlay = page.getByRole('dialog', { name: 'Get Ready' });
     await expect(overlay).toBeVisible();
     // The parent step plus its two sub-steps, nothing else.
     await expect(overlay.getByRole('checkbox')).toHaveCount(3);
@@ -120,7 +127,7 @@ test.describe('visual schedule', () => {
     await expect(stepsButton).toBeVisible();
     await stepsButton.click();
 
-    const overlay = page.getByRole('dialog', { name: 'Get Dressed' });
+    const overlay = page.getByRole('dialog', { name: 'Get Ready' });
     await expect(overlay).toBeVisible();
     await expectNoOverflow(page, 'S32 child visual schedule overlay');
     await snap(page, 's32-child-visual-schedule');

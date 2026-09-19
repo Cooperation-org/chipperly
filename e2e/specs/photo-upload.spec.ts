@@ -88,10 +88,11 @@ test.describe('photo upload', () => {
   });
 
   test('activity picture: choose Photo, save, Today shows it, sync completes', async () => {
-    // Both the empty state's "Add activity" Button and the floating +
-    // IconButton share the accessible name "Add activity" (today.spec.ts);
-    // Today is empty on a fresh account, so scope to the empty state.
-    await page.locator('div[class*="EmptyState_wrap"]').getByRole('button', { name: 'Add activity', exact: true }).click();
+    // The starter plan materializes async on mount; wait for it so the
+    // floating "Add activity" button is the only match (not still
+    // ambiguous with the empty state's button of the same name).
+    await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     const addSheet = page.getByRole('dialog');
     await addSheet.getByRole('button', { name: 'Create new', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');

@@ -16,7 +16,11 @@ test.describe('routines', () => {
   });
 
   test('S8 picker: Activities and Routines sections, zero routines seeded', async () => {
-    await page.locator('div[class*="EmptyState_wrap"]').getByRole('button', { name: 'Add activity', exact: true }).click();
+    // The starter plan materializes async on mount; wait for it so the
+    // floating "Add activity" button is the only match (not still
+    // ambiguous with the empty state's button of the same name).
+    await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
 
@@ -54,9 +58,12 @@ test.describe('routines', () => {
     await expect(fromActivitySheet).toBeVisible();
     // This nested picker offers plain activities only, no routine section.
     await expect(fromActivitySheet.getByRole('heading', { name: 'Routines', level: 3 })).toHaveCount(0);
-    await fromActivitySheet.getByRole('button', { name: 'Brush Teeth', exact: true }).click();
+    // Not a starter-plan activity (e.g. "Brush Teeth"): the picker's own
+    // "Recent" section also lists anything materialized onto today, so a
+    // starter item's tile would resolve twice here.
+    await fromActivitySheet.getByRole('button', { name: 'Snack Time', exact: true }).click();
     await expect(fromActivitySheet).toBeHidden();
-    await expect(page.getByLabel('Step 2', { exact: true })).toHaveValue('Brush Teeth');
+    await expect(page.getByLabel('Step 2', { exact: true })).toHaveValue('Snack Time');
 
     // Name was left collapsed by default in routine mode; open it to fill it in.
     await page.getByRole('button', { name: /^Name/ }).click();
@@ -72,7 +79,7 @@ test.describe('routines', () => {
 
     await page.getByRole('button', { name: 'Expand Morning Routine steps', exact: true }).click();
     await expect(page.getByText('Wash hands')).toBeVisible();
-    await expect(page.getByText('Brush Teeth')).toBeVisible();
+    await expect(page.getByText('Snack Time')).toBeVisible();
   });
 
   test('Settings > Library > Routines lists it, Activities does not', async () => {

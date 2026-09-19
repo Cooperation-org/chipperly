@@ -15,7 +15,53 @@ test.describe('today', () => {
     await page.close();
   });
 
-  test('S6 empty state', async () => {
+  // The 9 daily + 3 weekday-only starter activities (technical-plan.md
+  // "starter day plan"), in the fixed order materializeRecurring gives them
+  // (DEFAULT_ACTIVITIES order, filtered to the ones with a recurrence).
+  const DAILY_STARTER_ITEMS = ['Wake Up', 'Breakfast', 'Get Dressed', 'Brush Teeth', 'Lunch', 'Dinner', 'Bath Time', 'Bedtime Story', 'Sleep'];
+  const WEEKDAY_STARTER_ITEMS = ['Go to School', 'Go Home', 'Homework'];
+
+  test('S6 starter plan on a fresh profile', async () => {
+    // materializeRecurring seeds every profile with a starter day plan on
+    // first open, so a fresh Today is never empty (docs/technical-plan.md
+    // "starter day plan").
+    const headers = page.locator('h3[class*="groupHeader"]');
+    await expect(headers).toHaveText(['MORNING', 'AFTERNOON', 'EVENING']);
+
+    const rows = page.locator('button[class*="ListRow_main"]');
+    await expect(rows.first()).toContainText('Wake Up');
+
+    for (const name of DAILY_STARTER_ITEMS) {
+      await expect(page.getByRole('checkbox', { name: new RegExp(`^${name},`) })).toBeVisible();
+    }
+
+    const isWeekday = new Date().getDay() >= 1 && new Date().getDay() <= 5;
+    for (const name of WEEKDAY_STARTER_ITEMS) {
+      const checkbox = page.getByRole('checkbox', { name: new RegExp(`^${name},`) });
+      if (isWeekday) await expect(checkbox).toBeVisible();
+      else await expect(checkbox).toHaveCount(0);
+    }
+
+    // Chip strip rule unchanged: no reward chosen and nothing checked off yet, so it stays hidden.
+    await expect(page.getByRole('button', { name: /of \d+ chips/ })).toHaveCount(0);
+
+    await expectNoOverflow(page, 'S6 today starter plan');
+    await snap(page, 's6-today-starter-plan');
+  });
+
+  test('S6 reach the empty state honestly: remove every starter item', async () => {
+    const isWeekday = new Date().getDay() >= 1 && new Date().getDay() <= 5;
+    const allStarterItems = isWeekday ? [...DAILY_STARTER_ITEMS, ...WEEKDAY_STARTER_ITEMS] : DAILY_STARTER_ITEMS;
+
+    for (const name of allStarterItems) {
+      await page.locator('button[class*="ListRow_main"]', { hasText: name }).click();
+      const sheet = page.getByRole('dialog');
+      await expect(sheet).toBeVisible();
+      await sheet.getByRole('button', { name: 'Remove from today', exact: true }).click();
+      await sheet.getByRole('button', { name: 'Every day', exact: true }).click();
+      await expect(sheet).toBeHidden();
+    }
+
     const emptyState = page.locator('div[class*="EmptyState_wrap"]');
     await expect(page.getByText(/^Nothing planned for/)).toBeVisible();
     await expect(emptyState.getByRole('button', { name: 'Add activity', exact: true })).toBeVisible();
