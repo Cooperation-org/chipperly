@@ -29,7 +29,8 @@ export type IconName =
   | 'split'
   | 'chips'
   | 'print'
-  | 'expand';
+  | 'expand'
+  | 'edit';
 
 const paths: Record<IconName, ReactNode> = {
   check: <polyline points="5 13 10 18 19 7" />,
@@ -196,6 +197,12 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M15 3h6v6" />
       <path d="M9 21H3v-6" />
       <path d="M15 21h6v-6" />
+    </>
+  ),
+  edit: (
+    <>
+      <path d="M4 20l.9-4.1L16.2 4.6a1.5 1.5 0 0 1 2.1 0l1.1 1.1a1.5 1.5 0 0 1 0 2.1L8.1 19.1 4 20Z" />
+      <line x1="14.5" y1="6.3" x2="17.7" y2="9.5" />
     </>
   ),
 };

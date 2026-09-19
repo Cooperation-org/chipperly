@@ -476,6 +476,57 @@ async function materializeRecurring(profileId: string, isoDate: string): Promise
   }
 }
 
+/** One previewed entry: a real item's id, or a deterministic `materializedId` for a not-yet-materialized occurrence. */
+export interface PreviewItem {
+  id: string;
+  activity: Activity;
+}
+
+/**
+ * What `isoDate` would show without writing anything: `manualItems` (any
+ * schedule_items already on that date, whatever their source) in their
+ * existing order, then recurring activities that would materialize onto it
+ * -- same `occursOn` + dedup-by-materialized-id rule as
+ * `materializeRecurring` above -- sorted by recurrence time. Used to
+ * preview tomorrow on the child's Today (S32 TomorrowBand) a day before
+ * `materializeRecurringFresh` would actually create those rows.
+ */
+export function previewDay(
+  activities: readonly Activity[],
+  skips: readonly RecurrenceSkip[],
+  manualItems: readonly ScheduleItem[],
+  isoDate: string,
+): PreviewItem[] {
+  const activityById = new Map(activities.map((a) => [a.id, a]));
+  const liveManual = manualItems.filter((item) => item.deleted_at === null);
+  const existingIds = new Set(liveManual.map((item) => item.id));
+
+  const manualPreview: PreviewItem[] = liveManual
+    .slice()
+    .sort((a, b) => (a.position !== b.position ? a.position - b.position : (a.start_time ?? '').localeCompare(b.start_time ?? '')))
+    .flatMap((item) => {
+      const activity = activityById.get(item.activity_id);
+      return activity ? [{ id: item.id, activity }] : [];
+    });
+
+  const skipsByActivity = new Map<string, RecurrenceSkip[]>();
+  for (const skip of skips) {
+    if (skip.deleted_at !== null) continue;
+    const list = skipsByActivity.get(skip.activity_id) ?? [];
+    list.push(skip);
+    skipsByActivity.set(skip.activity_id, list);
+  }
+
+  const recurringPreview: PreviewItem[] = activities
+    .filter((a) => a.deleted_at === null && a.recurrence !== null)
+    .filter((a) => occursOn(a, isoDate, skipsByActivity.get(a.id) ?? []))
+    .filter((a) => !existingIds.has(materializedId(a.id, isoDate)))
+    .sort((a, b) => (a.recurrence_time ?? '99:99').localeCompare(b.recurrence_time ?? '99:99') || a.name.localeCompare(b.name))
+    .map((a) => ({ id: materializedId(a.id, isoDate), activity: a }));
+
+  return [...manualPreview, ...recurringPreview];
+}
+
 /**
  * `materializeRecurring`, but pulls this profile first (best-effort, only
  * when online). Today screens call this instead on every load: without a
