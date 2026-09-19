@@ -389,6 +389,14 @@ export async function setStepCompleted(itemId: string, stepId: string, done: boo
   }
 }
 
+/** Attaches (or clears, with `null`) the social story shown on this item's Story row (S7) and, in
+ * child mode, its "Read story" button (S32). Same upsert shape as `setTime`/`setPartOfDay` above. */
+export async function setItemStory(itemId: string, storyId: string | null): Promise<void> {
+  const item = await db.schedule_items.get(itemId);
+  if (!item) return;
+  await upsert('schedule_items', { ...item, story_id: storyId });
+}
+
 /**
  * Soft-deletes the item. For a recurring item: scope 'always' clears the
  * activity's recurrence (it stops generating occurrences at all); scope

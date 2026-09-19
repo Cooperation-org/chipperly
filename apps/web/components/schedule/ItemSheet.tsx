@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { DayItem, DayStep, StepNode } from '@/lib/data/schedule';
-import { removeFromDay, setCompleted, setStepCompleted, stepTree } from '@/lib/data/schedule';
+import { removeFromDay, setCompleted, setItemStory, setStepCompleted, stepTree } from '@/lib/data/schedule';
 import { db } from '@/lib/db/db';
 import { upsert, restore } from '@/lib/sync/mutate';
 import { setDuration, start } from '@/lib/timer/store';
@@ -17,6 +17,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { formatTime } from './todayModel';
+import { StoryPickerSheet } from './StoryPickerSheet';
 import { VisualSchedule } from './VisualSchedule';
 import styles from './ItemSheet.module.css';
 
@@ -45,9 +46,11 @@ const PART_OF_DAY_ITEMS = [
 /** S7: the item sheet opened by tapping a Today row. */
 export function ItemSheet({ day, userId }: ItemSheetProps) {
   const router = useRouter();
-  const { close } = useSheet();
+  const { close, open, back } = useSheet();
   const [removing, setRemoving] = useState(false);
   const item = day.item;
+  const storyId = item.story_id ?? null;
+  const story = useLiveQuery(() => (storyId ? db.social_stories.get(storyId) : undefined), [storyId]);
 
   // `day` is a snapshot from whenever this sheet was opened (Sheet content
   // isn't re-rendered by its caller), so step completion state is re-derived
@@ -114,6 +117,20 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
     await upsert('schedule_items', { ...item, part_of_day: next });
   }
 
+  function openStoryPicker(): void {
+    open(
+      <StoryPickerSheet
+        profileId={item.profile_id}
+        currentStoryId={storyId}
+        onPick={(nextStoryId) => {
+          void setItemStory(item.id, nextStoryId);
+          back();
+        }}
+      />,
+      { title: 'Story' },
+    );
+  }
+
   async function onDone(): Promise<void> {
     await setCompleted(item.id, true, userId);
     close();
@@ -170,6 +187,18 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
             Earns {day.activity.chip_value} chip{day.activity.chip_value === 1 ? '' : 's'}
           </p>
         ) : null}
+
+        <button type="button" className={styles.storyRow} onClick={openStoryPicker} aria-label={story ? `Story: ${story.title}` : 'Attach a story'}>
+          {story ? (
+            <Picture emoji={story.emoji} photo_id={story.cover_photo_id} name={story.title} size="list" />
+          ) : (
+            <Icon name="book" size={24} />
+          )}
+          <span className={styles.storyRowText}>
+            <span className={styles.storyRowLabel}>Story</span>
+            <span className={styles.storyRowValue}>{story ? story.title : 'Attach a story'}</span>
+          </span>
+        </button>
 
         <div className={styles.actions}>
           <BigButton variant="primary" fullWidth onClick={() => void onDone()}>

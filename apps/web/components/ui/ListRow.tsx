@@ -8,7 +8,8 @@ export interface ListRowProps {
   handle?: ReactNode;
   tile: ReactNode;
   name: string;
-  secondary?: string;
+  /** Usually a string; a schedule row also passes a fragment with a trailing icon (S6 "has a story" mark). */
+  secondary?: ReactNode;
   /** Trailing control, e.g. a CheckCircle. Excluded from the row's own tap target. */
   trailing?: ReactNode;
   dimmed?: boolean;
@@ -47,7 +48,7 @@ export function ListRow({
   );
 }
 
-function RowContent({ tile, name, secondary }: { tile: ReactNode; name: string; secondary?: string }) {
+function RowContent({ tile, name, secondary }: { tile: ReactNode; name: string; secondary?: ReactNode }) {
   return (
     <>
       <span className={styles.tile}>{tile}</span>
