@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { ChipStar } from './ChipStar';
 import styles from './ChipBoard.module.css';
 
 export type ChipTone = 'positive' | 'neutral' | 'negative';
@@ -14,7 +15,7 @@ export interface ChipBoardProps {
 
 const TONE_WORD: Record<ChipTone, string> = { positive: 'positive', neutral: 'neutral', negative: 'negative' };
 
-/** Large read-only chips for the Chips tab. The most recently earned chip pops in on increase. */
+/** Large read-only chips (the brand star) for the Chips tab. The most recently earned chip pops in on increase. */
 export function ChipBoard({ filled, total, tones }: ChipBoardProps) {
   const prevFilled = useRef(filled);
   const [poppedIndex, setPoppedIndex] = useState<number | null>(null);
@@ -38,19 +39,14 @@ export function ChipBoard({ filled, total, tones }: ChipBoardProps) {
         return (
           <span
             key={i}
-            className={[
-              styles.chip,
-              isFilled ? styles.filled : '',
-              i === poppedIndex ? styles.pop : '',
-              tone ? styles[tone] : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            className={[styles.chip, i === poppedIndex ? styles.pop : ''].filter(Boolean).join(' ')}
             onAnimationEnd={() => setPoppedIndex((current) => (current === i ? null : current))}
             role={tone ? 'img' : undefined}
             aria-label={tone ? `chip ${i + 1}, earned with a ${TONE_WORD[tone]} attitude` : undefined}
             aria-hidden={toned && !isFilled ? true : undefined}
-          />
+          >
+            <ChipStar size="100%" muted={!isFilled} tone={tone} />
+          </span>
         );
       })}
     </div>

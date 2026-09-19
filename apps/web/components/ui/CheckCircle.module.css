@@ -1,8 +1,10 @@
 .circle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  padding: 0;
   border-radius: var(--radius-full);
   border: 2px solid var(--color-border);
   background: var(--color-surface);
@@ -30,9 +32,29 @@
 }
 
 .checked {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+  border-color: transparent;
+  background: transparent;
   color: var(--color-primary-ink);
+}
+
+/* The star sits in the button box; the tick is sized to its centre disc (40% of the star). */
+.star {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--motion-fast) var(--ease), transform var(--motion) var(--ease);
+}
+
+.checked .star {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.tick {
+  position: relative;
+  width: 40%;
+  height: 40%;
 }
 
 .checkmark {

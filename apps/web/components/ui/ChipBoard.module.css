@@ -6,31 +6,9 @@
 }
 
 .chip {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--color-surface-2);
-  border: 2px solid var(--color-border);
-}
-
-.filled {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-
-.positive {
-  background: var(--color-success);
-  border-color: var(--color-success);
-}
-
-.neutral {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-
-.negative {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+  display: block;
+  width: 44px;
+  height: 44px;
 }
 
 .pop {

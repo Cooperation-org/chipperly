@@ -1,5 +1,6 @@
 'use client';
 
+import { ChipStar } from './ChipStar';
 import { PictureTile } from './PictureTile';
 import styles from './ChipStrip.module.css';
 
@@ -25,7 +26,7 @@ export function ChipStrip({ filled, total, reward, onTap, size = 'md' }: ChipStr
     <>
       <span className={styles.chips} aria-hidden="true">
         {Array.from({ length: total }).map((_, i) => (
-          <span key={i} className={[styles.chip, i < filled ? styles.filled : ''].filter(Boolean).join(' ')} />
+          <ChipStar key={i} size="1em" muted={i >= filled} className={styles.chip} />
         ))}
       </span>
       {reward ? (

@@ -14,27 +14,20 @@ button.strip {
   cursor: pointer;
 }
 
+/* Star size rides on font-size so the two strip sizes stay one rule each. */
 .chips {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
+  font-size: 16px;
+}
+
+.lg .chips {
+  font-size: 22px;
 }
 
 .chip {
-  width: 12px;
-  height: 12px;
-  border-radius: var(--radius-full);
-  background: var(--color-surface-2);
-  border: 2px solid var(--color-border);
-}
-
-.lg .chip {
-  width: 18px;
-  height: 18px;
-}
-
-.filled {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  display: block;
 }
 
 .reward {

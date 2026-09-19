@@ -1,5 +1,6 @@
 'use client';
 
+import { ChipStar } from './ChipStar';
 import styles from './CheckCircle.module.css';
 
 export interface CheckCircleProps {
@@ -12,7 +13,7 @@ export interface CheckCircleProps {
   className?: string;
 }
 
-/** A real checkbox styled as a circle. Fills with a 220ms draw when motion is on. */
+/** A real checkbox styled as a circle; checked, it becomes the brand star with a tick on the disc. */
 export function CheckCircle({ checked, onChange, name, size = 'md', disabled, className }: CheckCircleProps) {
   return (
     <button
@@ -24,11 +25,12 @@ export function CheckCircle({ checked, onChange, name, size = 'md', disabled, cl
       className={[styles.circle, styles[size], checked ? styles.checked : '', className].filter(Boolean).join(' ')}
       onClick={() => onChange?.(!checked)}
     >
-      <svg viewBox="0 0 24 24" width="60%" height="60%" fill="none" aria-hidden="true">
+      <ChipStar size="100%" className={styles.star} />
+      <svg viewBox="0 0 24 24" className={styles.tick} fill="none" aria-hidden="true">
         <polyline
           points="5 13 10 18 19 7"
           stroke="currentColor"
-          strokeWidth={2.5}
+          strokeWidth={3.5}
           strokeLinecap="round"
           strokeLinejoin="round"
           className={styles.checkmark}

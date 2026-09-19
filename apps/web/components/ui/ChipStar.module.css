@@ -1,0 +1,30 @@
+.star {
+  display: block;
+  flex-shrink: 0;
+  /* Disc colour; rays carry their own fills. Brand teal from the logo. */
+  color: #13b6a5;
+}
+
+.disc {
+  fill: currentColor;
+}
+
+.muted {
+  color: var(--color-surface-2);
+}
+
+.muted .ray {
+  fill: var(--color-border);
+}
+
+.positive {
+  color: var(--color-success);
+}
+
+.neutral {
+  color: var(--color-accent);
+}
+
+.negative {
+  color: var(--color-danger);
+}
