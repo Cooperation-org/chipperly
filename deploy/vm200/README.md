@@ -14,7 +14,7 @@ sudo cp /home/mhany/chipperly/deploy/vm200/chipperly-next.conf /etc/nginx/app-pr
 sudo nginx -t && sudo systemctl reload nginx
 
 # 2. stop the nohup'd processes deploy.sh started (they hold the same ports), then install the units
-pkill -u mhany -f 'dist/server.js'; pkill -u mhany -f 'dev-db.mjs'
+pkill -u mhany -f '^node .*dist/server.js'; pkill -u mhany -f '^node .*dev-db.mjs'
 sudo cp /home/mhany/chipperly/deploy/vm200/tmp-chipperly-next.service /home/mhany/chipperly/deploy/vm200/tmp-chipperly-next-db.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now tmp-chipperly-next-db tmp-chipperly-next
