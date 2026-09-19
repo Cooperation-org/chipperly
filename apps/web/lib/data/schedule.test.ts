@@ -272,3 +272,15 @@ describe('cascade rules (pure, via stepTree + descendantsOf)', () => {
     expect(root?.children[0]?.done).toBe(false);
   });
 });
+
+describe('partOfDayFor', () => {
+  it('maps a recurring time to morning, afternoon or evening', async () => {
+    const { partOfDayFor } = await import('./schedule');
+    expect(partOfDayFor('07:00')).toBe('morning');
+    expect(partOfDayFor('11:59')).toBe('morning');
+    expect(partOfDayFor('12:00')).toBe('afternoon');
+    expect(partOfDayFor('16:59')).toBe('afternoon');
+    expect(partOfDayFor('17:00')).toBe('evening');
+    expect(partOfDayFor(null)).toBeNull();
+  });
+});

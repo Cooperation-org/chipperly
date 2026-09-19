@@ -43,9 +43,9 @@ export async function seedProfile(tx: Tx, profileId: string, updatedBy: string):
       photo_id: null,
       chip_value: 1,
       location_id: null,
-      recurrence: null,
+      recurrence: activity.recurrence ?? null,
       recurrence_weekdays: null,
-      recurrence_time: null,
+      recurrence_time: activity.recurrence_time ?? null,
       position,
     })),
   );

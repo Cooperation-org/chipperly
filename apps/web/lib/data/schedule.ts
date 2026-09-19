@@ -93,6 +93,16 @@ function flattenPreOrder(nodes: readonly StepNode[]): DayStep[] {
   return result;
 }
 
+/** Part of day for a recurring item from its HH:MM time: before noon, before five, else evening. Null without a time. */
+export function partOfDayFor(hhmm: string | null | undefined): 'morning' | 'afternoon' | 'evening' | null {
+  if (!hhmm) return null;
+  const hour = Number(hhmm.slice(0, 2));
+  if (!Number.isFinite(hour)) return null;
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'afternoon';
+  return 'evening';
+}
+
 /**
  * Pure join: schedule_items (not deleted) for a day, with their activity
  * and ordered, non-deleted steps and completions. `items` is expected to
@@ -456,7 +466,7 @@ async function materializeRecurring(profileId: string, isoDate: string): Promise
       position,
       activity_id: activity.id,
       start_time: activity.recurrence_time,
-      part_of_day: null,
+      part_of_day: partOfDayFor(activity.recurrence_time),
       source: 'recurring',
       completed_at: null,
       completed_by: null,

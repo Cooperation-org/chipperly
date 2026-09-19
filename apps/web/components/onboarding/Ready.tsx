@@ -24,7 +24,7 @@ export function Ready() {
         <Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="grid" />
       ) : null}
       <h1 className={styles.title}>{profile ? `${profile.name} is ready.` : 'Ready.'}</h1>
-      <p className={styles.text}>We added starter activities and rewards for {name}. Change anything later.</p>
+      <p className={styles.text}>We added starter activities, rewards and a daily plan for {name}. Change anything later.</p>
       <BigButton fullWidth onClick={goToToday}>
         Go to Today
       </BigButton>

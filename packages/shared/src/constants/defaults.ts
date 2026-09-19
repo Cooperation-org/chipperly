@@ -7,25 +7,29 @@
 export interface DefaultItem {
   readonly name: string;
   readonly emoji: string;
+  /** Starter day plan: seeded activities with a repeat fill a new profile's Today (owner: "less to set up"). */
+  readonly recurrence?: 'daily' | 'weekdays' | 'weekends';
+  /** HH:MM, optional; orders the starter plan and picks its part of day. */
+  readonly recurrence_time?: string;
 }
 
 export const DEFAULT_ACTIVITIES: readonly DefaultItem[] = [
-  { name: 'Wake Up', emoji: '🛏️' },
-  { name: 'Breakfast', emoji: '🍳' },
-  { name: 'Get Dressed', emoji: '👕' },
-  { name: 'Brush Teeth', emoji: '🪥' },
-  { name: 'Go to School', emoji: '🚌' },
+  { name: 'Wake Up', emoji: '🛏️', recurrence: 'daily', recurrence_time: '07:00' },
+  { name: 'Breakfast', emoji: '🍳', recurrence: 'daily', recurrence_time: '07:30' },
+  { name: 'Get Dressed', emoji: '👕', recurrence: 'daily', recurrence_time: '08:00' },
+  { name: 'Brush Teeth', emoji: '🪥', recurrence: 'daily', recurrence_time: '08:15' },
+  { name: 'Go to School', emoji: '🚌', recurrence: 'weekdays', recurrence_time: '08:30' },
   { name: 'School Time', emoji: '🏫' },
   { name: 'Snack Time', emoji: '🍎' },
-  { name: 'Lunch', emoji: '🍱' },
+  { name: 'Lunch', emoji: '🍱', recurrence: 'daily', recurrence_time: '12:00' },
   { name: 'Recess/Play', emoji: '⚽' },
-  { name: 'Go Home', emoji: '🏠' },
-  { name: 'Homework', emoji: '📝' },
+  { name: 'Go Home', emoji: '🏠', recurrence: 'weekdays', recurrence_time: '15:00' },
+  { name: 'Homework', emoji: '📝', recurrence: 'weekdays', recurrence_time: '16:00' },
   { name: 'iPad Time', emoji: '📱' },
-  { name: 'Dinner', emoji: '🍽️' },
-  { name: 'Bath Time', emoji: '🛁' },
-  { name: 'Bedtime Story', emoji: '📖' },
-  { name: 'Sleep', emoji: '😴' },
+  { name: 'Dinner', emoji: '🍽️', recurrence: 'daily', recurrence_time: '18:00' },
+  { name: 'Bath Time', emoji: '🛁', recurrence: 'daily', recurrence_time: '19:00' },
+  { name: 'Bedtime Story', emoji: '📖', recurrence: 'daily', recurrence_time: '19:30' },
+  { name: 'Sleep', emoji: '😴', recurrence: 'daily', recurrence_time: '20:00' },
   { name: 'Doctor Visit', emoji: '💊' },
   { name: 'Dentist', emoji: '🦷' },
   { name: 'Therapy', emoji: '🧩' },
