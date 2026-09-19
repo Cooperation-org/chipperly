@@ -356,7 +356,16 @@ export function TodayScreen() {
                         <Picture emoji={day.activity.emoji} photo_id={day.activity.photo_id} name={day.activity.name} size="list" />
                       }
                       name={day.activity.name}
-                      secondary={secondaryText(day)}
+                      secondary={
+                        day.item.story_id ? (
+                          <span className={styles.secondaryWithStory}>
+                            {secondaryText(day)}
+                            <Icon name="book" size={16} title="Has a story" />
+                          </span>
+                        ) : (
+                          secondaryText(day)
+                        )
+                      }
                       dimmed={dimmed}
                       onTap={() => openItem(day)}
                       trailing={

@@ -200,7 +200,7 @@ Top to bottom:
 
 - Date row: previous, date, next, and a "Today" jump that appears only when not on today. Tapping the date opens the platform date input. No month grid.
 - Chip strip: filled and empty chips for the current location, the working-for reward picture and name. Tap goes to Chips. Hidden when no reward and no chips.
-- The list. Each row: drag handle (left), picture tile, name, small secondary text (time, or step count, or a therapist's name if in the activity name), check circle (right, at least 48px). Rows with steps have a chevron; tapping it expands the steps inline, each with its own check circle. Checking every step checks the parent. Checking the parent with steps asks nothing; it checks all steps. A step can itself be broken into sub-steps (S9, S36); the expanded list shows level 1 always, with any deeper level collapsed behind its own step's chevron until tapped.
+- The list. Each row: drag handle (left), picture tile, name, small secondary text (time, or step count, or a therapist's name if in the activity name), check circle (right, at least 48px). A row with a story attached (S7) gets a small book mark next to the secondary text. Rows with steps have a chevron; tapping it expands the steps inline, each with its own check circle. Checking every step checks the parent. Checking the parent with steps asks nothing; it checks all steps. A step can itself be broken into sub-steps (S9, S36); the expanded list shows level 1 always, with any deeper level collapsed behind its own step's chevron until tapped.
 - Completed rows stay in place, dimmed, with a filled check. They do not move to the bottom.
 - Add button, bottom right, above the tab bar. Opens S8 for activities.
 
@@ -224,6 +224,7 @@ Opens from a row tap.
 - Steps, if any, listed with check circles as a tree: level 1 always shown, anything nested under a step collapsed behind that step's own chevron until tapped. A step with a duration also shows "N min" and a small Start timer button that starts the timer and opens S14. A step with sub-steps also gets a small Open button ("Open [step] as visual schedule") for just that step's own list (S36).
 - An "Open as visual schedule" button under the steps, when the activity has any (S36, the full tree).
 - Chips: "Earns 2 chips" if chip value > 0.
+- Story row: the attached social story's picture and title, or "Attach a story" (the owner's dentist-visit example). Tapping opens a picker sheet over this one, listing the profile's stories plus a Create new tile and, once one is attached, a Remove story action. Picking or removing returns to this sheet.
 - Buttons: Done (checks it and closes), Remove from today. For a recurring item, Remove asks "Just today" or "Every day" in place, not in a new dialog.
 - Quiet link: Edit activity (goes to S9).
 
@@ -414,6 +415,7 @@ Sheet from the ⟳ mark. "Up to date, 2 minutes ago" or "3 changes waiting" or "
 - Rows are tall (at least 72px), picture at least 56px, check circle at least 64px. Steps show expanded by default under their parent, the whole tree at once, no collapsing; the caregiver can hide them entirely in S23 if that is too much. A row with steps also gets a "Steps" button, behind the "Let [name] open a step list" toggle (S23, default on), opening that item's tree as S36, still locked.
 - Check: fills, chip sound if it earns a chip, the chip strip updates. Then, if enabled, the attitude prompt appears inline under the row: "How did it go?" with two large tiles, a smiling face and a grumpy face, and no text beyond the labels. Tap either, or ignore it; it fades after ten seconds.
 - A step with a duration shows "N min" and, only when the caregiver's "Let the child start step timers" toggle (S23) is on, a Start timer button that starts the timer full screen (S14, SOW Q6, decided).
+- A row whose item has a story attached (set from S7) gets one more 64px button under the row name: book icon, "Read story". It opens the story full screen (S17), same viewer as the caregiver's, and Close returns to this row. The child never edits the story or picks which one is attached.
 - All done: the list ends with a large "All done!" picture. The screen does not change otherwise.
 - Bottom: a Free time button if enabled (opens S11) and the timer pill if a timer is running (opens S14). First-Then, if enabled, is a third button. Chipper Chart, if enabled (default on), is a fourth button opening S35 as a sheet reduced to bar, face, and minus/plus only.
 - Screen stays awake while a timer runs.
