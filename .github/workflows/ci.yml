@@ -37,6 +37,9 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # apps/api/test/pipeline.test.ts transcodes a clip; the runner image has no ffmpeg.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm typecheck
@@ -46,3 +49,52 @@ jobs:
       - run: pnpm test
 
       - run: pnpm build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-out
+          path: apps/web/out
+          retention-days: 1
+
+  e2e:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [phone, tablet, desktop]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm -F @chipperly/shared build
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-out
+          path: apps/web/out
+
+      # e2e/server.mjs runs the API through tsx and boots an embedded Postgres itself.
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - run: pnpm e2e --project=${{ matrix.project }}
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-${{ matrix.project }}
+          path: |
+            e2e/report
+            e2e/test-results
+          retention-days: 7

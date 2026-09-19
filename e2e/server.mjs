@@ -72,10 +72,10 @@ function run(args, label) {
 }
 
 console.log('e2e: running migrations against chipperly_e2e...');
-await run(['--env-file=.env', '--import', 'tsx', 'src/db/migrate.ts'], 'db:migrate');
+await run(['--env-file-if-exists=.env', '--import', 'tsx', 'src/db/migrate.ts'], 'db:migrate');
 
 console.log('e2e: starting API on http://127.0.0.1:8123 ...');
-const server = spawn(process.execPath, ['--env-file=.env', '--import', 'tsx', 'src/server.ts'], {
+const server = spawn(process.execPath, ['--env-file-if-exists=.env', '--import', 'tsx', 'src/server.ts'], {
   cwd: apiDir,
   env,
   stdio: 'inherit',
