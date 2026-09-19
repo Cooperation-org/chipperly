@@ -126,6 +126,20 @@ export function chipTones(
   return units.slice(-filled);
 }
 
+/**
+ * Pure: total chips earned (positive-delta entries only, so a redeem or a
+ * manual subtract never counts as "earned") across every location, on the
+ * given local day. Chips tab "by day" view.
+ */
+export function chipsEarnedOn(
+  rows: readonly Pick<ChipLedger, 'delta' | 'deleted_at' | 'created_at'>[],
+  isoDate: string,
+): number {
+  return rows
+    .filter((row) => row.deleted_at === null && row.delta > 0 && todayIso(new Date(row.created_at)) === isoDate)
+    .reduce((sum, row) => sum + row.delta, 0);
+}
+
 export interface WorkingFor {
   reward: Reward | null;
   goal: number;
