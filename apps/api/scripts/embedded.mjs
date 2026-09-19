@@ -1,6 +1,6 @@
 // Reusable embedded-postgres helper, shared by scripts/dev-db.mjs and test/globalSetup.ts.
 import EmbeddedPostgres from 'embedded-postgres';
-import { existsSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +30,18 @@ function getServer() {
   return server;
 }
 
+// Postgres keeps parallel-query segments in /dev/shm by default. When the cluster runs as an
+// ordinary user (a demo VM under systemd), logind's RemoveIPC deletes those segments the moment
+// that user's last shell logs out, and every query with a parallel worker then fails with
+// "could not open shared memory segment". mmap keeps the segments as files under the data dir.
+function ensureMmapDynamicShm() {
+  const conf = path.join(DATA_DIR, 'postgresql.conf');
+  if (!existsSync(conf)) return;
+  const text = readFileSync(conf, 'utf8');
+  if (/^\s*dynamic_shared_memory_type\s*=\s*mmap/m.test(text)) return;
+  appendFileSync(conf, '\n# chipperly: survive logind RemoveIPC when running as a normal user\ndynamic_shared_memory_type = mmap\n');
+}
+
 /** Initialises the data dir if missing, starts the cluster (idempotent), returns the running server. */
 export async function ensureServer() {
   const instance = getServer();
@@ -37,6 +49,7 @@ export async function ensureServer() {
     if (!existsSync(path.join(DATA_DIR, 'PG_VERSION'))) {
       await instance.initialise();
     }
+    ensureMmapDynamicShm();
     started = instance.start();
   }
   await started;
