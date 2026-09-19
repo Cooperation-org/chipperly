@@ -59,11 +59,11 @@ jobs:
   e2e:
     needs: ci
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        project: [phone, tablet, desktop]
+        project: [phone, tablet, desktop, ipad-webkit]
     steps:
       - uses: actions/checkout@v4
 
@@ -86,7 +86,8 @@ jobs:
           path: apps/web/out
 
       # e2e/server.mjs runs the API through tsx and boots an embedded Postgres itself.
-      - run: pnpm exec playwright install --with-deps chromium
+      # ipad-webkit is the client's own device shape; the rest run on Chromium.
+      - run: pnpm exec playwright install --with-deps ${{ matrix.project == 'ipad-webkit' && 'webkit' || 'chromium' }}
 
       - run: pnpm e2e --project=${{ matrix.project }}
 
