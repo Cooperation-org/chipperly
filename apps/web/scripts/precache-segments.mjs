@@ -11,7 +11,6 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 const out = path.resolve(process.argv[2] ?? 'out');
-const prefix = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 async function walk(dir, acc) {
   for (const e of await fs.readdir(dir, { withFileTypes: true })) {
@@ -25,6 +24,22 @@ async function walk(dir, acc) {
   return acc;
 }
 
+const swPath = path.join(out, 'sw.js');
+const sw = await fs.readFile(swPath, 'utf8');
+const marker = '],precacheOptions:';
+
+// The base path comes from the manifest Serwist already wrote, not from the
+// environment: NEXT_PUBLIC_BASE_PATH lives in .env.production, which `next`
+// loads and a plain node script does not, so reading it here would silently
+// drop the prefix on a subdirectory deploy and 404 every entry (which fails
+// the whole precache install). An asset url always carries it.
+const prefixMatch = sw.match(/'url':'([^']*)\/_next\/static\//);
+if (!sw.includes(marker) || !prefixMatch) {
+  console.error(`precache-segments: sw.js is not the shape we patch (marker ${sw.includes(marker) ? 'found' : 'missing'}, prefix ${prefixMatch ? 'found' : 'missing'})`);
+  process.exit(1);
+}
+const prefix = prefixMatch[1];
+
 const files = await walk(out, []);
 const entries = await Promise.all(
   files.map(async (file) => {
@@ -33,13 +48,9 @@ const entries = await Promise.all(
     return `{'revision':'${revision}','url':'${url}'}`;
   }),
 );
-
-const swPath = path.join(out, 'sw.js');
-const sw = await fs.readFile(swPath, 'utf8');
-const marker = '],precacheOptions:';
-if (!sw.includes(marker) || entries.length === 0) {
-  console.error(`precache-segments: nothing injected (marker ${sw.includes(marker) ? 'found' : 'missing'}, ${entries.length} files)`);
+if (entries.length === 0) {
+  console.error('precache-segments: no .txt files found in the export');
   process.exit(1);
 }
 await fs.writeFile(swPath, sw.replace(marker, `,${entries.join(',')}${marker}`));
-console.log(`precache-segments: added ${entries.length} RSC files to ${path.relative(process.cwd(), swPath)}`);
+console.log(`precache-segments: added ${entries.length} RSC files under '${prefix || '/'}' to ${path.relative(process.cwd(), swPath)}`);
