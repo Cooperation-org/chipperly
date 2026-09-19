@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import type { AccountMembersResponse } from '@chipperly/shared/schemas/account';
+import { InviteIssuedSchema, type AccountMembersResponse, type InviteIssued } from '@chipperly/shared/schemas/account';
 import { Picture } from '@/components/media/Picture';
 import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
@@ -63,8 +63,16 @@ export function CareTeamScreen() {
   }
 
   async function resendInvite(inviteId: string): Promise<void> {
-    await api.post(`/accounts/${accountId}/invites/${inviteId}/resend`);
-    toast('Invite resent');
+    const issued = await api.post<InviteIssued>(`/accounts/${accountId}/invites/${inviteId}/resend`, undefined, {
+      schema: InviteIssuedSchema,
+    });
+    if (issued.email_sent) {
+      toast('Invite resent');
+      return;
+    }
+    // No mail provider on this server: the link is the only way in, so put it on the clipboard.
+    await navigator.clipboard?.writeText(issued.invite_url);
+    toast("Email isn't set up here. Link copied, send it to them yourself.");
     refetch();
   }
 

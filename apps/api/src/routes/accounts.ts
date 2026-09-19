@@ -68,18 +68,20 @@ function toInvitePublic(row: typeof invites.$inferSelect): InvitePublic {
   return rest;
 }
 
+/** Mails the accept link and returns it, so the caller can also hand it to the admin (InviteIssuedSchema). */
 async function sendInviteEmail(params: {
   to: string;
   rawToken: string;
   accountName: string;
   inviterName: string;
-}): Promise<void> {
+}): Promise<string> {
   const link = `${env.APP_ORIGIN ?? ''}${env.BASE_PATH}/invite/?token=${params.rawToken}`;
   await sendMail({
     to: params.to,
     subject: `${params.inviterName} invited you to ${params.accountName} on Chipperly`,
     text: `${params.inviterName} invited you to join ${params.accountName} on Chipperly.\n\nAccept the invite: ${link}\n\nThis link expires in 7 days.`,
   });
+  return link;
 }
 
 export default async function accountsRoutes(app: FastifyInstance): Promise<void> {
@@ -194,7 +196,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       })
       .returning();
 
-    await sendInviteEmail({
+    const inviteUrl = await sendInviteEmail({
       to: invite!.email,
       rawToken,
       accountName: account.name,
@@ -202,7 +204,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     });
 
     reply.code(201);
-    return toInvitePublic(invite!);
+    return { ...toInvitePublic(invite!), invite_url: inviteUrl, email_sent: env.mailEnabled };
   });
 
   app.post('/accounts/:id/invites/:inviteId/resend', { preHandler: requireUser }, async (request) => {
@@ -228,14 +230,14 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       .where(eq(invites.id, inviteId))
       .returning();
 
-    await sendInviteEmail({
+    const inviteUrl = await sendInviteEmail({
       to: invite!.email,
       rawToken,
       accountName: account?.name ?? '',
       inviterName: inviter?.display_name ?? 'A caregiver',
     });
 
-    return toInvitePublic(invite!);
+    return { ...toInvitePublic(invite!), invite_url: inviteUrl, email_sent: env.mailEnabled };
   });
 
   app.delete('/accounts/:id/invites/:inviteId', { preHandler: requireUser }, async (request) => {

@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { InviteIssuedSchema, type InviteIssued } from '@chipperly/shared/schemas/account';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { Picture } from '@/components/media/Picture';
 import { BigButton } from '@/components/ui/BigButton';
+import { Button } from '@/components/ui/Button';
 import { CheckCircle } from '@/components/ui/CheckCircle';
 import { ListRow } from '@/components/ui/ListRow';
 import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
+import { toast } from '@/lib/toast';
 import styles from './InviteSheet.module.css';
 
 export interface InviteSheetProps {
@@ -34,7 +37,11 @@ function useOnline(): boolean {
   return online;
 }
 
-/** S27: invite a caregiver by email. No offline queue in v1 (this task's brief). */
+/**
+ * S27: invite a caregiver by email, then show the accept link so the admin
+ * can also send it by text (or must, when the server has no mail provider).
+ * No offline queue in v1 (this task's brief).
+ */
 export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
   const { close } = useSheet();
   const online = useOnline();
@@ -46,6 +53,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
   const [relationship, setRelationship] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [sending, setSending] = useState(false);
+  const [issued, setIssued] = useState<InviteIssued | null>(null);
 
   function toggleProfile(id: string): void {
     setProfileIds((cur) => {
@@ -64,19 +72,50 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
     }
     setSending(true);
     try {
-      await api.post(`/accounts/${accountId}/invites`, {
-        email: email.trim(),
-        role,
-        profile_ids: role === 'member' ? Array.from(profileIds) : profiles.map((p) => p.id),
-        relationship_label: relationship.trim() || null,
-      });
+      const result = await api.post<InviteIssued>(
+        `/accounts/${accountId}/invites`,
+        {
+          email: email.trim(),
+          role,
+          profile_ids: role === 'member' ? Array.from(profileIds) : profiles.map((p) => p.id),
+          relationship_label: relationship.trim() || null,
+        },
+        { schema: InviteIssuedSchema },
+      );
       onSent();
-      close();
+      setIssued(result);
     } catch (err) {
       setError(err instanceof ApiError ? "Couldn't send the invite. Check the email address and try again." : "Couldn't send the invite. Try again.");
     } finally {
       setSending(false);
     }
+  }
+
+  if (issued) {
+    return (
+      <div className={styles.sheet}>
+        <p className={styles.sent}>
+          {issued.email_sent
+            ? `Invite sent to ${issued.email}. If it doesn't arrive, send them this link instead.`
+            : `Email isn't set up on this server, so send ${issued.email} this link yourself. It works for 7 days.`}
+        </p>
+        <input className={styles.linkField} readOnly value={issued.invite_url} onFocus={(e) => e.target.select()} aria-label="Invite link" />
+        <div className={styles.actions}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void navigator.clipboard?.writeText(issued.invite_url);
+              toast('Copied');
+            }}
+          >
+            Copy link
+          </Button>
+          <BigButton fullWidth onClick={close}>
+            Done
+          </BigButton>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -58,6 +58,18 @@ export type Invite = z.infer<typeof InviteSchema>;
 export const InvitePublicSchema = InviteSchema.omit({ token_hash: true });
 export type InvitePublic = z.infer<typeof InvitePublicSchema>;
 
+/**
+ * What creating or resending an invite returns: the public row plus the
+ * one-time accept link, so the admin can hand it over by text or in person.
+ * `email_sent` is false when the server has no mail provider configured
+ * (RESEND_API_KEY unset), in which case the link is the only way in.
+ */
+export const InviteIssuedSchema = InvitePublicSchema.extend({
+  invite_url: z.string().min(1),
+  email_sent: z.boolean(),
+});
+export type InviteIssued = z.infer<typeof InviteIssuedSchema>;
+
 /** Public info shown at S33 (accept invite) before the visitor signs in. */
 export const InviteDetailsSchema = z.object({
   account_name: z.string(),

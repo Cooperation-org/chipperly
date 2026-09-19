@@ -135,7 +135,7 @@ plugins/errors.ts      error -> { error: { code, message } } ; zod errors -> 400
 routes/health.ts       GET /health
 routes/auth.ts         /auth/*
 routes/me.ts           GET /me, GET /me/export, PATCH /me/pin, POST /me/lock, POST /me/unlock
-routes/accounts.ts     /accounts/*, /invites/:token/accept
+routes/accounts.ts     /accounts/*, /invites/:token/accept (create/resend return InviteIssued: public row + invite_url + email_sent)
 routes/sync.ts         /sync/pull, /sync/push
 routes/media.ts        /media
 routes/share.ts        /share/:token

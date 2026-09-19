@@ -203,6 +203,9 @@ test.describe('settings', () => {
       // which keeps the accept flow below simple (no profile picking).
       await sheet.getByRole('radiogroup', { name: 'Role' }).getByRole('radio', { name: 'Admin' }).click();
       await sheet.getByRole('button', { name: 'Send', exact: true }).click();
+      // The sheet stays open with the accept link so it can be shared by hand.
+      await expect(sheet.getByLabel('Invite link')).toHaveValue(/token=/);
+      await sheet.getByRole('button', { name: 'Done', exact: true }).click();
       await expect(sheet).toBeHidden();
       await expect(page.getByText(inviteEmail)).toBeVisible();
 
