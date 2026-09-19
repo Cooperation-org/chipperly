@@ -135,10 +135,16 @@ test.describe('a11y and layout', () => {
     const tabBarBox = await tabBar.boundingBox();
     if (!tabBarBox) return;
     // The starter plan's 9-12 rows no longer fit in one viewport (unlike the
-    // single row this test used to add), so scroll the last one into view
-    // before checking it clears the fixed tab bar; the page's own
-    // padding-bottom (CaregiverShell.module.css) is what should keep it clear.
-    await rows.last().scrollIntoViewIfNeeded();
+    // single row this test used to add), so scroll to the very bottom before
+    // checking the last row clears the fixed tab bar: the page's own
+    // padding-bottom (CaregiverShell.module.css) is what should keep it
+    // clear there. scrollIntoViewIfNeeded is not enough — it stops as soon
+    // as the row is partly visible, which can be under the bar.
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForFunction(() => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      return max <= 0 || Math.abs(window.scrollY - max) < 2;
+    });
     const lastRowBox = await rows.last().boundingBox();
     expect(lastRowBox).not.toBeNull();
     if (!lastRowBox) return;
