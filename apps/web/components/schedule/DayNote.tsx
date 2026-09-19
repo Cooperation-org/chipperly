@@ -23,8 +23,8 @@ export function DayNote({ profileId, isoDate, childName }: DayNoteProps) {
   const dayName = isoDate === todayIso() ? 'today' : weekdayName(isoDate);
 
   function edit(): void {
-    open(<DayNoteSheet profileId={profileId} isoDate={isoDate} childName={childName} initialNote={note?.note ?? ''} />, {
-      title: `Note for ${dayName}`,
+    open(<DayNoteSheet profileId={profileId} isoDate={isoDate} childName={childName} dayName={dayName} initialNote={note?.note ?? ''} />, {
+      title: `Note for ${childName}`,
     });
   }
 

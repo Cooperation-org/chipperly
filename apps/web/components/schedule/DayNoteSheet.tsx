@@ -11,11 +11,13 @@ export interface DayNoteSheetProps {
   profileId: string;
   isoDate: string;
   childName: string;
+  /** "today" or a weekday name: Today can be on any date, so the sheet has to say which. */
+  dayName: string;
   initialNote: string;
 }
 
 /** The small sheet DayNote opens to write or edit one day's caregiver note. */
-export function DayNoteSheet({ profileId, isoDate, childName, initialNote }: DayNoteSheetProps) {
+export function DayNoteSheet({ profileId, isoDate, childName, dayName, initialNote }: DayNoteSheetProps) {
   const { close } = useSheet();
   const [note, setNote] = useState(initialNote);
   const id = useId();
@@ -27,7 +29,7 @@ export function DayNoteSheet({ profileId, isoDate, childName, initialNote }: Day
 
   return (
     <div className={styles.sheet}>
-      <Field label={`Note for ${childName}`} htmlFor={id}>
+      <Field label={`Note for ${childName}, ${dayName}`} htmlFor={id}>
         <textarea
           id={id}
           className={styles.textarea}

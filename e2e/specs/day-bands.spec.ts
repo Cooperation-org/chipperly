@@ -30,20 +30,24 @@ test.describe('day bands', () => {
     await page.getByRole('button', { name: 'Add a note for today', exact: true }).click();
     const todaySheet = page.getByRole('dialog', { name: 'Note for Benny' });
     await expect(todaySheet).toBeVisible();
-    await todaySheet.getByLabel('Note for Benny', { exact: true }).fill('Grandma is visiting after school.');
+    await todaySheet.getByLabel('Note for Benny, today', { exact: true }).fill('Grandma is visiting after school.');
     await todaySheet.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(todaySheet).toBeHidden();
 
     await expect(page.getByText('Grandma is visiting after school.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Edit note for Benny', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Edit note for Benny, today', exact: true })).toBeVisible();
     await expectNoOverflow(page, 'S6 today with a note');
     await snap(page, 's6-today-note');
 
     await page.getByRole('button', { name: 'Next day', exact: true }).click();
-    await page.getByRole('button', { name: 'Add a note for today', exact: true }).click();
+    // Off today, every label names the day being written for, so a note is
+    // never written to the wrong date believing it is today's.
+    const addTomorrow = page.getByRole('button', { name: /^Add a note for (?!today)/ });
+    await expect(addTomorrow).toBeVisible();
+    await addTomorrow.click();
     const tomorrowSheet = page.getByRole('dialog', { name: 'Note for Benny' });
     await expect(tomorrowSheet).toBeVisible();
-    await tomorrowSheet.getByLabel('Note for Benny', { exact: true }).fill('Swim class starts at 4.');
+    await tomorrowSheet.getByLabel(/^Note for Benny, (?!today)/).fill('Swim class starts at 4.');
     await tomorrowSheet.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(tomorrowSheet).toBeHidden();
     await expect(page.getByText('Swim class starts at 4.')).toBeVisible();
