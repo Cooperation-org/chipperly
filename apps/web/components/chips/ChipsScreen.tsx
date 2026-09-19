@@ -7,6 +7,7 @@ import { COST_MAX } from '@chipperly/shared/constants/limits';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useLocations, useActiveLocation, saveLocation } from '@/lib/data/locations';
 import { useWorkingFor, setWorkingFor, addChip, redeem, useBalance, useLedger, chipTones } from '@/lib/data/chips';
+import { useKv, setKv } from '@/lib/db/kv';
 import { toast } from '@/lib/toast';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
@@ -20,7 +21,21 @@ import { Celebration } from '@/components/ui/Celebration';
 import { VisuallyHidden } from '@/components/ui/VisuallyHidden';
 import { useSheet } from '@/components/ui/Sheet';
 import { FreeTimeSheet } from './FreeTimeSheet';
+import { RoutineGoals } from './RoutineGoals';
+import { DayGoal } from './DayGoal';
 import styles from './ChipsScreen.module.css';
+
+type ChipsView = 'place' | 'routine' | 'day';
+
+const VIEW_ITEMS = [
+  { value: 'place', label: 'Place' },
+  { value: 'routine', label: 'Routine' },
+  { value: 'day', label: 'Day' },
+];
+
+function chipsViewKey(profileId: string): string {
+  return `chips_view:${profileId}`;
+}
 
 function GoalStepper({ location, onSave }: { location: Location; onSave: (goal: number) => void }) {
   const [value, setValue] = useState(location.chip_goal);
@@ -46,6 +61,7 @@ export function ChipsScreen() {
   const sheet = useSheet();
   const { profile } = useActiveProfile();
   const profileId = profile?.id ?? '';
+  const view = useKv<ChipsView>(chipsViewKey(profileId), 'place');
   const locations = useLocations(profileId);
   const { location, setActiveLocationId } = useActiveLocation(profileId);
   const locationId = location?.id ?? null;
@@ -135,70 +151,79 @@ export function ChipsScreen() {
 
   return (
     <div className={styles.screen}>
-      {locations.length > 0 ? (
-        <Segmented
-          label="Location"
-          items={locations.map((loc) => ({ value: loc.id, label: loc.name }))}
-          value={locationId ?? ''}
-          onChange={setActiveLocationId}
-        />
-      ) : null}
+      <Segmented label="View" items={VIEW_ITEMS} value={view} onChange={(v) => void setKv(chipsViewKey(profileId), v as ChipsView)} />
 
-      <button type="button" className={styles.workingFor} onClick={openRewardPicker}>
-        <span className={styles.workingForLabel}>Working for</span>
-        {working.reward ? (
-          <span className={styles.workingForRow}>
-            <Picture emoji={working.reward.emoji} photo_id={working.reward.photo_id} name={working.reward.name} size="grid" />
-            <span className={styles.workingForText}>
-              <span className={styles.workingForName}>{working.reward.name}</span>
-              <span className={styles.workingForCount}>
-                {working.filled} of {working.goal} chips
+      {view === 'routine' ? <RoutineGoals profileId={profileId} /> : null}
+      {view === 'day' ? <DayGoal profile={profile} /> : null}
+
+      {view === 'place' ? (
+        <>
+          {locations.length > 0 ? (
+            <Segmented
+              label="Location"
+              items={locations.map((loc) => ({ value: loc.id, label: loc.name }))}
+              value={locationId ?? ''}
+              onChange={setActiveLocationId}
+            />
+          ) : null}
+
+          <button type="button" className={styles.workingFor} onClick={openRewardPicker}>
+            <span className={styles.workingForLabel}>Working for</span>
+            {working.reward ? (
+              <span className={styles.workingForRow}>
+                <Picture emoji={working.reward.emoji} photo_id={working.reward.photo_id} name={working.reward.name} size="grid" />
+                <span className={styles.workingForText}>
+                  <span className={styles.workingForName}>{working.reward.name}</span>
+                  <span className={styles.workingForCount}>
+                    {working.filled} of {working.goal} chips
+                  </span>
+                </span>
               </span>
-            </span>
-          </span>
-        ) : (
-          <span className={styles.choose}>Choose a reward</span>
-        )}
-      </button>
+            ) : (
+              <span className={styles.choose}>Choose a reward</span>
+            )}
+          </button>
 
-      <div className={styles.boardWrap}>
-        <ChipBoard filled={working.filled} total={working.goal} tones={tones} />
-        {celebrating ? (
-          <div className={styles.celebrationWrap}>
-            <Celebration kind="redeem" onDone={() => setCelebrating(false)} />
+          <div className={styles.boardWrap}>
+            <ChipBoard filled={working.filled} total={working.goal} tones={tones} />
+            {celebrating ? (
+              <div className={styles.celebrationWrap}>
+                <Celebration kind="redeem" onDone={() => setCelebrating(false)} />
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
 
-      {!working.reward ? (
-        <Button variant="ghost" onClick={openGoalSheet}>
-          Goal: {working.goal}
-        </Button>
+          {!working.reward ? (
+            <Button variant="ghost" onClick={openGoalSheet}>
+              Goal: {working.goal}
+            </Button>
+          ) : null}
+
+          <div className={styles.actions}>
+            <BigButton variant="primary" onClick={handleRemoveChip} disabled={balance <= 0}>
+              <VisuallyHidden>Remove chip</VisuallyHidden>−
+            </BigButton>
+            {canRedeem && working.reward ? (
+              <BigButton variant="accent" onClick={handleRedeem}>
+                Redeem {working.reward.emoji ?? '🎁'}
+              </BigButton>
+            ) : (
+              <BigButton variant="primary" onClick={handleAddChip}>
+                <VisuallyHidden>Add chip</VisuallyHidden>+
+              </BigButton>
+            )}
+          </div>
+
+          <div className={styles.links}>
+            <Button variant="secondary" onClick={openFreeTimeSheet}>
+              Free time choices
+            </Button>
+            <Button variant="secondary" onClick={() => router.push('/chips/history/')}>
+              History
+            </Button>
+          </div>
+        </>
       ) : null}
-
-      <div className={styles.actions}>
-        <BigButton variant="primary" onClick={handleRemoveChip} disabled={balance <= 0}>
-          <VisuallyHidden>Remove chip</VisuallyHidden>−
-        </BigButton>
-        {canRedeem && working.reward ? (
-          <BigButton variant="accent" onClick={handleRedeem}>
-            Redeem {working.reward.emoji ?? '🎁'}
-          </BigButton>
-        ) : (
-          <BigButton variant="primary" onClick={handleAddChip}>
-            <VisuallyHidden>Add chip</VisuallyHidden>+
-          </BigButton>
-        )}
-      </div>
-
-      <div className={styles.links}>
-        <Button variant="secondary" onClick={openFreeTimeSheet}>
-          Free time choices
-        </Button>
-        <Button variant="secondary" onClick={() => router.push('/chips/history/')}>
-          History
-        </Button>
-      </div>
     </div>
   );
 }

@@ -60,6 +60,9 @@ export interface SaveActivityInput {
   recurrence_weekdays: number[] | null;
   recurrence_time: string | null;
   steps: SaveActivityStepInput[];
+  /** Routine goal and its reward (owner's doc, My Day 9), shown in the Chips tab's "by routine" view. */
+  goal_text: string | null;
+  goal_reward_id: string | null;
 }
 
 /**
@@ -89,6 +92,8 @@ export async function saveActivity(input: SaveActivityInput): Promise<string> {
     recurrence_weekdays: input.recurrence_weekdays,
     recurrence_time: input.recurrence_time,
     position,
+    goal_text: input.goal_text,
+    goal_reward_id: input.goal_reward_id,
   } satisfies Activity);
 
   const existingSteps = await db.activity_steps.where('activity_id').equals(id).toArray();

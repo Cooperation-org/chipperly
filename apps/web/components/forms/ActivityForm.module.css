@@ -52,6 +52,32 @@
   color: var(--color-primary-ink);
 }
 
+.goalRewardRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.goalRewardPick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.goalRewardPick:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .steps {
   display: flex;
   flex-direction: column;

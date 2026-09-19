@@ -22,6 +22,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
+import { Field } from '@/components/ui/Field';
 import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -39,7 +40,7 @@ const REPEAT_ITEMS = [
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-type FieldKey = 'name' | 'picture' | 'chips' | 'where' | 'repeat' | 'steps';
+type FieldKey = 'name' | 'picture' | 'chips' | 'where' | 'repeat' | 'goal' | 'steps';
 
 /** Every draft step always has its own `id`, minted client-side at creation, so a
  * sub-step can reference it as `parent_step_id` right away (see SaveActivityStepInput). */
@@ -159,6 +160,10 @@ export function ActivityForm() {
   const [repeat, setRepeat] = useState<'none' | Recurrence>('none');
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [recurrenceTime, setRecurrenceTime] = useState<string | null>(null);
+  // Routine goal ("get to camp on time") and its reward (owner's doc, My Day 9).
+  const [goalText, setGoalText] = useState('');
+  const [goalRewardId, setGoalRewardId] = useState<string | null>(null);
+  const goalReward = useLiveQuery(() => (goalRewardId ? db.rewards.get(goalRewardId) : undefined), [goalRewardId]);
   // New routine flow (?routine=1, no id yet): start with one empty step row, Steps expanded, ready to type into.
   const [steps, setSteps] = useState<DraftStep[]>(() => (routineParam && !editingId ? [newDraftStep(null)] : []));
   const [openField, setOpenField] = useState<FieldKey | null>(editingId ? null : routineParam ? 'steps' : 'name');
@@ -185,6 +190,8 @@ export function ActivityForm() {
     setRepeat(activity.recurrence ?? 'none');
     setWeekdays(activity.recurrence_weekdays ?? []);
     setRecurrenceTime(activity.recurrence_time);
+    setGoalText(activity.goal_text ?? '');
+    setGoalRewardId(activity.goal_reward_id ?? null);
     const liveSteps = rawSteps.filter((s) => s.deleted_at === null);
     setSteps(toDraftSteps(liveSteps));
     setOpenField(liveSteps.length > 0 ? 'steps' : null);
@@ -264,6 +271,25 @@ export function ActivityForm() {
     );
   }
 
+  /** Opens the reward picker for the routine goal, same "Working for" pattern as S10/S15.
+   * ponytail: onCreateNew has nowhere sensible to send you mid-draft (same as openFromActivity
+   * above); closing back to the form is the safe default. */
+  function openGoalRewardPicker(): void {
+    open(
+      <Picker
+        kind="reward"
+        profileId={profileId}
+        title="Reward for this goal"
+        onPick={(item) => {
+          setGoalRewardId(item.id);
+          close();
+        }}
+        onCreateNew={close}
+      />,
+      { title: 'Reward for this goal' },
+    );
+  }
+
   /** Removes `steps[index]` and every sub-step under it (S9 "removing a step removes its sub-steps");
    * undo restores the whole removed block, sub-steps included, at the same position. */
   function removeStep(index: number): void {
@@ -302,6 +328,8 @@ export function ActivityForm() {
         recurrence: repeat === 'none' ? null : repeat,
         recurrence_weekdays: repeat === 'weekly' ? weekdays : null,
         recurrence_time: repeat === 'none' ? null : recurrenceTime,
+        goal_text: goalText.trim() || null,
+        goal_reward_id: goalRewardId,
         steps: (() => {
           const drop = blankSubtreeIds(steps);
           return steps
@@ -411,6 +439,37 @@ export function ActivityForm() {
         {repeat !== 'none' ? (
           <TextField label="Time" type="time" value={recurrenceTime ?? ''} onChange={(e) => setRecurrenceTime(e.target.value || null)} />
         ) : null}
+      </FormRow>
+
+      <FormRow
+        label="Goal"
+        summary={goalText || goalReward?.name || 'None'}
+        open={openField === 'goal'}
+        onToggle={() => toggle('goal')}
+      >
+        <TextField
+          label="Goal (optional)"
+          placeholder="Get to camp on time"
+          value={goalText}
+          onChange={(e) => setGoalText(e.target.value)}
+        />
+        <Field label="Reward for this goal">
+          {goalReward ? (
+            <div className={styles.goalRewardRow}>
+              <button type="button" className={styles.goalRewardPick} onClick={openGoalRewardPicker}>
+                <Picture emoji={goalReward.emoji} photo_id={goalReward.photo_id} name={goalReward.name} size="list" />
+                <span>{goalReward.name}</span>
+              </button>
+              <Button variant="ghost" onClick={() => setGoalRewardId(null)}>
+                Clear
+              </Button>
+            </div>
+          ) : (
+            <Button variant="secondary" onClick={openGoalRewardPicker}>
+              Choose a reward
+            </Button>
+          )}
+        </Field>
       </FormRow>
 
       <FormRow label="Steps" summary={steps.length > 0 ? `${steps.length} step${steps.length === 1 ? '' : 's'}` : 'None'} open={openField === 'steps'} onToggle={() => toggle('steps')}>

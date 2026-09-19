@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { Location } from '@chipperly/shared/schemas/location';
 import type { ChipLedger } from '@chipperly/shared/schemas/chips';
 import type { Reward } from '@chipperly/shared/schemas/reward';
-import { computeRedeemDelta, computeWorkingFor, chipTone, chipTones } from './chips';
+import { computeRedeemDelta, computeWorkingFor, chipTone, chipTones, chipsEarnedOn } from './chips';
+
+/** Local noon on `iso`, so `todayIso(new Date(ms(iso)))` round-trips regardless of the test runner's timezone/DST. */
+function ms(iso: string): number {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1, 12).getTime();
+}
 
 function ledgerRow(overrides: Partial<ChipLedger> = {}): ChipLedger {
   return {
@@ -144,5 +150,29 @@ describe('chipTones', () => {
       ledgerRow({ id: 'c', delta: 1, mood_level: 0, created_at: 3000 }),
     ];
     expect(chipTones(ledger, 'loc-1', 1)).toEqual(['neutral']);
+  });
+});
+
+describe('chipsEarnedOn', () => {
+  it('sums positive deltas across locations on the given local day only', () => {
+    const rows = [
+      ledgerRow({ id: 'a', delta: 2, location_id: 'home', created_at: ms('2026-09-19') }),
+      ledgerRow({ id: 'b', delta: 1, location_id: 'school', created_at: ms('2026-09-19') }),
+      ledgerRow({ id: 'c', delta: 5, location_id: 'home', created_at: ms('2026-09-18') }),
+    ];
+    expect(chipsEarnedOn(rows, '2026-09-19')).toBe(3);
+  });
+
+  it('excludes redeems/subtracts (negative delta) and soft-deleted rows', () => {
+    const rows = [
+      ledgerRow({ id: 'a', delta: 3, created_at: ms('2026-09-19') }),
+      ledgerRow({ id: 'b', delta: -3, reason: 'redeem', created_at: ms('2026-09-19') }),
+      ledgerRow({ id: 'c', delta: 4, deleted_at: 1, created_at: ms('2026-09-19') }),
+    ];
+    expect(chipsEarnedOn(rows, '2026-09-19')).toBe(3);
+  });
+
+  it('is zero with no rows on that day', () => {
+    expect(chipsEarnedOn([], '2026-09-19')).toBe(0);
   });
 });
