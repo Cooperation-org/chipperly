@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack && node scripts/fix-segment-export.mjs out",
+    "build": "next build --webpack && node scripts/fix-segment-export.mjs out && node scripts/precache-segments.mjs out",
     "emoji:subset": "python scripts/subset-emoji.py",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
