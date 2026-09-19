@@ -49,7 +49,13 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
   const { close, open, back } = useSheet();
   const [removing, setRemoving] = useState(false);
   const item = day.item;
-  const storyId = item.story_id ?? null;
+  // Same snapshot problem as liveCompletions below: the story is attached from
+  // inside this sheet, so which one is attached has to come from the live row.
+  const storyId = useLiveQuery(
+    async () => (await db.schedule_items.get(item.id))?.story_id ?? null,
+    [item.id],
+    item.story_id ?? null,
+  );
   const story = useLiveQuery(() => (storyId ? db.social_stories.get(storyId) : undefined), [storyId]);
 
   // `day` is a snapshot from whenever this sheet was opened (Sheet content
