@@ -140,7 +140,7 @@ Each spec lists: what is on it, top to bottom; the one primary action; states; w
 
 ### S1 Welcome / sign in
 
-- App name and one line: "Visual supports for the whole care team."
+- App name and one line: "Neurodivergent life made easier." (the owner's tagline, 19 Sept 2026)
 - Continue with Google (full width). Continue with Apple appears only when configured.
 - Email and password fields, Sign in.
 - Links: Create account, Forgot password.

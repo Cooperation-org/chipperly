@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Chipperly',
     short_name: 'Chipperly',
-    description: 'Visual supports for the whole care team.',
+    description: 'Neurodivergent life made easier.',
     start_url: scope,
     scope,
     display: 'standalone',

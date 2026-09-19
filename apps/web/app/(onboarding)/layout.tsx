@@ -12,7 +12,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         <header className={styles.header}>
           {/* eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API */}
           <img src={withBase('/brand/mark.svg')} alt="" width={24} height={24} className={styles.mark} />
-          <span className={styles.wordmark}>chipperly</span>
+          <span className={styles.wordmark}>Chipperly</span>
         </header>
         <div className={styles.cardWrap}>
           <div className={styles.card}>{children}</div>

@@ -16,7 +16,7 @@ test.describe('auth', () => {
 
   test('S1 welcome / sign in renders', async () => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'chipperly' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Chipperly' })).toBeVisible();
     await expect(page.getByLabel('Email', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Create account' })).toBeVisible();
@@ -142,6 +142,6 @@ test.describe('auth', () => {
 
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await page.waitForURL('http://127.0.0.1:8123/');
-    await expect(page.getByRole('heading', { name: 'chipperly' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Chipperly' })).toBeVisible();
   });
 });

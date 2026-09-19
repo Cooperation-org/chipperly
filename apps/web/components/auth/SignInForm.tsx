@@ -50,8 +50,8 @@ export function SignInForm() {
 
   return (
     <div>
-      <h1 className={styles.wordmark}>chipperly</h1>
-      <p className={styles.subtitle}>Visual supports for the whole care team.</p>
+      <h1 className={styles.wordmark}>Chipperly</h1>
+      <p className={styles.subtitle}>Neurodivergent life made easier.</p>
       {HAS_OAUTH ? (
         <div className={styles.form}>
           {/* Existing users only: no consent checkbox on this screen, see components/auth/GoogleButton.tsx. */}

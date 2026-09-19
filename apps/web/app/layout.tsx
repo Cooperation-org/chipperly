@@ -9,7 +9,7 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin),
   title: { default: 'Chipperly', template: '%s · Chipperly' },
-  description: 'Visual supports for the whole care team.',
+  description: 'Neurodivergent life made easier.',
   icons: {
     // PNG first, then SVG: Safari ignores SVG favicons and takes the last PNG it understands.
     icon: [
