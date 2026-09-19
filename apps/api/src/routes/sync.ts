@@ -241,11 +241,19 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
     case 'locations': {
       // The child picking what to work for: only `working_for_reward_id`
       // may differ from the stored row, and only while that toggle is on.
+      // Clearing it is also part of redeeming (lib/data/chips.ts `redeem`
+      // writes the ledger row and this clear together), so the redeem
+      // toggle allows the clear on its own: otherwise a child with
+      // child_redeems on and child_picks_reward off gets the ledger row
+      // accepted and this half rejected, and their device alone shows the
+      // reward cleared for good.
       if (mutation.op !== 'upsert' || !mutation.row) return false;
       const parsed = LocationSchema.safeParse(mutation.row);
       if (!parsed.success) return false;
       const settings = await lockedProfileSettings(tx, parsed.data.profile_id);
-      if (settings.child_picks_reward === false) return false;
+      const clearing = parsed.data.working_for_reward_id === null;
+      const allowed = settings.child_picks_reward !== false || (clearing && settings.child_redeems !== false);
+      if (!allowed) return false;
       const [stored] = await tx`select * from locations where id = ${mutation.id} limit 1`;
       if (!stored) return false;
       const storedRow = normalizeRow(stored);

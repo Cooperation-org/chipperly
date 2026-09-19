@@ -8,6 +8,9 @@ import { SyncPullResponseSchema, SyncPushResponseSchema } from '@chipperly/share
 import type { MutationTable } from '@chipperly/shared/constants/tables';
 import { balanceFor } from '@chipperly/shared/helpers/chips';
 import { todayIso } from '@chipperly/shared/helpers/date';
+import { eq } from 'drizzle-orm';
+import { db } from '../src/db/client.js';
+import { profiles } from '../src/db/schema/profiles.js';
 import { buildTestApp, expectShape, request } from './helpers.js';
 import { addMember, createUser, setupProfile, type TestProfileSetup } from './fixtures.js';
 import { sql } from '../src/db/client.js';
@@ -141,6 +144,30 @@ function scheduleItemRow(
     source: 'manual',
     completed_at: null,
     completed_by: null,
+    ...overrides,
+  };
+}
+
+function locationRow(
+  id: string,
+  profileId: string,
+  updatedBy: string,
+  clientUpdatedAt: number,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id,
+    profile_id: profileId,
+    version: 0,
+    client_updated_at: clientUpdatedAt,
+    updated_by: updatedBy,
+    deleted_at: null,
+    name: 'Home',
+    emoji: null,
+    photo_id: null,
+    position: 0,
+    chip_goal: 5,
+    working_for_reward_id: null,
     ...overrides,
   };
 }
@@ -560,6 +587,67 @@ describe('sync', () => {
     expect(body.applied).toEqual([itemId]);
     expect(body.rejected).toHaveLength(1);
     expect(body.rejected[0]).toMatchObject({ id: otherActivityId, table: 'activities', reason: 'locked' });
+  });
+
+  it('a locked child redeeming clears working_for_reward_id even with child_picks_reward off', async () => {
+    // lib/data/chips.ts `redeem` writes the ledger row and the working-for
+    // clear together; if the gate took only child_picks_reward into account,
+    // the ledger half would apply and the clear would be rejected, leaving
+    // that one device showing a reward nobody else sees cleared.
+    const { admin, profileId } = await setupProfile();
+    await db
+      .update(profiles)
+      .set({ settings: { child_picks_reward: false, child_redeems: true } })
+      .where(eq(profiles.id, profileId));
+
+    const locationId = uuidv7();
+    const rewardId = uuidv7();
+    const t0 = Date.now();
+    await pushRequest(app, admin.token, profileId, [
+      { table: 'locations', id: locationId, op: 'upsert', row: locationRow(locationId, profileId, admin.id, t0, { working_for_reward_id: rewardId }), client_updated_at: t0 },
+    ]);
+
+    const t1 = t0 + 1000;
+    const ledgerId = uuidv7();
+    const locked = await pushRequest(
+      app,
+      admin.token,
+      profileId,
+      [
+        { table: 'chip_ledger', id: ledgerId, op: 'upsert', row: chipLedgerRow(ledgerId, profileId, admin.id, t1, { delta: -5, reason: 'redeem', ref_id: rewardId, location_id: locationId }), client_updated_at: t1 },
+        { table: 'locations', id: locationId, op: 'upsert', row: locationRow(locationId, profileId, admin.id, t1, { working_for_reward_id: null }), client_updated_at: t1 },
+      ],
+      true,
+    );
+    const body = expectShape(locked, SyncPushResponseSchema);
+    expect(body.rejected).toEqual([]);
+    expect(body.applied.sort()).toEqual([ledgerId, locationId].sort());
+  });
+
+  it('a locked child cannot pick a different reward when child_picks_reward is off', async () => {
+    const { admin, profileId } = await setupProfile();
+    await db
+      .update(profiles)
+      .set({ settings: { child_picks_reward: false, child_redeems: true } })
+      .where(eq(profiles.id, profileId));
+
+    const locationId = uuidv7();
+    const t0 = Date.now();
+    await pushRequest(app, admin.token, profileId, [
+      { table: 'locations', id: locationId, op: 'upsert', row: locationRow(locationId, profileId, admin.id, t0, { working_for_reward_id: null }), client_updated_at: t0 },
+    ]);
+
+    const t1 = t0 + 1000;
+    const locked = await pushRequest(
+      app,
+      admin.token,
+      profileId,
+      [{ table: 'locations', id: locationId, op: 'upsert', row: locationRow(locationId, profileId, admin.id, t1, { working_for_reward_id: uuidv7() }), client_updated_at: t1 }],
+      true,
+    );
+    const body = expectShape(locked, SyncPushResponseSchema);
+    expect(body.applied).toEqual([]);
+    expect(body.rejected[0]).toMatchObject({ id: locationId, table: 'locations', reason: 'locked' });
   });
 
   it('a raw X-Locked header with no server-side lock is ignored (sec-1): the write still applies', async () => {
