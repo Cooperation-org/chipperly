@@ -14,6 +14,15 @@ export const ProfileSettingsSchema = z
     redeem_mode: RedeemModeSchema.optional(),
     /** Attitude-bonus idea, first slice: color the chip board by the Chipper Chart level a chip was earned with. Off by default. */
     chips_by_attitude: z.boolean().optional(),
+    /** Standing goal for the day ("stay on task") and its reward; owner's doc, My Day 9. Shown in the Chips tab's "by day" view. */
+    day_goal_text: z.string().nullable().optional(),
+    day_goal_reward_id: uuidSchema.nullable().optional(),
+    /** Optional chip budget for the day reward ("pick a reward up to 10 chips"). */
+    day_goal_chips: z.number().int().positive().nullable().optional(),
+    /** Child view may change the location's working-for reward (owner's doc, EI 2). Default true. */
+    child_picks_reward: z.boolean().optional(),
+    /** Child view may redeem an affordable reward from the free-time sheet (owner's doc, EI 6). Default true. */
+    child_redeems: z.boolean().optional(),
   })
   .partial();
 export type ProfileSettings = z.infer<typeof ProfileSettingsSchema>;

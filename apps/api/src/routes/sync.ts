@@ -11,12 +11,12 @@ import {
 import { LocationSchema } from '@chipperly/shared/schemas/location';
 import { ActivitySchema, ActivityStepSchema, RecurrenceSkipSchema } from '@chipperly/shared/schemas/activity';
 import { RewardSchema } from '@chipperly/shared/schemas/reward';
-import { ScheduleItemSchema, StepCompletionSchema } from '@chipperly/shared/schemas/schedule';
+import { DayPlanSchema, ScheduleItemSchema, StepCompletionSchema } from '@chipperly/shared/schemas/schedule';
 import { ChipLedgerSchema } from '@chipperly/shared/schemas/chips';
 import { SocialStorySchema, StoryPageSchema } from '@chipperly/shared/schemas/story';
 import { AttitudeCheckSchema } from '@chipperly/shared/schemas/attitude';
 import { MoodEventSchema } from '@chipperly/shared/schemas/mood';
-import { ProfileSchema } from '@chipperly/shared/schemas/profile';
+import { ProfileSchema, ProfileSettingsSchema } from '@chipperly/shared/schemas/profile';
 import { sql } from '../db/client.js';
 import { canAccessProfile, canWriteProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
@@ -44,6 +44,7 @@ export const TABLE_SCHEMAS: Record<MutationTable, z.ZodType> = {
   story_pages: StoryPageSchema,
   attitude_checks: AttitudeCheckSchema,
   mood_events: MoodEventSchema,
+  day_plans: DayPlanSchema,
   profiles: ProfileSchema,
 };
 
@@ -200,7 +201,15 @@ async function applyMutation(
   return applyUpsert(tx, mutation, profileId, userId, role);
 }
 
-/** schedule_items / step_completions / attitude_checks / chip_ledger rules from CONTRACTS.md "Sync authorization". */
+/** The locked profile's settings; `{}` when unreadable, which leaves every child-view toggle at its default (on). */
+async function lockedProfileSettings(tx: Sql, profileId: unknown): Promise<z.infer<typeof ProfileSettingsSchema>> {
+  if (typeof profileId !== 'string') return {};
+  const [row] = await tx`select settings from profiles where id = ${profileId} limit 1`;
+  const parsed = ProfileSettingsSchema.safeParse(row?.settings ?? {});
+  return parsed.success ? parsed.data : {};
+}
+
+/** schedule_items / step_completions / attitude_checks / chip_ledger / locations rules from CONTRACTS.md "Sync authorization". */
 async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
   switch (mutation.table) {
     case 'schedule_items': {
@@ -223,7 +232,25 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
       return mutation.op === 'upsert' && Boolean(mutation.row);
     case 'chip_ledger': {
       if (mutation.op !== 'upsert' || !mutation.row) return false;
-      return mutation.row.reason === 'task' || mutation.row.reason === 'step';
+      if (mutation.row.reason === 'task' || mutation.row.reason === 'step') return true;
+      // The child redeeming from the free-time sheet, unless the caregiver turned that off.
+      if (mutation.row.reason !== 'redeem') return false;
+      const settings = await lockedProfileSettings(tx, mutation.row.profile_id);
+      return settings.child_redeems !== false;
+    }
+    case 'locations': {
+      // The child picking what to work for: only `working_for_reward_id`
+      // may differ from the stored row, and only while that toggle is on.
+      if (mutation.op !== 'upsert' || !mutation.row) return false;
+      const parsed = LocationSchema.safeParse(mutation.row);
+      if (!parsed.success) return false;
+      const settings = await lockedProfileSettings(tx, parsed.data.profile_id);
+      if (settings.child_picks_reward === false) return false;
+      const [stored] = await tx`select * from locations where id = ${mutation.id} limit 1`;
+      if (!stored) return false;
+      const storedRow = normalizeRow(stored);
+      const contentKeys = ['name', 'emoji', 'photo_id', 'position', 'chip_goal', 'deleted_at'] as const;
+      return contentKeys.every((key) => (parsed.data as SyncRow)[key] === storedRow[key]);
     }
     default:
       return false;

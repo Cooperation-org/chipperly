@@ -18,6 +18,9 @@ export const activities = pgTable(
     /** HH:MM, e.g. "07:30". */
     recurrence_time: text('recurrence_time'),
     position: integer('position').notNull(),
+    /** Routine goal ("get to camp on time") and the reward for meeting it; owner's doc, My Day 9. */
+    goal_text: text('goal_text'),
+    goal_reward_id: uuid('goal_reward_id'),
   },
   (t) => [index('activities_profile_version_idx').on(t.profile_id, t.version)],
 );

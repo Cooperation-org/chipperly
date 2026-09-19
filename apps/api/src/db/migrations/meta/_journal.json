@@ -50,6 +50,13 @@
       "when": 1789656581560,
       "tag": "0006_step_tree",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789656581561,
+      "tag": "0007_goals_stories_day_plans",
+      "breakpoints": true
     }
   ]
 }

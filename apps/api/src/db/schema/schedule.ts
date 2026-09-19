@@ -15,8 +15,30 @@ export const schedule_items = pgTable(
     source: text('source').$type<ScheduleItemSource>().notNull(),
     completed_at: bigint('completed_at', { mode: 'number' }),
     completed_by: uuid('completed_by'),
+    /** A social story to read for this item (the dentist example); owner's doc, My Day 8. */
+    story_id: uuid('story_id'),
   },
   (t) => [index('schedule_items_profile_version_idx').on(t.profile_id, t.version)],
+);
+
+/**
+ * One row per day the caregiver wrote a note for: what the child should
+ * know about that day. The child's Today shows today's at the top and
+ * tomorrow's at the bottom (owner's doc, My Day: "information at the top
+ * ... at the bottom prepare him for the next day"). At most one live row
+ * per date; the client keeps the newest if two devices created one offline.
+ */
+export const day_plans = pgTable(
+  'day_plans',
+  {
+    ...syncColumns(),
+    date: date('date', { mode: 'string' }).notNull(),
+    note: text('note').notNull().default(''),
+  },
+  (t) => [
+    index('day_plans_profile_version_idx').on(t.profile_id, t.version),
+    index('day_plans_profile_date_idx').on(t.profile_id, t.date),
+  ],
 );
 
 /**

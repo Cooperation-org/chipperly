@@ -25,6 +25,13 @@ export const ActivitySchema = SyncColumnsSchema.extend({
   recurrence_weekdays: RecurrenceWeekdaysSchema,
   recurrence_time: hhmmSchema.nullable(),
   position: z.number().int(),
+  /**
+   * Routine goal ("get to camp on time") and the reward for meeting it,
+   * shown in the Chips tab's "by routine" view. Optional (not just
+   * nullable) so rows written before these columns existed still parse.
+   */
+  goal_text: z.string().nullable().optional(),
+  goal_reward_id: uuidSchema.nullable().optional(),
 });
 export type Activity = z.infer<typeof ActivitySchema>;
 

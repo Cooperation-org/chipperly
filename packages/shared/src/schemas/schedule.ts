@@ -16,8 +16,21 @@ export const ScheduleItemSchema = SyncColumnsSchema.extend({
   source: ScheduleItemSource,
   completed_at: msTimestampSchema.nullable(),
   completed_by: uuidSchema.nullable(),
+  /** A social story to read for this item (the dentist example). Optional so older rows still parse. */
+  story_id: uuidSchema.nullable().optional(),
 });
 export type ScheduleItem = z.infer<typeof ScheduleItemSchema>;
+
+/**
+ * A caregiver's note for one day, shown to the child at the top of Today
+ * (today's) and at the bottom (tomorrow's). One live row per date; if two
+ * devices created one offline the client shows the newest.
+ */
+export const DayPlanSchema = SyncColumnsSchema.extend({
+  date: isoDateSchema,
+  note: z.string(),
+});
+export type DayPlan = z.infer<typeof DayPlanSchema>;
 
 /**
  * One row per completed step. Append-only: un-completing a step soft-deletes

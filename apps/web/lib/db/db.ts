@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { Location } from '@chipperly/shared/schemas/location';
 import type { Activity, ActivityStep, RecurrenceSkip } from '@chipperly/shared/schemas/activity';
 import type { Reward } from '@chipperly/shared/schemas/reward';
-import type { ScheduleItem, StepCompletion } from '@chipperly/shared/schemas/schedule';
+import type { DayPlan, ScheduleItem, StepCompletion } from '@chipperly/shared/schemas/schedule';
 import type { ChipLedger } from '@chipperly/shared/schemas/chips';
 import type { SocialStory, StoryPage } from '@chipperly/shared/schemas/story';
 import type { AttitudeCheck } from '@chipperly/shared/schemas/attitude';
@@ -55,6 +55,7 @@ export type SyncedRow<T extends SyncedTable> = {
   story_pages: StoryPage;
   attitude_checks: AttitudeCheck;
   mood_events: MoodEvent;
+  day_plans: DayPlan;
 }[T];
 
 export class ChipperlyDB extends Dexie {
@@ -70,6 +71,7 @@ export class ChipperlyDB extends Dexie {
   story_pages!: EntityTable<StoryPage, 'id'>;
   attitude_checks!: EntityTable<AttitudeCheck, 'id'>;
   mood_events!: EntityTable<MoodEvent, 'id'>;
+  day_plans!: EntityTable<DayPlan, 'id'>;
 
   profiles!: EntityTable<Profile, 'id'>;
   accounts!: EntityTable<Account, 'id'>;
@@ -145,6 +147,32 @@ export class ChipperlyDB extends Dexie {
       story_pages: 'id, profile_id, story_id',
       attitude_checks: 'id, profile_id',
       mood_events: 'id, profile_id, [profile_id+date]',
+
+      profiles: 'id, account_id',
+      accounts: 'id',
+      users: 'id',
+
+      outbox: '++seq, id, table',
+      kv: 'key',
+      media_blobs: 'media_id',
+      sync_cursors: 'profile_id',
+    });
+
+    // v4: adds day_plans (caregiver note per day). Every store repeated unchanged, as Dexie requires.
+    this.version(4).stores({
+      locations: 'id, profile_id',
+      activities: 'id, profile_id',
+      activity_steps: 'id, profile_id, activity_id, parent_step_id',
+      recurrence_skips: 'id, profile_id, activity_id',
+      rewards: 'id, profile_id, [profile_id+location_id]',
+      schedule_items: 'id, profile_id, [profile_id+date], [profile_id+activity_id]',
+      step_completions: 'id, profile_id, schedule_item_id',
+      chip_ledger: 'id, profile_id, [profile_id+location_id]',
+      social_stories: 'id, profile_id',
+      story_pages: 'id, profile_id, story_id',
+      attitude_checks: 'id, profile_id',
+      mood_events: 'id, profile_id, [profile_id+date]',
+      day_plans: 'id, profile_id, [profile_id+date]',
 
       profiles: 'id, account_id',
       accounts: 'id',
