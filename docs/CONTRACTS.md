@@ -272,7 +272,7 @@ Feature components live under `components/<feature>/` and are owned by the featu
 
 ### PWA
 
-`@serwist/next` with `swSrc: app/sw.ts`, `swDest: public/sw.js`, `register: false`; `components/pwa/SwRegister.tsx` registers `${basePath}/sw.js` and shows the update toast. Runtime caching per technical plan 7. `app/manifest.ts` from the Metadata API. Icons in `public/icons/` (192, 512, maskable 512, apple-touch 180) generated from `public/brand/mark.svg`.
+`@serwist/next` with `swSrc: app/sw.ts`, `swDest: public/sw.js`, `register: false`; `components/pwa/SwRegister.tsx` registers `${basePath}/sw.js` and shows the update toast. Runtime caching per technical plan 7. `app/manifest.ts` from the Metadata API. Icons in `public/icons/` (192, 512, apple-touch 180, favicon 96) are the owner's favicon package; the maskable 512 is rendered from `public/brand/mark.svg` with the star at 64% so its tips clear the safe zone.
 
 ### Sounds
 

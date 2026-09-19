@@ -4,14 +4,19 @@ import { Providers } from '@/components/providers/Providers';
 import './styles/globals.css';
 
 const siteOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN ?? 'http://localhost:3000';
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin),
   title: { default: 'Chipperly', template: '%s · Chipperly' },
   description: 'Visual supports for the whole care team.',
   icons: {
-    icon: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/icons/icon-192.png`,
-    apple: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/icons/apple-touch-icon-180.png`,
+    // PNG first, then SVG: Safari ignores SVG favicons and takes the last PNG it understands.
+    icon: [
+      { url: `${basePath}/icons/favicon-96.png`, sizes: '96x96', type: 'image/png' },
+      { url: `${basePath}/brand/mark.svg`, type: 'image/svg+xml' },
+    ],
+    apple: `${basePath}/icons/apple-touch-icon-180.png`,
   },
   manifest: '/manifest.webmanifest',
   appleWebApp: {
