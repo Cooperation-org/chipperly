@@ -2,9 +2,9 @@
 
 A one-off CLI (`apps/api/src/import/**`, entry point
 `apps/api/scripts/import-rails.ts`) that copies accounts, profiles and
-their content out of the old Rails database (see
-`E:\Chipperly\reference-lovable\db\schema.rb` and
-`E:\Chipperly\reference-analysis.md`) and into ours. It is only needed if
+their content out of the old Rails database (its
+`db/schema.rb` is committed as `docs/reference/rails-schema.rb`, with
+notes on the app in `docs/reference/rails-app-analysis.md`) and into ours. It is only needed if
 real families were using the beta before it's retired; otherwise nothing
 in the app depends on it.
 

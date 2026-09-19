@@ -1,6 +1,6 @@
 /**
- * Row shapes read from the Rails database (`db/schema.rb` at
- * E:\Chipperly\reference-lovable\db\schema.rb). Only the columns the
+ * Row shapes read from the Rails database (`db/schema.rb`, committed as
+ * docs/reference/rails-schema.rb). Only the columns the
  * importer uses are declared; extra Rails columns are ignored by the
  * `select` list in `source.ts`, not by omitting them here.
  */

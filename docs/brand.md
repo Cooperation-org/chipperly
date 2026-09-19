@@ -14,7 +14,7 @@ Copied 17 Sept 2026 from the client's Drive download. **The logo was replaced on
 
 ## Logo, 19 Sept 2026
 
-The owner redrew the mark: a twelve-point pinwheel star with a teal disc in the centre, wordmark "Chipperly" (capital C) in a bold serif, tagline "Neurodivergent life made easier." Shipped as `apps/web/public/brand/` (`mark.svg`, `mark.png`, `logo.png`, `logo-tagline.png`) and `apps/web/public/icons/` (the owner's favicon package plus a maskable 512 rendered from the SVG).
+The owner redrew the mark: a twelve-point pinwheel star with a teal disc in the centre, wordmark "Chipperly" (capital C) in a bold serif, tagline "Neurodivergent life made easier." Sources are committed in `brand/logo/` (logo SVG, both lockups, the symmetric star used for chips and check marks, the favicon package). Shipped as `apps/web/public/brand/` (`mark.svg`, `mark.png`, `logo.png`, `logo-tagline.png`) and `apps/web/public/icons/` (the owner's favicon package plus a maskable 512 rendered from the SVG).
 
 Logo colours, for reference only. None of them is a UI token: the centre teal `#13B6A5` is 2.5:1 against white, so it cannot carry text or be the action colour. Buttons stay on `#1F6F78`.
 
