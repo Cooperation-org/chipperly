@@ -94,10 +94,11 @@ test.describe('child mode', () => {
   });
 
   test('check off a row: chip strip updates, attitude prompt, tap Good', async () => {
-    // Chip strip only renders once there's a reward or a balance (ux-plan.md
-    // S32); checking off a chip-earning row is what makes it appear.
+    // The strip shows from the start so the child can tap it to choose what
+    // they're working for (ux-plan.md S32); it reads 0 chips until a
+    // chip-earning row is checked off.
     const chipStrip = page.getByRole('button', { name: /of \d+ chips/ });
-    await expect(chipStrip).toHaveCount(0);
+    await expect(chipStrip).toHaveAttribute('aria-label', /^0 of \d+ chips/);
 
     await page.getByRole('checkbox', { name: /^Wake Up,/ }).click();
     await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toHaveAttribute('aria-checked', 'true');
