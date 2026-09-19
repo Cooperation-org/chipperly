@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { Activity, ActivityStep } from '@chipperly/shared/schemas/activity';
+import type { Activity, ActivityStep, RecurrenceSkip } from '@chipperly/shared/schemas/activity';
 import type { ScheduleItem, StepCompletion } from '@chipperly/shared/schemas/schedule';
-import { allStepsComplete, descendantsOf, joinDayItems, stepTree, type DayStep } from './schedule';
+import { materializedId } from '@chipperly/shared/helpers/recurrence';
+import { allStepsComplete, descendantsOf, joinDayItems, previewDay, stepTree, type DayStep } from './schedule';
 
 function activity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -282,5 +283,72 @@ describe('partOfDayFor', () => {
     expect(partOfDayFor('16:59')).toBe('afternoon');
     expect(partOfDayFor('17:00')).toBe('evening');
     expect(partOfDayFor(null)).toBeNull();
+  });
+});
+
+function skip(overrides: Partial<RecurrenceSkip> = {}): RecurrenceSkip {
+  return {
+    id: 'skip-1',
+    profile_id: 'profile-1',
+    version: 0,
+    client_updated_at: 0,
+    updated_by: 'user-1',
+    deleted_at: null,
+    activity_id: 'act-1',
+    date: '2026-09-18',
+    ...overrides,
+  };
+}
+
+describe('previewDay', () => {
+  const TOMORROW = '2026-09-18'; // a Friday
+
+  it('lists manual items first (by position), then recurring activities by recurrence time', () => {
+    const activities = [
+      activity({ id: 'manual-act', name: 'Manual pick', recurrence: null }),
+      activity({ id: 'late', name: 'Late one', recurrence: 'daily', recurrence_time: '18:00' }),
+      activity({ id: 'early', name: 'Early one', recurrence: 'daily', recurrence_time: '07:00' }),
+    ];
+    const manualItems = [item({ id: 'm1', activity_id: 'manual-act', date: TOMORROW, position: 0 })];
+
+    const preview = previewDay(activities, [], manualItems, TOMORROW);
+
+    expect(preview.map((p) => p.activity.name)).toEqual(['Manual pick', 'Early one', 'Late one']);
+  });
+
+  it('does not repeat an activity that has already materialized for the date', () => {
+    const activities = [activity({ id: 'act-1', recurrence: 'daily', recurrence_time: '07:00' })];
+    // Already materialized: same id materializedId() would produce, per materializeRecurring's own dedupe.
+    const existingId = materializedId('act-1', TOMORROW);
+    const manualItems = [item({ id: existingId, activity_id: 'act-1', date: TOMORROW, source: 'recurring' })];
+
+    const preview = previewDay(activities, [], manualItems, TOMORROW);
+
+    expect(preview).toHaveLength(1);
+    expect(preview[0]?.id).toBe(existingId);
+  });
+
+  it('skips a recurring activity on a suppressed date', () => {
+    const activities = [activity({ id: 'act-1', recurrence: 'daily', recurrence_time: '07:00' })];
+    const skips = [skip({ activity_id: 'act-1', date: TOMORROW })];
+
+    expect(previewDay(activities, skips, [], TOMORROW)).toHaveLength(0);
+  });
+
+  it('ignores soft-deleted manual items, soft-deleted activities and soft-deleted skips', () => {
+    const activities = [
+      activity({ id: 'act-1', recurrence: 'daily', deleted_at: 999 }),
+      activity({ id: 'act-2', recurrence: 'daily', recurrence_time: '09:00' }),
+    ];
+    const skips = [skip({ activity_id: 'act-2', date: TOMORROW, deleted_at: 999 })];
+    const manualItems = [item({ id: 'gone', date: TOMORROW, deleted_at: 999 })];
+
+    const preview = previewDay(activities, skips, manualItems, TOMORROW);
+
+    expect(preview.map((p) => p.activity.id)).toEqual(['act-2']);
+  });
+
+  it('is empty for a day with nothing manual and nothing recurring', () => {
+    expect(previewDay([activity({ recurrence: null })], [], [], TOMORROW)).toEqual([]);
   });
 });

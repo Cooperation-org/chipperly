@@ -1,0 +1,28 @@
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.label {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--color-text);
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}

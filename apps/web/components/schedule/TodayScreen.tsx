@@ -36,6 +36,7 @@ import { Celebration } from '@/components/ui/Celebration';
 import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { DateNav } from './DateNav';
+import { DayNote } from './DayNote';
 import { ItemSheet } from './ItemSheet';
 import { allDone, groupByPartOfDay, moveItem, secondaryText, weekdayName } from './todayModel';
 import styles from './TodayScreen.module.css';
@@ -250,6 +251,7 @@ export function TodayScreen() {
     <div className={styles.screen}>
       <VerifyBanner />
       <DateNav isoDate={isoDate} onChange={setIsoDate} />
+      <DayNote profileId={profileId} isoDate={isoDate} childName={profile.name} />
 
       <div className={styles.chipStripRow}>
         {workingFor.reward || workingFor.filled > 0 ? (

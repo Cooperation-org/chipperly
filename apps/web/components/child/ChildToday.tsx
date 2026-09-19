@@ -35,7 +35,9 @@ import { formatTimerTime } from '@/components/timer/time';
 import { ChipperChartSheet } from '@/components/chipperChart/ChipperChartSheet';
 import { VisualSchedule } from '@/components/schedule/VisualSchedule';
 import { AttitudePrompt } from './AttitudePrompt';
+import { DayBand } from './DayBand';
 import { ReadStoryButton } from './ReadStoryButton';
+import { TomorrowBand } from './TomorrowBand';
 import { UnlockOverlay } from './UnlockOverlay';
 import styles from './ChildToday.module.css';
 
@@ -281,6 +283,8 @@ export function ChildToday() {
         />
       </header>
 
+      <DayBand profileId={profileId} isoDate={isoDate} itemCount={dayItems.length} workingFor={workingFor} />
+
       {dayItems.length === 0 ? (
         <p className={styles.emptyText}>Nothing planned for today</p>
       ) : (
@@ -331,6 +335,8 @@ export function ChildToday() {
           ) : null}
         </div>
       )}
+
+      <TomorrowBand profileId={profileId} isoDate={isoDate} />
 
       {celebrating ? (
         <div className={styles.celebrationWrap}>
