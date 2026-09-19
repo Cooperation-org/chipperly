@@ -29,6 +29,7 @@ import { BigButton } from '@/components/ui/BigButton';
 import { Celebration } from '@/components/ui/Celebration';
 import { useSheet } from '@/components/ui/Sheet';
 import { FreeTimeSheet } from '@/components/chips/FreeTimeSheet';
+import { PickRewardSheet } from './PickRewardSheet';
 import { FirstThenPanels } from '@/components/firstThen/FirstThenPanels';
 import { TimerFullScreen } from '@/components/timer/TimerFullScreen';
 import { formatTimerTime } from '@/components/timer/time';
@@ -246,7 +247,16 @@ export function ChildToday() {
     );
   }
 
+  // Owner's doc EI 2, switchable in Settings > profile (default on).
+  function openPickReward(): void {
+    sheet.open(
+      <PickRewardSheet profileId={profileId} locationId={activeLocation?.id ?? null} currentRewardId={workingFor.reward?.id ?? null} />,
+      { title: 'Working for' },
+    );
+  }
+
   const showBottomBar = options.show_free_time || options.show_first_then || options.show_chipper_chart || running;
+  const canPickReward = profile?.settings.child_picks_reward !== false;
 
   if (!profileId || !profile) return null;
 
@@ -262,7 +272,7 @@ export function ChildToday() {
             {activeLocation?.name ?? 'Location'}
           </button>
         ) : null}
-        {workingFor.reward || workingFor.filled > 0 ? (
+        {workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation) ? (
           <ChipStrip
             filled={workingFor.filled}
             total={workingFor.goal}
@@ -271,7 +281,7 @@ export function ChildToday() {
                 ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, name: workingFor.reward.name }
                 : undefined
             }
-            onTap={openWorkingFor}
+            onTap={canPickReward ? openPickReward : openWorkingFor}
           />
         ) : null}
         <IconButton

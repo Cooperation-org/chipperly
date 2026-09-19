@@ -3,6 +3,50 @@
   line-height: 1;
 }
 
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionTitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.earnedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.earnedRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap);
+}
+
+.earnedText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cost {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.moreChips {
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--tile-grid), 1fr));
