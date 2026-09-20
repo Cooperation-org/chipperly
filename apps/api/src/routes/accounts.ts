@@ -94,7 +94,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const accountId = uuidv7();
     const [account] = await db
       .insert(accounts)
-      .values({ id: accountId, kind: body.kind, name: body.name, created_at: Date.now() })
+      .values({ id: accountId, kind: body.kind, name: body.name, created_at: Date.now(), owner_user_id: userId })
       .returning();
     await db.insert(account_members).values({ account_id: accountId, user_id: userId, role: 'admin' });
 

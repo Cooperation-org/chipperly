@@ -57,6 +57,13 @@
       "when": 1789656581561,
       "tag": "0007_goals_stories_day_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789656581562,
+      "tag": "0008_account_owner",
+      "breakpoints": true
     }
   ]
 }

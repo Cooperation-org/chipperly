@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { account_members, sessions } from '../db/schema/accounts.js';
+import { account_members, accounts, sessions } from '../db/schema/accounts.js';
 import { profiles, profile_members } from '../db/schema/profiles.js';
 import { verifyAccessToken } from '../lib/tokens.js';
 import { AppError } from './errors.js';
@@ -110,4 +110,15 @@ export async function canAccessProfile(userId: string, profileId: string): Promi
 /** Same rule as read access: an admin writes every profile, a member only the ones they're listed on. */
 export async function canWriteProfile(userId: string, profileId: string): Promise<boolean> {
   return canAccessProfile(userId, profileId);
+}
+
+/**
+ * True when `userId` is `accountId`'s owner: the single account member more
+ * privileged than any other admin (e.g. gating the parent-only location
+ * history feature away from a co-admin therapist). Distinct from
+ * `role === 'admin'`, which multiple members can hold.
+ */
+export async function isAccountOwner(userId: string, accountId: string): Promise<boolean> {
+  const [account] = await db.select({ owner_user_id: accounts.owner_user_id }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  return account?.owner_user_id === userId;
 }
