@@ -8,6 +8,7 @@ import { SheetHost } from '@/components/ui/Sheet';
 import { ToastHost } from '@/lib/toast';
 import { SwRegister } from '@/components/pwa/SwRegister';
 import { BackButtonHandler } from '@/components/native/BackButtonHandler';
+import { TimerKioskGuard } from '@/components/native/TimerKioskGuard';
 
 interface DeviceSettings {
   reduce_motion?: 'system' | 'on' | 'off';
@@ -48,6 +49,7 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
         <ToastHost />
         <SwRegister />
         <BackButtonHandler />
+        <TimerKioskGuard />
       </SyncProvider>
     </SessionProvider>
   );

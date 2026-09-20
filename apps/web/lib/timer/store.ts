@@ -23,6 +23,8 @@ export interface TimerState {
   reveal: TimerReveal | null;
   sound: boolean;
   ended_at: number | null;
+  /** True only for a child's step timer started while the device is locked: pausing/stopping needs the caregiver PIN, and the OS-level kiosk lock stays engaged for as long as this is true. */
+  locked: boolean;
 }
 
 const DEFAULT_STATE: TimerState = {
@@ -33,6 +35,7 @@ const DEFAULT_STATE: TimerState = {
   reveal: null,
   sound: true,
   ended_at: null,
+  locked: false,
 };
 
 let state: TimerState = { ...DEFAULT_STATE };
@@ -118,6 +121,11 @@ export function useTimer(): TimerState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
+/** Same value useTimer() would give a component; a plain function for tests, which can't call hooks. */
+export function getTimerSnapshot(): TimerState {
+  return getSnapshot();
+}
+
 function getRunningSnapshot(): boolean {
   return state.running;
 }
@@ -144,7 +152,11 @@ export function pause(): void {
 }
 
 export function reset(): void {
-  setState({ remaining_ms: state.total_ms, running: false, started_at: null, ended_at: null });
+  setState({ remaining_ms: state.total_ms, running: false, started_at: null, ended_at: null, locked: false });
+}
+
+export function setLocked(locked: boolean): void {
+  setState({ locked });
 }
 
 export function setReveal(reveal: TimerReveal | null): void {

@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTimer, start, pause, reset } from '@/lib/timer/store';
+import { useSession } from '@/lib/auth/session';
+import { verifyPin } from '@/lib/auth/pin';
+import { PinPad } from '@/components/pin/PinPad';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { Celebration } from '@/components/ui/Celebration';
@@ -10,6 +13,8 @@ import { VisuallyHidden } from '@/components/ui/VisuallyHidden';
 import { TimerRing } from './TimerRing';
 import { useSquareSize } from './useSquareSize';
 import styles from './TimerFullScreen.module.css';
+
+type PinPrompt = 'pause' | 'close' | null;
 
 export interface TimerFullScreenProps {
   onClose: () => void;
@@ -21,14 +26,17 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [ta
  * with the Wake Lock API while running (best-effort: unsupported or denied just lets it sleep). */
 export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
   const timer = useTimer();
+  const { user } = useSession();
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const [celebrationDone, setCelebrationDone] = useState(false);
+  const [pinPrompt, setPinPrompt] = useState<PinPrompt>(null);
+  const [pinError, setPinError] = useState<string | undefined>();
 
   const justEnded = timer.ended_at !== null && timer.remaining_ms === 0;
-  const [boxRef, ringSize] = useSquareSize(!justEnded, 280);
+  const [boxRef, ringSize] = useSquareSize(!justEnded && !pinPrompt, 280);
 
   // Closing an ended timer must actually clear it -- otherwise `justEnded`
   // stays true and the "0:00" pill (TimerPill) never goes away, even though
@@ -36,6 +44,35 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
   function handleClose(): void {
     if (justEnded) reset();
     onClose();
+  }
+
+  // A locked child step timer (lib/timer/store.ts's `locked`) can't be
+  // paused or stopped without the caregiver PIN -- resuming stays free,
+  // that's not stopping or pausing anything.
+  function requestClose(): void {
+    if (justEnded || !timer.locked) {
+      handleClose();
+      return;
+    }
+    setPinError(undefined);
+    setPinPrompt('close');
+  }
+
+  function handlePinComplete(pin: string): Promise<boolean> {
+    const hash = user?.pin_hash;
+    if (!hash) return Promise.resolve(false);
+    return verifyPin(pin, hash).then((ok) => {
+      if (!ok) return false;
+      if (pinPrompt === 'pause') {
+        pause();
+        setAnnouncement('Paused');
+      } else if (pinPrompt === 'close') {
+        reset();
+        onClose();
+      }
+      setPinPrompt(null);
+      return true;
+    });
   }
 
   useEffect(() => {
@@ -49,8 +86,13 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
     function onKeyDown(e: KeyboardEvent): void {
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (justEnded) reset();
-        onClose();
+        if (justEnded || !timer.locked) {
+          if (justEnded) reset();
+          onClose();
+        } else {
+          setPinError(undefined);
+          setPinPrompt('close');
+        }
         return;
       }
       if (e.key !== 'Tab' || !panel) return;
@@ -73,7 +115,7 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
       document.body.style.overflow = previousOverflow;
       returnFocusRef.current?.focus();
     };
-  }, [onClose, justEnded]);
+  }, [onClose, justEnded, timer.locked]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +142,11 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
 
   function toggle(): void {
     if (timer.running) {
+      if (timer.locked) {
+        setPinError(undefined);
+        setPinPrompt('pause');
+        return;
+      }
       pause();
       setAnnouncement('Paused');
     } else if (timer.remaining_ms > 0) {
@@ -110,8 +157,24 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
 
   const content = (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Timer" ref={panelRef} tabIndex={-1}>
-      <IconButton icon="close" aria-label="Close timer" variant="solid" className={styles.close} onClick={handleClose} />
-      {justEnded ? (
+      <IconButton icon="close" aria-label="Close timer" variant="solid" className={styles.close} onClick={requestClose} />
+      {pinPrompt ? (
+        <div className={styles.ended}>
+          <PinPad
+            title="Caregiver PIN"
+            error={pinError}
+            onComplete={(pin) =>
+              handlePinComplete(pin).then((ok) => {
+                if (!ok) setPinError('Wrong PIN. Try again.');
+                return ok;
+              })
+            }
+          />
+          <Button variant="ghost" onClick={() => setPinPrompt(null)}>
+            Cancel
+          </Button>
+        </div>
+      ) : justEnded ? (
         <div className={styles.ended}>
           {!celebrationDone ? <Celebration kind="check" onDone={() => setCelebrationDone(true)} /> : null}
           <p className={styles.endedText}>Time&rsquo;s up</p>
