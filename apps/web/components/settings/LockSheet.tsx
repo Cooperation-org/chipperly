@@ -25,6 +25,7 @@ const DEFAULT_OPTIONS: LockOptions = {
   allow_child_location: false,
   show_step_timers: false,
   show_visual_schedule: true,
+  first_then_only: false,
 };
 
 type Step = 'set' | 'confirm' | 'ready';
@@ -105,49 +106,61 @@ export function LockSheet({ profileId }: LockSheetProps) {
       </p>
       <div className={styles.toggles}>
         <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>Show free-time choices</span>
-          <Switch label="Show free-time choices" checked={options.show_free_time} onChange={(v) => setOptions((o) => ({ ...o, show_free_time: v }))} />
-        </div>
-        <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>Show First-Then</span>
-          <Switch label="Show First-Then" checked={options.show_first_then} onChange={(v) => setOptions((o) => ({ ...o, show_first_then: v }))} />
-        </div>
-        <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>Ask how it went after each task</span>
-          <Switch label="Ask how it went after each task" checked={options.attitude_prompt} onChange={(v) => setOptions((o) => ({ ...o, attitude_prompt: v }))} />
-        </div>
-        <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>Show steps expanded</span>
-          <Switch label="Show steps expanded" checked={options.expand_steps} onChange={(v) => setOptions((o) => ({ ...o, expand_steps: v }))} />
-        </div>
-        <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>Show Chipper Chart</span>
-          <Switch label="Show Chipper Chart" checked={options.show_chipper_chart} onChange={(v) => setOptions((o) => ({ ...o, show_chipper_chart: v }))} />
-        </div>
-        <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>Let {profileName} switch location</span>
+          <span className={styles.toggleLabel}>Only show First-Then, full page</span>
           <Switch
-            label={`Let ${profileName} switch location`}
-            checked={options.allow_child_location}
-            onChange={(v) => setOptions((o) => ({ ...o, allow_child_location: v }))}
+            label="Only show First-Then, full page"
+            checked={options.first_then_only}
+            onChange={(v) => setOptions((o) => ({ ...o, first_then_only: v }))}
           />
         </div>
-        <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>Let the child start step timers</span>
-          <Switch
-            label="Let the child start step timers"
-            checked={options.show_step_timers}
-            onChange={(v) => setOptions((o) => ({ ...o, show_step_timers: v }))}
-          />
-        </div>
-        <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>Let {profileName} open a step list</span>
-          <Switch
-            label={`Let ${profileName} open a step list`}
-            checked={options.show_visual_schedule}
-            onChange={(v) => setOptions((o) => ({ ...o, show_visual_schedule: v }))}
-          />
-        </div>
+        {!options.first_then_only ? (
+          <>
+            <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Show free-time choices</span>
+              <Switch label="Show free-time choices" checked={options.show_free_time} onChange={(v) => setOptions((o) => ({ ...o, show_free_time: v }))} />
+            </div>
+            <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Show First-Then</span>
+              <Switch label="Show First-Then" checked={options.show_first_then} onChange={(v) => setOptions((o) => ({ ...o, show_first_then: v }))} />
+            </div>
+            <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Ask how it went after each task</span>
+              <Switch label="Ask how it went after each task" checked={options.attitude_prompt} onChange={(v) => setOptions((o) => ({ ...o, attitude_prompt: v }))} />
+            </div>
+            <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Show steps expanded</span>
+              <Switch label="Show steps expanded" checked={options.expand_steps} onChange={(v) => setOptions((o) => ({ ...o, expand_steps: v }))} />
+            </div>
+            <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Show Chipper Chart</span>
+              <Switch label="Show Chipper Chart" checked={options.show_chipper_chart} onChange={(v) => setOptions((o) => ({ ...o, show_chipper_chart: v }))} />
+            </div>
+            <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Let {profileName} switch location</span>
+              <Switch
+                label={`Let ${profileName} switch location`}
+                checked={options.allow_child_location}
+                onChange={(v) => setOptions((o) => ({ ...o, allow_child_location: v }))}
+              />
+            </div>
+            <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Let the child start step timers</span>
+              <Switch
+                label="Let the child start step timers"
+                checked={options.show_step_timers}
+                onChange={(v) => setOptions((o) => ({ ...o, show_step_timers: v }))}
+              />
+            </div>
+            <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Let {profileName} open a step list</span>
+              <Switch
+                label={`Let ${profileName} open a step list`}
+                checked={options.show_visual_schedule}
+                onChange={(v) => setOptions((o) => ({ ...o, show_visual_schedule: v }))}
+              />
+            </div>
+          </>
+        ) : null}
       </div>
       <BigButton fullWidth icon="lock" onClick={() => void handleLock()} disabled={locking}>
         Lock

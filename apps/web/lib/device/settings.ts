@@ -33,6 +33,8 @@ export interface LockOptions {
   show_step_timers: boolean;
   /** On by default; on lets the child open a routine's steps as a full-screen visual schedule (S32, S36). */
   show_visual_schedule: boolean;
+  /** Off by default; on replaces the whole locked view with just First-Then, full-page -- no task list, no other options underneath. */
+  first_then_only: boolean;
 }
 
 export interface LockState {
@@ -52,6 +54,7 @@ const DEFAULT_LOCK_OPTIONS: LockOptions = {
   allow_child_location: false,
   show_step_timers: false,
   show_visual_schedule: true,
+  first_then_only: false,
 };
 const DEFAULT_LOCK_STATE: LockState = { locked_profile_id: null, options: DEFAULT_LOCK_OPTIONS };
 

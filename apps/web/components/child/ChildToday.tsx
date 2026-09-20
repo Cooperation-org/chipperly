@@ -19,7 +19,7 @@ import {
 } from '@/lib/data/schedule';
 import { useActiveLocation, useLocations } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
-import { useTimer, useTimerRunning, setDuration, setReveal, start } from '@/lib/timer/store';
+import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { ChipStrip } from '@/components/ui/ChipStrip';
@@ -171,6 +171,7 @@ export function ChildToday() {
   function startStepTimer(minutes: number, emoji: string | null, photoId: string | null): void {
     setDuration(minutes * 60_000);
     setReveal(emoji || photoId ? { emoji: emoji ?? undefined, photo_id: photoId ?? undefined } : null);
+    setLocked(true);
     start();
     setTimerOpen(true);
   }
@@ -276,6 +277,31 @@ export function ChildToday() {
   const canPickReward = profile?.settings.child_picks_reward !== false;
 
   if (!profileId || !profile) return null;
+
+  // "Only show First-Then" lock option: the sole content, full page --
+  // no task list, no other options underneath it (unlike show_first_then,
+  // which just adds a button that opens the same panels as a sheet).
+  if (options.first_then_only) {
+    return (
+      <div className={styles.screen}>
+        <header className={styles.header}>
+          <div className={styles.identity}>
+            <Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="child" />
+            <h1 className={styles.name}>{profile.name}</h1>
+          </div>
+          <IconButton
+            icon="lock"
+            aria-label="Caregiver unlock"
+            variant="solid"
+            className={styles.lockButton}
+            onClick={() => setUnlocking(true)}
+          />
+        </header>
+        <FirstThenPanels profileId={profileId} mode="child" />
+        {unlocking ? <UnlockOverlay onClose={() => setUnlocking(false)} /> : null}
+      </div>
+    );
+  }
 
   return (
     <div className={styles.screen}>
