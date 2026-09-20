@@ -19,7 +19,7 @@ import {
 } from '@/lib/data/schedule';
 import { useActiveLocation, useLocations } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
-import { useTimer, useTimerRunning, setDuration, start } from '@/lib/timer/store';
+import { useTimer, useTimerRunning, setDuration, setReveal, start } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { ChipStrip } from '@/components/ui/ChipStrip';
@@ -168,8 +168,9 @@ export function ChildToday() {
   // ponytail: opens the same full-screen timer already used for the running-timer
   // pill below instead of routing to /timer/ — this screen traps back-navigation
   // and has no nav chrome to return from, so leaving the route would strand the child.
-  function startStepTimer(minutes: number): void {
+  function startStepTimer(minutes: number, emoji: string | null, photoId: string | null): void {
     setDuration(minutes * 60_000);
+    setReveal(emoji || photoId ? { emoji: emoji ?? undefined, photo_id: photoId ?? undefined } : null);
     start();
     setTimerOpen(true);
   }
@@ -236,7 +237,9 @@ export function ChildToday() {
           durationMinutes={step.duration_minutes}
           depth={node.node.depth}
           onStartTimer={
-            options.show_step_timers && step.duration_minutes ? () => startStepTimer(step.duration_minutes as number) : undefined
+            options.show_step_timers && step.duration_minutes
+              ? () => startStepTimer(step.duration_minutes as number, step.emoji, step.photo_id)
+              : undefined
           }
         />
         {node.children.length > 0 ? (
