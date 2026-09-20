@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth/session';
-import { useFirstThen, setFirst, setThen, clear, completeFirst } from '@/lib/data/firstThen';
+import { useFirstThen, setFirst, setThen, clear, completeFirst, uncompleteFirst } from '@/lib/data/firstThen';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { Picker } from '@/components/picker/Picker';
@@ -86,12 +86,17 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
     );
   }
 
-  async function handleDone() {
-    if (!bothSet || done || !user) return;
-    setDone(true);
-    const awarded = await completeFirst(profileId, user.id);
-    setCelebrating(true);
-    if (awarded) playChip();
+  async function handleToggleDone(next: boolean) {
+    if (!bothSet || !user) return;
+    if (next) {
+      setDone(true);
+      const awarded = await completeFirst(profileId, user.id);
+      setCelebrating(true);
+      if (awarded) playChip();
+    } else {
+      setDone(false);
+      await uncompleteFirst(profileId, user.id);
+    }
   }
 
   return (
@@ -110,7 +115,7 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
           ) : (
             <EmptyPanel sentence="Choose an activity" onTap={caregiver ? openFirstPicker : undefined} />
           )}
-          {bothSet ? <CheckCircle checked={done} onChange={handleDone} name="Done" size="lg" disabled={done} /> : null}
+          {bothSet ? <CheckCircle checked={done} onChange={(next) => void handleToggleDone(next)} name="Done" size="lg" /> : null}
         </div>
 
         <div className={[styles.panel, done ? styles.enlarged : ''].filter(Boolean).join(' ')}>

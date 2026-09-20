@@ -76,3 +76,37 @@ export async function completeFirst(profileId: string, userId: string): Promise<
   });
   return true;
 }
+
+/**
+ * Undoes `completeFirst`'s award. Matches lib/data/schedule.ts's own undo:
+ * never remove the original ledger row, append a compensating one that nets
+ * this activity's contribution back to zero.
+ */
+export async function uncompleteFirst(profileId: string, userId: string): Promise<void> {
+  const profile = await db.profiles.get(profileId);
+  if (!profile?.first_then_activity_id) return;
+  const activityId = profile.first_then_activity_id;
+
+  const rows = (await db.chip_ledger.where('profile_id').equals(profileId).toArray()).filter(
+    (row) => row.ref_id === activityId && row.deleted_at === null,
+  );
+  const net = rows.reduce((sum, row) => sum + row.delta, 0);
+  if (net === 0) return;
+
+  const activity = await db.activities.get(activityId);
+  const locationId = activity?.location_id ?? (await getActiveLocationId(profileId));
+  await upsert('chip_ledger', {
+    id: newId(),
+    profile_id: profileId,
+    version: 0,
+    client_updated_at: now(),
+    updated_by: userId,
+    deleted_at: null,
+    location_id: locationId,
+    delta: -net,
+    reason: 'adjust',
+    ref_id: activityId,
+    created_at: now(),
+    created_by: userId,
+  });
+}
