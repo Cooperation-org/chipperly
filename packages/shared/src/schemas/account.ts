@@ -15,6 +15,10 @@ export type Account = z.infer<typeof AccountSchema>;
 export const Role = z.enum(['admin', 'member']);
 export type Role = z.infer<typeof Role>;
 
+/** 'strict' notifies a care-team member only about their one assigned location; 'linked' about any of the child's location changes. */
+export const LocationNotifyMode = z.enum(['strict', 'linked']);
+export type LocationNotifyMode = z.infer<typeof LocationNotifyMode>;
+
 /** A row of `account_members`: who belongs to an account and at what role. */
 export const MembershipSchema = z.object({
   account_id: uuidSchema,
@@ -91,14 +95,25 @@ export const UpdateMemberBodySchema = z.object({
   role: Role.optional(),
   profile_ids: z.array(uuidSchema).optional(),
   relationship_label: z.string().nullable().optional(),
+  assigned_location_id: uuidSchema.nullable().optional(),
+  location_notify_mode: LocationNotifyMode.nullable().optional(),
 });
 export type UpdateMemberBody = z.infer<typeof UpdateMemberBodySchema>;
+
+/** One profile this member sees, plus that profile's own profile_members row: relationship + optional location assignment. */
+export const AccountMemberProfileSchema = z.object({
+  profile_id: uuidSchema,
+  relationship_label: z.string().nullable(),
+  assigned_location_id: uuidSchema.nullable(),
+  location_notify_mode: LocationNotifyMode.nullable(),
+});
+export type AccountMemberProfile = z.infer<typeof AccountMemberProfileSchema>;
 
 /** A row of S26 (care team): who, at what role, seeing which profiles. */
 export const AccountMemberSchema = z.object({
   user: z.object({ id: uuidSchema, email: z.string().email(), display_name: z.string() }),
   role: Role,
-  profile_ids: z.array(uuidSchema),
+  profiles: z.array(AccountMemberProfileSchema),
 });
 export type AccountMember = z.infer<typeof AccountMemberSchema>;
 

@@ -182,8 +182,46 @@ describe('accounts routes', () => {
     const membersBody = expectShape(membersRes, AccountMembersResponseSchema);
     const memberRow = membersBody.members.find((m) => m.user.id === member.id);
     expect(memberRow?.role).toBe('member');
-    expect(memberRow?.profile_ids).toEqual([profileA.id]);
+    expect(memberRow?.profiles.map((p) => p.profile_id)).toEqual([profileA.id]);
     expect(membersBody.invites).toHaveLength(0); // accepted, no longer pending
+
+    // A care-team member can be assigned a location for a profile they see,
+    // with a notify mode, and it round-trips through the same GET.
+    const therapyLocationId = uuidv7();
+    await db.insert(locations).values({
+      id: therapyLocationId,
+      profile_id: profileA.id,
+      version: 0,
+      client_updated_at: Date.now(),
+      updated_by: admin.id,
+      deleted_at: null,
+      name: 'Therapy',
+      emoji: null,
+      photo_id: null,
+      position: 0,
+      chip_goal: 5,
+      working_for_reward_id: null,
+      lat: null,
+      lng: null,
+      radius_m: null,
+    });
+    const assignRes = await request(app, {
+      method: 'PATCH',
+      url: `/api/accounts/${account.id}/members/${member.id}`,
+      headers: auth(admin.token),
+      payload: { assigned_location_id: therapyLocationId, location_notify_mode: 'strict' },
+    });
+    expect(assignRes.statusCode).toBe(200);
+
+    const afterAssignRes = await request(app, {
+      method: 'GET',
+      url: `/api/accounts/${account.id}/members`,
+      headers: auth(admin.token),
+    });
+    const afterAssignBody = expectShape(afterAssignRes, AccountMembersResponseSchema);
+    const assignedProfile = afterAssignBody.members.find((m) => m.user.id === member.id)?.profiles[0];
+    expect(assignedProfile?.assigned_location_id).toBe(therapyLocationId);
+    expect(assignedProfile?.location_notify_mode).toBe('strict');
 
     // Removing a member reassigns rows they're credited with to the caller.
     await db.update(activities).set({ updated_by: member.id }).where(eq(activities.profile_id, profileB.id));

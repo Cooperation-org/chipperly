@@ -274,18 +274,31 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
 
     const members: AccountMember[] = [];
     for (const m of memberships) {
-      let profile_ids: string[] = [];
+      let profiles: AccountMember['profiles'] = [];
       if (m.role === 'admin') {
-        profile_ids = profileIds;
+        // Admins see every profile implicitly, with no profile_members row
+        // (and no location assignment -- that's for non-admin care-team
+        // members like a therapist, not the account's own admins).
+        profiles = profileIds.map((profile_id) => ({
+          profile_id,
+          relationship_label: null,
+          assigned_location_id: null,
+          location_notify_mode: null,
+        }));
       } else if (profileIds.length > 0) {
-        profile_ids = (
+        profiles = (
           await db
-            .select({ profile_id: profile_members.profile_id })
+            .select({
+              profile_id: profile_members.profile_id,
+              relationship_label: profile_members.relationship_label,
+              assigned_location_id: profile_members.assigned_location_id,
+              location_notify_mode: profile_members.location_notify_mode,
+            })
             .from(profile_members)
             .where(and(eq(profile_members.user_id, m.user_id), inArray(profile_members.profile_id, profileIds)))
-        ).map((r) => r.profile_id);
+        );
       }
-      members.push({ user: { id: m.user_id, email: m.email, display_name: m.display_name }, role: m.role, profile_ids });
+      members.push({ user: { id: m.user_id, email: m.email, display_name: m.display_name }, role: m.role, profiles });
     }
 
     const pending = await db
@@ -396,12 +409,20 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
             .values({ profile_id: profileId, user_id: targetId, relationship_label: body.relationship_label ?? null })
             .onConflictDoNothing();
         }
-      } else if (body.relationship_label !== undefined) {
+      } else if (
+        body.relationship_label !== undefined ||
+        body.assigned_location_id !== undefined ||
+        body.location_notify_mode !== undefined
+      ) {
         const profileIds = await accountProfileIds(accountId);
         if (profileIds.length > 0) {
+          const patch: Partial<typeof profile_members.$inferInsert> = {};
+          if (body.relationship_label !== undefined) patch.relationship_label = body.relationship_label;
+          if (body.assigned_location_id !== undefined) patch.assigned_location_id = body.assigned_location_id;
+          if (body.location_notify_mode !== undefined) patch.location_notify_mode = body.location_notify_mode;
           await tx
             .update(profile_members)
-            .set({ relationship_label: body.relationship_label })
+            .set(patch)
             .where(and(eq(profile_members.user_id, targetId), inArray(profile_members.profile_id, profileIds)));
         }
       }

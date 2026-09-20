@@ -14,6 +14,7 @@ import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import { InviteSheet } from './InviteSheet';
+import { EditMemberLocationSheet } from './EditMemberLocationSheet';
 import styles from './CareTeamScreen.module.css';
 
 /** S26: care team members and pending invites, admin only. */
@@ -29,6 +30,16 @@ export function CareTeamScreen() {
 
   const profiles = useLiveQuery(() => (accountId ? db.profiles.where('account_id').equals(accountId).toArray() : []), [accountId], []);
   const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const profileIds = profiles.map((p) => p.id);
+  const locations = useLiveQuery(
+    () => (profileIds.length > 0 ? db.locations.where('profile_id').anyOf(profileIds).toArray() : []),
+    [profileIds.join(',')],
+    [],
+  );
+  const locationById = new Map(locations.map((l) => [l.id, l]));
+  function locationName(id: string): string | null {
+    return locationById.get(id)?.name ?? null;
+  }
 
   // Fetch on mount, on account change, and whenever an action below bumps
   // refreshKey. setData is only reached after the await, inside a cleanup-
@@ -104,14 +115,46 @@ export function CareTeamScreen() {
                   <span className={styles.memberName}>{m.user.display_name}</span>
                   <span className={styles.memberRole}>{m.role}</span>
                   <div className={styles.tiles}>
-                    {m.profile_ids.map((pid) => {
-                      const p = profileById.get(pid);
+                    {m.profiles.map((mp) => {
+                      const p = profileById.get(mp.profile_id);
                       if (!p) return null;
+                      const location = mp.assigned_location_id ? locationName(mp.assigned_location_id) : null;
+                      // Admins have no profile_members row (they see every profile
+                      // implicitly) so there's nothing here to assign a location to.
+                      if (m.role === 'admin') {
+                        return (
+                          <span key={mp.profile_id} className={styles.tileItem}>
+                            <Picture emoji={p.avatar_emoji} photo_id={p.avatar_photo_id} name={p.name} size="list" />
+                            <span className={styles.tileName}>Sees: {p.name}</span>
+                          </span>
+                        );
+                      }
                       return (
-                        <span key={pid} className={styles.tileItem}>
+                        <button
+                          key={mp.profile_id}
+                          type="button"
+                          className={styles.tileItem}
+                          onClick={() =>
+                            open(
+                              <EditMemberLocationSheet
+                                accountId={accountId}
+                                userId={m.user.id}
+                                memberName={m.user.display_name}
+                                profileId={p.id}
+                                profileName={p.name}
+                                current={mp}
+                                onSaved={refetch}
+                              />,
+                              { title: 'Assigned location' },
+                            )
+                          }
+                        >
                           <Picture emoji={p.avatar_emoji} photo_id={p.avatar_photo_id} name={p.name} size="list" />
-                          <span className={styles.tileName}>Sees: {p.name}</span>
-                        </span>
+                          <span className={styles.tileName}>
+                            Sees: {p.name}
+                            {location ? <span className={styles.tileLocation}> · {location}</span> : null}
+                          </span>
+                        </button>
                       );
                     })}
                   </div>
