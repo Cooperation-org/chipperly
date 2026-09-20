@@ -257,7 +257,7 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
       const [stored] = await tx`select * from locations where id = ${mutation.id} limit 1`;
       if (!stored) return false;
       const storedRow = normalizeRow(stored);
-      const contentKeys = ['name', 'emoji', 'photo_id', 'position', 'chip_goal', 'deleted_at'] as const;
+      const contentKeys = ['name', 'emoji', 'photo_id', 'position', 'chip_goal', 'lat', 'lng', 'radius_m', 'deleted_at'] as const;
       return contentKeys.every((key) => (parsed.data as SyncRow)[key] === storedRow[key]);
     }
     default:

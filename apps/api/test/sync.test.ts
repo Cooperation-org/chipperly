@@ -168,6 +168,9 @@ function locationRow(
     position: 0,
     chip_goal: 5,
     working_for_reward_id: null,
+    lat: null,
+    lng: null,
+    radius_m: null,
     ...overrides,
   };
 }
@@ -643,6 +646,27 @@ describe('sync', () => {
       admin.token,
       profileId,
       [{ table: 'locations', id: locationId, op: 'upsert', row: locationRow(locationId, profileId, admin.id, t1, { working_for_reward_id: uuidv7() }), client_updated_at: t1 }],
+      true,
+    );
+    const body = expectShape(locked, SyncPushResponseSchema);
+    expect(body.applied).toEqual([]);
+    expect(body.rejected[0]).toMatchObject({ id: locationId, table: 'locations', reason: 'locked' });
+  });
+
+  it('a locked child device cannot change a location geofence', async () => {
+    const { admin, profileId } = await setupProfile();
+    const locationId = uuidv7();
+    const t0 = Date.now();
+    await pushRequest(app, admin.token, profileId, [
+      { table: 'locations', id: locationId, op: 'upsert', row: locationRow(locationId, profileId, admin.id, t0), client_updated_at: t0 },
+    ]);
+
+    const t1 = t0 + 1000;
+    const locked = await pushRequest(
+      app,
+      admin.token,
+      profileId,
+      [{ table: 'locations', id: locationId, op: 'upsert', row: locationRow(locationId, profileId, admin.id, t1, { lat: 40.1, lng: -73.2, radius_m: 100 }), client_updated_at: t1 }],
       true,
     );
     const body = expectShape(locked, SyncPushResponseSchema);

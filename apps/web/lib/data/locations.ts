@@ -30,6 +30,10 @@ export interface SaveLocationInput {
   photo_id: string | null;
   chip_goal: number;
   working_for_reward_id?: string | null;
+  /** Optional geofence center/radius, groundwork for a later auto-switch feature. */
+  lat?: number | null;
+  lng?: number | null;
+  radius_m?: number | null;
 }
 
 export async function saveLocation(input: SaveLocationInput): Promise<string> {
@@ -49,6 +53,9 @@ export async function saveLocation(input: SaveLocationInput): Promise<string> {
     position,
     chip_goal: input.chip_goal,
     working_for_reward_id: input.working_for_reward_id ?? existing?.working_for_reward_id ?? null,
+    lat: input.lat ?? existing?.lat ?? null,
+    lng: input.lng ?? existing?.lng ?? null,
+    radius_m: input.radius_m ?? existing?.radius_m ?? null,
   };
   await upsert('locations', row);
   return id;

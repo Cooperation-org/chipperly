@@ -9,6 +9,7 @@ import { Picture } from '@/components/media/Picture';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListRow } from '@/components/ui/ListRow';
 import { BigButton } from '@/components/ui/BigButton';
+import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { Stepper } from '@/components/ui/Stepper';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -47,12 +48,45 @@ function repeatLabel(activity: Activity): string | undefined {
   }
 }
 
+const DEFAULT_RADIUS_M = 100;
+
 function LocationSheet({ profileId, location }: { profileId: string; location?: Location }) {
   const { close } = useSheet();
   const [name, setName] = useState(location?.name ?? '');
   const [picture, setPicture] = useState<PicturePickerValue>({ emoji: location?.emoji, photo_id: location?.photo_id });
   const [goal, setGoal] = useState(location?.chip_goal ?? 5);
+  const [lat, setLat] = useState(location?.lat ?? null);
+  const [lng, setLng] = useState(location?.lng ?? null);
+  const [radiusM, setRadiusM] = useState(location?.radius_m ?? null);
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
+
+  function useCurrentLocation(): void {
+    setGeoError(undefined);
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoError("This device can't share its location.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLat(position.coords.latitude);
+        setLng(position.coords.longitude);
+        setRadiusM((current) => current ?? DEFAULT_RADIUS_M);
+        setLocating(false);
+      },
+      (error) => {
+        setGeoError(
+          error.code === error.PERMISSION_DENIED
+            ? "Location permission denied. Allow it in your browser's settings to set a spot."
+            : "Couldn't get your location. Try again.",
+        );
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  }
 
   async function submit(): Promise<void> {
     if (!name.trim()) return;
@@ -65,6 +99,9 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
       photo_id: picture.photo_id ?? null,
       chip_goal: goal,
       working_for_reward_id: location?.working_for_reward_id,
+      lat,
+      lng,
+      radius_m: radiusM,
     });
     setSaving(false);
     close();
@@ -75,6 +112,30 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
       <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       <PicturePicker value={picture} onChange={setPicture} name={name || 'Location'} />
       <Stepper label="Chips to earn" value={goal} min={1} max={20} onChange={setGoal} />
+      <div className={styles.geo}>
+        <span className={styles.geoLabel}>Set this location&rsquo;s spot</span>
+        <Button variant="secondary" onClick={useCurrentLocation} disabled={locating} loading={locating}>
+          Use my current location
+        </Button>
+        {geoError ? (
+          <p className={styles.geoError} role="alert">
+            {geoError}
+          </p>
+        ) : null}
+        {lat !== null && lng !== null ? (
+          <TextField
+            label="Radius (meters)"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={radiusM ?? DEFAULT_RADIUS_M}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setRadiusM(raw === '' ? DEFAULT_RADIUS_M : Math.max(1, Number(raw)));
+            }}
+          />
+        ) : null}
+      </div>
       <BigButton fullWidth onClick={() => void submit()} disabled={saving}>
         Save
       </BigButton>
