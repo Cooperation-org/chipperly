@@ -53,7 +53,11 @@ export async function buildApp({ env }: BuildAppOptions): Promise<FastifyInstanc
   await registerAuth(app);
 
   if (env.CORS_ORIGIN) {
-    await app.register(cors, { origin: env.CORS_ORIGIN });
+    // @fastify/cors defaults `methods` to 'GET,HEAD,POST' (its own hardcoded
+    // default, not a Fastify route introspection) -- a cross-origin PATCH or
+    // DELETE call fails preflight silently unless every method this API
+    // actually uses is listed here.
+    await app.register(cors, { origin: env.CORS_ORIGIN, methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'] });
   }
 
   // `global: false`: only routes that opt in via `{ config: { rateLimit: {...} } }`
