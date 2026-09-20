@@ -7,6 +7,7 @@ import { useKv } from '@/lib/db/kv';
 import { SheetHost } from '@/components/ui/Sheet';
 import { ToastHost } from '@/lib/toast';
 import { SwRegister } from '@/components/pwa/SwRegister';
+import { BackButtonHandler } from '@/components/native/BackButtonHandler';
 
 interface DeviceSettings {
   reduce_motion?: 'system' | 'on' | 'off';
@@ -46,6 +47,7 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
         <SheetHost />
         <ToastHost />
         <SwRegister />
+        <BackButtonHandler />
       </SyncProvider>
     </SessionProvider>
   );
