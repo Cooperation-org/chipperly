@@ -7,6 +7,7 @@ import { useSession } from '@/lib/auth/session';
 import { api } from '@/lib/api/client';
 import { unlock, usePinGate } from '@/lib/device/settings';
 import { verifyPin } from '@/lib/auth/pin';
+import Kiosk from '@/lib/native/kiosk';
 import { PinPad } from '@/components/pin/PinPad';
 import { IconButton } from '@/components/ui/IconButton';
 import styles from './UnlockOverlay.module.css';
@@ -95,6 +96,7 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
     } catch {
       // see above
     }
+    await Kiosk.exitFocusMode();
     await unlock();
     router.replace('/today/');
     return true;
