@@ -173,7 +173,10 @@ test.describe('child mode', () => {
     await snap(page, 's32-child-location-picker');
 
     await picker.getByRole('button', { name: 'Home', exact: true }).click();
-    await expect(picker).toBeHidden();
+    const pinConfirm = page.getByRole('dialog', { name: 'Confirm location change' });
+    await expect(pinConfirm).toBeVisible();
+    await enterPin(page, '1234');
+    await expect(pinConfirm).toBeHidden();
 
     await expect(page.getByRole('button', { name: 'Home', exact: true })).toBeVisible();
     // Home earned its one chip back in "check off a row: chip strip updates...".

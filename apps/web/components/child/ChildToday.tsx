@@ -5,6 +5,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
+import { verifyPin } from '@/lib/auth/pin';
+import { PinPad } from '@/components/pin/PinPad';
 import { db } from '@/lib/db/db';
 import {
   useMaterializedDay,
@@ -174,6 +176,31 @@ export function ChildToday() {
 
   // SOW Q3, decided: a lock option lets the child pick their own location
   // from their header, big picture tiles, no text-only choices.
+  // The child picking their own location (when the lock option allows it at
+  // all) still needs the caregiver PIN to confirm -- unless no PIN is set
+  // yet, in which case there's nothing to check against and this behaves
+  // like it always did.
+  function confirmLocationChange(locationId: string): void {
+    const hash = user?.pin_hash;
+    if (!hash) {
+      setActiveLocationId(locationId);
+      sheet.close();
+      return;
+    }
+    const pinHash: string = hash;
+
+    function handlePinComplete(pin: string): Promise<boolean> {
+      return verifyPin(pin, pinHash).then((ok) => {
+        if (!ok) return false;
+        setActiveLocationId(locationId);
+        sheet.close();
+        return true;
+      });
+    }
+
+    sheet.replace(<PinPad title="Caregiver PIN" onComplete={handlePinComplete} />, { title: 'Confirm location change' });
+  }
+
   function openLocationPicker(): void {
     sheet.open(
       <ul className={styles.locationList}>
@@ -183,10 +210,7 @@ export function ChildToday() {
               type="button"
               className={styles.locationTile}
               aria-label={loc.name}
-              onClick={() => {
-                setActiveLocationId(loc.id);
-                sheet.close();
-              }}
+              onClick={() => confirmLocationChange(loc.id)}
             >
               <Picture emoji={loc.emoji} photo_id={loc.photo_id} name={loc.name} size="child" />
               <span>{loc.name}</span>
