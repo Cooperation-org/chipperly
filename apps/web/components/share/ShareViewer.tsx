@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ShareViewSchema, type ShareView, type ShareScheduleItem } from '@chipperly/shared/schemas/share';
-import { apiBase } from '@/lib/api/base';
+import { apiBase, withBase } from '@/lib/api/base';
 import { Picture } from '@/components/media/Picture';
 import { ChipStrip } from '@/components/ui/ChipStrip';
 import { CheckCircle } from '@/components/ui/CheckCircle';
@@ -159,7 +159,11 @@ export function ShareViewer() {
         </Button>
       </div>
 
-      <p className={styles.footer}>Shared from Chipperly</p>
+      <p className={styles.footer}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API */}
+        <img src={withBase('/brand/mark.svg')} alt="" width={16} height={16} className={styles.footerMark} />
+        Shared from Chipperly
+      </p>
     </div>
   );
 }
