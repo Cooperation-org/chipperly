@@ -54,10 +54,20 @@ export function getLastMailMessage(): MailMessage | null {
   return lastMessage;
 }
 
+/**
+ * Never throws: a Resend outage or a rejected recipient must not fail the
+ * caller's request (register still creates the account; forgot-password
+ * must return the same `{ ok: true }` whether or not the account exists,
+ * sec: enumeration). The failure is still logged for operator visibility.
+ */
 export async function sendMail(message: MailMessage): Promise<void> {
   lastMessage = message;
   if (env.mailEnabled) {
-    await sendViaResend(message);
+    try {
+      await sendViaResend(message);
+    } catch (err) {
+      console.error('sendMail: Resend send failed', err);
+    }
     return;
   }
   sendViaConsole(message);
