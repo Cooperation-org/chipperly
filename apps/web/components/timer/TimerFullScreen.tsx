@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useTimer, start, pause } from '@/lib/timer/store';
+import { useTimer, start, pause, reset } from '@/lib/timer/store';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { Celebration } from '@/components/ui/Celebration';
@@ -30,6 +30,14 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
   const justEnded = timer.ended_at !== null && timer.remaining_ms === 0;
   const [boxRef, ringSize] = useSquareSize(!justEnded, 280);
 
+  // Closing an ended timer must actually clear it -- otherwise `justEnded`
+  // stays true and the "0:00" pill (TimerPill) never goes away, even though
+  // this screen closed.
+  function handleClose(): void {
+    if (justEnded) reset();
+    onClose();
+  }
+
   useEffect(() => {
     returnFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
@@ -41,6 +49,7 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
     function onKeyDown(e: KeyboardEvent): void {
       if (e.key === 'Escape') {
         e.preventDefault();
+        if (justEnded) reset();
         onClose();
         return;
       }
@@ -64,7 +73,7 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
       document.body.style.overflow = previousOverflow;
       returnFocusRef.current?.focus();
     };
-  }, [onClose]);
+  }, [onClose, justEnded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,12 +110,12 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
 
   const content = (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Timer" ref={panelRef} tabIndex={-1}>
-      <IconButton icon="close" aria-label="Close timer" variant="solid" className={styles.close} onClick={onClose} />
+      <IconButton icon="close" aria-label="Close timer" variant="solid" className={styles.close} onClick={handleClose} />
       {justEnded ? (
         <div className={styles.ended}>
           {!celebrationDone ? <Celebration kind="check" onDone={() => setCelebrationDone(true)} /> : null}
           <p className={styles.endedText}>Time&rsquo;s up</p>
-          <Button variant="primary" size="lg" onClick={onClose}>
+          <Button variant="primary" size="lg" onClick={handleClose}>
             Done
           </Button>
         </div>
