@@ -3,7 +3,7 @@
 // with the real Chipperly mark, at each file's own existing dimensions, so it hits
 // exactly the files Capacitor's templates actually need without hand-listing every
 // Android density bucket / iOS asset slot.
-import { readdir, stat } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
