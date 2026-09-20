@@ -9,6 +9,7 @@ import { ToastHost } from '@/lib/toast';
 import { SwRegister } from '@/components/pwa/SwRegister';
 import { BackButtonHandler } from '@/components/native/BackButtonHandler';
 import { TimerKioskGuard } from '@/components/native/TimerKioskGuard';
+import { AppBlockerGuard } from '@/components/native/AppBlockerGuard';
 
 interface DeviceSettings {
   reduce_motion?: 'system' | 'on' | 'off';
@@ -50,6 +51,7 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
         <SwRegister />
         <BackButtonHandler />
         <TimerKioskGuard />
+        <AppBlockerGuard />
       </SyncProvider>
     </SessionProvider>
   );

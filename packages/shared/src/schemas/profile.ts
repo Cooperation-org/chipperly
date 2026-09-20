@@ -23,6 +23,17 @@ export const ProfileSettingsSchema = z
     child_picks_reward: z.boolean().optional(),
     /** Child view may redeem an affordable reward from the free-time sheet (owner's doc, EI 6). Default true. */
     child_redeems: z.boolean().optional(),
+    /**
+     * Android app-blocking (accessibility-service based): whether it's on
+     * for this profile at all, and which installed packages stay allowed
+     * (plus Chipperly itself, always implicitly allowed). Off/empty by
+     * default. Toggling this from any device -- including a caregiver's own
+     * laptop browser -- reaches the child's device through the same sync
+     * pull every other profile setting already uses; no separate push
+     * channel needed.
+     */
+    child_mode_active: z.boolean().optional(),
+    allowed_app_packages: z.array(z.string()).optional(),
   })
   .partial();
 export type ProfileSettings = z.infer<typeof ProfileSettingsSchema>;
