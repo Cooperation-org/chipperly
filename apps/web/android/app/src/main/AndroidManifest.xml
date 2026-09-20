@@ -33,6 +33,27 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Disclosed, narrow-purpose accessibility service: watches only
+             which package is in the foreground (see
+             chipperly_block_service_config.xml, where canRetrieveWindowContent
+             is false) so Chipperly can bring itself back when a
+             non-allowed app opens while the device is locked to a child's
+             profile. The caregiver must turn it on manually in system
+             Settings; block_service_description (strings.xml) is what they
+             read there before doing so. -->
+        <service
+            android:name=".ChipperlyBlockService"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/chipperly_block_service_config" />
+        </service>
     </application>
 
     <!-- Permissions -->

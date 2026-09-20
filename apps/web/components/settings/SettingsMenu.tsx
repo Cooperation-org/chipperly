@@ -88,6 +88,12 @@ export function SettingsMenu() {
               onTap={() => open(<LockSheet profileId={profile.id} />, { title: 'Lock this device' })}
             />
             <ListRow
+              tile={<Icon name="lock" size={20} />}
+              name="App blocking"
+              trailing={<Icon name="chevron" size={20} />}
+              onTap={() => router.push('/settings/app-blocking/')}
+            />
+            <ListRow
               tile={<Icon name="star" size={20} />}
               name="Attitude history"
               trailing={<Icon name="chevron" size={20} />}
