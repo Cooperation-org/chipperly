@@ -8,6 +8,7 @@ import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { CheckCircle } from '@/components/ui/CheckCircle';
 import { ListRow } from '@/components/ui/ListRow';
+import { QrCode } from '@/components/ui/QrCode';
 import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
@@ -100,6 +101,10 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
             : `Email isn't set up on this server, so send ${issued.email} this link yourself. It works for 7 days.`}
         </p>
         <input className={styles.linkField} readOnly value={issued.invite_url} onFocus={(e) => e.target.select()} aria-label="Invite link" />
+        <div className={styles.qrRow}>
+          <QrCode value={issued.invite_url} size={160} />
+          <p className={styles.qrHint}>Or scan this with their phone&rsquo;s camera</p>
+        </div>
         <div className={styles.actions}>
           <Button
             variant="secondary"
