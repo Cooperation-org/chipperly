@@ -54,6 +54,12 @@
   background: var(--color-surface-2);
 }
 
+.warning {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  margin: 0;
+}
+
 .appTile {
   display: flex;
   align-items: center;

@@ -96,6 +96,12 @@ export function AppBlockingScreen() {
           While this device is locked to {profile.name}, only Chipperly and the apps checked below can open. You can
           always unlock with your PIN, on/off setting or not.
         </p>
+        {childModeActive && !serviceEnabled ? (
+          <p className={styles.warning} role="alert">
+            This is on, but the accessibility service above isn&rsquo;t enabled yet -- nothing is actually blocked
+            until you turn that on too.
+          </p>
+        ) : null}
       </div>
 
       {apps.length === 0 ? (
