@@ -7,6 +7,14 @@ export const accounts = pgTable('accounts', {
   kind: text('kind').$type<AccountKind>().notNull(),
   name: text('name').notNull(),
   created_at: bigint('created_at', { mode: 'number' }).notNull(),
+  /**
+   * The single account owner: set to the creator at account creation, more
+   * privileged than any other 'admin' in account_members (see the parent
+   * task's location-history feature for why this distinction exists). Check
+   * with `isAccountOwner` in plugins/auth.ts. No FK: this schema doesn't use
+   * them anywhere, integrity is app-enforced.
+   */
+  owner_user_id: uuid('owner_user_id').notNull(),
 });
 
 export const users = pgTable(

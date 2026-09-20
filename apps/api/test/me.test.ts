@@ -56,12 +56,12 @@ describe('me routes', () => {
     const { userId, token } = await registerAndSignIn(app, 'me@example.com');
 
     const adminAccountId = uuidv7();
-    await db.insert(accounts).values({ id: adminAccountId, kind: 'household', name: 'Admin Household', created_at: Date.now() });
+    await db.insert(accounts).values({ id: adminAccountId, kind: 'household', name: 'Admin Household', created_at: Date.now(), owner_user_id: userId });
     await db.insert(account_members).values({ account_id: adminAccountId, user_id: userId, role: 'admin' });
     const adminProfileId = await insertProfile(adminAccountId);
 
     const memberAccountId = uuidv7();
-    await db.insert(accounts).values({ id: memberAccountId, kind: 'agency', name: 'Care Agency', created_at: Date.now() });
+    await db.insert(accounts).values({ id: memberAccountId, kind: 'agency', name: 'Care Agency', created_at: Date.now(), owner_user_id: userId });
     await db.insert(account_members).values({ account_id: memberAccountId, user_id: userId, role: 'member' });
     const memberProfileId = await insertProfile(memberAccountId);
     const unlistedProfileId = await insertProfile(memberAccountId);
@@ -141,7 +141,7 @@ describe('POST /me/lock, POST /me/unlock', () => {
 
   it('locks with no PIN needed, unlocks only with the right one, and gates sync/push in between', async () => {
     const admin = await createUser('Locker');
-    const accountId = await createAccount('household', 'Lock Household');
+    const accountId = await createAccount(admin.id, 'household', 'Lock Household');
     await addMember(accountId, admin.id, 'admin');
     const profileId = await insertProfile(accountId);
 
@@ -196,7 +196,7 @@ describe('POST /me/lock, POST /me/unlock', () => {
 
   it('rejects locking to a profile outside the caller\'s account', async () => {
     const admin = await createUser('Outsider');
-    const otherAccountId = await createAccount('household', 'Someone Else');
+    const otherAccountId = await createAccount(admin.id, 'household', 'Someone Else');
     const otherProfileId = await insertProfile(otherAccountId);
 
     const response = await request(app, {
@@ -222,7 +222,7 @@ describe('DELETE /me', () => {
 
   it('deletes a solo account and everything under it, and the user', async () => {
     const user = await createUser('Solo');
-    const accountId = await createAccount('individual', 'Solo Household');
+    const accountId = await createAccount(user.id, 'individual', 'Solo Household');
     await addMember(accountId, user.id, 'admin');
 
     const profileRes = await request(app, {
@@ -258,7 +258,7 @@ describe('DELETE /me', () => {
   it('just removes the membership when another admin remains, leaving the account intact', async () => {
     const leaving = await createUser('Leaving');
     const staying = await createUser('Staying');
-    const accountId = await createAccount('household', 'Shared Household');
+    const accountId = await createAccount(leaving.id, 'household', 'Shared Household');
     await addMember(accountId, leaving.id, 'admin');
     await addMember(accountId, staying.id, 'admin');
 
@@ -288,7 +288,7 @@ describe('DELETE /me', () => {
   it('409s with last_admin when the user is the sole admin but other members remain', async () => {
     const admin = await createUser('SoleAdmin');
     const member = await createUser('PlainMember');
-    const accountId = await createAccount('household', 'Needs Another Admin');
+    const accountId = await createAccount(admin.id, 'household', 'Needs Another Admin');
     await addMember(accountId, admin.id, 'admin');
     await addMember(accountId, member.id, 'member');
 

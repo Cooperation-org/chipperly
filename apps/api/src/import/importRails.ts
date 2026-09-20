@@ -190,7 +190,7 @@ async function writeAccount(
     profileRows.length > 0 ? `${profileRows[0]!.name}'s ${kindLabel(kind)}` : `Imported ${kindLabel(kind)} ${railsAccount.id}`;
   await tx
     .insert(accounts)
-    .values({ id: accountId, kind, name: accountName, created_at: railsAccount.created_at.getTime() })
+    .values({ id: accountId, kind, name: accountName, created_at: railsAccount.created_at.getTime(), owner_user_id: adminUserId })
     .onConflictDoUpdate({ target: accounts.id, set: excludedSet(accounts) });
   bump('accounts');
 

@@ -22,9 +22,9 @@ export async function createUser(displayName = 'Test User'): Promise<TestUser> {
   return { id, token: tokens.access_token };
 }
 
-export async function createAccount(kind: AccountKind = 'household', name = 'Test Household'): Promise<string> {
+export async function createAccount(ownerId: string, kind: AccountKind = 'household', name = 'Test Household'): Promise<string> {
   const id = uuidv7();
-  await db.insert(accounts).values({ id, kind, name, created_at: Date.now() });
+  await db.insert(accounts).values({ id, kind, name, created_at: Date.now(), owner_user_id: ownerId });
   return id;
 }
 
@@ -60,7 +60,7 @@ export interface TestProfileSetup {
 /** Admin user + account + profile: the starting point for every sync/media test. */
 export async function setupProfile(): Promise<TestProfileSetup> {
   const admin = await createUser();
-  const accountId = await createAccount();
+  const accountId = await createAccount(admin.id);
   await addMember(accountId, admin.id, 'admin');
   const profileId = await createProfile(accountId, admin.id);
   return { admin, accountId, profileId };

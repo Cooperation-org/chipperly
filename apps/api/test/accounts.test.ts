@@ -16,6 +16,7 @@ import { locations } from '../src/db/schema/locations.js';
 import { profile_members } from '../src/db/schema/profiles.js';
 import { issueTokens } from '../src/lib/tokens.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
+import { isAccountOwner } from '../src/plugins/auth.js';
 
 async function createUser(label: string): Promise<{ id: string; token: string }> {
   const id = uuidv7();
@@ -264,5 +265,24 @@ describe('accounts routes', () => {
     expect(relabelRes.statusCode).toBe(200);
     const [relabeled] = await db.select().from(profile_members).where(eq(profile_members.user_id, member.id));
     expect(relabeled?.relationship_label).toBe('Auntie');
+  });
+
+  it('makes the creator the account owner, distinct from a co-admin', async () => {
+    const creator = await createUser('owner');
+    const coAdmin = await createUser('co-admin');
+
+    const accountRes = await request(app, {
+      method: 'POST',
+      url: '/api/accounts',
+      headers: auth(creator.token),
+      payload: { kind: 'household', name: 'Owned household' },
+    });
+    const { account } = accountRes.json() as { account: { id: string } };
+
+    // A second admin on the same account is still just an admin, not the owner.
+    await db.insert(account_members).values({ account_id: account.id, user_id: coAdmin.id, role: 'admin' });
+
+    expect(await isAccountOwner(creator.id, account.id)).toBe(true);
+    expect(await isAccountOwner(coAdmin.id, account.id)).toBe(false);
   });
 });
