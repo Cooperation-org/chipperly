@@ -155,6 +155,9 @@ describe('location schema', () => {
       position: 0,
       chip_goal: 5,
       working_for_reward_id: null,
+      lat: null,
+      lng: null,
+      radius_m: null,
     });
   });
 });
