@@ -10,6 +10,7 @@ import { ListRow } from '@/components/ui/ListRow';
 import { Switch } from '@/components/ui/Switch';
 import { upsert } from '@/lib/sync/mutate';
 import { useActiveProfile } from '@/lib/profile/active';
+import { useLock } from '@/lib/device/settings';
 import styles from './AppBlockingScreen.module.css';
 
 /**
@@ -25,6 +26,7 @@ import styles from './AppBlockingScreen.module.css';
  */
 export function AppBlockingScreen() {
   const { profile } = useActiveProfile();
+  const { locked_profile_id } = useLock();
   const [serviceEnabled, setServiceEnabled] = useState(false);
   const [apps, setApps] = useState<InstalledApp[]>([]);
 
@@ -100,6 +102,12 @@ export function AppBlockingScreen() {
           <p className={styles.warning} role="alert">
             This is on, but the accessibility service above isn&rsquo;t enabled yet -- nothing is actually blocked
             until you turn that on too.
+          </p>
+        ) : null}
+        {childModeActive && serviceEnabled && locked_profile_id !== profile.id ? (
+          <p className={styles.warning} role="alert">
+            This only takes effect while the device is locked to {profile.name}. Nothing is blocked right now --
+            lock the device to this profile to turn on enforcement.
           </p>
         ) : null}
       </div>
