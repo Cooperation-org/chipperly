@@ -56,16 +56,24 @@
                 android:resource="@xml/chipperly_block_service_config" />
         </service>
 
-        <!-- Overrides @capacitor/push-notifications' own manifest entry
-             (its MessagingService) so a locate_request data message is
-             handled even with the app fully killed. See
-             LocateRequestMessagingService, which calls super.onMessageReceived
-             first so the plugin's own notification-message handling still
-             works unchanged. -->
+        <!-- Removes @capacitor/push-notifications' own MessagingService
+             entry: tools:node="replace" only works when android:name
+             matches, and this override's is deliberately different (a
+             LocateRequestMessagingService subclass, below), so without this
+             removal both services end up registered for the same
+             com.google.firebase.MESSAGING_EVENT action, an ambiguity that
+             silently drops FCM delivery to either. -->
+        <service
+            android:name="com.capacitorjs.plugins.pushnotifications.MessagingService"
+            tools:node="remove" />
+
+        <!-- Replaces it: handles a locate_request data message even with
+             the app fully killed. Calls super.onMessageReceived() first so
+             the plugin's own notification-message handling still works
+             unchanged. -->
         <service
             android:name=".LocateRequestMessagingService"
-            android:exported="false"
-            tools:node="replace">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
