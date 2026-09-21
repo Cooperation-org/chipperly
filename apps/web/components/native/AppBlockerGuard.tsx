@@ -2,18 +2,24 @@
 
 import { useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useLock } from '@/lib/device/settings';
+import { useLock, useParentMode } from '@/lib/device/settings';
+import { useActiveProfile } from '@/lib/profile/active';
 import { db } from '@/lib/db/db';
 import { now } from '@/lib/clock';
 import AppBlocker from '@/lib/native/appBlocker';
 
 /**
- * Enforces the locked profile's app allow-list, whenever the device is
- * actually showing that profile's locked view AND the caregiver has that
- * profile's child_mode_active on. Unlocking (locked_profile_id -> null,
- * the existing caregiver-PIN flow in UnlockOverlay) pauses enforcement
- * immediately without touching the stored setting, so re-locking resumes
- * it automatically -- the caregiver never has to redo the allow-list.
+ * Enforces the current child's app allow-list independent of the hard
+ * device pin (KioskPlugin's startLockTask): without a device-owner/DPC
+ * allowlist, screen pinning has no OS concept of "pin to Chipperly, but
+ * also allow these other apps" -- pinning blocks everything uniformly, so
+ * gating this on locked_profile_id made the allow-list a no-op whenever
+ * the device was actually locked (verified: even an explicitly-checked
+ * app got the same OS-level block as an unchecked one while pinned).
+ * ChipperlyBlockService's startActivity-based redirect works regardless of
+ * lock-task state, so this only needs "which profile is this device
+ * currently showing" -- the same locked_profile_id ?? activeProfile.id
+ * fallback ChildToday already uses -- not whether it's hard-pinned.
  * child_mode_active/allowed_app_packages are plain synced profile settings
  * (lib/data -> upsert('profiles', ...)), so a caregiver flipping them from
  * any device, including their own laptop, reaches this guard through the
@@ -21,14 +27,18 @@ import AppBlocker from '@/lib/native/appBlocker';
  */
 export function AppBlockerGuard(): null {
   const { locked_profile_id } = useLock();
-  const profile = useLiveQuery(
-    () => (locked_profile_id ? db.profiles.get(locked_profile_id) : undefined),
-    [locked_profile_id],
-  );
+  const { profile: activeProfile } = useActiveProfile();
+  const parentMode = useParentMode();
+  const profileId = locked_profile_id ?? activeProfile?.id;
+  const profile = useLiveQuery(() => (profileId ? db.profiles.get(profileId) : undefined), [profileId]);
   const lastApplied = useRef<{ enabled: boolean; packages: string; allowances: string } | null>(null);
 
   useEffect(() => {
-    const enabled = Boolean(locked_profile_id && profile?.settings.child_mode_active);
+    // Paused, not just permitted, while the caregiver is authenticated into
+    // parent mode -- having just entered a PIN/password already proves who
+    // they are, and a caregiver checking Gmail mid-review shouldn't get
+    // bounced back to Chipperly by their own child-mode settings.
+    const enabled = Boolean(!parentMode && profileId && profile?.settings.child_mode_active);
     const packages = enabled ? (profile?.settings.allowed_app_packages ?? []) : [];
     // Expired entries are harmless to keep sending -- the native side treats
     // anything at/past its own allowedUntil as inactive -- but there's no
@@ -51,7 +61,8 @@ export function AppBlockerGuard(): null {
     });
     void AppBlocker.setEnabled({ enabled });
   }, [
-    locked_profile_id,
+    parentMode,
+    profileId,
     profile?.settings.child_mode_active,
     profile?.settings.allowed_app_packages,
     profile?.settings.timed_app_allowances,

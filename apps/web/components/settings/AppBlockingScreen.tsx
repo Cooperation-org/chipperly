@@ -15,7 +15,6 @@ import { useSheet } from '@/components/ui/Sheet';
 import { now } from '@/lib/clock';
 import { upsert } from '@/lib/sync/mutate';
 import { useActiveProfile } from '@/lib/profile/active';
-import { useLock } from '@/lib/device/settings';
 import styles from './AppBlockingScreen.module.css';
 
 /** Quick-grant durations for a timed app allowance, e.g. "allow YouTube for 1 hour". */
@@ -24,9 +23,9 @@ const DURATIONS_MIN = [15, 30, 60, 120];
 /**
  * Caregiver-facing allow-list for Android's app-blocking accessibility
  * service. AppBlockerGuard (components/native) is what actually applies
- * whatever's saved here, whenever the device is locked to this profile --
- * this screen only ever reads/writes the profile's settings and asks the
- * plugin about the service's own on/off state.
+ * whatever's saved here, independent of whether the device is also hard-
+ * locked (KioskPlugin) -- this screen only ever reads/writes the profile's
+ * settings and asks the plugin about the service's own on/off state.
  *
  * Android only: listInstalledApps()/isServiceEnabled() are no-ops on
  * web/iOS (lib/native/appBlocker.web.ts), so `apps` stays empty there and
@@ -34,7 +33,6 @@ const DURATIONS_MIN = [15, 30, 60, 120];
  */
 export function AppBlockingScreen() {
   const { profile } = useActiveProfile();
-  const { locked_profile_id } = useLock();
   const sheet = useSheet();
   const [serviceEnabled, setServiceEnabled] = useState(false);
   const [apps, setApps] = useState<InstalledApp[]>([]);
@@ -156,19 +154,14 @@ export function AppBlockingScreen() {
           />
         </div>
         <p className={styles.hint}>
-          While this device is locked to {profile.name}, only Chipperly and the apps checked below can open. You can
-          always unlock with your PIN, on/off setting or not.
+          Only Chipperly and the apps checked below can open on this device while it&rsquo;s showing {profile.name}
+          &rsquo;s view. It pauses whenever you unlock into your own caregiver view, and locking the device isn&rsquo;t
+          required -- the two settings work independently.
         </p>
         {childModeActive && !serviceEnabled ? (
           <p className={styles.warning} role="alert">
             This is on, but the accessibility service above isn&rsquo;t enabled yet -- nothing is actually blocked
             until you turn that on too.
-          </p>
-        ) : null}
-        {childModeActive && serviceEnabled && locked_profile_id !== profile.id ? (
-          <p className={styles.warning} role="alert">
-            This only takes effect while the device is locked to {profile.name}. Nothing is blocked right now --
-            lock the device to this profile to turn on enforcement.
           </p>
         ) : null}
       </div>
