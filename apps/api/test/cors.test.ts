@@ -15,5 +15,6 @@ describe('CORS (methods must cover every verb the API uses, not just @fastify/co
 
     expect(res.headers['access-control-allow-methods']).toContain('PATCH');
     expect(res.headers['access-control-allow-methods']).toContain('DELETE');
+    expect(res.headers['access-control-allow-methods']).toContain('PUT');
   });
 });

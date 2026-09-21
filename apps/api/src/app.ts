@@ -57,7 +57,7 @@ export async function buildApp({ env }: BuildAppOptions): Promise<FastifyInstanc
     // default, not a Fastify route introspection) -- a cross-origin PATCH or
     // DELETE call fails preflight silently unless every method this API
     // actually uses is listed here.
-    await app.register(cors, { origin: env.CORS_ORIGIN, methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'] });
+    await app.register(cors, { origin: env.CORS_ORIGIN, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
   }
 
   // `global: false`: only routes that opt in via `{ config: { rateLimit: {...} } }`
