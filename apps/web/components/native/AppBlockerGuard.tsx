@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useLock, useParentMode } from '@/lib/device/settings';
+import { useLock } from '@/lib/device/settings';
 import { useActiveProfile } from '@/lib/profile/active';
 import { db } from '@/lib/db/db';
 import { now } from '@/lib/clock';
@@ -28,17 +28,17 @@ import AppBlocker from '@/lib/native/appBlocker';
 export function AppBlockerGuard(): null {
   const { locked_profile_id } = useLock();
   const { profile: activeProfile } = useActiveProfile();
-  const parentMode = useParentMode();
   const profileId = locked_profile_id ?? activeProfile?.id;
   const profile = useLiveQuery(() => (profileId ? db.profiles.get(profileId) : undefined), [profileId]);
   const lastApplied = useRef<{ enabled: boolean; packages: string; allowances: string } | null>(null);
 
   useEffect(() => {
-    // Paused, not just permitted, while the caregiver is authenticated into
-    // parent mode -- having just entered a PIN/password already proves who
-    // they are, and a caregiver checking Gmail mid-review shouldn't get
-    // bounced back to Chipperly by their own child-mode settings.
-    const enabled = Boolean(!parentMode && profileId && profile?.settings.child_mode_active);
+    // Enforced purely off the toggle, regardless of whether this device is
+    // currently sitting in caregiver view: a caregiver setting this up on
+    // the child's own device, then testing it without switching back to
+    // child view first, expects it to already be active -- not silently
+    // paused because they're still authenticated.
+    const enabled = Boolean(profileId && profile?.settings.child_mode_active);
     const packages = enabled ? (profile?.settings.allowed_app_packages ?? []) : [];
     // Expired entries are harmless to keep sending -- the native side treats
     // anything at/past its own allowedUntil as inactive -- but there's no
@@ -61,7 +61,6 @@ export function AppBlockerGuard(): null {
     });
     void AppBlocker.setEnabled({ enabled });
   }, [
-    parentMode,
     profileId,
     profile?.settings.child_mode_active,
     profile?.settings.allowed_app_packages,

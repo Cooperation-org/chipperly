@@ -206,8 +206,8 @@ export function AppBlockingScreen() {
         </div>
         <p className={styles.hint}>
           Only Chipperly and the apps checked below can open on this device while it&rsquo;s showing {profile.name}
-          &rsquo;s view. It pauses whenever you unlock into your own caregiver view, and locking the device isn&rsquo;t
-          required -- the two settings work independently.
+          &rsquo;s view -- this applies right away, even if you&rsquo;re still in your own caregiver view here.
+          Locking the device isn&rsquo;t required -- the two settings work independently.
         </p>
         {childModeActive && isThisDevice && !serviceEnabled ? (
           <p className={styles.warning} role="alert">
