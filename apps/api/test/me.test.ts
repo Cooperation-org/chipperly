@@ -4,12 +4,13 @@ import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { ExportResponseSchema, MeResponseSchema, type MeResponse, type TokensResponse } from '@chipperly/shared/schemas/auth';
 import { buildTestApp, expectShape, request } from './helpers.js';
-import { addMember, createAccount, createUser, setupProfile } from './fixtures.js';
+import { addMember, createAccount, createProfile, createUser, setupProfile } from './fixtures.js';
 import { db } from '../src/db/client.js';
 import { account_members, accounts, users } from '../src/db/schema/accounts.js';
 import { profile_members, profiles } from '../src/db/schema/profiles.js';
 import { locations } from '../src/db/schema/locations.js';
 import { media } from '../src/db/schema/media.js';
+import type { Device } from '@chipperly/shared/schemas/device';
 import { verifyPin } from '../src/lib/password.js';
 
 async function registerAndSignIn(app: FastifyInstance, email: string): Promise<{ userId: string; token: string }> {
@@ -384,6 +385,162 @@ describe('GET /me/export', () => {
 
   it('rejects an unauthenticated request', async () => {
     const response = await request(app, { method: 'GET', url: '/api/me/export' });
+    expect(response.statusCode).toBe(401);
+  });
+});
+
+describe('/me/devices', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('registers a device, lists it, then a caregiver names it and assigns it to a profile', async () => {
+    const { admin, profileId } = await setupProfile();
+    const deviceId = uuidv7();
+
+    const register = await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+    expect(register.statusCode).toBe(200);
+
+    const listAfterRegister = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    const registered = (listAfterRegister.json() as { devices: Device[] }).devices.find((d) => d.id === deviceId);
+    expect(registered).toMatchObject({ id: deviceId, platform: 'android', name: null, profile_id: null });
+
+    // The caregiver names it and marks which child it's for -- from what could be a
+    // completely different device/browser, the whole point of this being server-side.
+    const rename = await request(app, {
+      method: 'PATCH',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { name: "Benny's tablet", profile_id: profileId },
+    });
+    expect(rename.statusCode).toBe(200);
+
+    const listAfterRename = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    const renamed = (listAfterRename.json() as { devices: Device[] }).devices.find((d) => d.id === deviceId);
+    expect(renamed).toMatchObject({ id: deviceId, name: "Benny's tablet", profile_id: profileId });
+  });
+
+  it('re-registering the same device id updates it in place instead of duplicating it', async () => {
+    const admin = await createUser('Re-registerer');
+    const deviceId = uuidv7();
+
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'ios' },
+    });
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'ios' },
+    });
+
+    const list = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    const matches = (list.json() as { devices: Device[] }).devices.filter((d) => d.id === deviceId);
+    expect(matches).toHaveLength(1);
+  });
+
+  it("rejects assigning a device to a profile outside the caller's own account", async () => {
+    const admin = await createUser('Wrong Assigner');
+    const outsider = await createUser('Outsider Owner');
+    const otherAccountId = await createAccount(outsider.id);
+    await addMember(otherAccountId, outsider.id, 'admin');
+    const otherProfileId = await createProfile(otherAccountId, outsider.id);
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const response = await request(app, {
+      method: 'PATCH',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { profile_id: otherProfileId },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('404s renaming a device that was never registered, and lets the caregiver remove one', async () => {
+    const admin = await createUser('Deleter');
+    const missing = await request(app, {
+      method: 'PATCH',
+      url: `/api/me/devices/${uuidv7()}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { name: 'Ghost' },
+    });
+    expect(missing.statusCode).toBe(404);
+
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'web' },
+    });
+    const deleted = await request(app, {
+      method: 'DELETE',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(deleted.statusCode).toBe(200);
+
+    const list = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect((list.json() as { devices: Device[] }).devices.map((d) => d.id)).not.toContain(deviceId);
+  });
+
+  it('never shows one caregiver a device registered by another', async () => {
+    const owner = await createUser('Device Owner');
+    const stranger = await createUser('Stranger');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const list = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${stranger.token}` },
+    });
+    expect((list.json() as { devices: Device[] }).devices.map((d) => d.id)).not.toContain(deviceId);
+  });
+
+  it('rejects an unauthenticated request', async () => {
+    const response = await request(app, { method: 'GET', url: '/api/me/devices' });
     expect(response.statusCode).toBe(401);
   });
 });

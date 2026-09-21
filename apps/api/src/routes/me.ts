@@ -1,16 +1,18 @@
 import type { FastifyInstance } from 'fastify';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
 import { PinBodySchema, type ExportResponse, type MeAccount, type MeResponse } from '@chipperly/shared/schemas/auth';
 import { RegisterPushTokenBodySchema, UnregisterPushTokenBodySchema } from '@chipperly/shared/schemas/push';
+import { RegisterDeviceBodySchema, UpdateDeviceBodySchema, type Device } from '@chipperly/shared/schemas/device';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { TABLE_NAMES } from '@chipperly/shared/constants/tables';
 import { db, sql } from '../db/client.js';
 import { env } from '../env.js';
 import { account_members, accounts, invites, sessions, users } from '../db/schema/accounts.js';
 import { push_tokens } from '../db/schema/push.js';
+import { devices } from '../db/schema/devices.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
 import { locations } from '../db/schema/locations.js';
 import { activities, activity_steps, recurrence_skips } from '../db/schema/activities.js';
@@ -26,6 +28,7 @@ import { AppError } from '../plugins/errors.js';
 import { normalizeRow } from './sync.js';
 
 const LockBodySchema = z.object({ profile_id: uuidSchema });
+const deviceIdParamSchema = z.object({ id: uuidSchema });
 
 export default async function meRoutes(app: FastifyInstance): Promise<void> {
   app.get('/me', { preHandler: requireUser }, async (request): Promise<MeResponse> => {
@@ -188,6 +191,54 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     const authUser = request.user!;
     const body = UnregisterPushTokenBodySchema.parse(request.body);
     await db.delete(push_tokens).where(and(eq(push_tokens.user_id, authUser.id), eq(push_tokens.token, body.token)));
+    return { ok: true };
+  });
+
+  /** The caregiver's named device list (Settings > Devices), so it's visible from any signed-in device, including a laptop browser. */
+  app.get('/me/devices', { preHandler: requireUser }, async (request): Promise<{ devices: Device[] }> => {
+    const authUser = request.user!;
+    const rows = await db.select().from(devices).where(eq(devices.user_id, authUser.id)).orderBy(desc(devices.last_seen_at));
+    return { devices: rows };
+  });
+
+  /** Called by the device itself, on sign-in: creates the row on first sight (name/profile_id null until the caregiver sets them), otherwise just bumps last_seen_at/platform. */
+  app.put('/me/devices/:id', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const authUser = request.user!;
+    const { id } = deviceIdParamSchema.parse(request.params);
+    const body = RegisterDeviceBodySchema.parse(request.body);
+    const now = Date.now();
+    await db
+      .insert(devices)
+      .values({ id, user_id: authUser.id, platform: body.platform, last_seen_at: now, created_at: now })
+      .onConflictDoUpdate({ target: devices.id, set: { platform: body.platform, last_seen_at: now } });
+    return { ok: true };
+  });
+
+  /** Called by a caregiver, from any device, to name/reassign one already in the list -- never creates a row. */
+  app.patch('/me/devices/:id', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const authUser = request.user!;
+    const { id } = deviceIdParamSchema.parse(request.params);
+    const body = UpdateDeviceBodySchema.parse(request.body);
+
+    if (body.profile_id) {
+      const allowed = await canAccessProfile(authUser.id, body.profile_id);
+      if (!allowed) throw new AppError(403, 'forbidden', "You don't have access to that profile");
+    }
+
+    const result = await db
+      .update(devices)
+      .set(body)
+      .where(and(eq(devices.id, id), eq(devices.user_id, authUser.id)))
+      .returning({ id: devices.id });
+    if (result.length === 0) throw new AppError(404, 'not_found', 'Device not found');
+    return { ok: true };
+  });
+
+  /** Drops a device from the caregiver's list, e.g. one that's been replaced or reset. */
+  app.delete('/me/devices/:id', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const authUser = request.user!;
+    const { id } = deviceIdParamSchema.parse(request.params);
+    await db.delete(devices).where(and(eq(devices.id, id), eq(devices.user_id, authUser.id)));
     return { ok: true };
   });
 

@@ -11,6 +11,7 @@ import { BackButtonHandler } from '@/components/native/BackButtonHandler';
 import { TimerKioskGuard } from '@/components/native/TimerKioskGuard';
 import { AppBlockerGuard } from '@/components/native/AppBlockerGuard';
 import { PushRegistrationGuard } from '@/components/native/PushRegistrationGuard';
+import { DeviceRegistrationGuard } from '@/components/native/DeviceRegistrationGuard';
 
 interface DeviceSettings {
   reduce_motion?: 'system' | 'on' | 'off';
@@ -54,6 +55,7 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
         <TimerKioskGuard />
         <AppBlockerGuard />
         <PushRegistrationGuard />
+        <DeviceRegistrationGuard />
       </SyncProvider>
     </SessionProvider>
   );
