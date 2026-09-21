@@ -11,11 +11,18 @@ import Kiosk from '@/lib/native/kiosk';
  * unlock_request handlers) call startLockTask()/stopLockTask() natively with
  * no WebView open to also set/clear locked_profile_id -- so ChildToday's
  * back-navigation trap (the thing that makes Back a no-op instead of
- * walking out to a caregiver screen) never arms or never releases. Once the
- * webview *is* up (the same push brings it to the front), this reconciles
- * both directions against the one source of truth, the OS's own lock-task
- * state.
+ * walking out to a caregiver screen) never arms or never releases. This
+ * reconciles both directions against the one source of truth, the OS's own
+ * lock-task state.
+ *
+ * Mount and visibilitychange alone aren't enough: if the webview was
+ * already the foreground page when the push landed (the common case --
+ * nothing backgrounded it first), neither fires. Polled on the same
+ * RECHECK_INTERVAL_MS cadence ChipperlyBlockService already uses for the
+ * identical "native state changed with no event to tell the webview" gap.
  */
+const RECHECK_INTERVAL_MS = 20_000;
+
 export function LockTaskReconcileGuard(): null {
   const { locked_profile_id } = useLock();
   const { profile } = useActiveProfile();
@@ -29,7 +36,11 @@ export function LockTaskReconcileGuard(): null {
     }
     reconcile();
     document.addEventListener('visibilitychange', reconcile);
-    return () => document.removeEventListener('visibilitychange', reconcile);
+    const interval = setInterval(reconcile, RECHECK_INTERVAL_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', reconcile);
+      clearInterval(interval);
+    };
   }, [locked_profile_id, profile]);
 
   return null;
