@@ -38,6 +38,24 @@ import { normalizeRow } from './sync.js';
 const LockBodySchema = z.object({ profile_id: uuidSchema });
 const deviceIdParamSchema = z.object({ id: uuidSchema });
 
+/**
+ * Shared by /locate, /lock and /unlock: all three are "caregiver, from any
+ * signed-in device, fire a data-only push naming a request type at one of
+ * their own devices" with nothing else that varies. 404s on a device that
+ * doesn't belong to the caller rather than silently doing nothing, same as
+ * every other /me/devices/:id route.
+ */
+async function sendDeviceRequest(userId: string, deviceId: string, type: string): Promise<{ ok: true; sent: boolean }> {
+  const [device] = await db.select({ id: devices.id }).from(devices).where(and(eq(devices.id, deviceId), eq(devices.user_id, userId)));
+  if (!device) throw new AppError(404, 'not_found', 'Device not found');
+
+  const tokenRows = await db.select({ token: push_tokens.token }).from(push_tokens).where(eq(push_tokens.device_id, deviceId));
+  if (tokenRows.length === 0) return { ok: true, sent: false };
+
+  const sent = await sendDataMessage({ tokens: tokenRows.map((t) => t.token), data: { type } });
+  return { ok: true, sent };
+}
+
 export default async function meRoutes(app: FastifyInstance): Promise<void> {
   app.get('/me', { preHandler: requireUser }, async (request): Promise<MeResponse> => {
     const authUser = request.user;
@@ -298,44 +316,26 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
 
   /** Caregiver-triggered, from any signed-in device: asks the target device (Android only -- see lib/native/deviceLocator.ts) to report its current position. Fire-and-forget: the answer lands later via POST /devices/:id/location (routes/deviceLocation.ts) and shows up in a later GET /me/devices. */
   app.post('/me/devices/:id/locate', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
-    const authUser = request.user!;
     const { id } = deviceIdParamSchema.parse(request.params);
-
-    const [device] = await db
-      .select({ id: devices.id })
-      .from(devices)
-      .where(and(eq(devices.id, id), eq(devices.user_id, authUser.id)));
-    if (!device) throw new AppError(404, 'not_found', 'Device not found');
-
-    const tokenRows = await db.select({ token: push_tokens.token }).from(push_tokens).where(eq(push_tokens.device_id, id));
-    if (tokenRows.length === 0) return { ok: true, sent: false };
-
-    const sent = await sendDataMessage({ tokens: tokenRows.map((t) => t.token), data: { type: 'locate_request' } });
-    return { ok: true, sent };
+    return sendDeviceRequest(request.user!.id, id, 'locate_request');
   });
 
   /**
    * Caregiver-triggered, from any signed-in device: asks the target device
-   * (Android only -- see LockRequestReceiver in the native app) to engage
-   * its own already-synced app-blocking allow-list as a real OS lock,
-   * exactly like tapping "Lock this device" there in person. Fire-and-forget,
-   * same pattern as /locate: there's no reply to wait for.
+   * (Android only -- see LocateRequestMessagingService's lock_request
+   * handler in the native app) to engage its own already-synced app-blocking
+   * allow-list as a real OS lock, exactly like tapping "Lock this device"
+   * there in person.
    */
   app.post('/me/devices/:id/lock', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
-    const authUser = request.user!;
     const { id } = deviceIdParamSchema.parse(request.params);
+    return sendDeviceRequest(request.user!.id, id, 'lock_request');
+  });
 
-    const [device] = await db
-      .select({ id: devices.id })
-      .from(devices)
-      .where(and(eq(devices.id, id), eq(devices.user_id, authUser.id)));
-    if (!device) throw new AppError(404, 'not_found', 'Device not found');
-
-    const tokenRows = await db.select({ token: push_tokens.token }).from(push_tokens).where(eq(push_tokens.device_id, id));
-    if (tokenRows.length === 0) return { ok: true, sent: false };
-
-    const sent = await sendDataMessage({ tokens: tokenRows.map((t) => t.token), data: { type: 'lock_request' } });
-    return { ok: true, sent };
+  /** The other direction of /lock: same handler on the device, same "no reply to wait for" pattern. */
+  app.post('/me/devices/:id/unlock', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
+    const { id } = deviceIdParamSchema.parse(request.params);
+    return sendDeviceRequest(request.user!.id, id, 'unlock_request');
   });
 
   /** Called by a caregiver, from any device, to name/reassign one already in the list -- never creates a row. */

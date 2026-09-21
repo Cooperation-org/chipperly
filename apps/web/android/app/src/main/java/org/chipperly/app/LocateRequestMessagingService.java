@@ -36,11 +36,16 @@ import java.util.concurrent.TimeoutException;
  *
  * - "Locate now" (POST /me/devices/:id/locate): reports this device's
  *   current position via Google Play services + a direct API call.
- * - "Lock" (POST /me/devices/:id/lock): engages the same OS-level lock as
- *   tapping "Lock this device" in person, using whatever allow-list is
- *   already synced into AppBlockerPlugin's SharedPreferences -- both are
- *   plain Android/Java work, so neither needs the JS session this context
- *   can't reach.
+ * - "Lock"/"Unlock" (POST /me/devices/:id/lock or /unlock): engages or
+ *   releases the same OS-level lock as tapping "Lock this device" in
+ *   person, using whatever allow-list is already synced into
+ *   AppBlockerPlugin's SharedPreferences -- all plain Android/Java work, so
+ *   none of it needs the JS session this context can't reach. Bringing
+ *   MainActivity to the front (rather than calling startLockTask/
+ *   stopLockTask directly here, which need a live Activity) is also what
+ *   lets LockTaskReconcileGuard, once the webview it hosts is up, fix the
+ *   one thing this can't: locked_profile_id, the JS-side flag that arms
+ *   ChildToday's back-navigation trap.
  */
 public class LocateRequestMessagingService extends MessagingService {
 
@@ -54,6 +59,8 @@ public class LocateRequestMessagingService extends MessagingService {
             handleLocateRequest();
         } else if ("lock_request".equals(type)) {
             handleLockRequest();
+        } else if ("unlock_request".equals(type)) {
+            handleUnlockRequest();
         }
     }
 
@@ -62,6 +69,13 @@ public class LocateRequestMessagingService extends MessagingService {
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         intent.putExtra(MainActivity.EXTRA_LOCK_REQUESTED, true);
+        startActivity(intent);
+    }
+
+    private void handleUnlockRequest() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        intent.putExtra(MainActivity.EXTRA_UNLOCK_REQUESTED, true);
         startActivity(intent);
     }
 

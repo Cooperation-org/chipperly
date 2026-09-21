@@ -10,6 +10,7 @@ import { SwRegister } from '@/components/pwa/SwRegister';
 import { BackButtonHandler } from '@/components/native/BackButtonHandler';
 import { TimerKioskGuard } from '@/components/native/TimerKioskGuard';
 import { AppBlockerGuard } from '@/components/native/AppBlockerGuard';
+import { LockTaskReconcileGuard } from '@/components/native/LockTaskReconcileGuard';
 import { PushRegistrationGuard } from '@/components/native/PushRegistrationGuard';
 import { DeviceRegistrationGuard } from '@/components/native/DeviceRegistrationGuard';
 
@@ -54,6 +55,7 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
         <BackButtonHandler />
         <TimerKioskGuard />
         <AppBlockerGuard />
+        <LockTaskReconcileGuard />
         <PushRegistrationGuard />
         <DeviceRegistrationGuard />
       </SyncProvider>

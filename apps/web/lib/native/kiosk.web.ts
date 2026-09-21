@@ -5,4 +5,7 @@ import type { KioskPlugin } from './kiosk';
 export class KioskWeb extends WebPlugin implements KioskPlugin {
   async enterFocusMode(): Promise<void> {}
   async exitFocusMode(): Promise<void> {}
+  async isLockTaskActive(): Promise<{ active: boolean }> {
+    return { active: false };
+  }
 }

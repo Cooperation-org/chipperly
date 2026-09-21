@@ -124,6 +124,7 @@ function DeviceEditSheet({
   });
   const [locating, setLocating] = useState(false);
   const [locking, setLocking] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   const usedByName = profiles.find((p) => p.id === profileId)?.name;
 
   async function save(): Promise<void> {
@@ -173,6 +174,17 @@ function DeviceEditSheet({
       toast(res.sent ? 'Lock request sent.' : "Couldn't reach that device -- it may not have push set up yet.");
     } finally {
       setLocking(false);
+    }
+  }
+
+  /** The other direction of lockNow: same fire-and-forget pattern, same handler on the device (LocateRequestMessagingService's unlock_request). */
+  async function unlockNow(): Promise<void> {
+    setUnlocking(true);
+    try {
+      const res = await api.post<{ ok: true; sent: boolean }>(`/me/devices/${device.id}/unlock`);
+      toast(res.sent ? 'Unlock request sent.' : "Couldn't reach that device -- it may not have push set up yet.");
+    } finally {
+      setUnlocking(false);
     }
   }
 
@@ -237,6 +249,9 @@ function DeviceEditSheet({
           </p>
           <Button fullWidth variant="secondary" loading={locking} onClick={() => void lockNow()}>
             Lock this device
+          </Button>
+          <Button fullWidth variant="secondary" loading={unlocking} onClick={() => void unlockNow()}>
+            Unlock this device
           </Button>
         </div>
       )}

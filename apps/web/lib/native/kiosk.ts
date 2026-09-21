@@ -5,6 +5,8 @@ export interface KioskPlugin {
   enterFocusMode(options: { profileName: string }): Promise<void>;
   /** Releases the lock requested by enterFocusMode. */
   exitFocusMode(): Promise<void>;
+  /** Whether the OS-level lock is engaged right now, however it got that way -- a remote "Lock" (no WebView around to set locked_profile_id itself) included. Android only; always false on web. */
+  isLockTaskActive(): Promise<{ active: boolean }>;
 }
 
 const Kiosk = registerPlugin<KioskPlugin>('Kiosk', {

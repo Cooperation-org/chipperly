@@ -743,6 +743,53 @@ describe('/me/devices', () => {
     expect(lock.statusCode).toBe(404);
   });
 
+  it('unlocking a device sends a data-only push naming it an unlock_request, once a push token is registered for it', async () => {
+    const admin = await createUser('Unlockable Owner');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+    await request(app, {
+      method: 'PUT',
+      url: '/api/me/push-token',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { token: `push-${deviceId}`, platform: 'android', device_id: deviceId },
+    });
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const unlockRes = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/unlock`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(unlockRes.statusCode).toBe(200);
+    expect(unlockRes.json()).toMatchObject({ ok: true });
+    expect(logSpy.mock.calls.join('\n')).toContain('unlock_request');
+    logSpy.mockRestore();
+  });
+
+  it('404s unlocking a device that does not belong to the caller', async () => {
+    const owner = await createUser('Unlock Real Owner');
+    const stranger = await createUser('Unlock Stranger');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const unlockRes = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/unlock`,
+      headers: { authorization: `Bearer ${stranger.token}` },
+    });
+    expect(unlockRes.statusCode).toBe(404);
+  });
+
   it('reports installed apps, defaults to null, and shows up for a caregiver on a different device', async () => {
     const admin = await createUser('App Reporter');
     const deviceId = uuidv7();
