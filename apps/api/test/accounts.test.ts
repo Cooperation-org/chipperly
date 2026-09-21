@@ -13,6 +13,7 @@ import { account_members, users } from '../src/db/schema/accounts.js';
 import { activities } from '../src/db/schema/activities.js';
 import { rewards } from '../src/db/schema/rewards.js';
 import { locations } from '../src/db/schema/locations.js';
+import { push_tokens } from '../src/db/schema/push.js';
 import { profile_members } from '../src/db/schema/profiles.js';
 import { issueTokens } from '../src/lib/tokens.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
@@ -222,6 +223,46 @@ describe('accounts routes', () => {
     const assignedProfile = afterAssignBody.members.find((m) => m.user.id === member.id)?.profiles[0];
     expect(assignedProfile?.assigned_location_id).toBe(therapyLocationId);
     expect(assignedProfile?.location_notify_mode).toBe('strict');
+
+    // A location change matching a 'strict' assignment notifies; one that
+    // doesn't, for a location the member isn't assigned to, notifies no one.
+    await db.insert(push_tokens).values({ user_id: member.id, token: 'fake-fcm-token-1', platform: 'android', created_at: Date.now() });
+
+    const matchingChangeRes = await request(app, {
+      method: 'POST',
+      url: `/api/profiles/${profileA.id}/location-changed`,
+      headers: auth(admin.token),
+      payload: { new_location_id: therapyLocationId, old_location_id: null },
+    });
+    expect(matchingChangeRes.statusCode).toBe(200);
+    expect((matchingChangeRes.json() as { notified: number }).notified).toBe(1);
+
+    const otherLocationId = uuidv7();
+    await db.insert(locations).values({
+      id: otherLocationId,
+      profile_id: profileA.id,
+      version: 0,
+      client_updated_at: Date.now(),
+      updated_by: admin.id,
+      deleted_at: null,
+      name: 'Park',
+      emoji: null,
+      photo_id: null,
+      position: 1,
+      chip_goal: 5,
+      working_for_reward_id: null,
+      lat: null,
+      lng: null,
+      radius_m: null,
+    });
+    const nonMatchingChangeRes = await request(app, {
+      method: 'POST',
+      url: `/api/profiles/${profileA.id}/location-changed`,
+      headers: auth(admin.token),
+      payload: { new_location_id: otherLocationId, old_location_id: uuidv7() },
+    });
+    expect(nonMatchingChangeRes.statusCode).toBe(200);
+    expect((nonMatchingChangeRes.json() as { notified: number }).notified).toBe(0);
 
     // Removing a member reassigns rows they're credited with to the caller.
     await db.update(activities).set({ updated_by: member.id }).where(eq(activities.profile_id, profileB.id));

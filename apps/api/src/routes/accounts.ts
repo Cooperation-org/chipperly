@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import {
@@ -12,8 +12,10 @@ import {
   type InvitePublic,
 } from '@chipperly/shared/schemas/account';
 import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema } from '@chipperly/shared/schemas/auth';
+import { LocationChangedBodySchema } from '@chipperly/shared/schemas/push';
 import { PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { db } from '../db/client.js';
+import { push_tokens } from '../db/schema/push.js';
 import { account_members, accounts, invites, users } from '../db/schema/accounts.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
 import { locations } from '../db/schema/locations.js';
@@ -23,10 +25,11 @@ import { schedule_items, step_completions } from '../db/schema/schedule.js';
 import { chip_ledger } from '../db/schema/chips.js';
 import { social_stories, story_pages } from '../db/schema/stories.js';
 import { attitude_checks } from '../db/schema/attitude.js';
-import { requireUser } from '../plugins/auth.js';
+import { requireUser, canAccessProfile } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
+import { sendPush } from '../lib/push.js';
 import { seedProfile } from '../seed/seedProfile.js';
 import { env } from '../env.js';
 
@@ -532,5 +535,58 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     });
 
     return { ok: true };
+  });
+
+  /**
+   * Fans a push out to whichever care-team members care about this
+   * profile's location. 'strict' only cares about their own assigned
+   * location (arriving at it or leaving it); 'linked' cares about any
+   * change. A member with no assignment at all is never notified.
+   */
+  app.post('/profiles/:id/location-changed', { preHandler: requireUser }, async (request): Promise<{ notified: number }> => {
+    const { id: profileId } = idParamSchema.parse(request.params);
+    const userId = request.user!.id;
+    if (!(await canAccessProfile(userId, profileId))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+
+    const body = LocationChangedBodySchema.parse(request.body);
+
+    const [profile] = await db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, profileId)).limit(1);
+    if (!profile) throw new AppError(404, 'not_found', 'Profile not found');
+
+    const newLocation = body.new_location_id
+      ? (await db.select({ name: locations.name }).from(locations).where(eq(locations.id, body.new_location_id)).limit(1))[0]
+      : undefined;
+
+    const assignments = await db
+      .select({ user_id: profile_members.user_id, assigned_location_id: profile_members.assigned_location_id, mode: profile_members.location_notify_mode })
+      .from(profile_members)
+      .where(and(eq(profile_members.profile_id, profileId), isNotNull(profile_members.assigned_location_id)));
+
+    const recipientIds = assignments
+      .filter((a) => {
+        if (a.mode === 'linked') return true;
+        return a.assigned_location_id === body.new_location_id || a.assigned_location_id === body.old_location_id;
+      })
+      .map((a) => a.user_id);
+
+    if (recipientIds.length === 0) return { notified: 0 };
+
+    const tokenRows = await db
+      .select({ user_id: push_tokens.user_id, token: push_tokens.token })
+      .from(push_tokens)
+      .where(inArray(push_tokens.user_id, recipientIds));
+
+    const messageBody = newLocation ? `${profile.name} is now at ${newLocation.name}.` : `${profile.name}'s location was cleared.`;
+    const stale = await sendPush({
+      tokens: tokenRows.map((r) => r.token),
+      title: 'Chipperly',
+      body: messageBody,
+      data: { profile_id: profileId },
+    });
+    if (stale.length > 0) {
+      await db.delete(push_tokens).where(inArray(push_tokens.token, stale));
+    }
+
+    return { notified: recipientIds.length };
   });
 }

@@ -9,6 +9,7 @@ import { now } from '../clock';
 import { upsert, softDelete } from '../sync/mutate';
 import { getKv, setKv, useKv } from '../db/kv';
 import { nextPosition } from './_util';
+import { api } from '../api/client';
 
 function activeLocationKey(profileId: string): string {
   return `active_location:${profileId}`;
@@ -79,7 +80,14 @@ export function useActiveLocation(profileId: string): UseActiveLocation {
     [locations, activeId],
   );
   const setActiveLocationId = (locationId: string): void => {
+    const previousId = location?.id ?? null;
     void setKv(activeLocationKey(profileId), locationId);
+    if (previousId === locationId) return;
+    // Best-effort, fire-and-forget: the caregiver-facing part of this
+    // (assigning a location, choosing strict/linked) already lives on the
+    // server; this just tells it something changed so it can fan a push
+    // out. Never awaited, never blocks the location switch on network.
+    void api.post(`/profiles/${profileId}/location-changed`, { new_location_id: locationId, old_location_id: previousId }).catch(() => {});
   };
   return { location, setActiveLocationId };
 }

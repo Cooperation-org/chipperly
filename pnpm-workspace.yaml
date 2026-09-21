@@ -10,6 +10,11 @@ allowBuilds:
   '@embedded-postgres/darwin-x64': true
   esbuild: true
   unrs-resolver: true
+  # Neither package's build script is needed: firebase-admin loads and
+  # works fine without it (protobufjs's is an optional perf-codegen step;
+  # @firebase/util's is unrelated to Node usage).
+  '@firebase/util': false
+  protobufjs: false
 
 onlyBuiltDependencies:
   - esbuild

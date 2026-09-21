@@ -166,6 +166,8 @@ export const api = {
   get: <T>(path: string, opts?: ApiOptions): Promise<T> => request<T>('GET', path, undefined, opts, false),
   post: <T>(path: string, body?: unknown, opts?: ApiOptions): Promise<T> =>
     request<T>('POST', path, body, opts, false),
+  put: <T>(path: string, body?: unknown, opts?: ApiOptions): Promise<T> =>
+    request<T>('PUT', path, body, opts, false),
   patch: <T>(path: string, body?: unknown, opts?: ApiOptions): Promise<T> =>
     request<T>('PATCH', path, body, opts, false),
   delete: <T>(path: string, body?: unknown, opts?: ApiOptions): Promise<T> =>

@@ -4,11 +4,13 @@ import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
 import { PinBodySchema, type ExportResponse, type MeAccount, type MeResponse } from '@chipperly/shared/schemas/auth';
+import { RegisterPushTokenBodySchema, UnregisterPushTokenBodySchema } from '@chipperly/shared/schemas/push';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { TABLE_NAMES } from '@chipperly/shared/constants/tables';
 import { db, sql } from '../db/client.js';
 import { env } from '../env.js';
 import { account_members, accounts, invites, sessions, users } from '../db/schema/accounts.js';
+import { push_tokens } from '../db/schema/push.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
 import { locations } from '../db/schema/locations.js';
 import { activities, activity_steps, recurrence_skips } from '../db/schema/activities.js';
@@ -168,6 +170,25 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     await db.update(users).set({ pin_hash: pinHash }).where(eq(users.id, authUser.id));
 
     return { pin_hash: pinHash };
+  });
+
+  /** Registers/refreshes this device's push token. Insert-or-ignore: a re-registration of the same (user, token) pair is a no-op, not an error. */
+  app.put('/me/push-token', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const authUser = request.user!;
+    const body = RegisterPushTokenBodySchema.parse(request.body);
+    await db
+      .insert(push_tokens)
+      .values({ user_id: authUser.id, token: body.token, platform: body.platform, created_at: Date.now() })
+      .onConflictDoNothing();
+    return { ok: true };
+  });
+
+  /** Called on sign-out/unregister so a stale token isn't pushed to after the device stops wanting it. */
+  app.delete('/me/push-token', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const authUser = request.user!;
+    const body = UnregisterPushTokenBodySchema.parse(request.body);
+    await db.delete(push_tokens).where(and(eq(push_tokens.user_id, authUser.id), eq(push_tokens.token, body.token)));
+    return { ok: true };
   });
 
   /** S23 "Lock this device": marks this session child-locked. No PIN needed to lock, only to unlock. */

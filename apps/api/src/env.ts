@@ -29,6 +29,8 @@ const EnvSchema = z.object({
   BETA_INVITE_CODE: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(1).default('Chipperly <no-reply@chipperlyapp.com>'),
+  /** The Firebase service account key JSON, as a single-line string (a deploy sets this, not a file path). Unset = push logs to the console instead of sending. */
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
   APP_ORIGIN: z.string().min(1).optional(),
   LOG_LEVEL: z.string().min(1).default('info'),
 });
@@ -55,6 +57,8 @@ export const env = {
   ),
   /** True when Resend is configured; false = mail is logged to stdout. */
   mailEnabled: Boolean(parsed.RESEND_API_KEY),
+  /** True when a Firebase service account is configured; false = push logs to stdout instead of sending. */
+  pushEnabled: Boolean(parsed.FIREBASE_SERVICE_ACCOUNT_JSON),
   /** True when a closed beta invite code gates /auth/register and new-user /auth/google, /auth/apple. */
   inviteCodeRequired: Boolean(parsed.BETA_INVITE_CODE),
 };
