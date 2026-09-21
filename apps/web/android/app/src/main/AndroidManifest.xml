@@ -80,6 +80,22 @@
         </service>
     </application>
 
+    <!-- Package visibility (Android 11+, API 30): without this, this app's
+         own PackageManager.queryIntentActivities() call in
+         AppBlockerPlugin.listInstalledApps() only sees a small system
+         allowlist (confirmed: Settings, Play Store, the SIM toolkit,
+         nothing else, not even YouTube), even though every launchable app
+         is still visible to a privileged caller like `adb shell`. This
+         declares the same intent AppBlockerPlugin actually queries, which
+         is the supported way to regain full visibility without the
+         Play-Store-restricted QUERY_ALL_PACKAGES permission. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
