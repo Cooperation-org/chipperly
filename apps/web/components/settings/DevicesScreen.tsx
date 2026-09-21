@@ -11,6 +11,7 @@ import { Icon } from '@/components/ui/Icon';
 import { ListRow } from '@/components/ui/ListRow';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
+import { toast } from '@/lib/toast';
 import styles from './DevicesScreen.module.css';
 
 function timeAgo(ms: number): string {
@@ -122,6 +123,8 @@ function DeviceEditSheet({
     at: device.last_location_at,
   });
   const [locating, setLocating] = useState(false);
+  const [locking, setLocking] = useState(false);
+  const usedByName = profiles.find((p) => p.id === profileId)?.name;
 
   async function save(): Promise<void> {
     setSaving(true);
@@ -154,6 +157,22 @@ function DeviceEditSheet({
       }
     } finally {
       setLocating(false);
+    }
+  }
+
+  /**
+   * Fire-and-forget, same as locateNow: there's nothing to poll for, the
+   * target device just engages the same OS-level lock as tapping "Lock
+   * this device" there in person (LocateRequestMessagingService's
+   * lock_request handler), using whatever allow-list it already has synced.
+   */
+  async function lockNow(): Promise<void> {
+    setLocking(true);
+    try {
+      const res = await api.post<{ ok: true; sent: boolean }>(`/me/devices/${device.id}/lock`);
+      toast(res.sent ? 'Lock request sent.' : "Couldn't reach that device -- it may not have push set up yet.");
+    } finally {
+      setLocking(false);
     }
   }
 
@@ -205,6 +224,19 @@ function DeviceEditSheet({
           )}
           <Button fullWidth variant="secondary" loading={locating} onClick={() => void locateNow()}>
             Locate now
+          </Button>
+        </div>
+      )}
+
+      {device.platform === 'android' && (
+        <div className={styles.locateSection}>
+          <p className={styles.label}>Lock</p>
+          <p className={styles.locateStatus}>
+            Locks this device to Chipperly and whatever apps are already allowed for {usedByName ?? 'its assigned child'}
+            , the same as tapping &ldquo;Lock this device&rdquo; there in person.
+          </p>
+          <Button fullWidth variant="secondary" loading={locking} onClick={() => void lockNow()}>
+            Lock this device
           </Button>
         </div>
       )}

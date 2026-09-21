@@ -677,6 +677,72 @@ describe('/me/devices', () => {
     expect(locate.statusCode).toBe(404);
   });
 
+  it('locking a device with no registered push token reports sent: false instead of erroring', async () => {
+    const admin = await createUser('Tokenless Lock Owner');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const lock = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/lock`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(lock.statusCode).toBe(200);
+    expect(lock.json()).toEqual({ ok: true, sent: false });
+  });
+
+  it('locking a device sends a data-only push naming it a lock_request, once a push token is registered for it', async () => {
+    const admin = await createUser('Lockable Owner');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+    await request(app, {
+      method: 'PUT',
+      url: '/api/me/push-token',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { token: `push-${deviceId}`, platform: 'android', device_id: deviceId },
+    });
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const lock = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/lock`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(lock.statusCode).toBe(200);
+    expect(lock.json()).toMatchObject({ ok: true });
+    expect(logSpy.mock.calls.join('\n')).toContain('lock_request');
+    logSpy.mockRestore();
+  });
+
+  it('404s locking a device that does not belong to the caller', async () => {
+    const owner = await createUser('Lock Real Owner');
+    const stranger = await createUser('Lock Stranger');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const lock = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/lock`,
+      headers: { authorization: `Bearer ${stranger.token}` },
+    });
+    expect(lock.statusCode).toBe(404);
+  });
+
   it('reports installed apps, defaults to null, and shows up for a caregiver on a different device', async () => {
     const admin = await createUser('App Reporter');
     const deviceId = uuidv7();

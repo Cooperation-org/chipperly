@@ -2,6 +2,7 @@ package org.chipperly.app;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -30,13 +31,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Answers a caregiver's "Locate now" (POST /me/devices/:id/locate in
- * routes/me.ts) with this device's current position, even when Chipperly is
- * fully killed. Runs on FCM's own background thread -- there's no
- * WebView/Activity here, so it talks to Google Play services and the API
- * directly rather than through the (Activity-bound) Capacitor Geolocation
- * plugin, and reads its config from DeviceLocatorPlugin's SharedPreferences
- * rather than the JS session, which isn't reachable from this context.
+ * Answers two caregiver-triggered remote requests, even when Chipperly is
+ * fully killed and there's no WebView/Activity to talk to:
+ *
+ * - "Locate now" (POST /me/devices/:id/locate): reports this device's
+ *   current position via Google Play services + a direct API call.
+ * - "Lock" (POST /me/devices/:id/lock): engages the same OS-level lock as
+ *   tapping "Lock this device" in person, using whatever allow-list is
+ *   already synced into AppBlockerPlugin's SharedPreferences -- both are
+ *   plain Android/Java work, so neither needs the JS session this context
+ *   can't reach.
  */
 public class LocateRequestMessagingService extends MessagingService {
 
@@ -45,8 +49,20 @@ public class LocateRequestMessagingService extends MessagingService {
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
-        if (!"locate_request".equals(remoteMessage.getData().get("type"))) return;
-        handleLocateRequest();
+        String type = remoteMessage.getData().get("type");
+        if ("locate_request".equals(type)) {
+            handleLocateRequest();
+        } else if ("lock_request".equals(type)) {
+            handleLockRequest();
+        }
+    }
+
+    private void handleLockRequest() {
+        ChipperlyBlockService.syncLockTaskAllowlist(this);
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        intent.putExtra(MainActivity.EXTRA_LOCK_REQUESTED, true);
+        startActivity(intent);
     }
 
     private void handleLocateRequest() {
