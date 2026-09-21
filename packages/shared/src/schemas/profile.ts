@@ -6,6 +6,20 @@ export const RedeemModeSchema = z.enum(['subtract', 'reset']);
 export type RedeemMode = z.infer<typeof RedeemModeSchema>;
 
 /**
+ * A time-boxed exception to app blocking: `package_name` stays allowed
+ * until `allowed_until`, on top of (not instead of) `allowed_app_packages`'s
+ * permanent allow-list. Expired entries are inert everywhere that reads
+ * them (native ChipperlyBlockService, AppBlockingScreen's countdown) rather
+ * than being actively pruned, so a stale entry left behind by a caregiver
+ * going offline mid-grant can never re-arm itself.
+ */
+export const TimedAppAllowanceSchema = z.object({
+  package_name: z.string(),
+  allowed_until: msTimestampSchema,
+});
+export type TimedAppAllowance = z.infer<typeof TimedAppAllowanceSchema>;
+
+/**
  * Per-profile settings (technical-plan.md section 5). Existing rows still
  * hold `{}`; every field here is optional so old rows keep parsing.
  */
@@ -34,6 +48,8 @@ export const ProfileSettingsSchema = z
      */
     child_mode_active: z.boolean().optional(),
     allowed_app_packages: z.array(z.string()).optional(),
+    /** Apps allowed for a caregiver-granted window (e.g. "YouTube for 1 hour"), see TimedAppAllowanceSchema. */
+    timed_app_allowances: z.array(TimedAppAllowanceSchema).optional(),
   })
   .partial();
 export type ProfileSettings = z.infer<typeof ProfileSettingsSchema>;

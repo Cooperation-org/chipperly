@@ -60,6 +60,18 @@
   margin: 0;
 }
 
+.trailingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.timedSheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 .appTile {
   display: flex;
   align-items: center;

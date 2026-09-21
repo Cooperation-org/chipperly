@@ -1,17 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { TimedAppAllowance } from '@chipperly/shared/schemas/profile';
 import type { InstalledApp } from '@/lib/native/appBlocker';
 import AppBlocker from '@/lib/native/appBlocker';
+import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { CheckCircle } from '@/components/ui/CheckCircle';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { IconButton } from '@/components/ui/IconButton';
 import { ListRow } from '@/components/ui/ListRow';
 import { Switch } from '@/components/ui/Switch';
+import { useSheet } from '@/components/ui/Sheet';
+import { now } from '@/lib/clock';
 import { upsert } from '@/lib/sync/mutate';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useLock } from '@/lib/device/settings';
 import styles from './AppBlockingScreen.module.css';
+
+/** Quick-grant durations for a timed app allowance, e.g. "allow YouTube for 1 hour". */
+const DURATIONS_MIN = [15, 30, 60, 120];
 
 /**
  * Caregiver-facing allow-list for Android's app-blocking accessibility
@@ -27,6 +35,7 @@ import styles from './AppBlockingScreen.module.css';
 export function AppBlockingScreen() {
   const { profile } = useActiveProfile();
   const { locked_profile_id } = useLock();
+  const sheet = useSheet();
   const [serviceEnabled, setServiceEnabled] = useState(false);
   const [apps, setApps] = useState<InstalledApp[]>([]);
 
@@ -51,8 +60,13 @@ export function AppBlockingScreen() {
 
   const childModeActive = profile.settings.child_mode_active ?? false;
   const allowed = new Set(profile.settings.allowed_app_packages ?? []);
+  const timedAllowances = profile.settings.timed_app_allowances ?? [];
 
-  async function patchSettings(patch: { child_mode_active?: boolean; allowed_app_packages?: string[] }): Promise<void> {
+  async function patchSettings(patch: {
+    child_mode_active?: boolean;
+    allowed_app_packages?: string[];
+    timed_app_allowances?: TimedAppAllowance[];
+  }): Promise<void> {
     if (!profile) return;
     await upsert('profiles', { ...profile, settings: { ...profile.settings, ...patch } });
   }
@@ -62,6 +76,53 @@ export function AppBlockingScreen() {
     if (next.has(packageName)) next.delete(packageName);
     else next.add(packageName);
     void patchSettings({ allowed_app_packages: Array.from(next) });
+  }
+
+  function activeAllowanceFor(packageName: string): TimedAppAllowance | undefined {
+    return timedAllowances.find((a) => a.package_name === packageName && a.allowed_until > now());
+  }
+
+  function grantTimedAllowance(packageName: string, minutes: number): void {
+    const rest = timedAllowances.filter((a) => a.package_name !== packageName);
+    void patchSettings({
+      timed_app_allowances: [...rest, { package_name: packageName, allowed_until: now() + minutes * 60_000 }],
+    });
+    sheet.close();
+  }
+
+  function revokeTimedAllowance(packageName: string): void {
+    void patchSettings({ timed_app_allowances: timedAllowances.filter((a) => a.package_name !== packageName) });
+    sheet.close();
+  }
+
+  function openTimedAllowanceSheet(app: InstalledApp): void {
+    const active = activeAllowanceFor(app.packageName);
+    sheet.open(
+      <div className={styles.timedSheet}>
+        {allowed.has(app.packageName) ? (
+          <p className={styles.hint}>{app.appName} is always allowed -- timed access is only for apps that aren&rsquo;t.</p>
+        ) : (
+          <>
+            {active ? (
+              <p className={styles.hint}>
+                Allowed until {new Date(active.allowed_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.
+              </p>
+            ) : null}
+            {DURATIONS_MIN.map((minutes) => (
+              <BigButton key={minutes} variant="secondary" onClick={() => grantTimedAllowance(app.packageName, minutes)}>
+                Allow for {minutes < 60 ? `${minutes} min` : `${minutes / 60} hour${minutes > 60 ? 's' : ''}`}
+              </BigButton>
+            ))}
+            {active ? (
+              <Button variant="danger" fullWidth onClick={() => revokeTimedAllowance(app.packageName)}>
+                Remove timed access now
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>,
+      { title: app.appName },
+    );
   }
 
   return (
@@ -116,20 +177,37 @@ export function AppBlockingScreen() {
         <EmptyState sentence="App blocking only works in the Android app. This device can't list installed apps." />
       ) : (
         <div className={styles.card}>
-          {apps.map((app) => (
-            <ListRow
-              key={app.packageName}
-              tile={
-                <span className={styles.appTile} aria-hidden="true">
-                  {app.appName.charAt(0).toUpperCase()}
-                </span>
-              }
-              name={app.appName}
-              secondary={app.packageName}
-              trailing={<CheckCircle checked={allowed.has(app.packageName)} onChange={() => toggleAllowed(app.packageName)} name={app.appName} />}
-              onTap={() => toggleAllowed(app.packageName)}
-            />
-          ))}
+          {apps.map((app) => {
+            const active = activeAllowanceFor(app.packageName);
+            return (
+              <ListRow
+                key={app.packageName}
+                tile={
+                  <span className={styles.appTile} aria-hidden="true">
+                    {app.appName.charAt(0).toUpperCase()}
+                  </span>
+                }
+                name={app.appName}
+                secondary={
+                  active
+                    ? `${app.packageName} -- until ${new Date(active.allowed_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                    : app.packageName
+                }
+                trailing={
+                  <span className={styles.trailingRow}>
+                    <IconButton
+                      icon="clock"
+                      aria-label={`Timed access for ${app.appName}`}
+                      variant={active ? 'solid' : 'muted'}
+                      onClick={() => openTimedAllowanceSheet(app)}
+                    />
+                    <CheckCircle checked={allowed.has(app.packageName)} onChange={() => toggleAllowed(app.packageName)} name={app.appName} />
+                  </span>
+                }
+                onTap={() => toggleAllowed(app.packageName)}
+              />
+            );
+          })}
         </div>
       )}
     </div>

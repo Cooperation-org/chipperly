@@ -4,7 +4,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.Test;
@@ -58,5 +60,41 @@ public class ChipperlyBlockServiceTest {
     public void blocksAnythingElseWhenEnabled() {
         Set<String> allow = ChipperlyBlockService.buildAllowSet(OWN_PACKAGE, Collections.<String>emptySet(), null, null);
         assertTrue(ChipperlyBlockService.shouldBlock("com.instagram.android", true, allow));
+    }
+
+    @Test
+    public void timedAllowanceStaysActiveUntilItsOwnDeadline() {
+        Map<String, Long> timed = new HashMap<>();
+        timed.put("com.google.android.youtube", 1_000L);
+        Set<String> active = ChipperlyBlockService.activeTimedPackages(timed, 500L);
+        assertTrue(active.contains("com.google.android.youtube"));
+    }
+
+    @Test
+    public void timedAllowanceExpiresAtItsDeadline() {
+        Map<String, Long> timed = new HashMap<>();
+        timed.put("com.google.android.youtube", 1_000L);
+        // At and after the deadline, not just strictly after -- a caregiver-granted
+        // window shouldn't stay open on an exact-millisecond coincidence.
+        Set<String> active = ChipperlyBlockService.activeTimedPackages(timed, 1_000L);
+        assertFalse(active.contains("com.google.android.youtube"));
+    }
+
+    @Test
+    public void anExpiredTimedAllowanceDoesNotOverrideEnforcement() {
+        Map<String, Long> timed = new HashMap<>();
+        timed.put("com.google.android.youtube", 1_000L);
+        Set<String> allow = ChipperlyBlockService.buildAllowSet(OWN_PACKAGE, Collections.<String>emptySet(), null, null);
+        allow.addAll(ChipperlyBlockService.activeTimedPackages(timed, 2_000L));
+        assertTrue(ChipperlyBlockService.shouldBlock("com.google.android.youtube", true, allow));
+    }
+
+    @Test
+    public void anActiveTimedAllowanceOverridesEnforcement() {
+        Map<String, Long> timed = new HashMap<>();
+        timed.put("com.google.android.youtube", 1_000L);
+        Set<String> allow = ChipperlyBlockService.buildAllowSet(OWN_PACKAGE, Collections.<String>emptySet(), null, null);
+        allow.addAll(ChipperlyBlockService.activeTimedPackages(timed, 500L));
+        assertFalse(ChipperlyBlockService.shouldBlock("com.google.android.youtube", true, allow));
     }
 }

@@ -15,6 +15,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +35,8 @@ public class AppBlockerPlugin extends Plugin {
     static final String PREFS_NAME = "app_blocker";
     static final String KEY_ENABLED = "enabled";
     static final String KEY_ALLOWED_PACKAGES = "allowed_packages";
+    /** JSON object string, {"packageName": allowedUntilEpochMs, ...} -- see ChipperlyBlockService.parseTimedAllowances. */
+    static final String KEY_TIMED_ALLOWANCES = "timed_allowances";
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -85,6 +88,27 @@ public class AppBlockerPlugin extends Plugin {
             }
         }
         prefs().edit().putStringSet(KEY_ALLOWED_PACKAGES, set).apply();
+        call.resolve();
+    }
+
+    /** `allowances`: [{packageName, allowedUntil (epoch ms)}, ...] -- caregiver-granted timed exceptions (AppBlockingScreen), on top of the permanent allow-list. */
+    @PluginMethod
+    public void setTimedAllowances(PluginCall call) {
+        JSArray allowances = call.getArray("allowances");
+        JSONObject map = new JSONObject();
+        if (allowances != null) {
+            for (int i = 0; i < allowances.length(); i++) {
+                try {
+                    org.json.JSONObject entry = allowances.getJSONObject(i);
+                    String packageName = entry.getString("packageName");
+                    long allowedUntil = entry.getLong("allowedUntil");
+                    map.put(packageName, allowedUntil);
+                } catch (JSONException ignored) {
+                    // Skip anything malformed; a partial map is safer than failing the whole save.
+                }
+            }
+        }
+        prefs().edit().putString(KEY_TIMED_ALLOWANCES, map.toString()).apply();
         call.resolve();
     }
 

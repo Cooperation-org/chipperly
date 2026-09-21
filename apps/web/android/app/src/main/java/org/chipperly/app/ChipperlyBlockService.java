@@ -6,13 +6,21 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.telecom.TelecomManager;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -45,19 +53,54 @@ public class ChipperlyBlockService extends AccessibilityService {
         SYSTEM_ALLOWLIST.add("com.android.phone");
     }
 
+    // A timed allowance (e.g. "YouTube for 1 hour", AppBlockingScreen's timed
+    // grant) only stops a *new* window-state-changed event -- it does nothing
+    // for a child who just stays inside the allowed app until time runs out.
+    // This tracks the last package we actually saw in the foreground and
+    // re-checks it on a plain timer so an expired grant still gets enforced
+    // within about RECHECK_INTERVAL_MS, without needing to read window
+    // content (canRetrieveWindowContent stays false).
+    private static final long RECHECK_INTERVAL_MS = 20_000;
+    private final Handler recheckHandler = new Handler(Looper.getMainLooper());
+    private String lastForegroundPackage;
+    private final Runnable recheckRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (lastForegroundPackage != null) maybeBlock(lastForegroundPackage);
+            recheckHandler.postDelayed(this, RECHECK_INTERVAL_MS);
+        }
+    };
+
+    @Override
+    protected void onServiceConnected() {
+        recheckHandler.postDelayed(recheckRunnable, RECHECK_INTERVAL_MS);
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        recheckHandler.removeCallbacks(recheckRunnable);
+        return super.onUnbind(intent);
+    }
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
         CharSequence packageNameSeq = event.getPackageName();
         String foregroundPackage = packageNameSeq == null ? null : packageNameSeq.toString();
         if (foregroundPackage == null) return;
+        lastForegroundPackage = foregroundPackage;
+        maybeBlock(foregroundPackage);
+    }
 
+    private void maybeBlock(String foregroundPackage) {
         SharedPreferences prefs = getSharedPreferences(AppBlockerPlugin.PREFS_NAME, MODE_PRIVATE);
         boolean enabled = prefs.getBoolean(AppBlockerPlugin.KEY_ENABLED, false);
         if (!enabled) return;
 
         Set<String> caregiverAllowed = prefs.getStringSet(AppBlockerPlugin.KEY_ALLOWED_PACKAGES, Collections.<String>emptySet());
         Set<String> allowSet = buildAllowSet(getPackageName(), caregiverAllowed, defaultDialerPackage(), resolveLauncherPackage());
+        String timedJson = prefs.getString(AppBlockerPlugin.KEY_TIMED_ALLOWANCES, null);
+        allowSet.addAll(activeTimedPackages(parseTimedAllowances(timedJson), System.currentTimeMillis()));
         if (!shouldBlock(foregroundPackage, true, allowSet)) return;
 
         Intent intent = new Intent(this, MainActivity.class);
@@ -69,6 +112,34 @@ public class ChipperlyBlockService extends AccessibilityService {
     @Override
     public void onInterrupt() {
         // Required override; there's no ongoing feedback (sound/vibration) to stop.
+    }
+
+    /** `{"packageName": allowedUntilEpochMs, ...}` -> parsed map. Android-only (org.json); the pure decision below takes plain data so it stays plain-JUnit testable. */
+    private static Map<String, Long> parseTimedAllowances(String json) {
+        Map<String, Long> result = new HashMap<>();
+        if (TextUtils.isEmpty(json)) return result;
+        try {
+            JSONObject obj = new JSONObject(json);
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String packageName = keys.next();
+                result.put(packageName, obj.getLong(packageName));
+            }
+        } catch (JSONException e) {
+            Log.w("ChipperlyBlockService", "Malformed timed allowances JSON, ignoring", e);
+        }
+        return result;
+    }
+
+    /** Pure: which packages from a package->allowedUntil map are still within their window at `nowMs`. */
+    static Set<String> activeTimedPackages(Map<String, Long> timedAllowances, long nowMs) {
+        Set<String> active = new HashSet<>();
+        if (timedAllowances == null) return active;
+        for (Map.Entry<String, Long> entry : timedAllowances.entrySet()) {
+            Long allowedUntil = entry.getValue();
+            if (allowedUntil != null && allowedUntil > nowMs) active.add(entry.getKey());
+        }
+        return active;
     }
 
     private String defaultDialerPackage() {

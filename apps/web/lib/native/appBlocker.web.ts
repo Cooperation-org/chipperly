@@ -8,6 +8,7 @@ export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
   }
   async setEnabled(): Promise<void> {}
   async setAllowedPackages(): Promise<void> {}
+  async setTimedAllowances(): Promise<void> {}
   async isServiceEnabled(): Promise<{ enabled: boolean }> {
     return { enabled: false };
   }
