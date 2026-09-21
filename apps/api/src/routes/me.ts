@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql as drizzleSql } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
@@ -255,7 +255,19 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     const [row] = await db
       .insert(devices)
       .values({ id, user_id: authUser.id, platform: body.platform, last_seen_at: now, created_at: now, report_token: reportToken })
-      .onConflictDoUpdate({ target: devices.id, set: { platform: body.platform, last_seen_at: now } })
+      .onConflictDoUpdate({
+        target: devices.id,
+        // coalesce, not overwrite: a device row created before report_token
+        // existed (or any older client re-registering) must still get one
+        // backfilled here, but a device that already has one keeps that
+        // exact value stable -- devices.report_token is unqualified so it
+        // resolves to the pre-update row, i.e. "keep mine unless I have none".
+        set: {
+          platform: body.platform,
+          last_seen_at: now,
+          report_token: drizzleSql`coalesce(${devices.report_token}, ${reportToken})`,
+        },
+      })
       .returning({ report_token: devices.report_token });
     return { ok: true, report_token: row!.report_token! };
   });

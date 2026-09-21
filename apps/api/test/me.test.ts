@@ -10,6 +10,7 @@ import { account_members, accounts, users } from '../src/db/schema/accounts.js';
 import { profile_members, profiles } from '../src/db/schema/profiles.js';
 import { locations } from '../src/db/schema/locations.js';
 import { media } from '../src/db/schema/media.js';
+import { devices } from '../src/db/schema/devices.js';
 import type { Device } from '@chipperly/shared/schemas/device';
 import { verifyPin } from '../src/lib/password.js';
 
@@ -585,6 +586,29 @@ describe('/me/devices', () => {
     expect((second.json() as { report_token: string }).report_token).toBe(
       (first.json() as { report_token: string }).report_token,
     );
+  });
+
+  it('backfills a report_token for a device row that predates that column, instead of leaving it null forever', async () => {
+    const admin = await createUser('Backfill Owner');
+    const deviceId = uuidv7();
+    // Simulate a device that registered before report_token existed: insert
+    // the row directly, bypassing the route that would normally set one.
+    await db.insert(devices).values({
+      id: deviceId,
+      user_id: admin.id,
+      platform: 'android',
+      last_seen_at: Date.now(),
+      created_at: Date.now(),
+    });
+
+    const reregister = await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+
+    expect((reregister.json() as { report_token: string }).report_token.length).toBeGreaterThan(0);
   });
 
   it('locating a device with no registered push token reports sent: false instead of erroring', async () => {
