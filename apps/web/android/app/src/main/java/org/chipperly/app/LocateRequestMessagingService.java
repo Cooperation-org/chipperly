@@ -65,9 +65,15 @@ public class LocateRequestMessagingService extends MessagingService {
             return;
         }
 
+        // HIGH_ACCURACY (GPS-first), not BALANCED_POWER (network/cell-first):
+        // this is one explicit, caregiver-triggered fetch, not a background
+        // poll, so the accuracy is worth the extra power draw -- and
+        // BALANCED_POWER can return null with no GPS fallback wherever the
+        // network provider has nothing to go on (e.g. no real cell data,
+        // including every emulator).
         FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(this);
         CurrentLocationRequest request = new CurrentLocationRequest.Builder()
-                .setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .setDurationMillis(TimeUnit.SECONDS.toMillis(15))
                 .build();
 
