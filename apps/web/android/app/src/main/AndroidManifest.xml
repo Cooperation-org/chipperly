@@ -81,18 +81,28 @@
     </application>
 
     <!-- Package visibility (Android 11+, API 30): without this, this app's
-         own PackageManager.queryIntentActivities() call in
-         AppBlockerPlugin.listInstalledApps() only sees a small system
-         allowlist (confirmed: Settings, Play Store, the SIM toolkit,
-         nothing else, not even YouTube), even though every launchable app
-         is still visible to a privileged caller like `adb shell`. This
-         declares the same intent AppBlockerPlugin actually queries, which
-         is the supported way to regain full visibility without the
-         Play-Store-restricted QUERY_ALL_PACKAGES permission. -->
+         own PackageManager queries only see a small system allowlist
+         (confirmed: Settings, Play Store, the SIM toolkit, nothing else,
+         not even YouTube), even though every launchable app is still
+         visible to a privileged caller like `adb shell`. Declares the two
+         intents this app actually resolves against:
+         MAIN/LAUNCHER (AppBlockerPlugin.listInstalledApps: every
+         launchable app, for the caregiver's allow-list picker) and
+         MAIN/HOME (ChipperlyBlockService.resolveLauncherPackage: the
+         system launcher itself, always allowed so blocking never traps
+         the device with no way to reach any app at all). Verified this
+         second one was silently broken by only declaring the first:
+         resolveLauncherPackage returned null, so pressing Home while
+         blocking was on bounced straight back to Chipperly instead of
+         showing the launcher. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
         </intent>
     </queries>
 
