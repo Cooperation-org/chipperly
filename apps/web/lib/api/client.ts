@@ -137,7 +137,15 @@ async function request<T>(
   const dateHeader = res.headers.get('date');
   if (dateHeader) setServerDate(dateHeader);
 
-  if (res.status === 401 && !isRetry && tokens?.refresh_token) {
+  // A 401 from /auth/login|register|refresh itself means bad credentials or
+  // an expired refresh token, not an expired access token on an otherwise
+  // valid session -- retrying it against the *currently cached* refresh
+  // token (e.g. a caregiver re-authenticating from UnlockOverlay while a
+  // child's session is active) has nothing to do with those credentials,
+  // and if that unrelated refresh token happens to itself be invalid, the
+  // retry's failure wipes the working session as a side effect of an
+  // unrelated login attempt.
+  if (res.status === 401 && !isRetry && tokens?.refresh_token && !path.startsWith('/auth/')) {
     const refreshed = await refreshTokens(tokens.refresh_token);
     if (refreshed) {
       return request<T>(method, path, body, opts, true);
