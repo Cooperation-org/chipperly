@@ -100,6 +100,10 @@ export function DevicesScreen() {
   );
 }
 
+/** How many times to re-poll GET /me/devices after "Locate now", spaced to cover the native side's own ~20s location-fetch timeout (LocateRequestMessagingService). */
+const LOCATE_POLL_ATTEMPTS = 8;
+const LOCATE_POLL_INTERVAL_MS = 3_000;
+
 function DeviceEditSheet({
   device,
   profiles,
@@ -112,6 +116,12 @@ function DeviceEditSheet({
   const [name, setName] = useState(device.name ?? '');
   const [profileId, setProfileId] = useState(device.profile_id);
   const [saving, setSaving] = useState(false);
+  const [location, setLocation] = useState({
+    lat: device.last_lat,
+    lng: device.last_lng,
+    at: device.last_location_at,
+  });
+  const [locating, setLocating] = useState(false);
 
   async function save(): Promise<void> {
     setSaving(true);
@@ -126,6 +136,25 @@ function DeviceEditSheet({
   async function remove(): Promise<void> {
     await api.delete(`/me/devices/${device.id}`);
     onSaved();
+  }
+
+  async function locateNow(): Promise<void> {
+    setLocating(true);
+    const requestedAt = location.at;
+    try {
+      await api.post(`/me/devices/${device.id}/locate`);
+      for (let attempt = 0; attempt < LOCATE_POLL_ATTEMPTS; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, LOCATE_POLL_INTERVAL_MS));
+        const res = await api.get<{ devices: Device[] }>('/me/devices');
+        const updated = res.devices.find((d) => d.id === device.id);
+        if (updated?.last_location_at && updated.last_location_at !== requestedAt) {
+          setLocation({ lat: updated.last_lat, lng: updated.last_lng, at: updated.last_location_at });
+          break;
+        }
+      }
+    } finally {
+      setLocating(false);
+    }
   }
 
   return (
@@ -156,6 +185,30 @@ function DeviceEditSheet({
       <Button fullWidth loading={saving} onClick={() => void save()}>
         Save
       </Button>
+
+      {device.platform === 'android' && (
+        <div className={styles.locateSection}>
+          <p className={styles.label}>Location</p>
+          {location.lat !== null && location.lng !== null && location.at !== null ? (
+            <p className={styles.locateStatus}>
+              Last located {timeAgo(location.at)} --{' '}
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${location.lat}&mlon=${location.lng}#map=16/${location.lat}/${location.lng}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                view on map
+              </a>
+            </p>
+          ) : (
+            <p className={styles.locateStatus}>No location reported yet.</p>
+          )}
+          <Button fullWidth variant="secondary" loading={locating} onClick={() => void locateNow()}>
+            Locate now
+          </Button>
+        </div>
+      )}
+
       <Button variant="danger" fullWidth onClick={() => void remove()}>
         Remove this device
       </Button>

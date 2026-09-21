@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { useSession } from '@/lib/auth/session';
 import { api } from '@/lib/api/client';
+import { getDeviceId } from '@/lib/device/identity';
 
 /**
  * Registers this device for push once signed in, and tells the server the
@@ -22,10 +23,12 @@ export function PushRegistrationGuard(): null {
     let cancelled = false;
     const registrationHandle = PushNotifications.addListener('registration', (token) => {
       if (cancelled) return;
-      void api.put('/me/push-token', { token: token.value, platform: Capacitor.getPlatform() }).catch(() => {
-        // ponytail: best-effort -- a failed registration just means no push
-        // reaches this device until the next app start retries it.
-      });
+      void getDeviceId()
+        .then((device_id) => api.put('/me/push-token', { token: token.value, platform: Capacitor.getPlatform(), device_id }))
+        .catch(() => {
+          // ponytail: best-effort -- a failed registration just means no push
+          // reaches this device until the next app start retries it.
+        });
     });
     const errorHandle = PushNotifications.addListener('registrationError', (err) => {
       console.error('PushRegistrationGuard: registration failed', err);

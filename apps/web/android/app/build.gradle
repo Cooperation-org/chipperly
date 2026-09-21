@@ -36,6 +36,11 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // Needed on app's own compile classpath (not just transitively, at
+    // runtime, via the plugin modules) because LocateRequestMessagingService
+    // and DeviceLocatorPlugin reference these types directly.
+    implementation "com.google.firebase:firebase-messaging:25.0.1"
+    implementation "com.google.android.gms:play-services-location:21.3.0"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

@@ -2,9 +2,12 @@
 
 import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
+import type { RegisterDeviceResponse } from '@chipperly/shared/schemas/device';
 import { useSession } from '@/lib/auth/session';
 import { getDeviceId } from '@/lib/device/identity';
 import { api } from '@/lib/api/client';
+import { apiBase } from '@/lib/api/base';
+import DeviceLocator from '@/lib/native/deviceLocator';
 
 /**
  * Registers this device (every platform, not just native -- a caregiver's
@@ -19,11 +22,15 @@ export function DeviceRegistrationGuard(): null {
   useEffect(() => {
     if (status !== 'signed_in') return;
     let cancelled = false;
-    void getDeviceId().then((id) => {
+    void getDeviceId().then(async (id) => {
       if (cancelled) return;
-      void api.put(`/me/devices/${id}`, { platform: Capacitor.getPlatform() }).catch(() => {
-        // ponytail: best-effort -- this device just won't show in the list until the next sign-in retries it.
-      });
+      try {
+        const response = await api.put<RegisterDeviceResponse>(`/me/devices/${id}`, { platform: Capacitor.getPlatform() });
+        if (cancelled) return;
+        await DeviceLocator.setReportConfig({ deviceId: id, reportToken: response.report_token, apiBase });
+      } catch {
+        // ponytail: best-effort -- this device just won't show in the list (or answer a locate request) until the next sign-in retries it.
+      }
     });
     return () => {
       cancelled = true;
