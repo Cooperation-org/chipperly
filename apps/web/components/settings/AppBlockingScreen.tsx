@@ -46,6 +46,7 @@ export function AppBlockingScreen() {
   const { profile } = useActiveProfile();
   const sheet = useSheet();
   const [serviceEnabled, setServiceEnabled] = useState(false);
+  const [deviceOwner, setDeviceOwner] = useState(false);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [thisDeviceId, setThisDeviceId] = useState<string | null>(null);
@@ -63,6 +64,7 @@ export function AppBlockingScreen() {
     }
     function refreshServiceState(): void {
       void AppBlocker.isServiceEnabled().then(({ enabled }) => setServiceEnabled(enabled));
+      void AppBlocker.isDeviceOwner().then(({ deviceOwner: owner }) => setDeviceOwner(owner));
     }
     refreshServiceState();
     void refreshDevices();
@@ -192,6 +194,41 @@ export function AppBlockingScreen() {
             Open Settings &gt; App blocking on {selectedDevice.name ?? 'this device'} itself to check whether the
             accessibility service is on, or to turn it on.
           </p>
+        </div>
+      ) : null}
+
+      {isThisDevice ? (
+        <div className={styles.card}>
+          <div className={styles.controlRow}>
+            <span className={styles.controlLabel}>Tamper-proof mode</span>
+            <span className={[styles.badge, deviceOwner ? styles.on : styles.off].join(' ')}>
+              {deviceOwner ? 'Active' : 'Not set up'}
+            </span>
+          </div>
+          {deviceOwner ? (
+            <p className={styles.hint}>
+              Locking this device now pins it to Chipperly and the apps allowed below at the operating-system level:
+              no Recents, and Force Stop can&rsquo;t turn blocking off.
+            </p>
+          ) : (
+            <>
+              <p className={styles.hint}>
+                Without this, a Force Stop from system Settings (or a determined swipe from Recents) can turn app
+                blocking off entirely until it&rsquo;s manually re-enabled. Making this device tamper-proof is a
+                one-time step done from a computer, before this device has any Google account signed in --
+                it can&rsquo;t be added later without a factory reset.
+              </p>
+              <ol className={styles.steps}>
+                <li>Remove any account already on this device, or start from a factory-reset one.</li>
+                <li>
+                  Turn on Developer options and USB debugging (Settings &gt; About phone &gt; tap Build number 7
+                  times, then Settings &gt; System &gt; Developer options).
+                </li>
+                <li>Connect it to a computer with adb installed, then run:</li>
+              </ol>
+              <code className={styles.command}>adb shell dpm set-device-owner org.chipperly.app/org.chipperly.app.ChipperlyDeviceAdminReceiver</code>
+            </>
+          )}
         </div>
       ) : null}
 

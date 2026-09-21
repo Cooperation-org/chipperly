@@ -1,6 +1,8 @@
 package org.chipperly.app;
 
 import android.accessibilityservice.AccessibilityService;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -67,6 +69,7 @@ public class ChipperlyBlockService extends AccessibilityService {
         @Override
         public void run() {
             if (lastForegroundPackage != null) maybeBlock(lastForegroundPackage);
+            syncLockTaskAllowlist(ChipperlyBlockService.this);
             recheckHandler.postDelayed(this, RECHECK_INTERVAL_MS);
         }
     };
@@ -114,8 +117,8 @@ public class ChipperlyBlockService extends AccessibilityService {
         // Required override; there's no ongoing feedback (sound/vibration) to stop.
     }
 
-    /** `{"packageName": allowedUntilEpochMs, ...}` -> parsed map. Android-only (org.json); the pure decision below takes plain data so it stays plain-JUnit testable. */
-    private static Map<String, Long> parseTimedAllowances(String json) {
+    /** `{"packageName": allowedUntilEpochMs, ...}` -> parsed map. Android-only (org.json); the pure decision below takes plain data so it stays plain-JUnit testable. Package-private: AppBlockerPlugin reuses this to keep DevicePolicyManager's lock-task allowlist in sync with the same timed grants. */
+    static Map<String, Long> parseTimedAllowances(String json) {
         Map<String, Long> result = new HashMap<>();
         if (TextUtils.isEmpty(json)) return result;
         try {
@@ -173,6 +176,32 @@ public class ChipperlyBlockService extends AccessibilityService {
     static boolean shouldBlock(String foregroundPackage, boolean enabled, Set<String> allowSet) {
         if (!enabled || foregroundPackage == null) return false;
         return !allowSet.contains(foregroundPackage);
+    }
+
+    /**
+     * Pushes the current effective allow-list (permanent + still-active
+     * timed) to DevicePolicyManager.setLockTaskPackages -- a no-op unless
+     * this app is Device Owner (ChipperlyDeviceAdminReceiver, granted via a
+     * one-time `adb shell dpm set-device-owner` the caregiver runs before
+     * any account is added to the device). Called both right after
+     * AppBlockerPlugin saves a new allow-list/timed-allowance, and from this
+     * service's existing 20s recheck timer, so a timed grant expiring while
+     * nothing else changes still drops out of the OS-enforced lock-task
+     * allowlist within RECHECK_INTERVAL_MS, the same latency the
+     * accessibility-redirect path already accepts for the same reason.
+     */
+    static void syncLockTaskAllowlist(Context context) {
+        DevicePolicyManager dpm = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+        String ownPackage = context.getPackageName();
+        if (dpm == null || !dpm.isDeviceOwnerApp(ownPackage)) return;
+
+        SharedPreferences prefs = context.getSharedPreferences(AppBlockerPlugin.PREFS_NAME, MODE_PRIVATE);
+        Set<String> allowSet = new HashSet<>(prefs.getStringSet(AppBlockerPlugin.KEY_ALLOWED_PACKAGES, Collections.<String>emptySet()));
+        allowSet.addAll(activeTimedPackages(parseTimedAllowances(prefs.getString(AppBlockerPlugin.KEY_TIMED_ALLOWANCES, null)), System.currentTimeMillis()));
+        allowSet.add(ownPackage);
+
+        ComponentName admin = new ComponentName(context, ChipperlyDeviceAdminReceiver.class);
+        dpm.setLockTaskPackages(admin, allowSet.toArray(new String[0]));
     }
 
     /** Standard way to check whether the caregiver has actually turned this service on in system Settings. */

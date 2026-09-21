@@ -1,10 +1,13 @@
 package org.chipperly.app;
 
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.UserManager;
 import android.provider.Settings;
 
 import com.getcapacitor.JSArray;
@@ -42,6 +45,19 @@ public class AppBlockerPlugin extends Plugin {
         return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
+    private DevicePolicyManager devicePolicyManager() {
+        return (DevicePolicyManager) getContext().getSystemService(Context.DEVICE_POLICY_SERVICE);
+    }
+
+    private ComponentName adminComponent() {
+        return new ComponentName(getContext(), ChipperlyDeviceAdminReceiver.class);
+    }
+
+    private boolean isDeviceOwnerApp() {
+        DevicePolicyManager dpm = devicePolicyManager();
+        return dpm != null && dpm.isDeviceOwnerApp(getContext().getPackageName());
+    }
+
     @PluginMethod
     public void listInstalledApps(PluginCall call) {
         PackageManager pm = getContext().getPackageManager();
@@ -71,6 +87,17 @@ public class AppBlockerPlugin extends Plugin {
     public void setEnabled(PluginCall call) {
         boolean enabled = call.getBoolean("enabled", false);
         prefs().edit().putBoolean(KEY_ENABLED, enabled).apply();
+        // Device-wide, so it also covers Force Stop/disable/uninstall/clear-data
+        // for every app, not just the allow-list -- fine on what's meant to be
+        // a dedicated child device, and only takes effect at all when this app
+        // is Device Owner (see ChipperlyDeviceAdminReceiver).
+        if (isDeviceOwnerApp()) {
+            if (enabled) {
+                devicePolicyManager().addUserRestriction(adminComponent(), UserManager.DISALLOW_APPS_CONTROL);
+            } else {
+                devicePolicyManager().clearUserRestriction(adminComponent(), UserManager.DISALLOW_APPS_CONTROL);
+            }
+        }
         call.resolve();
     }
 
@@ -88,6 +115,7 @@ public class AppBlockerPlugin extends Plugin {
             }
         }
         prefs().edit().putStringSet(KEY_ALLOWED_PACKAGES, set).apply();
+        ChipperlyBlockService.syncLockTaskAllowlist(getContext());
         call.resolve();
     }
 
@@ -109,6 +137,7 @@ public class AppBlockerPlugin extends Plugin {
             }
         }
         prefs().edit().putString(KEY_TIMED_ALLOWANCES, map.toString()).apply();
+        ChipperlyBlockService.syncLockTaskAllowlist(getContext());
         call.resolve();
     }
 
@@ -128,6 +157,14 @@ public class AppBlockerPlugin extends Plugin {
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(launchIntent);
         call.resolve();
+    }
+
+    /** Whether the one-time `adb shell dpm set-device-owner` step (AppBlockingScreen's tamper-proof-mode instructions) has been done on this device. */
+    @PluginMethod
+    public void isDeviceOwner(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("deviceOwner", isDeviceOwnerApp());
+        call.resolve(result);
     }
 
     @PluginMethod

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Declares no specific admin policies: this app only ever becomes a
+     Device Owner (a one-time `adb shell dpm set-device-owner` run by the
+     caregiver before any account is added to the device: Android refuses
+     the command otherwise), never a plain Device Admin nudging the user
+     through a consent screen. Device Owner status alone is what unlocks
+     DevicePolicyManager.setLockTaskPackages/addUserRestriction; this file
+     just satisfies the <receiver> meta-data Android requires to register
+     the component as an admin receiver at all. -->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policy android:name="limit-password" />
+</device-admin>

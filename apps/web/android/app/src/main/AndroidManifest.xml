@@ -56,6 +56,27 @@
                 android:resource="@xml/chipperly_block_service_config" />
         </service>
 
+        <!-- Registers this app as eligible for Device Owner status. On its
+             own this does nothing and prompts nobody: it only takes effect
+             once a caregiver runs `adb shell dpm set-device-owner
+             org.chipperly.app/.ChipperlyDeviceAdminReceiver` from a computer,
+             which Android only accepts on a device with no accounts added
+             yet. That one-time step is what turns setLockTaskPackages
+             (AppBlockerPlugin) from a best-effort accessibility redirect
+             into a real OS-enforced multi-app kiosk allowlist that survives
+             Force Stop and Recents. -->
+        <receiver
+            android:name=".ChipperlyDeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Removes @capacitor/push-notifications' own MessagingService
              entry: tools:node="replace" only works when android:name
              matches, and this override's is deliberately different (a

@@ -26,6 +26,8 @@ export interface AppBlockerPlugin {
   isServiceEnabled(): Promise<{ enabled: boolean }>;
   /** Opens system Settings > Accessibility so the caregiver can grant it. */
   openAccessibilitySettings(): Promise<void>;
+  /** Whether the one-time `adb shell dpm set-device-owner` step has been done on this device. Only then does the allow-list also get pushed to DevicePolicyManager.setLockTaskPackages, turning "Lock this device" into a real OS-enforced multi-app kiosk that survives Force Stop and Recents instead of a best-effort accessibility redirect. */
+  isDeviceOwner(): Promise<{ deviceOwner: boolean }>;
 }
 
 const AppBlocker = registerPlugin<AppBlockerPlugin>('AppBlocker', {

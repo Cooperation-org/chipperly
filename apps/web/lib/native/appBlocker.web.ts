@@ -16,4 +16,7 @@ export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
     return { enabled: false };
   }
   async openAccessibilitySettings(): Promise<void> {}
+  async isDeviceOwner(): Promise<{ deviceOwner: boolean }> {
+    return { deviceOwner: false };
+  }
 }
