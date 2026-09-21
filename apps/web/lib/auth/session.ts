@@ -8,6 +8,7 @@ import { api, ApiError, getTokens, setTokens } from '../api/client';
 import { getKv, setKv } from '../db/kv';
 import { db } from '../db/db';
 import { applySnapshotRow } from '../sync/applyPulledRow';
+import { exitParentMode } from '../device/settings';
 
 export type SessionStatus = 'loading' | 'signed_out' | 'signed_in';
 
@@ -156,6 +157,11 @@ export async function setPin(pin: string): Promise<void> {
 }
 
 async function bootstrap(): Promise<void> {
+  // Every fresh app start defaults back to the child view (lib/device/settings.ts's
+  // useParentMode doc): a caregiver who unlocked into Today yesterday shouldn't find
+  // the app still sitting there, unlocked, next time anyone opens it.
+  await exitParentMode();
+
   const tokens = await getTokens();
   const cachedMe = await getKv<MeResponse>(ME_KEY);
 

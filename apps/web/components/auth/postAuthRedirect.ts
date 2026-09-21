@@ -25,7 +25,8 @@ export async function getPendingInviteToken(): Promise<string | null> {
 /**
  * Where to land right after a successful sign-in/sign-up: a pending redirect
  * (e.g. back to the invite that sent the visitor to sign in) takes priority,
- * otherwise Today for a user with profiles or onboarding for one without.
+ * otherwise the child view for a user with profiles (the app's default --
+ * see lib/device/settings.ts's useParentMode) or onboarding for one without.
  */
 export async function redirectAfterAuth(router: Router): Promise<void> {
   const next = await getKv<string>(POST_AUTH_REDIRECT_KEY);
@@ -35,5 +36,5 @@ export async function redirectAfterAuth(router: Router): Promise<void> {
     return;
   }
   const me = await api.get<MeResponse>('/me');
-  router.push(me.profiles.length > 0 ? '/today/' : '/onboarding/kind/');
+  router.push(me.profiles.length > 0 ? '/child/' : '/onboarding/kind/');
 }

@@ -20,6 +20,8 @@ export interface TopBarProps {
   sync: { state: SyncState; pending?: number };
   onSyncTap?: () => void;
   onSettingsTap?: () => void;
+  /** Leaves caregiver mode for the child view (lib/device/settings.ts's useParentMode). Omitted: no button shown. */
+  onChildViewTap?: () => void;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface TopBarProps {
  * supplies its own h1, or none, per CONTRACTS.md "Layout rules") - so it's a
  * plain span, never an h1, to keep exactly one h1 per route.
  */
-export function TopBar({ profile, onProfileTap, title, sync, onSyncTap, onSettingsTap }: TopBarProps) {
+export function TopBar({ profile, onProfileTap, title, sync, onSyncTap, onSettingsTap, onChildViewTap }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.leading}>
@@ -44,6 +46,7 @@ export function TopBar({ profile, onProfileTap, title, sync, onSyncTap, onSettin
       </div>
       <div className={styles.trailing}>
         <SyncMark state={sync.state} pending={sync.pending} onTap={onSyncTap} />
+        {onChildViewTap ? <IconButton icon="lock" aria-label="Switch to child view" onClick={onChildViewTap} /> : null}
         <IconButton icon="gear" aria-label="Settings" onClick={onSettingsTap} />
       </div>
     </header>

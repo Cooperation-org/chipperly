@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useActiveProfile } from '@/lib/profile/active';
 import { startSync } from '@/lib/sync/engine';
+import { enterParentMode } from '@/lib/device/settings';
 import { BigButton } from '@/components/ui/BigButton';
 import { Picture } from '@/components/media/Picture';
 import styles from './Ready.module.css';
@@ -13,8 +14,14 @@ export function Ready() {
   const { profile } = useActiveProfile();
   const name = profile?.name ?? 'them';
 
+  // The caregiver just finished setting this profile up and is almost
+  // certainly about to keep editing (more routines, rewards) -- land them
+  // in caregiver mode directly rather than the child view they'd otherwise
+  // default to (lib/device/settings.ts's useParentMode) and immediately
+  // need to unlock past.
   function goToToday(): void {
     startSync();
+    void enterParentMode();
     router.push('/today/');
   }
 

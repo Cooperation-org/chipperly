@@ -38,8 +38,8 @@ export function VerifyStatus() {
     };
   }, [token]);
 
-  const destination = sessionStatus === 'signed_in' ? '/today/' : '/';
-  const destinationLabel = sessionStatus === 'signed_in' ? 'Go to Today' : 'Sign in';
+  const destination = sessionStatus === 'signed_in' ? '/child/' : '/';
+  const destinationLabel = sessionStatus === 'signed_in' ? 'Continue' : 'Sign in';
 
   return (
     <div className={styles.wrap}>

@@ -38,7 +38,7 @@ export function KindPicker() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profiles.length > 0) router.replace('/today/');
+    if (profiles.length > 0) router.replace('/child/');
   }, [profiles, router]);
 
   if (profiles.length > 0) return null;

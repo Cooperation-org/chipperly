@@ -14,3 +14,36 @@
   right: var(--space-3);
   z-index: 1;
 }
+
+.switchMode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  margin-top: var(--space-3);
+  padding: 0 var(--space-2);
+  color: var(--color-primary);
+  font-weight: 600;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.switchMode:hover {
+  background: var(--color-surface-2);
+}
+
+.passwordForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(360px, 90vw);
+}
+
+.passwordTitle {
+  font-size: var(--text-lg);
+  color: var(--color-text);
+  margin: 0;
+  text-align: center;
+}

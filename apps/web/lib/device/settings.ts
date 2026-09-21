@@ -62,11 +62,6 @@ export function useLock(): LockState {
   return useKv<LockState>(LOCK_KEY, DEFAULT_LOCK_STATE);
 }
 
-/** True once `useLock`'s underlying query has resolved (see useKvLoaded); gates ChildShell's redirect. */
-export function useLockLoaded(): boolean {
-  return useKvLoaded(LOCK_KEY);
-}
-
 export async function lockTo(profileId: string, options: Partial<LockOptions> = {}): Promise<void> {
   await setKv<LockState>(LOCK_KEY, {
     locked_profile_id: profileId,
@@ -76,6 +71,43 @@ export async function lockTo(profileId: string, options: Partial<LockOptions> = 
 
 export async function unlock(): Promise<void> {
   await setKv<LockState>(LOCK_KEY, DEFAULT_LOCK_STATE);
+}
+
+const PARENT_MODE_KEY = 'parent_mode';
+
+/**
+ * Whether this device is currently showing caregiver screens (Today,
+ * Settings, edits) instead of the child's default view. Distinct from
+ * `locked_profile_id`: that's the caregiver's explicit, native-pinned
+ * "Lock this device" kiosk mode; this is the app's own default -- the
+ * child view is what a freshly opened or freshly unlocked app shows,
+ * caregiver screens are the thing you have to unlock into (PIN or
+ * password, see UnlockOverlay), on every device, not just ones the
+ * caregiver has bothered to hard-lock.
+ */
+export function useParentMode(): boolean {
+  return useKv<boolean>(PARENT_MODE_KEY, false);
+}
+
+/**
+ * True once `useParentMode`'s live query has resolved at least once. Same
+ * race `useKvLoaded`'s doc warns about: right after UnlockOverlay awaits
+ * `enterParentMode()` and navigates, CaregiverShell mounts and reads
+ * `useParentMode()` before Dexie's live query has re-run with the just
+ * written `true` -- gate the "not in parent mode, bounce to /child/"
+ * redirect on this so it doesn't fire on that stale loading tick.
+ */
+export function useParentModeLoaded(): boolean {
+  return useKvLoaded(PARENT_MODE_KEY);
+}
+
+export async function enterParentMode(): Promise<void> {
+  await setKv<boolean>(PARENT_MODE_KEY, true);
+}
+
+/** Also the safe default on a cold app start (session.ts's bootstrap): every fresh open lands on the child view. */
+export async function exitParentMode(): Promise<void> {
+  await setKv<boolean>(PARENT_MODE_KEY, false);
 }
 
 interface PinAttemptsState {

@@ -30,14 +30,14 @@ export function SignUpForm() {
   const [error, setError] = useState<string | null>(null);
   // True for the span of our own handleSubmit, incl. the setState('signed_in') that
   // refreshMe() triggers: without this, that status flip re-runs the effect below and
-  // races its router.replace('/today/') against redirectAfterAuth's own destination
+  // races its router.replace('/child/') against redirectAfterAuth's own destination
   // (e.g. back to an invite) -- a race Chromium usually won but WebKit didn't, landing
-  // signed-up invitees on /today/ (then CaregiverShell's empty-profiles guard bounced
+  // signed-up invitees on /child/ (then ChildShell's empty-profiles guard bounced
   // them to /onboarding/kind/) instead of back at the invite they came from.
   const submittingRef = useRef(false);
 
   useEffect(() => {
-    if (status === 'signed_in' && !submittingRef.current) router.replace('/today/');
+    if (status === 'signed_in' && !submittingRef.current) router.replace('/child/');
   }, [status, router]);
 
   useEffect(() => {

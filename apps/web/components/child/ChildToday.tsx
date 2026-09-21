@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
+import { useActiveProfile } from '@/lib/profile/active';
 import { verifyPin } from '@/lib/auth/pin';
 import { PinPad } from '@/components/pin/PinPad';
 import { db } from '@/lib/db/db';
@@ -45,14 +46,18 @@ import { UnlockOverlay } from './UnlockOverlay';
 import styles from './ChildToday.module.css';
 
 /**
- * S32: the child's locked Today screen. One list, big pictures, nothing to
- * navigate. `ChildShell` guarantees `locked_profile_id` is set before this
- * mounts (it redirects to /today/ otherwise), so the early return below is
- * only a defensive fallback for the first render tick.
+ * S32: the child's Today screen -- the app's default view (lib/device/settings.ts's
+ * useParentMode), shown whether or not the device is hard-locked. When
+ * hard-locked (hardware screen pinning, `locked_profile_id`), that's the
+ * profile shown; otherwise it's the caregiver's own active profile, same one
+ * CaregiverShell's profile switcher uses. Either way the "Caregiver unlock"
+ * lock button is the one way into caregiver screens (UnlockOverlay, PIN or
+ * password).
  */
 export function ChildToday() {
   const { locked_profile_id, options } = useLock();
   const { user } = useSession();
+  const { profile: activeProfile } = useActiveProfile();
   const sheet = useSheet();
   // Selector hook, not useTimer(): the full TimerState changes ~60x/sec while
   // a timer runs, and re-executing this whole screen's body on every tick
@@ -60,7 +65,7 @@ export function ChildToday() {
   // that needs the live remaining_ms is isolated in TimerRemaining below.
   const running = useTimerRunning();
 
-  const profileId = locked_profile_id ?? '';
+  const profileId = locked_profile_id ?? activeProfile?.id ?? '';
   const userId = user?.id ?? '';
   const [isoDate] = useState(() => todayIso());
 
@@ -73,15 +78,20 @@ export function ChildToday() {
   useMaterializedDay(profileId, isoDate);
 
   // Best-effort back-gesture trap: every back navigation just re-pushes the
-  // same entry, so there is nowhere for "back" to go while locked.
+  // same entry, so there is nowhere for "back" to go while hard-locked. Only
+  // while hard-locked -- this is also the app's ordinary default view now
+  // (lib/device/settings.ts's useParentMode), and a caregiver just looking
+  // at their child's Today screen should still be able to back/exit the app
+  // normally (BackButtonHandler falls through to CapApp.exitApp()).
   useEffect(() => {
+    if (!locked_profile_id) return;
     window.history.pushState(null, '', window.location.href);
     function onPopState(): void {
       window.history.pushState(null, '', window.location.href);
     }
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  }, [locked_profile_id]);
 
   // Belt for the CSS overscroll-behavior on .screen: some browsers only
   // honor pull-to-refresh suppression set on the document root.

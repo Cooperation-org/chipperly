@@ -23,11 +23,11 @@ export function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // See SignUpForm's identical guard: without it this effect's own
-  // router.replace('/today/') races redirectAfterAuth's destination.
+  // router.replace('/child/') races redirectAfterAuth's destination.
   const submittingRef = useRef(false);
 
   useEffect(() => {
-    if (status === 'signed_in' && !submittingRef.current) router.replace('/today/');
+    if (status === 'signed_in' && !submittingRef.current) router.replace('/child/');
   }, [status, router]);
 
   if (status === 'signed_in') return null;

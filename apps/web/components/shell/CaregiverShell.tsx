@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
+import { useParentMode, useParentModeLoaded, exitParentMode } from '@/lib/device/settings';
 import { useSyncStatus } from '@/lib/sync/engine';
 import { useSheet } from '@/components/ui/Sheet';
 import { TopBar } from '@/components/ui/TopBar';
@@ -54,12 +55,25 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
   const sync = useSyncStatus();
   const { open, close } = useSheet();
+  // The app's default is the child view (lib/device/settings.ts's
+  // useParentMode); caregiver screens are the thing UnlockOverlay's PIN/
+  // password gate unlocks into, not a route you can just navigate to
+  // (deep link, browser back button, a stale bookmark on the web build).
+  // `parentModeLoaded` gates the redirect exactly like the old ChildShell
+  // gated on locked_profile_id: without it, this mounts (right after
+  // UnlockOverlay awaits enterParentMode() and navigates here) and reads
+  // parentMode's stale loading-tick fallback of `false` before Dexie's live
+  // query re-runs with the just-written `true`, bouncing straight back to
+  // /child/ before the real value ever arrives.
+  const parentMode = useParentMode();
+  const parentModeLoaded = useParentModeLoaded();
 
   useEffect(() => {
     if (sessionProfiles.length === 0) router.replace('/onboarding/kind/');
-  }, [sessionProfiles.length, router]);
+    else if (parentModeLoaded && !parentMode) router.replace('/child/');
+  }, [sessionProfiles.length, parentModeLoaded, parentMode, router]);
 
-  if (sessionProfiles.length === 0) return null;
+  if (sessionProfiles.length === 0 || !parentModeLoaded || !parentMode) return null;
 
   return (
     <div className={styles.shell}>
@@ -82,6 +96,10 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
         }
         onSyncTap={() => open(<SyncSheet />, { title: 'Sync' })}
         onSettingsTap={() => router.push('/settings/')}
+        onChildViewTap={() => {
+          void exitParentMode();
+          router.push('/child/');
+        }}
       />
       <TimerPill />
       <main className={styles.content}>{children}</main>
