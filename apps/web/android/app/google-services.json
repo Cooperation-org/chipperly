@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1020740583164",
+    "project_id": "chipperly-app",
+    "storage_bucket": "chipperly-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1020740583164:android:b2fd47909332458c8b6179",
+        "android_client_info": {
+          "package_name": "org.chipperly.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9bv3U_eDuWjDwCMTSCMThteNSSOlrzEU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
