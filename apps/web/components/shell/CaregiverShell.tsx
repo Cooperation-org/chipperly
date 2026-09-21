@@ -51,7 +51,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   // mount) gates the redirect so it can't flicker true while Dexie's live
   // query for `useActiveProfile().profiles` (used for the switcher list) is
   // still resolving its first result.
-  const { profiles: sessionProfiles } = useSession();
+  const { status: sessionStatus, profiles: sessionProfiles } = useSession();
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
   const sync = useSyncStatus();
   const { open, close } = useSheet();
@@ -69,11 +69,17 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   const parentModeLoaded = useParentModeLoaded();
 
   useEffect(() => {
-    if (sessionProfiles.length === 0) router.replace('/onboarding/kind/');
+    // Same reasoning as ChildShell/KindPicker's matching guards: `status`
+    // must have actually settled to signed_in before an empty
+    // `sessionProfiles` means "onboard this account" rather than "still
+    // loading" or "a sync 401 just cleared it" -- otherwise this bounces to
+    // /onboarding/kind/ right as ChildShell bounces away from it too.
+    if (sessionStatus === 'signed_out') router.replace('/');
+    else if (sessionStatus === 'signed_in' && sessionProfiles.length === 0) router.replace('/onboarding/kind/');
     else if (parentModeLoaded && !parentMode) router.replace('/child/');
-  }, [sessionProfiles.length, parentModeLoaded, parentMode, router]);
+  }, [sessionStatus, sessionProfiles.length, parentModeLoaded, parentMode, router]);
 
-  if (sessionProfiles.length === 0 || !parentModeLoaded || !parentMode) return null;
+  if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !parentModeLoaded || !parentMode) return null;
 
   return (
     <div className={styles.shell}>

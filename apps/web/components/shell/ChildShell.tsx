@@ -17,7 +17,7 @@ import styles from './ChildShell.module.css';
  */
 export function ChildShell({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { profiles } = useSession();
+  const { status, profiles } = useSession();
 
   useEffect(() => {
     document.documentElement.dataset.mode = 'child';
@@ -27,10 +27,17 @@ export function ChildShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (profiles.length === 0) router.replace('/onboarding/kind/');
-  }, [profiles.length, router]);
+    // Only a genuinely signed-in account can answer "does it have a
+    // profile yet" -- while `status` is still 'loading' (reading the
+    // cached session) or has just gone 'signed_out' (a sync 401), profiles
+    // is `[]` for a reason that has nothing to do with onboarding, and
+    // redirecting off that snapshot is what sent this bouncing to
+    // /onboarding/kind/ and back once the real session settled again.
+    if (status === 'signed_out') router.replace('/');
+    else if (status === 'signed_in' && profiles.length === 0) router.replace('/onboarding/kind/');
+  }, [status, profiles.length, router]);
 
-  if (profiles.length === 0) return null;
+  if (status !== 'signed_in' || profiles.length === 0) return null;
 
   return <div className={styles.column}>{children}</div>;
 }

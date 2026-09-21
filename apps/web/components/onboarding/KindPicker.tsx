@@ -31,17 +31,22 @@ interface CreateAccountResponse {
 /** S3: who is Chipperly for. Tapping a tile creates the account and, for "Myself", the profile too. */
 export function KindPicker() {
   const router = useRouter();
-  const { user, profiles } = useSession();
+  const { status, user, profiles } = useSession();
   const { setActiveAccountId } = useActiveAccount();
   const { setActiveProfileId } = useActiveProfile();
   const [busy, setBusy] = useState<AccountKind | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profiles.length > 0) router.replace('/child/');
-  }, [profiles, router]);
+    // Same reasoning as ChildShell's mirror-image guard: only act on
+    // `profiles` once `status` has actually settled to signed_in, so a
+    // 'loading' or momentarily-signed_out read doesn't get treated as
+    // "still needs onboarding" and bounced back here right after
+    // ChildShell already bounced away from it.
+    if (status === 'signed_in' && profiles.length > 0) router.replace('/child/');
+  }, [status, profiles, router]);
 
-  if (profiles.length > 0) return null;
+  if (status === 'signed_in' && profiles.length > 0) return null;
 
   async function choose(kind: AccountKind): Promise<void> {
     if (!user || busy) return;
