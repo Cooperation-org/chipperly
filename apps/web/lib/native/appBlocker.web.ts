@@ -9,6 +9,9 @@ export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
   async setEnabled(): Promise<void> {}
   async setAllowedPackages(): Promise<void> {}
   async setTimedAllowances(): Promise<void> {}
+  async launchApp(): Promise<void> {
+    throw new Error('launchApp is not available on web');
+  }
   async isServiceEnabled(): Promise<{ enabled: boolean }> {
     return { enabled: false };
   }

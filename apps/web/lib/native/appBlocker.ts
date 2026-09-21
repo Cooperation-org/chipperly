@@ -20,6 +20,8 @@ export interface AppBlockerPlugin {
   setAllowedPackages(options: { packages: string[] }): Promise<void>;
   /** Packages allowed on top of the permanent list until their own `allowedUntil` (e.g. "YouTube for 1 hour"); the native service re-checks this on a timer so an expired grant is enforced even if the child never switches apps. */
   setTimedAllowances(options: { allowances: TimedAllowance[] }): Promise<void>;
+  /** Launches an installed app by package name, same as tapping its icon in the system launcher -- lets the child open an allowed app from inside Chipperly itself. Android only; rejects on web. */
+  launchApp(options: { packageName: string }): Promise<void>;
   /** Whether the caregiver has actually turned the accessibility service on in system settings -- enabling it in-app isn't possible, Android requires this to be a manual, disclosed step. */
   isServiceEnabled(): Promise<{ enabled: boolean }>;
   /** Opens system Settings > Accessibility so the caregiver can grant it. */

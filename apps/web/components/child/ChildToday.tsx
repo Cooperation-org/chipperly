@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Capacitor } from '@capacitor/core';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
@@ -43,6 +44,7 @@ import { DayBand } from './DayBand';
 import { ReadStoryButton } from './ReadStoryButton';
 import { TomorrowBand } from './TomorrowBand';
 import { UnlockOverlay } from './UnlockOverlay';
+import { AllowedAppsSheet } from './AllowedAppsSheet';
 import styles from './ChildToday.module.css';
 
 /**
@@ -283,7 +285,9 @@ export function ChildToday() {
     );
   }
 
-  const showBottomBar = options.show_free_time || options.show_first_then || options.show_chipper_chart || running;
+  const allowedApps = profile?.settings.allowed_app_packages ?? [];
+  const showAllowedApps = Boolean(profile?.settings.child_mode_active) && allowedApps.length > 0 && Capacitor.getPlatform() === 'android';
+  const showBottomBar = options.show_free_time || options.show_first_then || options.show_chipper_chart || showAllowedApps || running;
   const canPickReward = profile?.settings.child_picks_reward !== false;
 
   if (!profileId || !profile) return null;
@@ -449,6 +453,15 @@ export function ChildToday() {
                 😊
               </span>
               Chipper Chart
+            </BigButton>
+          ) : null}
+          {showAllowedApps ? (
+            <BigButton
+              variant="secondary"
+              icon="grid"
+              onClick={() => sheet.open(<AllowedAppsSheet allowedPackages={allowedApps} />, { title: 'Apps' })}
+            >
+              Apps
             </BigButton>
           ) : null}
         </div>

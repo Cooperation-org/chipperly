@@ -112,6 +112,24 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve();
     }
 
+    /** Launches an app by package name, the same way the OS launcher would -- for the child-facing "allowed apps" list inside Chipperly itself, so there's a way to reach them without ever needing the system launcher. */
+    @PluginMethod
+    public void launchApp(PluginCall call) {
+        String packageName = call.getString("packageName");
+        if (packageName == null) {
+            call.reject("packageName is required");
+            return;
+        }
+        Intent launchIntent = getContext().getPackageManager().getLaunchIntentForPackage(packageName);
+        if (launchIntent == null) {
+            call.reject("No launchable activity for " + packageName);
+            return;
+        }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(launchIntent);
+        call.resolve();
+    }
+
     @PluginMethod
     public void isServiceEnabled(PluginCall call) {
         JSObject result = new JSObject();
