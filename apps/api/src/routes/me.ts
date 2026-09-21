@@ -1,11 +1,17 @@
 import type { FastifyInstance } from 'fastify';
+import { randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
 import { PinBodySchema, type ExportResponse, type MeAccount, type MeResponse } from '@chipperly/shared/schemas/auth';
 import { RegisterPushTokenBodySchema, UnregisterPushTokenBodySchema } from '@chipperly/shared/schemas/push';
-import { RegisterDeviceBodySchema, UpdateDeviceBodySchema, type Device } from '@chipperly/shared/schemas/device';
+import {
+  RegisterDeviceBodySchema,
+  UpdateDeviceBodySchema,
+  type Device,
+  type RegisterDeviceResponse,
+} from '@chipperly/shared/schemas/device';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { TABLE_NAMES } from '@chipperly/shared/constants/tables';
 import { db, sql } from '../db/client.js';
@@ -23,6 +29,7 @@ import { social_stories, story_pages } from '../db/schema/stories.js';
 import { attitude_checks } from '../db/schema/attitude.js';
 import { media } from '../db/schema/media.js';
 import { hashPin, verifyPin } from '../lib/password.js';
+import { sendDataMessage } from '../lib/push.js';
 import { canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { normalizeRow } from './sync.js';
@@ -175,14 +182,23 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     return { pin_hash: pinHash };
   });
 
-  /** Registers/refreshes this device's push token. Insert-or-ignore: a re-registration of the same (user, token) pair is a no-op, not an error. */
+  /**
+   * Registers/refreshes this device's push token. Upsert on device_id too
+   * (not just insert-or-ignore): a token rarely changes which device it
+   * belongs to, but self-healing a stale/missing device_id here is free and
+   * keeps locate-request (below) working after e.g. a token registered
+   * before devices.ts existed.
+   */
   app.put('/me/push-token', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
     const authUser = request.user!;
     const body = RegisterPushTokenBodySchema.parse(request.body);
     await db
       .insert(push_tokens)
-      .values({ user_id: authUser.id, token: body.token, platform: body.platform, created_at: Date.now() })
-      .onConflictDoNothing();
+      .values({ user_id: authUser.id, token: body.token, platform: body.platform, device_id: body.device_id, created_at: Date.now() })
+      .onConflictDoUpdate({
+        target: [push_tokens.user_id, push_tokens.token],
+        set: { platform: body.platform, device_id: body.device_id },
+      });
     return { ok: true };
   });
 
@@ -194,24 +210,72 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  /** The caregiver's named device list (Settings > Devices), so it's visible from any signed-in device, including a laptop browser. */
+  /**
+   * The caregiver's named device list (Settings > Devices), so it's visible
+   * from any signed-in device, including a laptop browser. An explicit
+   * column list, not `select()`, so a new column (report_token) is never
+   * accidentally exposed here just by existing in the table -- it's a
+   * per-device secret (devices.ts), not something any of the caregiver's
+   * own other devices/browsers needs to see.
+   */
   app.get('/me/devices', { preHandler: requireUser }, async (request): Promise<{ devices: Device[] }> => {
     const authUser = request.user!;
-    const rows = await db.select().from(devices).where(eq(devices.user_id, authUser.id)).orderBy(desc(devices.last_seen_at));
+    const rows = await db
+      .select({
+        id: devices.id,
+        name: devices.name,
+        profile_id: devices.profile_id,
+        platform: devices.platform,
+        last_seen_at: devices.last_seen_at,
+        created_at: devices.created_at,
+        last_lat: devices.last_lat,
+        last_lng: devices.last_lng,
+        last_location_accuracy_m: devices.last_location_accuracy_m,
+        last_location_at: devices.last_location_at,
+      })
+      .from(devices)
+      .where(eq(devices.user_id, authUser.id))
+      .orderBy(desc(devices.last_seen_at));
     return { devices: rows };
   });
 
-  /** Called by the device itself, on sign-in: creates the row on first sight (name/profile_id null until the caregiver sets them), otherwise just bumps last_seen_at/platform. */
-  app.put('/me/devices/:id', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+  /**
+   * Called by the device itself, on sign-in: creates the row on first sight
+   * (name/profile_id null until the caregiver sets them), otherwise just
+   * bumps last_seen_at/platform. Always returns this device's report_token
+   * (generated once, stable across re-registrations) so the caller can
+   * store it natively for the locate-request flow (lib/native/deviceLocator.ts).
+   */
+  app.put('/me/devices/:id', { preHandler: requireUser }, async (request): Promise<RegisterDeviceResponse> => {
     const authUser = request.user!;
     const { id } = deviceIdParamSchema.parse(request.params);
     const body = RegisterDeviceBodySchema.parse(request.body);
     const now = Date.now();
-    await db
+    const reportToken = randomBytes(32).toString('base64url');
+    const [row] = await db
       .insert(devices)
-      .values({ id, user_id: authUser.id, platform: body.platform, last_seen_at: now, created_at: now })
-      .onConflictDoUpdate({ target: devices.id, set: { platform: body.platform, last_seen_at: now } });
-    return { ok: true };
+      .values({ id, user_id: authUser.id, platform: body.platform, last_seen_at: now, created_at: now, report_token: reportToken })
+      .onConflictDoUpdate({ target: devices.id, set: { platform: body.platform, last_seen_at: now } })
+      .returning({ report_token: devices.report_token });
+    return { ok: true, report_token: row!.report_token! };
+  });
+
+  /** Caregiver-triggered, from any signed-in device: asks the target device (Android only -- see lib/native/deviceLocator.ts) to report its current position. Fire-and-forget: the answer lands later via POST /devices/:id/location (routes/deviceLocation.ts) and shows up in a later GET /me/devices. */
+  app.post('/me/devices/:id/locate', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
+    const authUser = request.user!;
+    const { id } = deviceIdParamSchema.parse(request.params);
+
+    const [device] = await db
+      .select({ id: devices.id })
+      .from(devices)
+      .where(and(eq(devices.id, id), eq(devices.user_id, authUser.id)));
+    if (!device) throw new AppError(404, 'not_found', 'Device not found');
+
+    const tokenRows = await db.select({ token: push_tokens.token }).from(push_tokens).where(eq(push_tokens.device_id, id));
+    if (tokenRows.length === 0) return { ok: true, sent: false };
+
+    const sent = await sendDataMessage({ tokens: tokenRows.map((t) => t.token), data: { type: 'locate_request' } });
+    return { ok: true, sent };
   });
 
   /** Called by a caregiver, from any device, to name/reassign one already in the list -- never creates a row. */

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
@@ -542,5 +542,114 @@ describe('/me/devices', () => {
   it('rejects an unauthenticated request', async () => {
     const response = await request(app, { method: 'GET', url: '/api/me/devices' });
     expect(response.statusCode).toBe(401);
+  });
+
+  it('registering a device returns a report_token, and it is never included in the device list', async () => {
+    const admin = await createUser('Locate Owner');
+    const deviceId = uuidv7();
+
+    const register = await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+    const reportToken = (register.json() as { report_token: string }).report_token;
+    expect(reportToken.length).toBeGreaterThan(0);
+
+    const list = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(JSON.stringify(list.json())).not.toContain(reportToken);
+  });
+
+  it('re-registering the same device keeps the same report_token', async () => {
+    const admin = await createUser('Stable Token Owner');
+    const deviceId = uuidv7();
+
+    const first = await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+    const second = await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+
+    expect((second.json() as { report_token: string }).report_token).toBe(
+      (first.json() as { report_token: string }).report_token,
+    );
+  });
+
+  it('locating a device with no registered push token reports sent: false instead of erroring', async () => {
+    const admin = await createUser('Tokenless Owner');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const locate = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/locate`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(locate.statusCode).toBe(200);
+    expect(locate.json()).toEqual({ ok: true, sent: false });
+  });
+
+  it('locating a device sends a data-only push naming it a locate_request, once a push token is registered for it', async () => {
+    const admin = await createUser('Locatable Owner');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+    await request(app, {
+      method: 'PUT',
+      url: '/api/me/push-token',
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { token: `push-${deviceId}`, platform: 'android', device_id: deviceId },
+    });
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const locate = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/locate`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(locate.statusCode).toBe(200);
+    expect(locate.json()).toMatchObject({ ok: true });
+    expect(logSpy.mock.calls.join('\n')).toContain('locate_request');
+    logSpy.mockRestore();
+  });
+
+  it('404s locating a device that does not belong to the caller', async () => {
+    const owner = await createUser('Locate Real Owner');
+    const stranger = await createUser('Locate Stranger');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const locate = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/locate`,
+      headers: { authorization: `Bearer ${stranger.token}` },
+    });
+    expect(locate.statusCode).toBe(404);
   });
 });

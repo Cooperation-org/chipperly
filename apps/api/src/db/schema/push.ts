@@ -13,6 +13,8 @@ export const push_tokens = pgTable(
     token: text('token').notNull(),
     platform: text('platform').$type<'android' | 'ios' | 'web'>().notNull(),
     created_at: bigint('created_at', { mode: 'number' }).notNull(),
+    /** Which devices.id this token belongs to, if the registering client sent one -- lets a locate request (routes/me.ts) target one specific device instead of every token this user has. */
+    device_id: uuid('device_id'),
   },
   (t) => [primaryKey({ columns: [t.user_id, t.token] })],
 );

@@ -66,3 +66,52 @@ export async function sendPush(message: PushMessage): Promise<string[]> {
     return [];
   }
 }
+
+export interface DataMessage {
+  readonly tokens: readonly string[];
+  readonly data: Record<string, string>;
+}
+
+/**
+ * A silent, data-only push -- no `notification` field, so nothing shows in
+ * the system tray. Used for the locate-request flow (routes/me.ts): FCM only
+ * *guarantees* delivery to a killed app's onMessageReceived for a pure data
+ * message; a `notification` payload is handled by the OS tray directly when
+ * the app isn't foregrounded and may never reach app code at all.
+ */
+async function sendDataViaFirebase(message: DataMessage): Promise<string[]> {
+  if (message.tokens.length === 0) return [];
+  const { getMessaging } = await import('firebase-admin/messaging');
+  const response = await getMessaging(await firebaseApp()).sendEachForMulticast({
+    tokens: [...message.tokens],
+    data: message.data,
+    android: { priority: 'high' },
+  });
+
+  const stale: string[] = [];
+  response.responses.forEach((r, i) => {
+    if (r.success) return;
+    const code = r.error?.code;
+    if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') {
+      stale.push(message.tokens[i]!);
+    } else {
+      console.error('sendDataMessage: Firebase send failed for one token', r.error);
+    }
+  });
+  return stale;
+}
+
+/** Never throws. Returns false when push is unconfigured (console-fallback has nothing useful to do with a data-only message, unlike sendPush). */
+export async function sendDataMessage(message: DataMessage): Promise<boolean> {
+  if (!env.pushEnabled) {
+    console.log(`── push (console transport) ── data message, ${message.tokens.length} token(s): ${JSON.stringify(message.data)}`);
+    return false;
+  }
+  try {
+    await sendDataViaFirebase(message);
+    return true;
+  } catch (err) {
+    console.error('sendDataMessage: Firebase send failed', err);
+    return false;
+  }
+}

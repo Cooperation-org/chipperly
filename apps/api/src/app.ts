@@ -13,6 +13,7 @@ import accountsRoutes from './routes/accounts.js';
 import syncRoutes from './routes/sync.js';
 import mediaRoutes from './routes/media.js';
 import shareRoutes from './routes/share.js';
+import deviceLocationRoutes from './routes/deviceLocation.js';
 import testingRoutes from './routes/testing.js';
 
 export interface BuildAppOptions {
@@ -27,6 +28,7 @@ const routePlugins: FastifyPluginAsync[] = [
   syncRoutes,
   mediaRoutes,
   shareRoutes,
+  deviceLocationRoutes,
 ];
 
 // Test-only route, never registered outside e2e (see routes/testing.ts).

@@ -18,6 +18,11 @@ export const DeviceSchema = z.object({
   platform: PushPlatform,
   last_seen_at: msTimestampSchema,
   created_at: msTimestampSchema,
+  /** Last position this device reported (POST /devices/:id/location), if any -- see locate_request. Never a live/continuous feed, just the most recent on-demand answer. */
+  last_lat: z.number().nullable(),
+  last_lng: z.number().nullable(),
+  last_location_accuracy_m: z.number().nullable(),
+  last_location_at: msTimestampSchema.nullable(),
 });
 export type Device = z.infer<typeof DeviceSchema>;
 
@@ -27,6 +32,17 @@ export const RegisterDeviceBodySchema = z.object({
 });
 export type RegisterDeviceBody = z.infer<typeof RegisterDeviceBodySchema>;
 
+/**
+ * PUT /me/devices/:id's response: the only place `report_token` is ever
+ * returned, to the device registering itself (which stores it natively,
+ * lib/native/deviceLocator.ts) -- GET /me/devices never includes it.
+ */
+export const RegisterDeviceResponseSchema = z.object({
+  ok: z.literal(true),
+  report_token: z.string(),
+});
+export type RegisterDeviceResponse = z.infer<typeof RegisterDeviceResponseSchema>;
+
 /** Sent by a caregiver from any device, to name/reassign another device in the list. */
 export const UpdateDeviceBodySchema = z
   .object({
@@ -35,3 +51,19 @@ export const UpdateDeviceBodySchema = z
   })
   .partial();
 export type UpdateDeviceBody = z.infer<typeof UpdateDeviceBodySchema>;
+
+/**
+ * Answer to a locate request (routes/deviceLocation.ts's POST
+ * /devices/:id/location), sent by the device itself -- authenticated by
+ * `report_token` matching what the server stored at registration, not a
+ * caregiver session, since this runs from a killed-app FCM callback with no
+ * JS bridge and thus no access to the normal session tokens.
+ */
+export const ReportDeviceLocationBodySchema = z.object({
+  report_token: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  accuracy_m: z.number().nullable().optional(),
+  at: msTimestampSchema,
+});
+export type ReportDeviceLocationBody = z.infer<typeof ReportDeviceLocationBodySchema>;

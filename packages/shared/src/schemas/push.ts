@@ -7,6 +7,8 @@ export type PushPlatform = z.infer<typeof PushPlatform>;
 export const RegisterPushTokenBodySchema = z.object({
   token: z.string().min(1),
   platform: PushPlatform,
+  /** This installation's devices.id (lib/device/identity.ts), so a locate request can target this one device instead of every token this user has registered. */
+  device_id: uuidSchema.optional(),
 });
 export type RegisterPushTokenBody = z.infer<typeof RegisterPushTokenBodySchema>;
 
