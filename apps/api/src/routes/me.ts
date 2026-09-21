@@ -9,6 +9,7 @@ import { RegisterPushTokenBodySchema, UnregisterPushTokenBodySchema } from '@chi
 import {
   RegisterDeviceBodySchema,
   UpdateDeviceBodySchema,
+  ReportInstalledAppsBodySchema,
   type Device,
   type RegisterDeviceResponse,
 } from '@chipperly/shared/schemas/device';
@@ -232,6 +233,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         last_lng: devices.last_lng,
         last_location_accuracy_m: devices.last_location_accuracy_m,
         last_location_at: devices.last_location_at,
+        installed_apps: devices.installed_apps,
       })
       .from(devices)
       .where(eq(devices.user_id, authUser.id))
@@ -270,6 +272,28 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
       })
       .returning({ report_token: devices.report_token });
     return { ok: true, report_token: row!.report_token! };
+  });
+
+  /**
+   * Called by the device itself (DeviceRegistrationGuard, Android only --
+   * a no-op elsewhere since AppBlocker.listInstalledApps() returns [] on
+   * web/iOS and that guard skips reporting an empty list) so a caregiver
+   * on a *different* device can see and allow-list this device's real
+   * installed apps from Settings > App blocking, not just the one it was
+   * physically opened from.
+   */
+  app.put('/me/devices/:id/installed-apps', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const authUser = request.user!;
+    const { id } = deviceIdParamSchema.parse(request.params);
+    const body = ReportInstalledAppsBodySchema.parse(request.body);
+
+    const result = await db
+      .update(devices)
+      .set({ installed_apps: body.apps })
+      .where(and(eq(devices.id, id), eq(devices.user_id, authUser.id)))
+      .returning({ id: devices.id });
+    if (result.length === 0) throw new AppError(404, 'not_found', 'Device not found');
+    return { ok: true };
   });
 
   /** Caregiver-triggered, from any signed-in device: asks the target device (Android only -- see lib/native/deviceLocator.ts) to report its current position. Fire-and-forget: the answer lands later via POST /devices/:id/location (routes/deviceLocation.ts) and shows up in a later GET /me/devices. */

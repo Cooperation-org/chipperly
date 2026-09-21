@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import type { TimedAppAllowance } from '@chipperly/shared/schemas/profile';
-import type { InstalledApp } from '@/lib/native/appBlocker';
+import type { Device } from '@chipperly/shared/schemas/device';
 import AppBlocker from '@/lib/native/appBlocker';
+import { api } from '@/lib/api/client';
+import { getDeviceId } from '@/lib/device/identity';
 import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { CheckCircle } from '@/components/ui/CheckCircle';
@@ -20,6 +23,11 @@ import styles from './AppBlockingScreen.module.css';
 /** Quick-grant durations for a timed app allowance, e.g. "allow YouTube for 1 hour". */
 const DURATIONS_MIN = [15, 30, 60, 120];
 
+interface AppRow {
+  packageName: string;
+  appName: string;
+}
+
 /**
  * Caregiver-facing allow-list for Android's app-blocking accessibility
  * service. AppBlockerGuard (components/native) is what actually applies
@@ -27,22 +35,37 @@ const DURATIONS_MIN = [15, 30, 60, 120];
  * locked (KioskPlugin) -- this screen only ever reads/writes the profile's
  * settings and asks the plugin about the service's own on/off state.
  *
- * Android only: listInstalledApps()/isServiceEnabled() are no-ops on
- * web/iOS (lib/native/appBlocker.web.ts), so `apps` stays empty there and
- * this renders a plain explanatory note instead of an empty list.
+ * The app list itself comes from GET /me/devices' installed_apps
+ * (DeviceRegistrationGuard reports it, Android only), not a local native
+ * call: that's what lets a caregiver on a *different* device (their
+ * laptop) pick one of the child's Android devices and see its real apps,
+ * instead of this screen only ever working from the device it's
+ * physically opened on.
  */
 export function AppBlockingScreen() {
   const { profile } = useActiveProfile();
   const sheet = useSheet();
   const [serviceEnabled, setServiceEnabled] = useState(false);
-  const [apps, setApps] = useState<InstalledApp[]>([]);
+  const [devices, setDevices] = useState<Device[] | null>(null);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [thisDeviceId, setThisDeviceId] = useState<string | null>(null);
 
   useEffect(() => {
+    void getDeviceId().then(setThisDeviceId);
+  }, []);
+
+  useEffect(() => {
+    async function refreshDevices(): Promise<void> {
+      const res = await api.get<{ devices: Device[] }>('/me/devices');
+      const androidDevices = res.devices.filter((d) => d.platform === 'android');
+      setDevices(androidDevices);
+      setSelectedDeviceId((prev) => (prev && androidDevices.some((d) => d.id === prev) ? prev : androidDevices[0]?.id ?? null));
+    }
     function refreshServiceState(): void {
       void AppBlocker.isServiceEnabled().then(({ enabled }) => setServiceEnabled(enabled));
     }
     refreshServiceState();
-    void AppBlocker.listInstalledApps().then((result) => setApps(result.apps));
+    void refreshDevices();
 
     // The caregiver leaves for system Settings to flip the service on, then
     // comes back to this same page -- recheck when that happens instead of
@@ -54,7 +77,11 @@ export function AppBlockingScreen() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
-  if (!profile) return null;
+  if (!profile || devices === null) return null;
+
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId) ?? null;
+  const isThisDevice = Capacitor.getPlatform() === 'android' && selectedDeviceId === thisDeviceId;
+  const apps: AppRow[] = (selectedDevice?.installed_apps ?? []).map((a) => ({ packageName: a.package_name, appName: a.app_name }));
 
   const childModeActive = profile.settings.child_mode_active ?? false;
   const allowed = new Set(profile.settings.allowed_app_packages ?? []);
@@ -93,7 +120,7 @@ export function AppBlockingScreen() {
     sheet.close();
   }
 
-  function openTimedAllowanceSheet(app: InstalledApp): void {
+  function openTimedAllowanceSheet(app: AppRow): void {
     const active = activeAllowanceFor(app.packageName);
     sheet.open(
       <div className={styles.timedSheet}>
@@ -125,24 +152,48 @@ export function AppBlockingScreen() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.card}>
-        <div className={styles.controlRow}>
-          <span className={styles.controlLabel}>Accessibility service</span>
-          <span className={[styles.badge, serviceEnabled ? styles.on : styles.off].join(' ')}>
-            {serviceEnabled ? 'On' : 'Off'}
-          </span>
+      {devices.length > 1 ? (
+        <div className={styles.devicePicker}>
+          {devices.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className={[styles.deviceChip, d.id === selectedDeviceId ? styles.deviceChipActive : ''].filter(Boolean).join(' ')}
+              onClick={() => setSelectedDeviceId(d.id)}
+            >
+              {d.name ?? 'Android device'}
+            </button>
+          ))}
         </div>
-        <p className={styles.hint}>
-          {serviceEnabled
-            ? "It's on, so Chipperly can bring itself back to the front when a non-allowed app opens."
-            : 'Turn this on in system Settings so Chipperly can bring itself back to the front when a non-allowed app opens. Android will show you exactly what it does before you turn it on.'}
-        </p>
-        {!serviceEnabled ? (
-          <Button variant="secondary" onClick={() => void AppBlocker.openAccessibilitySettings()}>
-            Open accessibility settings
-          </Button>
-        ) : null}
-      </div>
+      ) : null}
+
+      {isThisDevice ? (
+        <div className={styles.card}>
+          <div className={styles.controlRow}>
+            <span className={styles.controlLabel}>Accessibility service</span>
+            <span className={[styles.badge, serviceEnabled ? styles.on : styles.off].join(' ')}>
+              {serviceEnabled ? 'On' : 'Off'}
+            </span>
+          </div>
+          <p className={styles.hint}>
+            {serviceEnabled
+              ? "It's on, so Chipperly can bring itself back to the front when a non-allowed app opens."
+              : 'Turn this on in system Settings so Chipperly can bring itself back to the front when a non-allowed app opens. Android will show you exactly what it does before you turn it on.'}
+          </p>
+          {!serviceEnabled ? (
+            <Button variant="secondary" onClick={() => void AppBlocker.openAccessibilitySettings()}>
+              Open accessibility settings
+            </Button>
+          ) : null}
+        </div>
+      ) : selectedDevice ? (
+        <div className={styles.card}>
+          <p className={styles.hint}>
+            Open Settings &gt; App blocking on {selectedDevice.name ?? 'this device'} itself to check whether the
+            accessibility service is on, or to turn it on.
+          </p>
+        </div>
+      ) : null}
 
       <div className={styles.card}>
         <div className={styles.controlRow}>
@@ -158,7 +209,7 @@ export function AppBlockingScreen() {
           &rsquo;s view. It pauses whenever you unlock into your own caregiver view, and locking the device isn&rsquo;t
           required -- the two settings work independently.
         </p>
-        {childModeActive && !serviceEnabled ? (
+        {childModeActive && isThisDevice && !serviceEnabled ? (
           <p className={styles.warning} role="alert">
             This is on, but the accessibility service above isn&rsquo;t enabled yet -- nothing is actually blocked
             until you turn that on too.
@@ -166,8 +217,10 @@ export function AppBlockingScreen() {
         ) : null}
       </div>
 
-      {apps.length === 0 ? (
-        <EmptyState sentence="App blocking only works in the Android app. This device can't list installed apps." />
+      {devices.length === 0 ? (
+        <EmptyState sentence="No Android device has signed in yet. Open Chipperly on the child's device once, then come back here." />
+      ) : apps.length === 0 ? (
+        <EmptyState sentence={`Waiting for ${selectedDevice?.name ?? 'that device'} to report its apps. Open Chipperly there once, then come back here.`} />
       ) : (
         <div className={styles.card}>
           {apps.map((app) => {

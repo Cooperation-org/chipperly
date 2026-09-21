@@ -8,6 +8,7 @@ import { getDeviceId } from '@/lib/device/identity';
 import { api } from '@/lib/api/client';
 import { apiBase } from '@/lib/api/base';
 import DeviceLocator from '@/lib/native/deviceLocator';
+import AppBlocker from '@/lib/native/appBlocker';
 
 /**
  * Registers this device (every platform, not just native -- a caregiver's
@@ -28,6 +29,18 @@ export function DeviceRegistrationGuard(): null {
         const response = await api.put<RegisterDeviceResponse>(`/me/devices/${id}`, { platform: Capacitor.getPlatform() });
         if (cancelled) return;
         await DeviceLocator.setReportConfig({ deviceId: id, reportToken: response.report_token, apiBase });
+
+        // Android only: lets a caregiver on a *different* device (their
+        // laptop) see and allow-list this device's real installed apps
+        // from Settings > App blocking, not just from this device itself.
+        if (Capacitor.getPlatform() === 'android') {
+          const { apps } = await AppBlocker.listInstalledApps();
+          if (!cancelled) {
+            await api.put(`/me/devices/${id}/installed-apps`, {
+              apps: apps.map((a) => ({ package_name: a.packageName, app_name: a.appName })),
+            });
+          }
+        }
       } catch {
         // ponytail: best-effort -- this device just won't show in the list (or answer a locate request) until the next sign-in retries it.
       }

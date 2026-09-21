@@ -10,6 +10,13 @@ import { PushPlatform } from './push.js';
  * the device (lib/device/identity.ts) and never changes, so renaming and
  * "used by <child>" survive a token rotation.
  */
+/** One launchable app, as AppBlockerPlugin.listInstalledApps() reports it natively. */
+export const InstalledAppSchema = z.object({
+  package_name: z.string(),
+  app_name: z.string(),
+});
+export type InstalledApp = z.infer<typeof InstalledAppSchema>;
+
 export const DeviceSchema = z.object({
   id: uuidSchema,
   name: z.string().nullable(),
@@ -23,6 +30,14 @@ export const DeviceSchema = z.object({
   last_lng: z.number().nullable(),
   last_location_accuracy_m: z.number().nullable(),
   last_location_at: msTimestampSchema.nullable(),
+  /**
+   * This device's own launchable-apps list, last reported by the device
+   * itself (DeviceRegistrationGuard, Android only). Lets a caregiver on a
+   * *different* device (their laptop) see and pick from Benny's tablet's
+   * real installed apps in Settings > App blocking, instead of that
+   * screen only ever working from the one device it's physically opened on.
+   */
+  installed_apps: z.array(InstalledAppSchema).nullable(),
 });
 export type Device = z.infer<typeof DeviceSchema>;
 
@@ -67,3 +82,9 @@ export const ReportDeviceLocationBodySchema = z.object({
   at: msTimestampSchema,
 });
 export type ReportDeviceLocationBody = z.infer<typeof ReportDeviceLocationBodySchema>;
+
+/** Sent by the device itself (DeviceRegistrationGuard), authenticated as a normal signed-in caregiver request like PUT /me/devices/:id, not by report_token -- this only ever runs from the device's own live session, never from a killed-app callback. */
+export const ReportInstalledAppsBodySchema = z.object({
+  apps: z.array(InstalledAppSchema),
+});
+export type ReportInstalledAppsBody = z.infer<typeof ReportInstalledAppsBodySchema>;

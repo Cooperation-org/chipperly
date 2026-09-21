@@ -676,4 +676,62 @@ describe('/me/devices', () => {
     });
     expect(locate.statusCode).toBe(404);
   });
+
+  it('reports installed apps, defaults to null, and shows up for a caregiver on a different device', async () => {
+    const admin = await createUser('App Reporter');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const beforeReport = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect((beforeReport.json() as { devices: Device[] }).devices.find((d) => d.id === deviceId)?.installed_apps).toBeNull();
+
+    const apps = [
+      { package_name: 'com.google.android.youtube', app_name: 'YouTube' },
+      { package_name: 'com.google.android.gm', app_name: 'Gmail' },
+    ];
+    const report = await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}/installed-apps`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { apps },
+    });
+    expect(report.statusCode).toBe(200);
+
+    const afterReport = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    const device = (afterReport.json() as { devices: Device[] }).devices.find((d) => d.id === deviceId);
+    expect(device?.installed_apps).toEqual(apps);
+  });
+
+  it('404s reporting installed apps for a device that does not belong to the caller', async () => {
+    const owner = await createUser('Apps Real Owner');
+    const stranger = await createUser('Apps Stranger');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const report = await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}/installed-apps`,
+      headers: { authorization: `Bearer ${stranger.token}` },
+      payload: { apps: [] },
+    });
+    expect(report.statusCode).toBe(404);
+  });
 });

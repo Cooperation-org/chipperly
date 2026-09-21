@@ -99,6 +99,13 @@
       "when": 1789989225347,
       "tag": "0013_device_location",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789997580449,
+      "tag": "0014_device_installed_apps",
+      "breakpoints": true
     }
   ]
 }
