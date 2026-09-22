@@ -29,9 +29,17 @@ export interface KvEntry {
   value: unknown;
 }
 
+/**
+ * Raw bytes, not a Blob: Safari/WebKit's IndexedDB throws
+ * "Error preparing Blob/File data to be stored in object store" when a Blob
+ * is structured-cloned into an object store (a long-standing WebKit bug, not
+ * fixed as of this writing) -- an ArrayBuffer stores fine everywhere and is
+ * reassembled into a Blob on read (lib/data/media.ts's useMediaUrl).
+ */
 export interface MediaBlobEntry {
   media_id: string;
-  blob: Blob;
+  bytes: ArrayBuffer;
+  type: string;
   uploaded: 0 | 1;
 }
 

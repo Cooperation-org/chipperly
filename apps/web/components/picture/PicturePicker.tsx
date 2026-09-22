@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
 import { pickAndStoreImage } from '@/lib/data/media';
+import { toast } from '@/lib/toast';
 import { EmojiGrid } from './EmojiGrid';
 import styles from './PicturePicker.module.css';
 
@@ -30,8 +31,12 @@ export function PicturePicker({ value, onChange, name, choices }: PicturePickerP
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   async function storeFile(file: File | Blob) {
-    const photo_id = await pickAndStoreImage(file);
-    onChange({ emoji: value.emoji ?? null, photo_id });
+    try {
+      const photo_id = await pickAndStoreImage(file);
+      onChange({ emoji: value.emoji ?? null, photo_id });
+    } catch {
+      toast("Couldn't add that photo. Try again.");
+    }
   }
 
   async function onFileChange(e: ChangeEvent<HTMLInputElement>) {

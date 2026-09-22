@@ -30,14 +30,15 @@ export async function pickAndStoreImage(file: File | Blob): Promise<string> {
   if (!blob) throw new Error('pickAndStoreImage: encode failed');
 
   const media_id = newId();
-  await db.media_blobs.put({ media_id, blob, uploaded: 0 });
+  const bytes = await blob.arrayBuffer();
+  await db.media_blobs.put({ media_id, bytes, type: blob.type, uploaded: 0 });
   return media_id;
 }
 
-/** Object URL from the local blob if we have it (revoked on unmount/change), else the API route. */
+/** Object URL from the local bytes if we have them (revoked on unmount/change), else the API route. */
 export function useMediaUrl(mediaId: string | null | undefined): string | null {
   const row = useLiveQuery(() => (mediaId ? db.media_blobs.get(mediaId) : undefined), [mediaId]);
-  const objectUrl = useMemo(() => (row ? URL.createObjectURL(row.blob) : null), [row]);
+  const objectUrl = useMemo(() => (row ? URL.createObjectURL(new Blob([row.bytes], { type: row.type })) : null), [row]);
 
   useEffect(() => {
     return () => {
@@ -46,5 +47,9 @@ export function useMediaUrl(mediaId: string | null | undefined): string | null {
   }, [objectUrl]);
 
   if (!mediaId) return null;
-  return row ? objectUrl : withBase(`/api/media/${mediaId}`);
+  // Falls through to the API route both when there's no local row yet (a
+  // caregiver's other device) and when there is one but it couldn't be
+  // turned into a blob -- never gets stuck showing nothing for a row that
+  // exists but is unusable.
+  return objectUrl ?? withBase(`/api/media/${mediaId}`);
 }

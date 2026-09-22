@@ -22,7 +22,7 @@ export async function uploadPending(): Promise<void> {
   for (const item of pending) {
     const form = new FormData();
     form.append('media_id', item.media_id);
-    form.append('file', item.blob, item.media_id);
+    form.append('file', new Blob([item.bytes], { type: item.type }), item.media_id);
 
     const res = await fetch(`${apiBase}/media`, { method: 'POST', headers, body: form });
     if (!res.ok) continue;

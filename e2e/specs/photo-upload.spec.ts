@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signUp } from '../helpers';
+import { gotoTab, signUp } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -62,18 +62,10 @@ async function readRowField(
 }
 
 test.describe('photo upload', () => {
-  // WebKit (this Playwright build): storing the picked photo's Blob in
-  // IndexedDB (Dexie's db.media_blobs.put in lib/data/media.ts, a plain,
-  // standard call) throws "UnknownError: Error preparing Blob/File data to
-  // be stored in object store" every time — confirmed on both the activity
-  // and the avatar flow. That's this WebKit build's IndexedDB
-  // implementation, not the app (real Safari has supported IndexedDB Blobs
-  // for years) — test problem, not an app bug.
-  test.skip(({ browserName }) => browserName === 'webkit', 'WebKit: storing a Blob in IndexedDB throws "Error preparing Blob/File data to be stored in object store" at the driver/engine level — test problem, not an app bug.');
-
   let page: Page;
   let activityPhotoId: unknown;
   let avatarPhotoId: unknown;
+  let rewardPhotoId: unknown;
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
@@ -126,6 +118,39 @@ test.describe('photo upload', () => {
     expect(activityPhotoId, 'activity row has a photo_id once saved').toBeTruthy();
   });
 
+  test('reward picture via Chips > Working for > Create new: choose Photo, save, sync completes', async () => {
+    await gotoTab(page, 'chips');
+    await page.getByRole('button', { name: /Working for/ }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: 'Create new', exact: true }).click();
+    await page.waitForURL('**/reward/edit/**');
+
+    await page.getByLabel('Name', { exact: true }).fill('E2E Photo Reward');
+
+    await page.getByRole('button', { name: /^Picture/ }).click();
+    await page.getByRole('button', { name: 'Photo', exact: true }).click();
+    await page.locator('input[type="file"]:not([capture])').setInputFiles(pngFile('reward.png'));
+
+    const panelImg = page.locator('div[class*="FormRow_panel"] img[alt="E2E Photo Reward"]');
+    await expect(panelImg).toBeVisible();
+    await expect(panelImg).toHaveAttribute('src', /^blob:|\/api\/media\//);
+
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.waitForURL('**/chips/');
+
+    // The photo lives in the "Working for" card (ChipsScreen.tsx), which
+    // picks it up via useWorkingFor's live query the moment the reward saves.
+    const workingForButton = page.getByRole('button', { name: /^Working for/ });
+    await expect(workingForButton).toContainText('E2E Photo Reward');
+    await expect(workingForButton.locator('img')).toBeVisible();
+
+    await expect(page.getByRole('button', { name: 'Synced', exact: true })).toBeVisible({ timeout: 20_000 });
+
+    rewardPhotoId = await readRowField(page, 'rewards', 'name', 'E2E Photo Reward', 'photo_id');
+    expect(rewardPhotoId, 'reward row has a photo_id once saved').toBeTruthy();
+  });
+
   test('profile avatar photo via Settings > Edit profile: choose Photo, save, sync completes', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
@@ -174,6 +199,14 @@ test.describe('photo upload', () => {
       .poll(async () => (await page.request.get(`/api/media/${avatarPhotoId}`)).status(), { timeout: 20_000 })
       .toBe(200);
     const res = await page.request.get(`/api/media/${avatarPhotoId}`);
+    expect(res.headers()['content-type']).toBe('image/webp');
+  });
+
+  test('the id a reward photo actually references resolves via the API', async () => {
+    await expect
+      .poll(async () => (await page.request.get(`/api/media/${rewardPhotoId}`)).status(), { timeout: 20_000 })
+      .toBe(200);
+    const res = await page.request.get(`/api/media/${rewardPhotoId}`);
     expect(res.headers()['content-type']).toBe('image/webp');
   });
 });
