@@ -9,7 +9,10 @@
   padding: 0 var(--space-5);
   font-family: var(--font-heading);
   font-weight: 700;
-  font-size: var(--text-lg);
+  /* Shrinks on narrow viewports (the 3-4-across bottom bar on a phone is the
+     tightest fit) rather than wrapping/overflowing, but never below 1rem
+     (16px): the app's users skew toward needing larger, not smaller, text. */
+  font-size: clamp(1rem, 3.2vw, var(--text-lg));
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease), opacity var(--motion-fast) var(--ease);
 }
