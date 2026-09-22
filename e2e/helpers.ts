@@ -114,14 +114,26 @@ export async function gotoTab(page: Page, tab: TabName): Promise<void> {
  * Every full navigation resets parent_mode to false (session.ts's bootstrap
  * -- S24's "never stays unlocked" threat model), so a fresh `page.goto()` or
  * `page.reload()` on a caregiver-only route bounces to /child/?next=<path>.
+ * That bounce is a client-side redirect fired after hydration, not something
+ * `page.goto()` itself waits for, so this waits for whichever of "bounced"
+ * or "already on the caregiver route" actually happens next rather than
+ * snapshotting `page.url()` immediately (a snapshot races hydration --
+ * reliably lost on a loaded CI runner even though it usually won locally).
  * Unlocks with the account password (a freshly signed-up account has no PIN
- * yet) when that happens; CaregiverShell/UnlockOverlay's `next` plumbing
+ * yet) when it was a bounce; CaregiverShell/UnlockOverlay's `next` plumbing
  * lands back on the originally requested route once unlocked, so callers
  * don't need to navigate again afterward.
  */
 async function unlockIfBounced(page: Page, path: string, password: string): Promise<void> {
-  if (!page.url().includes('/child/')) return;
-  await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+  const unlockButton = page.getByRole('button', { name: 'Caregiver unlock', exact: true });
+  // :visible, not just present: CaregiverShell always renders both
+  // TabBar and TabRail (CSS hides one per breakpoint), so an unqualified
+  // match here is two elements and .waitFor() on the wrong (hidden) one
+  // never resolves.
+  const caregiverNav = page.locator('nav[aria-label="Primary"]:visible');
+  await unlockButton.or(caregiverNav).first().waitFor({ state: 'visible' });
+  if (!(await unlockButton.isVisible())) return;
+  await unlockButton.click();
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Unlock', exact: true }).click();
   await page.waitForURL(`**${path}`);
@@ -175,8 +187,11 @@ export async function setCaregiverPin(page: Page, pin: string): Promise<void> {
  * setCaregiverPin() to have run earlier, while online.
  */
 export async function unlockPinIfBounced(page: Page, path: string, pin: string): Promise<void> {
-  if (!page.url().includes('/child/')) return;
-  await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+  const unlockButton = page.getByRole('button', { name: 'Caregiver unlock', exact: true });
+  const caregiverNav = page.locator('nav[aria-label="Primary"]:visible');
+  await unlockButton.or(caregiverNav).first().waitFor({ state: 'visible' });
+  if (!(await unlockButton.isVisible())) return;
+  await unlockButton.click();
   await enterPinDigits(page, pin);
   await page.waitForURL(`**${path}`);
 }
