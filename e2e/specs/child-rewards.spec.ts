@@ -24,7 +24,7 @@ test.describe('child picks and redeems a reward', () => {
     // seeded Home location's goal is 5 too, so five manual chips make one
     // affordable without touching any activity check-off (chips.spec.ts).
     await gotoTab(page, 'chips');
-    const board = page.getByRole('img', { name: /of 5 chips/ });
+    const board = page.getByRole('status', { name: /of 5 chips/ });
     for (let i = 0; i < 5; i += 1) {
       await page.getByRole('button', { name: /Add chip/ }).click();
     }

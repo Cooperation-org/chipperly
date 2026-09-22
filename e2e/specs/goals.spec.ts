@@ -72,6 +72,6 @@ test.describe('goals per routine and per day', () => {
   test('back to Place: the board is unchanged', async () => {
     await page.getByRole('radiogroup', { name: 'View' }).getByRole('radio', { name: 'Place' }).click();
     await expect(page.getByRole('radiogroup', { name: 'Location' }).getByRole('radio', { name: 'Home' })).toBeVisible();
-    await expect(page.getByRole('img', { name: /of \d+ chips/ })).toBeVisible();
+    await expect(page.getByRole('status', { name: /of \d+ chips/ })).toBeVisible();
   });
 });

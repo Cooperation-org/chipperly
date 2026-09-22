@@ -15,32 +15,49 @@ const ICON: Record<CelebrationKind, IconName> = {
 
 const DOT_COUNT = 8;
 
+// Redeem gets longer on screen than a plain checkmark: it carries a message
+// (the reward's name), so it needs enough time to actually be read, not just
+// glanced at (owner's feedback: earning the last chip and redeeming should
+// both feel like something happened, not nothing).
+const DURATION_MS: Record<CelebrationKind, number> = {
+  check: 1200,
+  redeem: 1800,
+  all_done: 1200,
+  first_then: 1200,
+};
+
 export interface CelebrationProps {
   kind: CelebrationKind;
   onDone: () => void;
+  /** A short caption under the badge, e.g. "You got it, Ice cream! 🎉" (redeem only, so far). */
+  message?: string;
 }
 
-/** Soft dots for 1.2s, or a static badge under reduced motion. Decorative: the real state
- * change (a check, a redeemed reward) is already announced by the control that caused it. */
-export function Celebration({ kind, onDone }: CelebrationProps) {
+/** Soft dots for ~1.2-1.8s, or a static badge under reduced motion. The real state
+ * change (a check, a redeemed reward) is already announced by the control that caused it;
+ * `message`, when given, is still decorative text (aria-hidden) for the same reason. */
+export function Celebration({ kind, onDone, message }: CelebrationProps) {
   useEffect(() => {
     const reduceMotion =
       window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
       document.documentElement.dataset.reduceMotion === 'true';
-    const timer = setTimeout(onDone, reduceMotion ? 300 : 1200);
+    const timer = setTimeout(onDone, reduceMotion ? 300 : DURATION_MS[kind]);
     return () => clearTimeout(timer);
-  }, [onDone]);
+  }, [onDone, kind]);
 
   return (
     <div className={styles.wrap} aria-hidden="true">
-      <span className={styles.badge}>
-        <Icon name={ICON[kind]} size={28} />
+      <span className={styles.badgeWrap}>
+        <span className={styles.badge}>
+          <Icon name={ICON[kind]} size={28} />
+        </span>
+        <span className={styles.dots}>
+          {Array.from({ length: DOT_COUNT }).map((_, i) => (
+            <span key={i} className={styles.dot} style={{ '--i': i } as CSSProperties} />
+          ))}
+        </span>
       </span>
-      <span className={styles.dots}>
-        {Array.from({ length: DOT_COUNT }).map((_, i) => (
-          <span key={i} className={styles.dot} style={{ '--i': i } as CSSProperties} />
-        ))}
-      </span>
+      {message ? <p className={styles.message}>{message}</p> : null}
     </div>
   );
 }

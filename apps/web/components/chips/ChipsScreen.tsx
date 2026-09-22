@@ -74,7 +74,7 @@ export function ChipsScreen() {
   const working = useWorkingFor(profileId, locationId);
   const ledger = useLedger(profileId, locationId);
   const tones = profile?.settings.chips_by_attitude ? chipTones(ledger, locationId, working.filled) : undefined;
-  const [celebrating, setCelebrating] = useState(false);
+  const [celebrateMessage, setCelebrateMessage] = useState<string | null>(null);
 
   if (!profile) return null;
 
@@ -139,13 +139,24 @@ export function ChipsScreen() {
     await addChip(profileId, location.id, 'manual', null, -1);
   }
 
+  async function handleSetFilled(next: number) {
+    if (!location) return;
+    const delta = next - balance;
+    if (delta === 0) return;
+    await addChip(profileId, location.id, 'manual', null, delta);
+    if (delta > 0) {
+      playChip();
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
+    }
+  }
+
   async function handleRedeem() {
     if (!location || !working.reward) return;
     const reward = working.reward;
     // redeem() may remove more than reward.chip_cost (reset mode empties the
     // whole board), so undo compensates with what it actually returns.
     const removed = await redeem(profileId, location.id, reward);
-    setCelebrating(true);
+    setCelebrateMessage(`You got it, ${reward.name}! ${reward.emoji ?? '🎉'}`);
     toast(`Redeemed ${reward.name}`, {
       undo: () => {
         void addChip(profileId, location.id, 'adjust', reward.id, removed);
@@ -190,10 +201,10 @@ export function ChipsScreen() {
           </button>
 
           <div className={styles.boardWrap}>
-            <ChipBoard filled={working.filled} total={working.goal} tones={tones} />
-            {celebrating ? (
+            <ChipBoard filled={working.filled} total={working.goal} tones={tones} onSetFilled={(next) => void handleSetFilled(next)} />
+            {celebrateMessage ? (
               <div className={styles.celebrationWrap}>
-                <Celebration kind="redeem" onDone={() => setCelebrating(false)} />
+                <Celebration kind="redeem" message={celebrateMessage} onDone={() => setCelebrateMessage(null)} />
               </div>
             ) : null}
           </div>

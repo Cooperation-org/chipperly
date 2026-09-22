@@ -25,7 +25,7 @@ test.describe('chips and first-then', () => {
   });
 
   test('+ adds a chip, - removes it', async () => {
-    const board = page.getByRole('img', { name: /of 5 chips/ });
+    const board = page.getByRole('status', { name: /of 5 chips/ });
     await expect(board).toHaveAttribute('aria-label', '0 of 5 chips');
 
     await page.getByRole('button', { name: /Add chip/ }).click();
@@ -35,13 +35,26 @@ test.describe('chips and first-then', () => {
     await expect(board).toHaveAttribute('aria-label', '0 of 5 chips');
   });
 
+  test('tap a chip directly to set the board (star-rating style), same as +/-', async () => {
+    const board = page.getByRole('status', { name: /of 5 chips/ });
+
+    // Tapping an unfilled chip fills up through it.
+    await page.getByRole('button', { name: 'Set chips to 3 of 5', exact: true }).click();
+    await expect(board).toHaveAttribute('aria-label', '3 of 5 chips');
+
+    // Tapping a filled chip empties back down through it, leaving the board
+    // where the next test expects to find it.
+    await page.getByRole('button', { name: 'Set chips to 0 of 5', exact: true }).click();
+    await expect(board).toHaveAttribute('aria-label', '0 of 5 chips');
+  });
+
   test('choose a working-for reward, fill the board, redeem', async () => {
     await page.getByRole('button', { name: /Working for/ }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
     await sheet.getByRole('button', { name: /^Ice cream/ }).click();
 
-    const board = page.getByRole('img', { name: /of \d+ chips/ });
+    const board = page.getByRole('status', { name: /of \d+ chips/ });
     await expect(page.getByRole('button', { name: /^Working for/ })).toContainText('Ice cream');
 
     // Fill the board to its goal (5 by default), waiting for each chip to
@@ -130,7 +143,7 @@ test.describe('chips and first-then', () => {
     // Every seeded reward costs 5 chips; bank more than that before picking
     // one so "start over" (whole balance) and "subtract the cost" (only 5)
     // would land on visibly different balances.
-    const board = page.getByRole('img', { name: /of 5 chips/ });
+    const board = page.getByRole('status', { name: /of 5 chips/ });
     for (let i = 0; i < 7; i += 1) {
       await page.getByRole('button', { name: /Add chip/ }).click();
     }
@@ -148,6 +161,6 @@ test.describe('chips and first-then', () => {
     // Reward cleared on redeem, so the board goes back to the location's
     // goal (5); a subtract-mode redeem here would have left a balance
     // behind instead of zero, since the bank held more than the cost.
-    await expect(page.getByRole('img', { name: /of 5 chips/ })).toHaveAttribute('aria-label', '0 of 5 chips');
+    await expect(page.getByRole('status', { name: /of 5 chips/ })).toHaveAttribute('aria-label', '0 of 5 chips');
   });
 });
