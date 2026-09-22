@@ -76,3 +76,27 @@
   color: var(--color-text-muted);
   margin: 0;
 }
+
+.controlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.badge {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.badge.on {
+  color: var(--color-success);
+  background: var(--color-surface-2);
+}
+
+.badge.off {
+  color: var(--color-text-muted);
+  background: var(--color-surface-2);
+}

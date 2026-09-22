@@ -38,6 +38,8 @@ export const DeviceSchema = z.object({
    * screen only ever working from the one device it's physically opened on.
    */
   installed_apps: z.array(InstalledAppSchema).nullable(),
+  /** This device's own last-reported OS lock-task state (PATCH /me/devices/:id/lock-state, LockTaskReconcileGuard) -- what the device observed on itself, not the caregiver's fire-and-forget lock/unlock request. */
+  locked: z.boolean(),
 });
 export type Device = z.infer<typeof DeviceSchema>;
 
@@ -88,3 +90,9 @@ export const ReportInstalledAppsBodySchema = z.object({
   apps: z.array(InstalledAppSchema),
 });
 export type ReportInstalledAppsBody = z.infer<typeof ReportInstalledAppsBodySchema>;
+
+/** Sent by the device itself (LockTaskReconcileGuard's poll), same auth as ReportInstalledAppsBody -- lets a caregiver on any device see whether this one is actually locked right now, not just whether a lock/unlock request was sent to it. */
+export const ReportLockStateBodySchema = z.object({
+  locked: z.boolean(),
+});
+export type ReportLockStateBody = z.infer<typeof ReportLockStateBodySchema>;

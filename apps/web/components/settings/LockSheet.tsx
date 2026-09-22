@@ -2,11 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { BigButton } from '@/components/ui/BigButton';
 import { useSheet } from '@/components/ui/Sheet';
 import { PinPad } from '@/components/pin/PinPad';
 import { useSession, setPin } from '@/lib/auth/session';
 import { api } from '@/lib/api/client';
+import { db } from '@/lib/db/db';
+import { upsert } from '@/lib/sync/mutate';
 import { lockTo, type LockOptions } from '@/lib/device/settings';
 import Kiosk from '@/lib/native/kiosk';
 import styles from './LockSheet.module.css';
@@ -36,6 +39,7 @@ export function LockSheet({ profileId }: LockSheetProps) {
   const { close } = useSheet();
   const { user, profiles } = useSession();
   const profileName = profiles.find((p) => p.id === profileId)?.name ?? 'this profile';
+  const profile = useLiveQuery(() => db.profiles.get(profileId), [profileId]);
 
   const [step, setStep] = useState<Step>(user?.pin_hash ? 'ready' : 'set');
   const [firstPin, setFirstPin] = useState('');
@@ -76,6 +80,11 @@ export function LockSheet({ profileId }: LockSheetProps) {
       // when back online if this matters (Lock this device is caregiver-
       // initiated and rarely offline in practice).
     }
+    // Lock is the one control for "is app blocking on" now, matching the
+    // remote Lock button (routes/me.ts's /lock): turning the OS pin on
+    // without this used to leave whatever the allow-list toggle happened
+    // to already be set to, which read as the two disagreeing.
+    if (profile) await upsert('profiles', { ...profile, settings: { ...profile.settings, child_mode_active: true } });
     await lockTo(profileId, options);
     await Kiosk.enterFocusMode({ profileName });
     setLocking(false);

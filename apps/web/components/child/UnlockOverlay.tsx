@@ -3,10 +3,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useSession, signInWithPassword } from '@/lib/auth/session';
 import { ApiError, api } from '@/lib/api/client';
-import { unlock, usePinGate, enterParentMode } from '@/lib/device/settings';
+import { unlock, usePinGate, enterParentMode, useLock } from '@/lib/device/settings';
+import { useActiveProfile } from '@/lib/profile/active';
 import { verifyPin } from '@/lib/auth/pin';
+import { db } from '@/lib/db/db';
+import { upsert } from '@/lib/sync/mutate';
 import Kiosk from '@/lib/native/kiosk';
 import { PinPad } from '@/components/pin/PinPad';
 import { IconButton } from '@/components/ui/IconButton';
@@ -36,6 +40,10 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
   const router = useRouter();
   const { user } = useSession();
   const pinGate = usePinGate();
+  const { locked_profile_id } = useLock();
+  const { profile: activeProfile } = useActiveProfile();
+  const shownProfileId = locked_profile_id ?? activeProfile?.id;
+  const shownProfile = useLiveQuery(() => (shownProfileId ? db.profiles.get(shownProfileId) : undefined), [shownProfileId]);
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const [wrongMessage, setWrongMessage] = useState<string | undefined>();
@@ -80,9 +88,17 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
     };
   }, [onClose]);
 
-  /** Common ending for either verification path: drop any hard lock, enter caregiver mode, go to Today. */
+  /**
+   * Common ending for either verification path: drop any hard lock, turn
+   * off the shown profile's app blocking (Unlock is the one control for
+   * "is app blocking on" now, matching the remote Unlock button --
+   * routes/me.ts's /unlock -- so a caregiver stepping into their own view
+   * isn't fighting a still-active allow-list on the same device), enter
+   * caregiver mode, go to Today.
+   */
   async function finishUnlock(): Promise<void> {
     await Kiosk.exitFocusMode();
+    if (shownProfile) await upsert('profiles', { ...shownProfile, settings: { ...shownProfile.settings, child_mode_active: false } });
     await unlock();
     await enterParentMode();
     router.replace('/today/');

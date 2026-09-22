@@ -77,6 +77,7 @@ export function DevicesScreen() {
           const secondary = [
             device.id === thisDeviceId ? 'This device' : null,
             usedBy ? `Used by ${usedBy.name}` : null,
+            device.platform === 'android' ? (device.locked ? 'Locked' : 'Unlocked') : null,
             `Last seen ${timeAgo(device.last_seen_at)}`,
           ]
             .filter(Boolean)
@@ -125,6 +126,7 @@ function DeviceEditSheet({
   const [locating, setLocating] = useState(false);
   const [locking, setLocking] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [locked, setLocked] = useState(device.locked);
   const usedByName = profiles.find((p) => p.id === profileId)?.name;
 
   async function save(): Promise<void> {
@@ -161,28 +163,42 @@ function DeviceEditSheet({
     }
   }
 
+  /** Same poll shape as locateNow, watching `locked` instead of a location timestamp -- LockTaskReconcileGuard reports the real state back within one RECHECK_INTERVAL_MS (20s), this just waits to reflect it here instead of leaving the UI showing the pre-tap state. */
+  async function pollForLockState(expected: boolean): Promise<void> {
+    for (let attempt = 0; attempt < LOCATE_POLL_ATTEMPTS; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, LOCATE_POLL_INTERVAL_MS));
+      const res = await api.get<{ devices: Device[] }>('/me/devices');
+      const updated = res.devices.find((d) => d.id === device.id);
+      if (updated?.locked === expected) {
+        setLocked(expected);
+        break;
+      }
+    }
+  }
+
   /**
-   * Fire-and-forget, same as locateNow: there's nothing to poll for, the
-   * target device just engages the same OS-level lock as tapping "Lock
-   * this device" there in person (LocateRequestMessagingService's
-   * lock_request handler), using whatever allow-list it already has synced.
+   * Engages the same OS-level lock as tapping "Lock this device" there in
+   * person (LocateRequestMessagingService's lock_request handler), using
+   * whatever allow-list it already has synced.
    */
   async function lockNow(): Promise<void> {
     setLocking(true);
     try {
       const res = await api.post<{ ok: true; sent: boolean }>(`/me/devices/${device.id}/lock`);
       toast(res.sent ? 'Lock request sent.' : "Couldn't reach that device -- it may not have push set up yet.");
+      if (res.sent) await pollForLockState(true);
     } finally {
       setLocking(false);
     }
   }
 
-  /** The other direction of lockNow: same fire-and-forget pattern, same handler on the device (LocateRequestMessagingService's unlock_request). */
+  /** The other direction of lockNow: same pattern, same handler on the device (LocateRequestMessagingService's unlock_request). */
   async function unlockNow(): Promise<void> {
     setUnlocking(true);
     try {
       const res = await api.post<{ ok: true; sent: boolean }>(`/me/devices/${device.id}/unlock`);
       toast(res.sent ? 'Unlock request sent.' : "Couldn't reach that device -- it may not have push set up yet.");
+      if (res.sent) await pollForLockState(false);
     } finally {
       setUnlocking(false);
     }
@@ -242,10 +258,14 @@ function DeviceEditSheet({
 
       {device.platform === 'android' && (
         <div className={styles.locateSection}>
-          <p className={styles.label}>Lock</p>
+          <div className={styles.controlRow}>
+            <p className={styles.label}>Lock</p>
+            <span className={[styles.badge, locked ? styles.on : styles.off].join(' ')}>{locked ? 'Locked' : 'Unlocked'}</span>
+          </div>
           <p className={styles.locateStatus}>
             Locks this device to Chipperly and whatever apps are already allowed for {usedByName ?? 'its assigned child'}
-            , the same as tapping &ldquo;Lock this device&rdquo; there in person.
+            , the same as tapping &ldquo;Lock this device&rdquo; there in person -- and turns app blocking off again on
+            unlock, so every app opens normally.
           </p>
           <Button fullWidth variant="secondary" loading={locking} onClick={() => void lockNow()}>
             Lock this device

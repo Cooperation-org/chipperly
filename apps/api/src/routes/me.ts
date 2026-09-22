@@ -10,6 +10,7 @@ import {
   RegisterDeviceBodySchema,
   UpdateDeviceBodySchema,
   ReportInstalledAppsBodySchema,
+  ReportLockStateBodySchema,
   type Device,
   type RegisterDeviceResponse,
 } from '@chipperly/shared/schemas/device';
@@ -43,17 +44,36 @@ const deviceIdParamSchema = z.object({ id: uuidSchema });
  * signed-in device, fire a data-only push naming a request type at one of
  * their own devices" with nothing else that varies. 404s on a device that
  * doesn't belong to the caller rather than silently doing nothing, same as
- * every other /me/devices/:id route.
+ * every other /me/devices/:id route. Returns the device's profile_id too,
+ * for lock/unlock to also flip that profile's child_mode_active -- the two
+ * settings used to be independent, which read as "unlocking doesn't
+ * actually let all apps open again."
  */
-async function sendDeviceRequest(userId: string, deviceId: string, type: string): Promise<{ ok: true; sent: boolean }> {
-  const [device] = await db.select({ id: devices.id }).from(devices).where(and(eq(devices.id, deviceId), eq(devices.user_id, userId)));
+async function sendDeviceRequest(
+  userId: string,
+  deviceId: string,
+  type: string,
+): Promise<{ ok: true; sent: boolean; profile_id: string | null }> {
+  const [device] = await db
+    .select({ id: devices.id, profile_id: devices.profile_id })
+    .from(devices)
+    .where(and(eq(devices.id, deviceId), eq(devices.user_id, userId)));
   if (!device) throw new AppError(404, 'not_found', 'Device not found');
 
   const tokenRows = await db.select({ token: push_tokens.token }).from(push_tokens).where(eq(push_tokens.device_id, deviceId));
-  if (tokenRows.length === 0) return { ok: true, sent: false };
+  if (tokenRows.length === 0) return { ok: true, sent: false, profile_id: device.profile_id };
 
   const sent = await sendDataMessage({ tokens: tokenRows.map((t) => t.token), data: { type } });
-  return { ok: true, sent };
+  return { ok: true, sent, profile_id: device.profile_id };
+}
+
+/** Lock and Unlock are the one control for "is app blocking on": no more separate always-on allow-list toggle that a locked/unlocked device disagreed with. No-ops if this device was never assigned to a profile (Settings > Devices > Used by). */
+async function setChildModeActive(profileId: string | null, active: boolean): Promise<void> {
+  if (!profileId) return;
+  await db
+    .update(profiles)
+    .set({ settings: drizzleSql`jsonb_set(${profiles.settings}, '{child_mode_active}', ${JSON.stringify(active)}::jsonb)` })
+    .where(eq(profiles.id, profileId));
 }
 
 export default async function meRoutes(app: FastifyInstance): Promise<void> {
@@ -252,6 +272,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         last_location_accuracy_m: devices.last_location_accuracy_m,
         last_location_at: devices.last_location_at,
         installed_apps: devices.installed_apps,
+        locked: devices.locked,
       })
       .from(devices)
       .where(eq(devices.user_id, authUser.id))
@@ -314,10 +335,32 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
+  /**
+   * Called by the device itself (LockTaskReconcileGuard's poll, same auth
+   * as installed-apps above), whenever it checks its own OS lock-task
+   * state -- so a caregiver on any device can see whether this one is
+   * actually locked right now (GET /me/devices), not just guess from
+   * whether a lock/unlock request was sent.
+   */
+  app.patch('/me/devices/:id/lock-state', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const authUser = request.user!;
+    const { id } = deviceIdParamSchema.parse(request.params);
+    const body = ReportLockStateBodySchema.parse(request.body);
+
+    const result = await db
+      .update(devices)
+      .set({ locked: body.locked })
+      .where(and(eq(devices.id, id), eq(devices.user_id, authUser.id)))
+      .returning({ id: devices.id });
+    if (result.length === 0) throw new AppError(404, 'not_found', 'Device not found');
+    return { ok: true };
+  });
+
   /** Caregiver-triggered, from any signed-in device: asks the target device (Android only -- see lib/native/deviceLocator.ts) to report its current position. Fire-and-forget: the answer lands later via POST /devices/:id/location (routes/deviceLocation.ts) and shows up in a later GET /me/devices. */
   app.post('/me/devices/:id/locate', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
     const { id } = deviceIdParamSchema.parse(request.params);
-    return sendDeviceRequest(request.user!.id, id, 'locate_request');
+    const result = await sendDeviceRequest(request.user!.id, id, 'locate_request');
+    return { ok: result.ok, sent: result.sent };
   });
 
   /**
@@ -325,17 +368,23 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
    * (Android only -- see LocateRequestMessagingService's lock_request
    * handler in the native app) to engage its own already-synced app-blocking
    * allow-list as a real OS lock, exactly like tapping "Lock this device"
-   * there in person.
+   * there in person. Also turns on the assigned profile's
+   * child_mode_active: Lock is now the one control for "is app blocking
+   * on", not a second, independent toggle a device could disagree with.
    */
   app.post('/me/devices/:id/lock', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
     const { id } = deviceIdParamSchema.parse(request.params);
-    return sendDeviceRequest(request.user!.id, id, 'lock_request');
+    const result = await sendDeviceRequest(request.user!.id, id, 'lock_request');
+    await setChildModeActive(result.profile_id, true);
+    return { ok: result.ok, sent: result.sent };
   });
 
-  /** The other direction of /lock: same handler on the device, same "no reply to wait for" pattern. */
+  /** The other direction of /lock: same handler on the device, same "no reply to wait for" pattern, and turns child_mode_active back off so every app is reachable again -- see /lock's note on why the two used to disagree. */
   app.post('/me/devices/:id/unlock', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
     const { id } = deviceIdParamSchema.parse(request.params);
-    return sendDeviceRequest(request.user!.id, id, 'unlock_request');
+    const result = await sendDeviceRequest(request.user!.id, id, 'unlock_request');
+    await setChildModeActive(result.profile_id, false);
+    return { ok: result.ok, sent: result.sent };
   });
 
   /** Called by a caregiver, from any device, to name/reassign one already in the list -- never creates a row. */

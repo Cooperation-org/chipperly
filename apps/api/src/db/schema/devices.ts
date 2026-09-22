@@ -1,4 +1,4 @@
-import { bigint, doublePrecision, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, doublePrecision, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 
 interface InstalledApp {
   package_name: string;
@@ -34,4 +34,6 @@ export const devices = pgTable('devices', {
   last_location_at: bigint('last_location_at', { mode: 'number' }),
   /** This device's own launchable-apps list, self-reported (DeviceRegistrationGuard, Android only) so a caregiver on a different device can see and allow-list them remotely. Null until an Android device has reported once. */
   installed_apps: jsonb('installed_apps').$type<InstalledApp[]>(),
+  /** This device's own last-reported OS lock-task state (LockTaskReconcileGuard, PATCH /me/devices/:id/lock-state) -- not the caregiver's intent (that's the fire-and-forget /lock, /unlock push), the actual state the device observed on itself. Defaults false so a device that's never reported reads as unlocked. */
+  locked: boolean('locked').notNull().default(false),
 });

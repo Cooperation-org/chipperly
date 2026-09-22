@@ -790,6 +790,111 @@ describe('/me/devices', () => {
     expect(unlockRes.statusCode).toBe(404);
   });
 
+  it('locking a device assigned to a profile turns on that profile\'s child_mode_active; unlocking turns it back off', async () => {
+    const { admin, profileId } = await setupProfile();
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+    await request(app, {
+      method: 'PATCH',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { profile_id: profileId },
+    });
+
+    await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/lock`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    const [afterLock] = await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId));
+    expect(afterLock!.settings.child_mode_active).toBe(true);
+
+    await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/unlock`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    const [afterUnlock] = await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId));
+    expect(afterUnlock!.settings.child_mode_active).toBe(false);
+  });
+
+  it('locking a device with no assigned profile sends the push without erroring on the missing profile_id', async () => {
+    const admin = await createUser('Unassigned Locker');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const lockRes = await request(app, {
+      method: 'POST',
+      url: `/api/me/devices/${deviceId}/lock`,
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect(lockRes.statusCode).toBe(200);
+    expect(lockRes.json()).toEqual({ ok: true, sent: false });
+  });
+
+  it('reports its own lock-task state, visible via GET /me/devices, defaulting to unlocked', async () => {
+    const admin = await createUser('Lock State Reporter');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const before = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect((before.json() as { devices: Device[] }).devices.find((d) => d.id === deviceId)?.locked).toBe(false);
+
+    const report = await request(app, {
+      method: 'PATCH',
+      url: `/api/me/devices/${deviceId}/lock-state`,
+      headers: { authorization: `Bearer ${admin.token}` },
+      payload: { locked: true },
+    });
+    expect(report.statusCode).toBe(200);
+
+    const after = await request(app, {
+      method: 'GET',
+      url: '/api/me/devices',
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    expect((after.json() as { devices: Device[] }).devices.find((d) => d.id === deviceId)?.locked).toBe(true);
+  });
+
+  it('404s reporting lock-state for a device that does not belong to the caller', async () => {
+    const owner = await createUser('Lock State Real Owner');
+    const stranger = await createUser('Lock State Stranger');
+    const deviceId = uuidv7();
+    await request(app, {
+      method: 'PUT',
+      url: `/api/me/devices/${deviceId}`,
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { platform: 'android' },
+    });
+
+    const report = await request(app, {
+      method: 'PATCH',
+      url: `/api/me/devices/${deviceId}/lock-state`,
+      headers: { authorization: `Bearer ${stranger.token}` },
+      payload: { locked: true },
+    });
+    expect(report.statusCode).toBe(404);
+  });
+
   it('reports installed apps, defaults to null, and shows up for a caregiver on a different device', async () => {
     const admin = await createUser('App Reporter');
     const deviceId = uuidv7();
