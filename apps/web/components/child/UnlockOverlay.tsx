@@ -193,7 +193,9 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
             <button type="button" className={styles.switchMode} onClick={() => setMode('pin')}>
               Use my PIN instead
             </button>
-          ) : null}
+          ) : (
+            <p className={styles.pinHint}>No PIN set yet. Set one in Settings &gt; Account for a faster unlock next time.</p>
+          )}
         </form>
       )}
     </div>
