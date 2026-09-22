@@ -94,14 +94,18 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
    * "is app blocking on" now, matching the remote Unlock button --
    * routes/me.ts's /unlock -- so a caregiver stepping into their own view
    * isn't fighting a still-active allow-list on the same device), enter
-   * caregiver mode, go to Today.
+   * caregiver mode, and return to wherever CaregiverShell's redirect said
+   * they were headed (its `?next=` on /child/), falling back to Today.
+   * Root-relative only (starts with "/", not "//") so this can't be turned
+   * into an open redirect off the ?next= param.
    */
   async function finishUnlock(): Promise<void> {
     await Kiosk.exitFocusMode();
     if (shownProfile) await upsert('profiles', { ...shownProfile, settings: { ...shownProfile.settings, child_mode_active: false } });
     await unlock();
     await enterParentMode();
-    router.replace('/today/');
+    const next = new URLSearchParams(window.location.search).get('next');
+    router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/today/');
   }
 
   async function handlePinComplete(pin: string): Promise<boolean> {

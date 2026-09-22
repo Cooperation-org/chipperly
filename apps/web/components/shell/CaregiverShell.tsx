@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -47,6 +47,7 @@ function ProfileSwitcherSheet({
 /** Caregiver route-group shell: TopBar + tab navigation (CONTRACTS.md "Layout rules"). */
 export function CaregiverShell({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   // `useSession().profiles` (the cached /me, available synchronously on
   // mount) gates the redirect so it can't flicker true while Dexie's live
   // query for `useActiveProfile().profiles` (used for the switcher list) is
@@ -76,8 +77,12 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
     // /onboarding/kind/ right as ChildShell bounces away from it too.
     if (sessionStatus === 'signed_out') router.replace('/');
     else if (sessionStatus === 'signed_in' && sessionProfiles.length === 0) router.replace('/onboarding/kind/');
-    else if (parentModeLoaded && !parentMode) router.replace('/child/');
-  }, [sessionStatus, sessionProfiles.length, parentModeLoaded, parentMode, router]);
+    // Carries the route a caregiver was actually trying to reach (a bookmark,
+    // a deep link, this same e2e-style direct nav) through UnlockOverlay's
+    // PIN/password gate, so unlocking lands back where they meant to go
+    // instead of always dumping them on Today.
+    else if (parentModeLoaded && !parentMode) router.replace(`/child/?next=${encodeURIComponent(pathname)}`);
+  }, [sessionStatus, sessionProfiles.length, parentModeLoaded, parentMode, router, pathname]);
 
   if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !parentModeLoaded || !parentMode) return null;
 
