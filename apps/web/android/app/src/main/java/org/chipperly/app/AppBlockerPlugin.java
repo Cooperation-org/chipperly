@@ -185,7 +185,18 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve(result);
     }
 
-    /** Opens the OS's own "Activate this device admin app?" screen -- Android requires this be a manual, disclosed step, same as openAccessibilitySettings below; no ADB, no computer needed. */
+    /**
+     * Opens the OS's own "Activate this device admin app?" screen -- Android
+     * requires this be a manual, disclosed step, same as
+     * openAccessibilitySettings below; no ADB, no computer needed.
+     * Deliberately launched from the plugin's Activity (getActivity()), not
+     * a bare FLAG_ACTIVITY_NEW_TASK Intent off getContext() the way
+     * launchApp/openAccessibilitySettings do it: ACTION_ADD_DEVICE_ADMIN
+     * specifically refuses to start as a new task (confirmed via logcat --
+     * "Cannot start ADD_DEVICE_ADMIN as a new task" -- the request silently
+     * closes itself a moment after opening), so it needs a real Activity
+     * context instead.
+     */
     @PluginMethod
     public void requestDeviceAdmin(PluginCall call) {
         Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
@@ -194,8 +205,12 @@ public class AppBlockerPlugin extends Plugin {
             DevicePolicyManager.EXTRA_ADD_EXPLANATION,
             "Lets Chipperly resist being force-stopped or uninstalled without your PIN."
         );
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(intent);
+        if (getActivity() != null) {
+            getActivity().startActivity(intent);
+        } else {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+        }
         call.resolve();
     }
 
