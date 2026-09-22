@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, signUp, snap } from '../helpers';
+import { expectNoOverflow, gotoCaregiver, signUp, snap } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -87,10 +87,11 @@ async function assertTabNavForProject(page: Page, projectName: string): Promise<
 
 test.describe('a11y and layout', () => {
   let page: Page;
+  let password: string;
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
-    await signUp(page, { name: 'Layout Tester' });
+    ({ password } = await signUp(page, { name: 'Layout Tester' }));
   });
 
   test.afterAll(async () => {
@@ -99,7 +100,7 @@ test.describe('a11y and layout', () => {
 
   for (const route of ROUTES) {
     test(`route ${route.path}`, async ({}, testInfo) => {
-      await page.goto(route.path);
+      await gotoCaregiver(page, route.path, password);
       await expectNoOverflow(page, route.name);
       await snap(page, `route-${route.name.replace(/\s+/g, '-')}`);
       await assertOneHeadingOrTitledTopBar(page);
@@ -111,7 +112,7 @@ test.describe('a11y and layout', () => {
   }
 
   test('settings/profile/edit/?id= (followed via UI)', async () => {
-    await page.goto('/settings/');
+    await gotoCaregiver(page, '/settings/', password);
     // Not `exact: true`: the row's accessible name is "Benny Edit profile"
     // (the picture tile's role=img aria-label is "Benny", concatenated
     // before the row's own text — components/ui/ListRow.tsx).
@@ -126,7 +127,7 @@ test.describe('a11y and layout', () => {
 
   test('phone/tablet: Today content clears the tab bar', async ({}, testInfo) => {
     test.skip(testInfo.project.name === 'desktop', 'TabRail on desktop does not overlay content');
-    await page.goto('/today/');
+    await gotoCaregiver(page, '/today/', password);
     // The starter plan seeds rows on a fresh profile, so there's always at
     // least one to check clearance against.
     const rows = page.locator('button[class*="ListRow_main"]');

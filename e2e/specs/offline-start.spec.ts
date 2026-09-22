@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoTab, signUp } from '../helpers';
+import { gotoTab, reloadCaregiverPin, setCaregiverPin, signUp, unlockPinIfBounced } from '../helpers';
 
 /**
  * The full offline-first loop the review asked for: sign up, add an item,
@@ -10,12 +10,18 @@ import { gotoTab, signUp } from '../helpers';
  */
 test.describe.configure({ mode: 'serial' });
 
+const PIN = '3690';
+
 test.describe('offline start', () => {
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
     await signUp(page, { name: 'Offline Tester' });
+    // The offline reload test below needs to unlock without a network call
+    // (UnlockOverlay's password path signs in over /auth/login); set while
+    // still online so the PIN hash is cached before it's needed.
+    await setCaregiverPin(page, PIN);
   });
 
   test.afterAll(async () => {
@@ -56,7 +62,7 @@ test.describe('offline start', () => {
     // else in this describe still runs genuinely offline on webkit; only
     // the reload-specific assertions below are skipped for it.
     test.skip(browserName === 'webkit', 'WebKit: reload()/goto() while offline throws "WebKit encountered an internal error" at the driver level (repros with no app involved) — test problem, not an app bug.');
-    await page.reload();
+    await reloadCaregiverPin(page, PIN);
 
     const checkbox = page.getByRole('checkbox', { name: /^E2E Offline Item,/ });
     await expect(checkbox).toBeVisible();
@@ -84,6 +90,15 @@ test.describe('offline start', () => {
 
   test('back online: Sync now catches up', async () => {
     await page.context().setOffline(false);
+
+    // The offline reload above can leave the page's original top-level
+    // navigation request still held by the browser until connectivity
+    // returns; it completes late, re-running session.ts's bootstrap (parent_
+    // mode's full-navigation reset) and bouncing to /child/ a moment after
+    // the page already looked fine. Give it a beat, then unlock again if so.
+    await page.waitForTimeout(1500);
+    await unlockPinIfBounced(page, '/today/', PIN);
+
     const syncButton = page.getByRole('button', { name: /^Synced|^Sync pending|^Offline$|^Sync error$/ });
     await syncButton.click();
     const sheet = page.getByRole('dialog', { name: 'Sync' });

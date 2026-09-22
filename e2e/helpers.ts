@@ -111,6 +111,90 @@ export async function gotoTab(page: Page, tab: TabName): Promise<void> {
 }
 
 /**
+ * Every full navigation resets parent_mode to false (session.ts's bootstrap
+ * -- S24's "never stays unlocked" threat model), so a fresh `page.goto()` or
+ * `page.reload()` on a caregiver-only route bounces to /child/?next=<path>.
+ * Unlocks with the account password (a freshly signed-up account has no PIN
+ * yet) when that happens; CaregiverShell/UnlockOverlay's `next` plumbing
+ * lands back on the originally requested route once unlocked, so callers
+ * don't need to navigate again afterward.
+ */
+async function unlockIfBounced(page: Page, path: string, password: string): Promise<void> {
+  if (!page.url().includes('/child/')) return;
+  await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Unlock', exact: true }).click();
+  await page.waitForURL(`**${path}`);
+}
+
+/** `page.goto()` to a caregiver-only route, unlocking through the bounce above if needed. */
+export async function gotoCaregiver(page: Page, path: string, password: string): Promise<void> {
+  await page.goto(path);
+  await unlockIfBounced(page, path, password);
+}
+
+/** `page.reload()` on a caregiver-only route, unlocking through the bounce above if needed. */
+export async function reloadCaregiver(page: Page, password: string): Promise<void> {
+  const path = new URL(page.url()).pathname;
+  await page.reload();
+  await unlockIfBounced(page, path, password);
+}
+
+async function enterPinDigits(page: Page, pin: string): Promise<void> {
+  for (const d of pin) await page.getByRole('button', { name: d, exact: true }).click();
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+}
+
+/**
+ * Sets the account's caregiver PIN (Settings > Account > Set device PIN) via
+ * client-side navigation only, so it doesn't trip parent_mode's
+ * full-navigation reset -- call it right after signUp(), while still
+ * unlocked. A cached PIN lets gotoCaregiverPin()/reloadCaregiverPin() below
+ * get back into caregiver screens after an offline reload, where the
+ * password path (a network /auth/login call) can't.
+ */
+export async function setCaregiverPin(page: Page, pin: string): Promise<void> {
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.waitForURL('**/settings/');
+  // Not exact: ListRow renders the row's secondary text (the account email)
+  // inside the same button, so its accessible name is "Account <email>".
+  await page.getByRole('button', { name: /^Account/ }).click();
+  await page.waitForURL('**/settings/account/');
+  await page.getByRole('button', { name: 'Set device PIN', exact: true }).click();
+  await enterPinDigits(page, pin);
+  await expect(toast(page)).toContainText('PIN updated');
+  await gotoTab(page, 'today');
+}
+
+/**
+ * Like unlockIfBounced, but through the caregiver PIN pad instead of the
+ * account password. UnlockOverlay's PIN path verifies against a hash cached
+ * locally at sign-in (CONTRACTS.md "PIN" -- works offline, unlike the
+ * password path), so this is the one that can get back into a
+ * caregiver-only route after an offline reload or goto. Requires
+ * setCaregiverPin() to have run earlier, while online.
+ */
+export async function unlockPinIfBounced(page: Page, path: string, pin: string): Promise<void> {
+  if (!page.url().includes('/child/')) return;
+  await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+  await enterPinDigits(page, pin);
+  await page.waitForURL(`**${path}`);
+}
+
+/** `page.goto()` to a caregiver-only route, unlocking via PIN through the bounce above if needed (works offline). */
+export async function gotoCaregiverPin(page: Page, path: string, pin: string): Promise<void> {
+  await page.goto(path);
+  await unlockPinIfBounced(page, path, pin);
+}
+
+/** `page.reload()` on a caregiver-only route, unlocking via PIN through the bounce above if needed (works offline). */
+export async function reloadCaregiverPin(page: Page, pin: string): Promise<void> {
+  const path = new URL(page.url()).pathname;
+  await page.reload();
+  await unlockPinIfBounced(page, path, pin);
+}
+
+/**
  * Asserts the document has no horizontal scroll and no visible element (that
  * isn't explicitly opted out) sticks out past the viewport edges.
  */

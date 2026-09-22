@@ -1,15 +1,16 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, signUp, snap, toast } from '../helpers';
+import { expectNoOverflow, gotoCaregiver, signUp, snap, toast } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('settings', () => {
   let page: Page;
+  let password: string;
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
-    await signUp(page, { name: 'Settings Tester' });
-    await page.goto('/settings/');
+    ({ password } = await signUp(page, { name: 'Settings Tester' }));
+    await gotoCaregiver(page, '/settings/', password);
   });
 
   test.afterAll(async () => {
@@ -54,12 +55,12 @@ test.describe('settings', () => {
     await toast(page).getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(page.locator('button[class*="ListRow_main"]', { hasText: 'Wake Up' })).toBeVisible();
 
-    await page.goto('/settings/library/locations/');
+    await gotoCaregiver(page, '/settings/library/locations/', password);
     await expect(page.getByRole('heading', { name: 'Locations' })).toBeVisible();
     await expect(page.locator('button[class*="ListRow_main"]', { hasText: 'Home' })).toBeVisible();
     await expect(page.locator('button[class*="ListRow_main"]', { hasText: 'School' })).toBeVisible();
 
-    await page.goto('/settings/');
+    await gotoCaregiver(page, '/settings/', password);
   });
 
   test('S28 share link: enable, copy, open from a fresh context', async () => {
@@ -107,18 +108,18 @@ test.describe('settings', () => {
       await sheet.getByRole('button', { name: 'Close', exact: true }).click();
     } finally {
       await viewerContext.close();
-      await page.goto('/settings/');
+      await gotoCaregiver(page, '/settings/', password);
     }
   });
 
   test('S30 account page renders', async () => {
-    await page.goto('/settings/account/');
+    await gotoCaregiver(page, '/settings/account/', password);
     await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Change password', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
     await expectNoOverflow(page, 'S30 account');
     await snap(page, 's30-account-settings');
-    await page.goto('/settings/');
+    await gotoCaregiver(page, '/settings/', password);
   });
 
   test('S31 sync status sheet opens', async () => {
@@ -156,7 +157,7 @@ test.describe('settings', () => {
     await expect(profileRows.filter({ hasText: 'Ada' })).toBeVisible();
     await profileRows.filter({ hasText: 'Benny' }).click();
     await expect(toast(page)).toContainText('Switched to Benny');
-    await page.goto('/settings/');
+    await gotoCaregiver(page, '/settings/', password);
   });
 
   test('S26/S27 care team: invite, accept from a fresh context', async ({ browserName }) => {

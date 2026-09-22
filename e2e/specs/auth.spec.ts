@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, snap } from '../helpers';
+import { expectNoOverflow, gotoCaregiver, snap } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -128,7 +128,7 @@ test.describe('auth', () => {
   });
 
   test('sign out from /settings/account/ returns to /', async () => {
-    await page.goto('/settings/account/');
+    await gotoCaregiver(page, '/settings/account/', password);
     await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
     await expectNoOverflow(page, 'account');
     await snap(page, 's30-account');

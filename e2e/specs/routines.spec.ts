@@ -1,14 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, signUp, snap } from '../helpers';
+import { expectNoOverflow, gotoCaregiver, signUp, snap } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('routines', () => {
   let page: Page;
+  let password: string;
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
-    await signUp(page, { name: 'Routines Tester' });
+    ({ password } = await signUp(page, { name: 'Routines Tester' }));
   });
 
   test.afterAll(async () => {
@@ -95,13 +96,13 @@ test.describe('routines', () => {
     await expectNoOverflow(page, 'S25 library routines');
     await snap(page, 's25-library-routines');
 
-    await page.goto('/settings/library/activities/');
+    await gotoCaregiver(page, '/settings/library/activities/', password);
     await expect(page.getByRole('heading', { name: 'Activities' })).toBeVisible();
     await expect(page.locator('button[class*="ListRow_main"]', { hasText: 'Morning Routine' })).toHaveCount(0);
   });
 
   test('set an activity to weekly on two days in the editor and see the label', async () => {
-    await page.goto('/settings/library/activities/');
+    await gotoCaregiver(page, '/settings/library/activities/', password);
     await page.locator('button[class*="ListRow_main"]', { hasText: 'Brush Teeth' }).click();
     await page.waitForURL('**/activity/edit/**');
 
@@ -122,7 +123,7 @@ test.describe('routines', () => {
   });
 
   test('add a 5-minute step then start its timer from the item sheet', async () => {
-    await page.goto('/settings/library/routines/');
+    await gotoCaregiver(page, '/settings/library/routines/', password);
     await page.locator('button[class*="ListRow_main"]', { hasText: 'Morning Routine' }).click();
     await page.waitForURL('**/activity/edit/**');
 
@@ -132,7 +133,7 @@ test.describe('routines', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/library/routines/**');
 
-    await page.goto('/today/');
+    await gotoCaregiver(page, '/today/', password);
     await page.locator('button[class*="ListRow_main"]', { hasText: 'Morning Routine' }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();

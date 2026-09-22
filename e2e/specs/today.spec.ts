@@ -1,7 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, signUp, snap, toast } from '../helpers';
+import { expectNoOverflow, gotoCaregiverPin, reloadCaregiverPin, setCaregiverPin, signUp, snap, toast, unlockPinIfBounced } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
+
+const PIN = '1470';
 
 test.describe('today', () => {
   let page: Page;
@@ -9,6 +11,11 @@ test.describe('today', () => {
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
     await signUp(page, { name: 'Today Tester' });
+    // The offline reload test below needs to unlock without a network call
+    // (UnlockOverlay's password path signs in over /auth/login); set while
+    // still online so the PIN hash is cached before "offline: reload,
+    // still checked" needs it.
+    await setCaregiverPin(page, PIN);
   });
 
   test.afterAll(async () => {
@@ -194,7 +201,7 @@ test.describe('today', () => {
   });
 
   test('offline: check off an item locally', async () => {
-    await page.goto('/today/');
+    await gotoCaregiverPin(page, '/today/', PIN);
     // Give the service worker time to control this page before going offline.
     await page.evaluate(() => navigator.serviceWorker?.ready).catch(() => undefined);
 
@@ -213,7 +220,7 @@ test.describe('today', () => {
     // service worker involved — test problem, not an app bug.
     test.skip(browserName === 'webkit', 'WebKit: reload() while offline throws "WebKit encountered an internal error" at the driver level (repros with no app involved) — test problem, not an app bug.');
 
-    await page.reload();
+    await reloadCaregiverPin(page, PIN);
     await expect(page.getByRole('checkbox', { name: /^E2E Custom Activity,/ })).toHaveAttribute('aria-checked', 'true');
 
     const syncMark = page.getByRole('button', { name: 'Offline', exact: true });
@@ -224,6 +231,14 @@ test.describe('today', () => {
     // Always bring the context back online here, whether or not the reload
     // test above ran (it's skipped on webkit).
     await page.context().setOffline(false);
+
+    // The offline reload above can leave the page's original top-level
+    // navigation request still held by the browser until connectivity
+    // returns; it completes late, re-running session.ts's bootstrap (parent_
+    // mode's full-navigation reset) and bouncing to /child/ a moment after
+    // the page already looked fine. Give it a beat, then unlock again if so.
+    await page.waitForTimeout(1500);
+    await unlockPinIfBounced(page, '/today/', PIN);
 
     // The sync engine's own 'online' listener should pick this up, but
     // that's a background event/timer race; force it through the same

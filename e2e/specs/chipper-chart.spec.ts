@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, signUp, snap } from '../helpers';
+import { expectNoOverflow, reloadCaregiver, signUp, snap } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -12,10 +12,11 @@ async function enterPin(page: Page, digits: string): Promise<void> {
 
 test.describe('chipper chart', () => {
   let page: Page;
+  let password: string;
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
-    await signUp(page, { name: 'Chart Tester' });
+    ({ password } = await signUp(page, { name: 'Chart Tester' }));
   });
 
   test.afterAll(async () => {
@@ -55,7 +56,7 @@ test.describe('chipper chart', () => {
     await expectNoOverflow(page, 'S35 chipper chart after taps');
     await snap(page, 's35-chipper-chart-after-taps');
 
-    await page.reload();
+    await reloadCaregiver(page, password);
     await expect(page.getByRole('slider', { name: 'Mood level' })).toHaveAttribute('aria-valuenow', String(level));
     await expect(page.getByRole('list').getByText('Today', { exact: true })).toBeVisible();
   });

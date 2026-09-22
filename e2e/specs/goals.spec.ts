@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, gotoTab, signUp, snap } from '../helpers';
+import { expectNoOverflow, gotoTab, reloadCaregiver, signUp, snap } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -10,10 +10,11 @@ test.describe.configure({ mode: 'serial' });
  */
 test.describe('goals per routine and per day', () => {
   let page: Page;
+  let password: string;
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
-    await signUp(page, { name: 'Goals Tester' });
+    ({ password } = await signUp(page, { name: 'Goals Tester' }));
   });
 
   test.afterAll(async () => {
@@ -61,7 +62,7 @@ test.describe('goals per routine and per day', () => {
     await expect(page.getByText('Stay on task')).toBeVisible();
 
     // The view itself is remembered per profile in kv, so a reload lands back on Day.
-    await page.reload();
+    await reloadCaregiver(page, password);
     await expect(page.getByText('Stay on task')).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'View' }).getByRole('radio', { name: 'Day' })).toBeChecked();
     await expectNoOverflow(page, 'S10 chips by day');
