@@ -46,6 +46,7 @@ export function AppBlockingScreen() {
   const { profile } = useActiveProfile();
   const sheet = useSheet();
   const [serviceEnabled, setServiceEnabled] = useState(false);
+  const [deviceAdmin, setDeviceAdmin] = useState(false);
   const [deviceOwner, setDeviceOwner] = useState(false);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -64,7 +65,10 @@ export function AppBlockingScreen() {
     }
     function refreshServiceState(): void {
       void AppBlocker.isServiceEnabled().then(({ enabled }) => setServiceEnabled(enabled));
-      void AppBlocker.isDeviceOwner().then(({ deviceOwner: owner }) => setDeviceOwner(owner));
+      void AppBlocker.getTamperProofState().then(({ deviceAdmin: admin, deviceOwner: owner }) => {
+        setDeviceAdmin(admin);
+        setDeviceOwner(owner);
+      });
     }
     refreshServiceState();
     void refreshDevices();
@@ -201,34 +205,22 @@ export function AppBlockingScreen() {
         <div className={styles.card}>
           <div className={styles.controlRow}>
             <span className={styles.controlLabel}>Tamper-proof mode</span>
-            <span className={[styles.badge, deviceOwner ? styles.on : styles.off].join(' ')}>
-              {deviceOwner ? 'Active' : 'Not set up'}
+            <span className={[styles.badge, deviceAdmin || deviceOwner ? styles.on : styles.off].join(' ')}>
+              {deviceOwner ? 'Active (strongest)' : deviceAdmin ? 'Active' : 'Not set up'}
             </span>
           </div>
-          {deviceOwner ? (
-            <p className={styles.hint}>
-              Locking this device now pins it to Chipperly and the apps allowed below at the operating-system level:
-              no Recents, and Force Stop can&rsquo;t turn blocking off.
-            </p>
-          ) : (
-            <>
-              <p className={styles.hint}>
-                Without this, a Force Stop from system Settings (or a determined swipe from Recents) can turn app
-                blocking off entirely until it&rsquo;s manually re-enabled. Making this device tamper-proof is a
-                one-time step done from a computer, before this device has any Google account signed in --
-                it can&rsquo;t be added later without a factory reset.
-              </p>
-              <ol className={styles.steps}>
-                <li>Remove any account already on this device, or start from a factory-reset one.</li>
-                <li>
-                  Turn on Developer options and USB debugging (Settings &gt; About phone &gt; tap Build number 7
-                  times, then Settings &gt; System &gt; Developer options).
-                </li>
-                <li>Connect it to a computer with adb installed, then run:</li>
-              </ol>
-              <code className={styles.command}>adb shell dpm set-device-owner org.chipperly.app/org.chipperly.app.ChipperlyDeviceAdminReceiver</code>
-            </>
-          )}
+          <p className={styles.hint}>
+            {deviceOwner
+              ? 'Locking this device now pins it to Chipperly and the apps allowed below at the operating-system level: no Recents, and Force Stop can’t turn blocking off.'
+              : deviceAdmin
+                ? 'Chipperly can’t be uninstalled without turning this off first. Android will show you the same screen if you ever want to.'
+                : 'Makes Chipperly harder to remove: uninstalling will require turning this off first, from Settings > Security. Android will show you exactly what it does before you turn it on.'}
+          </p>
+          {!deviceAdmin && !deviceOwner ? (
+            <Button variant="secondary" onClick={() => void AppBlocker.requestDeviceAdmin()}>
+              Turn on tamper-proof mode
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -244,7 +236,8 @@ export function AppBlockingScreen() {
         <p className={styles.hint}>
           Only Chipperly and the apps checked below can open on this device while it&rsquo;s showing {profile.name}
           &rsquo;s view -- this applies right away, even if you&rsquo;re still in your own caregiver view here.
-          Locking the device isn&rsquo;t required -- the two settings work independently.
+          Locking or unlocking the device (here or on the device itself) turns this on and off too, so the two
+          always agree; flip it here directly if you want blocking on without engaging the hard lock.
         </p>
         {childModeActive && isThisDevice && !serviceEnabled ? (
           <p className={styles.warning} role="alert">

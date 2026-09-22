@@ -26,8 +26,19 @@ export interface AppBlockerPlugin {
   isServiceEnabled(): Promise<{ enabled: boolean }>;
   /** Opens system Settings > Accessibility so the caregiver can grant it. */
   openAccessibilitySettings(): Promise<void>;
-  /** Whether the one-time `adb shell dpm set-device-owner` step has been done on this device. Only then does the allow-list also get pushed to DevicePolicyManager.setLockTaskPackages, turning "Lock this device" into a real OS-enforced multi-app kiosk that survives Force Stop and Recents instead of a best-effort accessibility redirect. */
-  isDeviceOwner(): Promise<{ deviceOwner: boolean }>;
+  /**
+   * `deviceAdmin`: whether requestDeviceAdmin (below) has been granted --
+   * the normal, no-ADB tamper-resistance path (matches how Mobile Tracker
+   * Free's own manifest does it: Device Admin + Accessibility Service).
+   * `deviceOwner`: the strictly stronger, ADB-only path
+   * (`adb shell dpm set-device-owner`, not something the UI asks for but
+   * honored automatically if already done) that additionally turns "Lock
+   * this device" into a real OS-enforced multi-app kiosk surviving Force
+   * Stop and Recents, instead of a best-effort accessibility redirect.
+   */
+  getTamperProofState(): Promise<{ deviceAdmin: boolean; deviceOwner: boolean }>;
+  /** Opens the OS's own "Activate this device admin app?" screen. No ADB, no computer -- Android just requires it be a manual, disclosed step, same as openAccessibilitySettings. */
+  requestDeviceAdmin(): Promise<void>;
 }
 
 const AppBlocker = registerPlugin<AppBlockerPlugin>('AppBlocker', {

@@ -58,6 +58,11 @@ public class AppBlockerPlugin extends Plugin {
         return dpm != null && dpm.isDeviceOwnerApp(getContext().getPackageName());
     }
 
+    private boolean isDeviceAdminActive() {
+        DevicePolicyManager dpm = devicePolicyManager();
+        return dpm != null && dpm.isAdminActive(adminComponent());
+    }
+
     @PluginMethod
     public void listInstalledApps(PluginCall call) {
         PackageManager pm = getContext().getPackageManager();
@@ -159,12 +164,39 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve();
     }
 
-    /** Whether the one-time `adb shell dpm set-device-owner` step (AppBlockingScreen's tamper-proof-mode instructions) has been done on this device. */
+    /**
+     * `deviceAdmin`: whether the in-app "Turn on tamper-proof mode" button
+     * (requestDeviceAdmin, below) has been granted -- the normal, no-ADB
+     * path, same mechanism Mobile Tracker Free's own manifest uses
+     * (BIND_DEVICE_ADMIN alongside BIND_ACCESSIBILITY_SERVICE). Makes
+     * uninstalling require deactivating this admin first.
+     * `deviceOwner`: the strictly stronger, ADB-only path
+     * (`adb shell dpm set-device-owner`, only accepted on a device with no
+     * accounts yet) that additionally unlocks setLockTaskPackages/
+     * DISALLOW_APPS_CONTROL (AppBlockerPlugin.setEnabled/
+     * ChipperlyBlockService.syncLockTaskAllowlist) -- not something the UI
+     * asks for, but honored automatically if a caregiver already did it.
+     */
     @PluginMethod
-    public void isDeviceOwner(PluginCall call) {
+    public void getTamperProofState(PluginCall call) {
         JSObject result = new JSObject();
+        result.put("deviceAdmin", isDeviceAdminActive());
         result.put("deviceOwner", isDeviceOwnerApp());
         call.resolve(result);
+    }
+
+    /** Opens the OS's own "Activate this device admin app?" screen -- Android requires this be a manual, disclosed step, same as openAccessibilitySettings below; no ADB, no computer needed. */
+    @PluginMethod
+    public void requestDeviceAdmin(PluginCall call) {
+        Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+        intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent());
+        intent.putExtra(
+            DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+            "Lets Chipperly resist being force-stopped or uninstalled without your PIN."
+        );
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+        call.resolve();
     }
 
     @PluginMethod
