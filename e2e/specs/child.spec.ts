@@ -32,6 +32,8 @@ test.describe('child mode', () => {
     await page.getByRole('button', { name: /^Steps/ }).click();
     await page.getByRole('button', { name: 'Add step', exact: true }).click();
     await page.getByLabel('Step 1', { exact: true }).fill('Put on shirt');
+    await page.getByRole('button', { name: 'Add step', exact: true }).click();
+    await page.getByLabel('Step 2', { exact: true }).fill('Put on pants');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/today/');
   });
@@ -112,6 +114,39 @@ test.describe('child mode', () => {
     await good.click();
   });
 
+  test('routine row: bar/chip toggle the step list, only finishing every step earns the chip', async () => {
+    const parentCheckbox = page.getByRole('checkbox', { name: /^Get Dressed With Steps,/ });
+    const shirtCheckbox = page.getByRole('checkbox', { name: /^Put on shirt,/ });
+    const pantsCheckbox = page.getByRole('checkbox', { name: /^Put on pants,/ });
+    const rowBar = page.getByRole('button', { name: /Get Dressed With Steps/, expanded: true });
+
+    // Show steps expanded is the lock default (lib/device/settings.ts), so
+    // the steps start visible with no tap needed.
+    await expect(shirtCheckbox).toBeVisible();
+    await expect(rowBar).toHaveAttribute('aria-expanded', 'true');
+
+    // Tapping the parent's own chip on a stepped, unfinished routine collapses
+    // it instead of completing it -- there's no way to shortcut past the steps.
+    await page.getByRole('checkbox', { name: /^Get Dressed With Steps,/ }).click();
+    await expect(shirtCheckbox).toBeHidden();
+    await expect(parentCheckbox).toHaveAttribute('aria-checked', 'false');
+
+    // Tapping the bar re-expands.
+    await page.getByRole('button', { name: /Get Dressed With Steps/, expanded: false }).click();
+    await expect(shirtCheckbox).toBeVisible();
+
+    // Tapping anywhere on a step's row (not just its own small checkbox) checks it.
+    await page.getByRole('button', { name: /Put on shirt/ }).click();
+    await expect(shirtCheckbox).toHaveAttribute('aria-checked', 'true');
+    await expect(parentCheckbox).toHaveAttribute('aria-checked', 'false');
+
+    await page.getByRole('button', { name: /Put on pants/ }).click();
+    await expect(pantsCheckbox).toHaveAttribute('aria-checked', 'true');
+    // Every step done cascades to the parent (lib/data/schedule.ts's
+    // setStepCompleted): this is the only way this chip gets earned.
+    await expect(parentCheckbox).toHaveAttribute('aria-checked', 'true');
+  });
+
   test('free time button opens the choices sheet', async () => {
     await page.getByRole('button', { name: 'Free time', exact: true }).click();
     const sheet = page.getByRole('dialog', { name: 'Free time' });
@@ -141,7 +176,7 @@ test.describe('child mode', () => {
     // opens onto whichever location the device last had active).
     await gotoTab(page, 'chips');
     await page.getByRole('radiogroup', { name: 'Location' }).getByRole('radio', { name: 'School' }).click();
-    const board = page.getByRole('img', { name: /of 5 chips/ });
+    const board = page.getByRole('status', { name: /of 5 chips/ });
     await page.getByRole('button', { name: /Add chip/ }).click();
     await page.getByRole('button', { name: /Add chip/ }).click();
     await expect(board).toHaveAttribute('aria-label', '2 of 5 chips');

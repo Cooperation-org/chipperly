@@ -108,11 +108,36 @@
   }
 }
 
+.rowTap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
 .rowName {
   flex: 1;
   min-width: 0;
   font-size: var(--text-lg);
   overflow-wrap: break-word;
+}
+
+.expandChevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.expandChevron.open {
+  transform: rotate(180deg);
 }
 
 .rowName.dimmed {

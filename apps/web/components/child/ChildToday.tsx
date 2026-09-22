@@ -28,6 +28,7 @@ import { ChipStrip } from '@/components/ui/ChipStrip';
 import { ChipBoard } from '@/components/ui/ChipBoard';
 import { CheckCircle } from '@/components/ui/CheckCircle';
 import { StepRow } from '@/components/ui/StepRow';
+import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import { BigButton } from '@/components/ui/BigButton';
 import { Celebration } from '@/components/ui/Celebration';
@@ -140,6 +141,24 @@ export function ChildToday() {
     if (isAllDone && !wasAllDoneRef.current) setCelebrating(true);
     wasAllDoneRef.current = isAllDone;
   }, [isAllDone]);
+
+  // A stepped item's steps default open/closed per options.expand_steps
+  // (Lock this device's "Show steps expanded"); this tracks only the ids
+  // the child has explicitly toggled away from that default, rather than
+  // seeding one Set per item up front, so a routine materializing later in
+  // the day still gets the right default.
+  const [toggledExpandIds, setToggledExpandIds] = useState<ReadonlySet<string>>(new Set());
+  function isExpanded(itemId: string): boolean {
+    return toggledExpandIds.has(itemId) ? !options.expand_steps : options.expand_steps;
+  }
+  function toggleExpanded(itemId: string): void {
+    setToggledExpandIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
 
   function showPromptFor(itemId: string): void {
     if (!options.attitude_prompt) return;
@@ -358,32 +377,52 @@ export function ChildToday() {
         <div className={styles.list}>
           {dayItems.map((day) => {
             const dimmed = day.item.completed_at !== null;
+            const hasSteps = day.steps.length > 0;
+            const expanded = hasSteps && isExpanded(day.item.id);
+            const picture = <Picture emoji={day.activity.emoji} photo_id={day.activity.photo_id} name={day.activity.name} size="child" />;
+            const nameLabel = (
+              <span className={[styles.rowName, dimmed ? styles.dimmed : ''].filter(Boolean).join(' ')}>{day.activity.name}</span>
+            );
             return (
               <div key={day.item.id} className={styles.card}>
                 <div className={styles.row}>
-                  <Picture emoji={day.activity.emoji} photo_id={day.activity.photo_id} name={day.activity.name} size="child" />
-                  <span className={[styles.rowName, dimmed ? styles.dimmed : ''].filter(Boolean).join(' ')}>
-                    {day.activity.name}
-                  </span>
+                  {hasSteps ? (
+                    <button
+                      type="button"
+                      className={styles.rowTap}
+                      aria-expanded={expanded}
+                      onClick={() => toggleExpanded(day.item.id)}
+                    >
+                      {picture}
+                      {nameLabel}
+                      <Icon name="chevron" size={20} className={[styles.expandChevron, expanded ? styles.open : ''].filter(Boolean).join(' ')} />
+                    </button>
+                  ) : (
+                    <>
+                      {picture}
+                      {nameLabel}
+                    </>
+                  )}
                   <CheckCircle
                     checked={dimmed}
                     name={day.activity.name}
                     size="lg"
-                    onChange={(next) => void handleToggle(day, next)}
+                    // A stepped task's chip only comes from finishing every step
+                    // (setStepCompleted's cascade), never a direct tap here --
+                    // tapping it just opens the steps, same as tapping the bar.
+                    onChange={hasSteps ? () => toggleExpanded(day.item.id) : (next) => void handleToggle(day, next)}
                   />
                 </div>
 
                 {day.item.story_id ? <ReadStoryButton storyId={day.item.story_id} /> : null}
 
-                {day.steps.length > 0 && options.show_visual_schedule ? (
+                {hasSteps && options.show_visual_schedule ? (
                   <BigButton variant="secondary" icon="expand" onClick={() => setScheduleItemId(day.item.id)}>
                     Steps
                   </BigButton>
                 ) : null}
 
-                {options.expand_steps && day.steps.length > 0 ? (
-                  <ul className={styles.steps}>{stepTree(day.steps).map((node) => renderStepNode(day, node))}</ul>
-                ) : null}
+                {expanded ? <ul className={styles.steps}>{stepTree(day.steps).map((node) => renderStepNode(day, node))}</ul> : null}
 
                 {promptIds.has(day.item.id) ? (
                   <AttitudePrompt profileId={profileId} itemId={day.item.id} onDone={() => hidePromptFor(day.item.id)} />

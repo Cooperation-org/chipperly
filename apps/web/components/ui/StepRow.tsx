@@ -47,6 +47,7 @@ export function StepRow({
         name={name}
         secondary={timed ? `${durationMinutes} min` : undefined}
         dimmed={checked}
+        onTap={() => onChange(!checked)}
         trailing={
           <span className={styles.trailing}>
             {hasChildren && onToggle ? (
