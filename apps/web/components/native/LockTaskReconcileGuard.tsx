@@ -35,6 +35,14 @@ export function LockTaskReconcileGuard(): null {
   const lastReported = useRef<boolean | null>(null);
 
   useEffect(() => {
+    // No OS-level lock-task state exists on web (kiosk.web.ts's
+    // isLockTaskActive() is a stub that always reports `active: false`), so
+    // without this guard every mount/poll here read that stub as "the OS
+    // dropped the lock" and called unlock(), wiping LockSheet's just-set
+    // locked_profile_id and options back to defaults within ~20s -- the web
+    // build's own in-app PIN lock (LockSheet/UnlockOverlay) is authoritative
+    // there instead, same as kiosk.web.ts's own fallback comment says.
+    if (!Capacitor.isNativePlatform()) return;
     function reconcile(): void {
       void Kiosk.isLockTaskActive().then(({ active }) => {
         if (active && !locked_profile_id && profile) void lockTo(profile.id);
