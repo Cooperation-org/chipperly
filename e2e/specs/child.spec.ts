@@ -177,8 +177,7 @@ test.describe('child mode', () => {
     await gotoTab(page, 'chips');
     await page.getByRole('radiogroup', { name: 'Location' }).getByRole('radio', { name: 'School' }).click();
     const board = page.getByRole('status', { name: /of 5 chips/ });
-    await page.getByRole('button', { name: /Add chip/ }).click();
-    await page.getByRole('button', { name: /Add chip/ }).click();
+    await page.getByRole('button', { name: 'Set chips to 2 of 5', exact: true }).click();
     await expect(board).toHaveAttribute('aria-label', '2 of 5 chips');
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click();

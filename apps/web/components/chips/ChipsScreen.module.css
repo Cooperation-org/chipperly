@@ -79,13 +79,7 @@
   pointer-events: none;
 }
 
-.actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
-
-.actions > * {
+.redeemButton {
   font-size: var(--text-xl);
 }
 

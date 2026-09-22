@@ -7,7 +7,7 @@ import { COST_MAX } from '@chipperly/shared/constants/limits';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useLocations, useActiveLocation, saveLocation } from '@/lib/data/locations';
-import { useWorkingFor, setWorkingFor, addChip, redeem, useBalance, useLedger, chipTones } from '@/lib/data/chips';
+import { useWorkingFor, setWorkingFor, addChip, redeem, setFilled, useBalance, useLedger, chipTones } from '@/lib/data/chips';
 import { useMaterializedDay } from '@/lib/data/schedule';
 import { useKv, setKv } from '@/lib/db/kv';
 import { toast } from '@/lib/toast';
@@ -20,7 +20,6 @@ import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { Stepper } from '@/components/ui/Stepper';
 import { Celebration } from '@/components/ui/Celebration';
-import { VisuallyHidden } from '@/components/ui/VisuallyHidden';
 import { useSheet } from '@/components/ui/Sheet';
 import { FreeTimeSheet } from './FreeTimeSheet';
 import { RoutineGoals } from './RoutineGoals';
@@ -127,24 +126,11 @@ export function ChipsScreen() {
     sheet.open(<FreeTimeSheet profileId={profileId} locationId={location.id} canCreate />, { title: 'Free time' });
   }
 
-  async function handleAddChip() {
-    if (!location) return;
-    await addChip(profileId, location.id, 'manual', null, 1);
-    playChip();
-    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
-  }
-
-  async function handleRemoveChip() {
-    if (!location) return;
-    await addChip(profileId, location.id, 'manual', null, -1);
-  }
-
   async function handleSetFilled(next: number) {
     if (!location) return;
-    const delta = next - balance;
-    if (delta === 0) return;
-    await addChip(profileId, location.id, 'manual', null, delta);
-    if (delta > 0) {
+    const filling = next > balance;
+    await setFilled(profileId, location.id, next, balance);
+    if (filling) {
       playChip();
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
     }
@@ -215,20 +201,11 @@ export function ChipsScreen() {
             </Button>
           ) : null}
 
-          <div className={styles.actions}>
-            <BigButton variant="primary" onClick={handleRemoveChip} disabled={balance <= 0}>
-              <VisuallyHidden>Remove chip</VisuallyHidden>−
+          {canRedeem && working.reward ? (
+            <BigButton variant="accent" fullWidth className={styles.redeemButton} onClick={handleRedeem}>
+              Redeem {working.reward.emoji ?? '🎁'}
             </BigButton>
-            {canRedeem && working.reward ? (
-              <BigButton variant="accent" onClick={handleRedeem}>
-                Redeem {working.reward.emoji ?? '🎁'}
-              </BigButton>
-            ) : (
-              <BigButton variant="primary" onClick={handleAddChip}>
-                <VisuallyHidden>Add chip</VisuallyHidden>+
-              </BigButton>
-            )}
-          </div>
+          ) : null}
 
           <div className={styles.links}>
             <Button variant="secondary" onClick={openFreeTimeSheet}>

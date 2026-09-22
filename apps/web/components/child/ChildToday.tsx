@@ -25,7 +25,6 @@ import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } f
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { ChipStrip } from '@/components/ui/ChipStrip';
-import { ChipBoard } from '@/components/ui/ChipBoard';
 import { CheckCircle } from '@/components/ui/CheckCircle';
 import { StepRow } from '@/components/ui/StepRow';
 import { Icon } from '@/components/ui/Icon';
@@ -35,6 +34,7 @@ import { Celebration } from '@/components/ui/Celebration';
 import { useSheet } from '@/components/ui/Sheet';
 import { FreeTimeSheet } from '@/components/chips/FreeTimeSheet';
 import { PickRewardSheet } from './PickRewardSheet';
+import { WorkingForSheet } from './WorkingForSheet';
 import { FirstThenPanels } from '@/components/firstThen/FirstThenPanels';
 import { TimerFullScreen } from '@/components/timer/TimerFullScreen';
 import { formatTimerTime } from '@/components/timer/time';
@@ -282,18 +282,7 @@ export function ChildToday() {
   }
 
   function openWorkingFor(): void {
-    sheet.open(
-      <div className={styles.workingForSheet}>
-        {workingFor.reward ? (
-          <div className={styles.workingForReward}>
-            <Picture emoji={workingFor.reward.emoji} photo_id={workingFor.reward.photo_id} name={workingFor.reward.name} size="grid" />
-            <span>{workingFor.reward.name}</span>
-          </div>
-        ) : null}
-        <ChipBoard filled={workingFor.filled} total={workingFor.goal} />
-      </div>,
-      { title: 'Chips' },
-    );
+    sheet.open(<WorkingForSheet profileId={profileId} locationId={activeLocation?.id ?? null} />, { title: 'Chips' });
   }
 
   // Owner's doc EI 2, switchable in Settings > profile (default on).

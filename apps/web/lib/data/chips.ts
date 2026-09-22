@@ -65,6 +65,19 @@ export async function addChip(
   await upsert('chip_ledger', row);
 }
 
+/**
+ * Sets the balance to an absolute count -- ChipBoard's onSetFilled (tap a
+ * chip to fill up through it, or empty back down through it), shared between
+ * the caregiver Chips tab and the child's own "Working for" sheet. `balance`
+ * is the caller's own useBalance() result: this isn't a hook, so it can't
+ * read it itself.
+ */
+export async function setFilled(profileId: string, locationId: string | null, next: number, balance: number): Promise<void> {
+  const delta = next - balance;
+  if (delta === 0) return;
+  await addChip(profileId, locationId, 'manual', null, delta);
+}
+
 /** Pure: SOW Q1, decided. 'reset' takes the whole balance so the board empties to zero; 'subtract' just removes the cost. */
 export function computeRedeemDelta(mode: RedeemMode, cost: number, balance: number): number {
   return mode === 'reset' ? -balance : -cost;

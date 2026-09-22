@@ -1,0 +1,15 @@
+.sheet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0 var(--space-3);
+}
+
+.reward {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-lg);
+}

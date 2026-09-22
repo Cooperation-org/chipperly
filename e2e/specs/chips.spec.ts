@@ -24,18 +24,7 @@ test.describe('chips and first-then', () => {
     await snap(page, 's10-chips');
   });
 
-  test('+ adds a chip, - removes it', async () => {
-    const board = page.getByRole('status', { name: /of 5 chips/ });
-    await expect(board).toHaveAttribute('aria-label', '0 of 5 chips');
-
-    await page.getByRole('button', { name: /Add chip/ }).click();
-    await expect(board).toHaveAttribute('aria-label', '1 of 5 chips');
-
-    await page.getByRole('button', { name: /Remove chip/ }).click();
-    await expect(board).toHaveAttribute('aria-label', '0 of 5 chips');
-  });
-
-  test('tap a chip directly to set the board (star-rating style), same as +/-', async () => {
+  test('tap a chip directly to set the board (star-rating style)', async () => {
     const board = page.getByRole('status', { name: /of 5 chips/ });
 
     // Tapping an unfilled chip fills up through it.
@@ -57,17 +46,13 @@ test.describe('chips and first-then', () => {
     const board = page.getByRole('status', { name: /of \d+ chips/ });
     await expect(page.getByRole('button', { name: /^Working for/ })).toContainText('Ice cream');
 
-    // Fill the board to its goal (5 by default), waiting for each chip to
-    // actually land (the balance comes from an async Dexie write) before
-    // tapping again, rather than reading aria-label synchronously right
-    // after a click and risking a stale read.
+    // One tap on the last chip fills the whole board (star-rating style: tap
+    // an unfilled chip and everything up through it fills in).
     const initialLabel = (await board.getAttribute('aria-label')) ?? '';
     const total = Number(/of (\d+) chips/.exec(initialLabel)?.[1] ?? 0);
     expect(total).toBeGreaterThan(0);
-    for (let filled = 1; filled <= total; filled += 1) {
-      await page.getByRole('button', { name: /Add chip/ }).click();
-      await expect(board).toHaveAttribute('aria-label', `${filled} of ${total} chips`);
-    }
+    await page.getByRole('button', { name: `Set chips to ${total} of ${total}`, exact: true }).click();
+    await expect(board).toHaveAttribute('aria-label', `${total} of ${total} chips`);
 
     const redeemButton = page.getByRole('button', { name: /^Redeem/ });
     await expect(redeemButton).toBeVisible();
@@ -138,15 +123,21 @@ test.describe('chips and first-then', () => {
     await redeemMode.getByRole('radio', { name: 'Start over', exact: true }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await gotoTab(page, 'chips');
 
     // Every seeded reward costs 5 chips; bank more than that before picking
     // one so "start over" (whole balance) and "subtract the cost" (only 5)
-    // would land on visibly different balances.
-    const board = page.getByRole('status', { name: /of 5 chips/ });
-    for (let i = 0; i < 7; i += 1) {
-      await page.getByRole('button', { name: /Add chip/ }).click();
+    // would land on visibly different balances. The chip board's tap
+    // targets cap at the location's goal (same as the + button they
+    // replaced), so there's no UI affordance for banking past it directly
+    // -- bank the extra the way a real caregiver would instead: check off
+    // seven starter tasks (each worth 1 chip) rather than five.
+    await gotoTab(page, 'today');
+    for (const name of ['Wake Up', 'Breakfast', 'Get Dressed', 'Brush Teeth', 'Lunch', 'Dinner', 'Bath Time']) {
+      await page.getByRole('checkbox', { name: new RegExp(`^${name},`) }).click();
     }
+    await gotoTab(page, 'chips');
+
+    const board = page.getByRole('status', { name: /of 5 chips/ });
     await expect(board).toHaveAttribute('aria-label', '5 of 5 chips');
 
     await page.getByRole('button', { name: /^Working for/ }).click();

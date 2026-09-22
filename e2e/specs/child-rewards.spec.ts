@@ -21,13 +21,12 @@ test.describe('child picks and redeems a reward', () => {
     await signUp(page, { name: 'Reward Tester' });
 
     // Every seeded reward (Ice cream included) costs 5 chips and the
-    // seeded Home location's goal is 5 too, so five manual chips make one
-    // affordable without touching any activity check-off (chips.spec.ts).
+    // seeded Home location's goal is 5 too, so one tap on the last chip
+    // (star-rating style) fills the board without touching any activity
+    // check-off (chips.spec.ts).
     await gotoTab(page, 'chips');
     const board = page.getByRole('status', { name: /of 5 chips/ });
-    for (let i = 0; i < 5; i += 1) {
-      await page.getByRole('button', { name: /Add chip/ }).click();
-    }
+    await page.getByRole('button', { name: 'Set chips to 5 of 5', exact: true }).click();
     await expect(board).toHaveAttribute('aria-label', '5 of 5 chips');
   });
 
@@ -67,6 +66,73 @@ test.describe('child picks and redeems a reward', () => {
     await expect(sheet).toBeHidden();
 
     await expect(chipStrip).toHaveAttribute('aria-label', /working for Ice cream/);
+  });
+
+  test('with child_picks_reward off, the child can still tap the board directly', async () => {
+    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await enterPin(page, '1234');
+    await page.waitForURL('**/today/', { timeout: 5_000 });
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.waitForURL('**/settings/');
+    await page.getByRole('button', { name: 'Edit profile' }).click();
+    await page.waitForURL('**/settings/profile/edit/**');
+    const pickToggle = page.getByRole('switch', { name: 'Child can choose the reward' });
+    await expect(pickToggle).toHaveAttribute('aria-checked', 'true');
+    await pickToggle.click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.waitForURL('**/settings/');
+
+    await page.getByRole('button', { name: /Lock this device to/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await expect(lockSheet).toBeVisible();
+    await lockSheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await page.waitForURL('**/child/');
+
+    // With child_picks_reward off, tapping the strip opens the "Chips"
+    // sheet (ChildToday's openWorkingFor) instead of the reward picker --
+    // its board is tappable too (lib/data/chips.ts's shared setFilled),
+    // the same star-rating interaction as the caregiver Chips tab.
+    const chipStrip = page.getByRole('button', { name: /of \d+ chips/ });
+    await expect(chipStrip).toHaveAttribute('aria-label', /^5 of 5 chips/);
+    await chipStrip.click();
+    const sheet = page.getByRole('dialog', { name: 'Chips' });
+    await expect(sheet).toBeVisible();
+    // Sheet.tsx's open() freezes whatever ReactNode it's given as a static
+    // snapshot -- WorkingForSheet is its own component with its own live
+    // hooks specifically so taps inside it keep updating (the sheet's own
+    // board, not just the header strip outside it) rather than staying
+    // stuck showing the fill level from the moment it opened.
+    const sheetStatus = sheet.getByRole('status', { name: /of \d+ chips/ });
+    await sheet.getByRole('button', { name: 'Set chips to 3 of 5', exact: true }).click();
+    await expect(sheetStatus).toHaveAttribute('aria-label', '3 of 5 chips');
+    await expect(chipStrip).toHaveAttribute('aria-label', /^3 of 5 chips/);
+
+    // Restore the balance and both settings for the tests that follow,
+    // which expect 5 of 5 chips, child_picks_reward on, and unlocked.
+    await sheet.getByRole('button', { name: 'Set chips to 5 of 5', exact: true }).click();
+    await expect(sheetStatus).toHaveAttribute('aria-label', '5 of 5 chips');
+    await expect(chipStrip).toHaveAttribute('aria-label', /^5 of 5 chips/);
+    await sheet.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(sheet).toBeHidden();
+
+    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await enterPin(page, '1234');
+    await page.waitForURL('**/today/', { timeout: 5_000 });
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.waitForURL('**/settings/');
+    await page.getByRole('button', { name: 'Edit profile' }).click();
+    await page.waitForURL('**/settings/profile/edit/**');
+    await page.getByRole('switch', { name: 'Child can choose the reward' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.waitForURL('**/settings/');
+
+    await page.getByRole('button', { name: /Lock this device to/ }).click();
+    const lockSheetAgain = page.getByRole('dialog', { name: 'Lock this device' });
+    await expect(lockSheetAgain).toBeVisible();
+    await lockSheetAgain.getByRole('button', { name: 'Lock', exact: true }).click();
+    await page.waitForURL('**/child/');
   });
 
   test('Free time: earned reward shows Redeem, redeeming drops the balance', async () => {
