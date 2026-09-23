@@ -1,4 +1,4 @@
-import { db } from '../db/db';
+import { db, type MediaBlobEntry } from '../db/db';
 import { apiBase } from '../api/base';
 import { getTokens } from '../api/client';
 import { getKv } from '../db/kv';
@@ -22,7 +22,10 @@ export async function uploadPending(): Promise<void> {
   for (const item of pending) {
     const form = new FormData();
     form.append('media_id', item.media_id);
-    form.append('file', new Blob([item.bytes], { type: item.type }), item.media_id);
+    const blob = localMediaBlob(item);
+    // Nothing usable to send: skip it rather than upload garbage; the server copy, if any, still serves.
+    if (!blob) continue;
+    form.append('file', blob, item.media_id);
 
     const res = await fetch(`${apiBase}/media`, { method: 'POST', headers, body: form });
     if (!res.ok) continue;
@@ -40,4 +43,18 @@ export async function uploadPending(): Promise<void> {
 
     await db.media_blobs.update(item.media_id, { uploaded: 1 });
   }
+}
+
+/**
+ * The photo in a local media_blobs row, or null if it has none usable.
+ * Rows written before the switch to ArrayBuffer storage hold a `blob`
+ * field instead of `bytes`; `new Blob([undefined])` doesn't throw, it
+ * quietly makes a blob of the text "undefined", which showed as a broken
+ * image and never fell back to the server copy.
+ */
+export function localMediaBlob(row: MediaBlobEntry | undefined): Blob | null {
+  if (!row) return null;
+  if (row.bytes instanceof ArrayBuffer && row.bytes.byteLength > 0) return new Blob([row.bytes], { type: row.type });
+  const legacy = (row as unknown as { blob?: unknown }).blob;
+  return legacy instanceof Blob && legacy.size > 0 ? legacy : null;
 }

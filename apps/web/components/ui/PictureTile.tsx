@@ -74,9 +74,13 @@ function PhotoImg({ url, name, size, classes }: { url: string; name: string; siz
   const src = attempt === 0 || url.startsWith('blob:') ? url : `${url}${url.includes('?') ? '&' : '?'}retry=${attempt}`;
   return (
     <span className={classes}>
-      {failed ? <Skeleton width="100%" height="100%" radius={size === 'grid' ? 'lg' : 'md'} /> : null}
-      {/* eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API */}
-      <img key={src} src={src} alt={name} className={styles.img} hidden={failed} onError={() => setFailed(true)} />
+      {/* Not rendered at all while waiting to retry: .img sets display:block, which overrides the `hidden` attribute. */}
+      {failed ? (
+        <Skeleton width="100%" height="100%" radius={size === 'grid' ? 'lg' : 'md'} />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API
+        <img key={src} src={src} alt={name} className={styles.img} onError={() => setFailed(true)} />
+      )}
     </span>
   );
 }

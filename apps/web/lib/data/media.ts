@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { newId } from '../ids';
 import { withBase } from '../api/base';
+import { localMediaBlob } from '../media/upload';
 
 export { uploadPending } from '../media/upload';
 
@@ -41,7 +42,10 @@ export async function pickAndStoreImage(file: File | Blob): Promise<string> {
 /** Object URL from the local bytes if we have them (revoked on unmount/change), else the API route. */
 export function useMediaUrl(mediaId: string | null | undefined): string | null {
   const row = useLiveQuery(() => (mediaId ? db.media_blobs.get(mediaId) : undefined), [mediaId]);
-  const objectUrl = useMemo(() => (row ? URL.createObjectURL(new Blob([row.bytes], { type: row.type })) : null), [row]);
+  const objectUrl = useMemo(() => {
+    const blob = localMediaBlob(row);
+    return blob ? URL.createObjectURL(blob) : null;
+  }, [row]);
 
   useEffect(() => {
     return () => {
