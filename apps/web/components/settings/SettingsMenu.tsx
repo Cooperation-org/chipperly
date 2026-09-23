@@ -209,7 +209,7 @@ export function SettingsMenu() {
               open(
                 <Confirm
                   title="Clear local data"
-                  body="This device's saved data will be cleared and reloaded from the server."
+                  body="This device's saved data and the cached app will be cleared, then reloaded from the server. You'll need to sign in again."
                   confirmLabel="Clear local data"
                   danger
                   onConfirm={() => void clearLocalData()}
