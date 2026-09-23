@@ -21,7 +21,8 @@ import {
   type DayItem,
   type StepNode,
 } from '@/lib/data/schedule';
-import { useActiveLocation } from '@/lib/data/locations';
+import { useActiveLocation, useLocations } from '@/lib/data/locations';
+import { Segmented } from '@/components/ui/Segmented';
 import { useMediaUrl } from '@/lib/data/media';
 import { useWorkingFor } from '@/lib/data/chips';
 import { Picker } from '@/components/picker/Picker';
@@ -55,7 +56,8 @@ export function TodayScreen() {
   const userId = user?.id ?? '';
 
   const dayItems = useDayItems(profileId, isoDate);
-  const { location } = useActiveLocation(profileId);
+  const { location, setActiveLocationId } = useActiveLocation(profileId);
+  const locations = useLocations(profileId);
   const workingFor = useWorkingFor(profileId, location?.id ?? null);
   const rewardPhotoUrl = useMediaUrl(workingFor.reward?.photo_id);
 
@@ -243,6 +245,15 @@ export function TodayScreen() {
   return (
     <div className={styles.screen}>
       <VerifyBanner />
+      {/* First thing on Today, not only in Settings: switching place right before handing the device to the child. */}
+      {locations.length > 1 ? (
+        <Segmented
+          label="Location"
+          items={locations.map((loc) => ({ value: loc.id, label: loc.name }))}
+          value={location?.id ?? ''}
+          onChange={setActiveLocationId}
+        />
+      ) : null}
       <DateNav isoDate={isoDate} onChange={setIsoDate} />
       <DayNote profileId={profileId} isoDate={isoDate} childName={profile.name} />
 

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, gotoCaregiverPin, reloadCaregiverPin, setCaregiverPin, signUp, snap, toast, unlockPinIfBounced } from '../helpers';
+import { expectNoOverflow, gotoCaregiverPin, gotoTab, reloadCaregiverPin, setCaregiverPin, signUp, snap, toast, unlockPinIfBounced } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -252,5 +252,18 @@ test.describe('today', () => {
     await expect.poll(() => sheet.getByText(/Up to date/).isVisible(), { timeout: 20_000 }).toBe(true);
     await sheet.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Synced', exact: true })).toBeVisible();
+  });
+  test('switch location from the top of Today, and Chips follows it', async () => {
+    // At the top of Today, not only in Settings: a caregiver switches place right before handing over the device.
+    const todayLocation = page.getByRole('radiogroup', { name: 'Location' });
+    await todayLocation.getByRole('radio', { name: 'School' }).click();
+    await expect(todayLocation.getByRole('radio', { name: 'School' })).toHaveAttribute('aria-checked', 'true');
+
+    await gotoTab(page, 'chips');
+    const chipsLocation = page.getByRole('radiogroup', { name: 'Location' });
+    await expect(chipsLocation.getByRole('radio', { name: 'School' })).toHaveAttribute('aria-checked', 'true');
+    await chipsLocation.getByRole('radio', { name: 'Home' }).click();
+    await gotoTab(page, 'today');
+    await expect(todayLocation.getByRole('radio', { name: 'Home' })).toHaveAttribute('aria-checked', 'true');
   });
 });
