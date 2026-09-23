@@ -5,6 +5,8 @@ import { Capacitor } from '@capacitor/core';
 import type { TimedAppAllowance } from '@chipperly/shared/schemas/profile';
 import type { Device } from '@chipperly/shared/schemas/device';
 import AppBlocker from '@/lib/native/appBlocker';
+import DeviceLocator from '@/lib/native/deviceLocator';
+import type { LocationPermissionState } from '@/lib/native/deviceLocator';
 import { api } from '@/lib/api/client';
 import { getDeviceId } from '@/lib/device/identity';
 import { BigButton } from '@/components/ui/BigButton';
@@ -48,6 +50,7 @@ export function AppBlockingScreen() {
   const [serviceEnabled, setServiceEnabled] = useState(false);
   const [deviceAdmin, setDeviceAdmin] = useState(false);
   const [deviceOwner, setDeviceOwner] = useState(false);
+  const [locationPerms, setLocationPerms] = useState<LocationPermissionState>({ foreground: false, background: false });
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [thisDeviceId, setThisDeviceId] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export function AppBlockingScreen() {
         setDeviceAdmin(admin);
         setDeviceOwner(owner);
       });
+      void DeviceLocator.getLocationPermissionState().then(setLocationPerms);
     }
     refreshServiceState();
     void refreshDevices();
@@ -221,6 +225,42 @@ export function AppBlockingScreen() {
               Turn on tamper-proof mode
             </Button>
           ) : null}
+        </div>
+      ) : null}
+
+      {isThisDevice ? (
+        <div className={styles.card}>
+          <div className={styles.controlRow}>
+            <span className={styles.controlLabel}>Location</span>
+            <span
+              className={[styles.badge, locationPerms.foreground && locationPerms.background ? styles.on : styles.off].join(' ')}
+            >
+              {locationPerms.foreground && locationPerms.background ? 'On' : locationPerms.foreground ? 'Partial' : 'Off'}
+            </span>
+          </div>
+          <p className={styles.hint}>
+            {!locationPerms.foreground
+              ? 'Needed for "Locate now" to report where this device is.'
+              : !locationPerms.background
+                ? '"Allow all the time" isn’t set yet, so a Locate request only works while Chipperly is already open. Open location settings and choose "Allow all the time."'
+                : '"Locate now" can report this device’s position, even if Chipperly isn’t open.'}
+          </p>
+          {!locationPerms.foreground ? (
+            <Button variant="secondary" onClick={() => void DeviceLocator.requestLocationPermission().then(setLocationPerms)}>
+              Grant location access
+            </Button>
+          ) : !locationPerms.background ? (
+            <Button variant="secondary" onClick={() => void DeviceLocator.openLocationSettings()}>
+              Open location settings
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+          <p className={styles.hint}>
+            On some phones (Xiaomi/MIUI, and similar OEM skins) this alone isn&rsquo;t enough &mdash; also check Settings &gt;
+            Apps &gt; Chipperly for an &ldquo;Autostart&rdquo; toggle and set its own battery saver to &ldquo;No
+            restrictions.&rdquo;
+          </p>
         </div>
       ) : null}
 

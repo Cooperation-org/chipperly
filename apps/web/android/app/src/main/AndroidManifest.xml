@@ -135,4 +135,13 @@
          app must declare these itself for the merger to include them. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- A locate_request FCM message (LocateRequestMessagingService) runs
+         with no foreground Activity, which Android counts as "background"
+         for location access regardless of what triggered it, and this is
+         required on top of the two above or getCurrentLocation silently
+         yields nothing there. Can't be requested in the same dialog as the
+         two above (Android 11+ drops it if you try); DeviceLocatorPlugin's
+         openLocationSettings sends the caregiver to grant it by hand
+         instead, same pattern as openAccessibilitySettings below. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 </manifest>
