@@ -1,5 +1,7 @@
 package org.chipperly.app;
 
+import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -43,6 +45,8 @@ public class AppBlockerPlugin extends Plugin {
     static final String KEY_ALLOWED_PACKAGES = "allowed_packages";
     /** JSON object string, {"packageName": allowedUntilEpochMs, ...} -- see ChipperlyBlockService.parseTimedAllowances. */
     static final String KEY_TIMED_ALLOWANCES = "timed_allowances";
+    /** Set by launchApp when it had to drop a non-Device-Owner pin to open an allowed app; MainActivity.onResume re-pins and clears it. */
+    static final String KEY_REPIN_ON_RETURN = "repin_on_return";
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -163,6 +167,17 @@ public class AppBlockerPlugin extends Plugin {
             return;
         }
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        // Plain screen pinning (no Device Owner, so no setLockTaskPackages
+        // allowlist) refuses to start any other app, allowed or not. Unpin
+        // for the trip; ChipperlyBlockService still enforces the allow-list
+        // meanwhile, and MainActivity.onResume pins again on the way back.
+        Activity activity = getActivity();
+        ActivityManager am = (ActivityManager) getContext().getSystemService(Context.ACTIVITY_SERVICE);
+        boolean pinned = am != null && am.getLockTaskModeState() != ActivityManager.LOCK_TASK_MODE_NONE;
+        if (pinned && !isDeviceOwnerApp() && activity != null) {
+            prefs().edit().putBoolean(KEY_REPIN_ON_RETURN, true).apply();
+            activity.stopLockTask();
+        }
         getContext().startActivity(launchIntent);
         call.resolve();
     }
