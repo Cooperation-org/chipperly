@@ -41,7 +41,11 @@ const runtimeCaching: RuntimeCaching[] = [
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   precacheOptions: { ignoreURLParametersMatching: [/.*/] },
-  skipWaiting: false,
+  // A new version takes over as soon as it's installed. With `false` it
+  // waited for every tab to close, which iOS Safari almost never does, so
+  // phones kept serving an old cached build indefinitely.
+  // SwRegister reloads the page once the new worker is in control.
+  skipWaiting: true,
   clientsClaim: true,
   runtimeCaching,
 });
