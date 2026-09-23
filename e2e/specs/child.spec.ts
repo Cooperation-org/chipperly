@@ -79,8 +79,8 @@ test.describe('child mode', () => {
   });
 
   test('child rows and check circles meet the minimum tap size', async () => {
-    // CheckCircle is a fixed 64px in child mode at every breakpoint
-    // (components/ui/CheckCircle.module.css); the row itself grows on
+    // CheckCircle follows --tap-child (app/styles/tokens.css): 64px from
+    // about 400px wide, ~62px on this 390px phone, never under 48px; the row itself grows on
     // tablets (components/child/ChildToday.module.css, >=768px: 96px rows,
     // ux-plan.md section 12).
     const checkbox = page.getByRole('checkbox', { name: /^Wake Up,/ });

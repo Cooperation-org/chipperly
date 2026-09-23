@@ -24,7 +24,9 @@
 }
 
 .label {
-  flex-shrink: 0;
+  /* May wrap on a narrow screen rather than overflow ("Screen time" beside a long summary). */
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: var(--text-md);
   color: var(--color-text);
 }

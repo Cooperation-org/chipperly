@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Capacitor } from '@capacitor/core';
 import { todayIso } from '@chipperly/shared/helpers/date';
@@ -135,6 +135,23 @@ export function ChildToday() {
   }, [running]);
 
   const [unlocking, setUnlocking] = useState(false);
+
+  // The bottom bar wraps to a second row on narrow screens; publish its real
+  // height (tokens.css --bottom-bar-h) so the list's bottom padding and the
+  // toast host clear it, instead of assuming one row.
+  const barObserver = useRef<ResizeObserver | null>(null);
+  const bottomBarRef = useCallback((bar: HTMLDivElement | null) => {
+    const root = document.documentElement;
+    barObserver.current?.disconnect();
+    barObserver.current = null;
+    if (!bar) {
+      root.style.removeProperty('--bottom-bar-h');
+      return;
+    }
+    if (typeof ResizeObserver === 'undefined') return;
+    barObserver.current = new ResizeObserver(() => root.style.setProperty('--bottom-bar-h', `${bar.offsetHeight}px`));
+    barObserver.current.observe(bar);
+  }, []);
   // Tiles layout only: whether My Day (the list) is open instead of the tile home.
   const [showDay, setShowDay] = useState(false);
   const [timerOpen, setTimerOpen] = useState(false);
@@ -531,7 +548,7 @@ export function ChildToday() {
       ) : null}
 
       {showBottomBar ? (
-        <div className={styles.bottomBar}>
+        <div className={styles.bottomBar} ref={bottomBarRef}>
           {options.show_free_time ? (
             <BigButton
               variant="secondary"

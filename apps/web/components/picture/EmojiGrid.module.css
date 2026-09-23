@@ -1,16 +1,18 @@
 .grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  /* As many columns as fit (6 on a normal phone); a fixed 6 x 48px ran off narrow screens. Cells never under the 44px AAA target. */
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
   gap: var(--space-2);
 }
 
 .cell {
-  width: 48px;
-  height: 48px;
+  width: 100%;
+  min-width: 44px;
+  aspect-ratio: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: clamp(1.25rem, 5vw, 1.5rem);
   line-height: 1;
   background: var(--color-surface-2);
   border: 2px solid transparent;

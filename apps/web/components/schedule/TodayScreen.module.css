@@ -110,7 +110,7 @@
 }
 
 .emptyEmoji {
-  font-size: 3rem;
+  font-size: clamp(2rem, 10vw, 3rem);
   line-height: 1;
 }
 

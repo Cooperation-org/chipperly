@@ -23,12 +23,16 @@
   --font-heading: 'Alegreya', var(--font-emoji, 'Twemoji Mozilla'), Georgia, serif;
   --font-body: 'Alegreya Sans', var(--font-emoji, 'Twemoji Mozilla'), system-ui, sans-serif;
 
-  /* Type scale: one body size, one secondary, one heading, one display */
-  --text-sm: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.25rem;
-  --text-xl: 2rem;
-  --text-2xl: 3rem;
+  /* Type scale: one body size, one secondary, one heading, one display.
+     Fluid: full size from about 400px wide, shrinking on narrower screens
+     (small phones, split screen) down to a readable floor, so words fit
+     instead of breaking mid-word. The floors never go under 13px, 15px for
+     body text. */
+  --text-sm: clamp(0.8125rem, 0.75rem + 0.5vw, 0.875rem);
+  --text-md: clamp(0.9375rem, 0.875rem + 0.5vw, 1rem);
+  --text-lg: clamp(1.0625rem, 0.95rem + 1.2vw, 1.25rem);
+  --text-xl: clamp(1.5rem, 1.1rem + 3.4vw, 2rem);
+  --text-2xl: clamp(2rem, 1.4rem + 5.4vw, 3rem);
 
   /* Spacing, 8px grid */
   --space-1: 4px;
@@ -46,10 +50,12 @@
 
   /* Touch targets and picture tile sizes */
   --tap: 48px;
-  --tap-child: 64px;
+  /* Child tap targets and tiles shrink on narrow screens too, never under
+     48px: above the 44px AAA target size. */
+  --tap-child: clamp(48px, 16vw, 64px);
   --tile-list: 48px;
-  --tile-grid: 96px;
-  --tile-child: 72px;
+  --tile-grid: clamp(72px, 24vw, 96px);
+  --tile-child: clamp(40px, 16vw, 72px);
 
   /* Shell chrome */
   --topbar-h: 56px;
@@ -80,7 +86,8 @@
 /* Child mode: bigger type, bigger touch targets, everywhere */
 :root[data-mode='child'],
 html[data-mode='child'] {
-  font-size: 20px;
+  /* 20px from about 400px wide, 16px floor on the narrowest screens. */
+  font-size: clamp(16px, 3.6px + 4.1vw, 20px);
   --tap: var(--tap-child);
   /* ponytail: no TabBar/TabRail in child mode, so --tabbar-h doesn't apply.
      ChildToday's .bottomBar is icon + up to 2 lines of label; this estimate

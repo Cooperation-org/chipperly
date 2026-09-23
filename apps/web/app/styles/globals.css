@@ -8,6 +8,8 @@
 
 html,
 body {
+  overflow-wrap: break-word;
+  hyphens: auto;
   padding: 0;
   margin: 0;
 }
@@ -61,7 +63,7 @@ a {
 
 /* Child mode: bigger everything (CONTRACTS.md "Design tokens"). */
 [data-mode='child'] {
-  font-size: 20px;
+  font-size: clamp(16px, 3.6px + 4.1vw, 20px);
   --tap: var(--tap-child);
 }
 

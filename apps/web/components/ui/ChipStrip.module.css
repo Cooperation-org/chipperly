@@ -1,5 +1,7 @@
 .strip {
   display: flex;
+  /* The reward drops below the chips when both don't fit, instead of squeezing the chips onto two lines. */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   min-height: 48px;
@@ -25,11 +27,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-  font-size: 16px;
+  font-size: clamp(14px, 4vw, 16px);
 }
 
 .lg .chips {
-  font-size: 22px;
+  font-size: clamp(16px, 5.5vw, 22px);
 }
 
 .chip {

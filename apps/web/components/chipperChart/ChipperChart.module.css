@@ -61,7 +61,7 @@
 .bigEmoji {
   display: block;
   text-align: center;
-  font-size: 4rem;
+  font-size: clamp(2.75rem, 14vw, 4rem);
   line-height: 1;
 }
 

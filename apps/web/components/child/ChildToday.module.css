@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: var(--space-4);
   min-height: 100dvh;
-  padding-bottom: calc(var(--space-6) + var(--space-5));
+  padding-bottom: calc(var(--bottom-bar-h) + var(--space-4));
   /* ux-plan.md "must not have ... pull-to-refresh"; belt for the JS overscroll-behavior effect. */
   overscroll-behavior-y: contain;
 }
@@ -99,7 +99,7 @@
 .row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: clamp(var(--space-2), 3vw, var(--space-3));
   min-height: 72px;
   padding: var(--space-1);
 }
@@ -211,9 +211,26 @@
   border-top: 1px solid var(--color-border);
 }
 
-.bottomBar > * {
-  flex: 1;
+.bottomBar {
+  flex-wrap: wrap;
+}
+
+/* Tab-bar style: icon above label and small side padding (BigButton's own
+   32px each side was most of a third of the bar). Three fit in one row on a
+   normal phone; on a very narrow screen they wrap rather than cut words. */
+/* `> button` (not `> *`): same-specificity rules from BigButton.module.css load later and would win. */
+.bottomBar > button {
+  flex: 1 1 5rem;
   min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2);
+  line-height: 1.15;
+  text-align: center;
+}
+
+.bottomBar .emojiGlyph {
+  margin-right: 0;
 }
 
 .emojiGlyph {
@@ -256,7 +273,7 @@
 }
 
 .tileEmoji {
-  font-size: 3.5rem;
+  font-size: clamp(2.5rem, 12vw, 3.5rem);
   line-height: 1;
 }
 
@@ -276,7 +293,7 @@
 }
 
 .restingMoon {
-  font-size: 5rem;
+  font-size: clamp(3.5rem, 20vw, 5rem);
   line-height: 1;
 }
 

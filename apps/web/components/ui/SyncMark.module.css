@@ -44,7 +44,7 @@
   border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-primary-ink);
-  font-size: 10px;
+  font-size: clamp(9px, 2.6vw, 10px);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
