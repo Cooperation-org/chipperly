@@ -424,6 +424,11 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     if (!allowed) throw new AppError(403, 'forbidden', 'Cannot lock to this profile');
 
     await db.update(sessions).set({ locked_profile_id: body.profile_id }).where(eq(sessions.id, authUser.session_id));
+    // Set here, not left to the client's own profile write: that write is
+    // pushed after this call, when the session is already locked, and the
+    // sync lock gate refuses `profiles` -- so the server kept blocking off
+    // and the next pull elsewhere (reinstall, a caregiver edit) turned it off.
+    await setChildModeActive(body.profile_id, true);
     return { locked_profile_id: body.profile_id };
   });
 
@@ -437,7 +442,9 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
       throw new AppError(401, 'invalid_pin', 'Wrong PIN');
     }
 
+    const [session] = await db.select({ locked_profile_id: sessions.locked_profile_id }).from(sessions).where(eq(sessions.id, authUser.session_id)).limit(1);
     await db.update(sessions).set({ locked_profile_id: null }).where(eq(sessions.id, authUser.session_id));
+    await setChildModeActive(session?.locked_profile_id ?? null, false);
     return { locked_profile_id: null };
   });
 

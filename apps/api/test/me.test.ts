@@ -161,6 +161,10 @@ describe('POST /me/lock, POST /me/unlock', () => {
       payload: { profile_id: profileId },
     });
     expect(lock.statusCode).toBe(200);
+    // The client's own child_mode_active write lands after this, when the
+    // lock gate already refuses `profiles` -- so the lock itself must set it.
+    const [afterLock] = await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId));
+    expect(afterLock!.settings.child_mode_active).toBe(true);
 
     const gatedPush = await request(app, {
       method: 'POST',
@@ -194,6 +198,8 @@ describe('POST /me/lock, POST /me/unlock', () => {
     });
     expect(rightPin.statusCode).toBe(200);
     expect(rightPin.json()).toEqual({ locked_profile_id: null });
+    const [afterUnlock] = await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId));
+    expect(afterUnlock!.settings.child_mode_active).toBe(false);
   });
 
   it('rejects locking to a profile outside the caller\'s account', async () => {
