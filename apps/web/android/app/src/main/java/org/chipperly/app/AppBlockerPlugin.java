@@ -7,6 +7,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.net.Uri;
+import android.os.Build;
+import android.os.PowerManager;
 import android.os.UserManager;
 import android.provider.Settings;
 
@@ -226,6 +229,34 @@ public class AppBlockerPlugin extends Plugin {
         // Android requires the caregiver to flip this on manually in system
         // Settings -- an app can never enable its own accessibility service.
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+        call.resolve();
+    }
+
+    /**
+     * Whether Doze/App Standby is allowed to defer this app. When it isn't
+     * exempt, a killed/backgrounded process means ChipperlyBlockService's
+     * redirect back to Chipperly is a cold start (new WebView, new JS boot)
+     * instead of just bringing the existing task forward -- the slow
+     * block/reopen a caregiver sees. This is a stock Android exemption
+     * (requestIgnoreBatteryOptimizations, below); it does not cover MIUI's
+     * separate, OEM-only Autostart toggle, which no public API can set.
+     */
+    @PluginMethod
+    public void isIgnoringBatteryOptimizations(PluginCall call) {
+        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        JSObject result = new JSObject();
+        result.put("ignoring", Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+            || (pm != null && pm.isIgnoringBatteryOptimizations(getContext().getPackageName())));
+        call.resolve(result);
+    }
+
+    /** Opens the OS's own "Allow [app] to ignore battery optimizations?" dialog -- same disclosed-step requirement as openAccessibilitySettings/requestDeviceAdmin. */
+    @PluginMethod
+    public void requestIgnoreBatteryOptimizations(PluginCall call) {
+        Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+        intent.setData(Uri.parse("package:" + getContext().getPackageName()));
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
         call.resolve();

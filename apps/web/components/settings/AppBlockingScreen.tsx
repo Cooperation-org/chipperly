@@ -51,6 +51,7 @@ export function AppBlockingScreen() {
   const [deviceAdmin, setDeviceAdmin] = useState(false);
   const [deviceOwner, setDeviceOwner] = useState(false);
   const [locationPerms, setLocationPerms] = useState<LocationPermissionState>({ foreground: false, background: false });
+  const [ignoringBattery, setIgnoringBattery] = useState(false);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [thisDeviceId, setThisDeviceId] = useState<string | null>(null);
@@ -73,6 +74,7 @@ export function AppBlockingScreen() {
         setDeviceOwner(owner);
       });
       void DeviceLocator.getLocationPermissionState().then(setLocationPerms);
+      void AppBlocker.isIgnoringBatteryOptimizations().then(({ ignoring }) => setIgnoringBattery(ignoring));
     }
     refreshServiceState();
     void refreshDevices();
@@ -256,6 +258,25 @@ export function AppBlockingScreen() {
           ) : null}
         </div>
       ) : null}
+
+      {isThisDevice ? (
+        <div className={styles.card}>
+          <div className={styles.controlRow}>
+            <span className={styles.controlLabel}>Background reliability</span>
+            <span className={[styles.badge, ignoringBattery ? styles.on : styles.off].join(' ')}>
+              {ignoringBattery ? 'On' : 'Off'}
+            </span>
+          </div>
+          <p className={styles.hint}>
+            {ignoringBattery
+              ? 'Android won’t defer Chipperly to save battery, so bringing it back over a blocked app should be quick.'
+              : 'Without this, Android may pause Chipperly in the background, so bringing it back over a blocked app can take a few seconds instead of being instant.'}
+          </p>
+          {!ignoringBattery ? (
+            <Button variant="secondary" onClick={() => void AppBlocker.requestIgnoreBatteryOptimizations()}>
+              Allow running in background
+            </Button>
+          ) : null}
           <p className={styles.hint}>
             On some phones (Xiaomi/MIUI, and similar OEM skins) this alone isn&rsquo;t enough &mdash; also check Settings &gt;
             Apps &gt; Chipperly for an &ldquo;Autostart&rdquo; toggle and set its own battery saver to &ldquo;No

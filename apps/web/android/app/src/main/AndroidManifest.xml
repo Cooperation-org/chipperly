@@ -144,4 +144,8 @@
          openLocationSettings sends the caregiver to grant it by hand
          instead, same pattern as openAccessibilitySettings below. -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- AppBlockerPlugin.requestIgnoreBatteryOptimizations: lets the caregiver
+         exempt Chipperly from Doze/App Standby so ChipperlyBlockService's
+         relaunch of a blocked app doesn't have to cold-start a killed process. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 </manifest>

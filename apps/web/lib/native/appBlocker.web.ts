@@ -20,4 +20,8 @@ export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
     return { deviceAdmin: false, deviceOwner: false };
   }
   async requestDeviceAdmin(): Promise<void> {}
+  async isIgnoringBatteryOptimizations(): Promise<{ ignoring: boolean }> {
+    return { ignoring: false };
+  }
+  async requestIgnoreBatteryOptimizations(): Promise<void> {}
 }

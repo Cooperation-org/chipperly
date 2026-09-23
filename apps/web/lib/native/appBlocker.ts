@@ -39,6 +39,10 @@ export interface AppBlockerPlugin {
   getTamperProofState(): Promise<{ deviceAdmin: boolean; deviceOwner: boolean }>;
   /** Opens the OS's own "Activate this device admin app?" screen. No ADB, no computer -- Android just requires it be a manual, disclosed step, same as openAccessibilitySettings. */
   requestDeviceAdmin(): Promise<void>;
+  /** Whether Doze/App Standby is allowed to defer this app. When false, a backgrounded/killed device means ChipperlyBlockService's redirect back to Chipperly is a cold start, not an instant foreground-bring. Doesn't cover MIUI's separate Autostart toggle -- no public API sets that one. */
+  isIgnoringBatteryOptimizations(): Promise<{ ignoring: boolean }>;
+  /** Opens the OS's own "Allow to ignore battery optimizations?" dialog, same disclosed-step requirement as the two above. */
+  requestIgnoreBatteryOptimizations(): Promise<void>;
 }
 
 const AppBlocker = registerPlugin<AppBlockerPlugin>('AppBlocker', {
