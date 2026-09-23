@@ -56,11 +56,18 @@ export function SettingsMenu() {
   const role = accounts.find((a) => a.account.id === profile?.account_id)?.role;
   const isAdmin = role === 'admin';
 
-  function clearLocalData(): void {
+  // Also drops the service worker and its caches: without that, a "cleared"
+  // device kept serving the old cached build.
+  async function clearLocalData(): Promise<void> {
     close();
-    void db
-      .delete()
-      .then(() => window.location.reload());
+    await db.delete();
+    if ('serviceWorker' in navigator) {
+      for (const registration of await navigator.serviceWorker.getRegistrations()) await registration.unregister();
+    }
+    if ('caches' in window) {
+      for (const key of await caches.keys()) await caches.delete(key);
+    }
+    window.location.reload();
   }
 
   return (
@@ -205,7 +212,7 @@ export function SettingsMenu() {
                   body="This device's saved data will be cleared and reloaded from the server."
                   confirmLabel="Clear local data"
                   danger
-                  onConfirm={clearLocalData}
+                  onConfirm={() => void clearLocalData()}
                   onCancel={close}
                 />,
               )
