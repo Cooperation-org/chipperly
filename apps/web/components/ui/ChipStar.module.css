@@ -14,7 +14,8 @@
 }
 
 .muted .ray {
-  fill: var(--color-border);
+  /* --color-border is a faint divider tone, under the 3:1 a non-text graphic needs. */
+  fill: var(--color-text-muted);
 }
 
 .positive {

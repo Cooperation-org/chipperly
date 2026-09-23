@@ -338,16 +338,19 @@ export function ChildToday() {
           </button>
         ) : null}
         {workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation) ? (
-          <ChipStrip
-            filled={workingFor.filled}
-            total={workingFor.goal}
-            reward={
-              workingFor.reward
-                ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, name: workingFor.reward.name }
-                : undefined
-            }
-            onTap={canPickReward ? openPickReward : openWorkingFor}
-          />
+          <div className={styles.chipRow}>
+            <ChipStrip
+              size="lg"
+              filled={workingFor.filled}
+              total={workingFor.goal}
+              reward={
+                workingFor.reward
+                  ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, name: workingFor.reward.name }
+                  : undefined
+              }
+              onTap={canPickReward ? openPickReward : openWorkingFor}
+            />
+          </div>
         ) : null}
         <IconButton
           icon="lock"

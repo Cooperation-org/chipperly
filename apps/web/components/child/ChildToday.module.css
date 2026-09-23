@@ -10,6 +10,7 @@
 
 .header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   padding-top: var(--space-2);
@@ -29,6 +30,12 @@
   font-size: var(--text-xl);
   line-height: 1.1;
   overflow-wrap: break-word;
+}
+
+/* Own row under name + lock: sharing their row squeezed the name box until the text ran under the chips. */
+.chipRow {
+  order: 3;
+  flex-basis: 100%;
 }
 
 .lockButton {
