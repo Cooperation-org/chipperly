@@ -32,3 +32,8 @@
   font-size: var(--text-xl);
   font-weight: 600;
 }
+
+.until {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}

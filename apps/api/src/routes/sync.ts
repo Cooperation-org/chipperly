@@ -281,8 +281,58 @@ async function applyAppendOnly(tx: Sql, mutation: Mutation, userId: string): Pro
   // applyDelete and applyUpsert below.
   const row: SyncRow = { ...(parsed.data as SyncRow), id: mutation.id, updated_by: userId };
 
-  await tx`insert into ${tx(mutation.table)} ${tx(row)} on conflict (id) do nothing`;
+  const inserted = await tx`insert into ${tx(mutation.table)} ${tx(row)} on conflict (id) do nothing returning id`;
+  // Only on a genuinely new row: a replayed push of the same redeem must not grant twice.
+  if (inserted.length > 0 && mutation.table === 'chip_ledger' && row.reason === 'redeem') {
+    await grantScreenTime(tx, row.profile_id as string, row.ref_id as string | null, Date.now());
+  }
   return { ok: true };
+}
+
+/**
+ * Redeeming a screen-time reward grants each of its apps a timed allowance,
+ * stacked onto any time still left rather than replacing it. Server-side
+ * because a locked child device can't write profile settings (the lock
+ * gate refuses `profiles`), and one place means one grant per redeem.
+ * client_updated_at moves to now so a device still holding an older copy
+ * of the profile gets this one back (stale) instead of overwriting it.
+ */
+async function grantScreenTime(tx: Sql, profileId: string, rewardId: string | null, nowMs: number): Promise<void> {
+  if (!rewardId) return;
+  const [reward] = await tx`
+    select screen_time_minutes, screen_time_packages from rewards
+    where id = ${rewardId} and profile_id = ${profileId} and deleted_at is null
+  `;
+  const minutes = reward?.screen_time_minutes as number | null | undefined;
+  const packages = (reward?.screen_time_packages as string[] | null | undefined) ?? [];
+  if (!minutes || packages.length === 0) return;
+
+  const [profile] = await tx`select settings from profiles where id = ${profileId} for update`;
+  if (!profile) return;
+  const settings = (profile.settings ?? {}) as { timed_app_allowances?: { package_name: string; allowed_until: number }[] };
+  const allowances = nextAllowances(settings.timed_app_allowances ?? [], packages, minutes, nowMs);
+  await tx`
+    update profiles
+    set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{timed_app_allowances}', ${JSON.stringify(allowances)}::jsonb),
+        client_updated_at = ${nowMs}
+    where id = ${profileId}
+  `;
+}
+
+/** Pure: drop expired grants, then add `minutes` to each package, starting from now or from its time still left. */
+export function nextAllowances(
+  current: { package_name: string; allowed_until: number }[],
+  packages: string[],
+  minutes: number,
+  nowMs: number,
+): { package_name: string; allowed_until: number }[] {
+  const live = current.filter((a) => a.allowed_until > nowMs);
+  const byPackage = new Map(live.map((a) => [a.package_name, a.allowed_until]));
+  for (const pkg of packages) {
+    const from = Math.max(byPackage.get(pkg) ?? nowMs, nowMs);
+    byPackage.set(pkg, from + minutes * 60_000);
+  }
+  return [...byPackage].map(([package_name, allowed_until]) => ({ package_name, allowed_until }));
 }
 
 async function applyDelete(tx: Sql, mutation: Mutation, userId: string): Promise<ApplyResult> {

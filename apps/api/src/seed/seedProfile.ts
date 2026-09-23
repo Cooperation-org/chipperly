@@ -65,6 +65,8 @@ export async function seedProfile(tx: Tx, profileId: string, updatedBy: string):
       // All defaults cost chips, including the three screen-time rewards.
       always_available: false,
       position,
+      screen_time_minutes: reward.screen_time_minutes ?? null,
+      screen_time_packages: null,
     })),
   );
 }

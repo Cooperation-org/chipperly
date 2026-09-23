@@ -14,7 +14,7 @@ import { profiles } from '../src/db/schema/profiles.js';
 import { buildTestApp, expectShape, request } from './helpers.js';
 import { addMember, createUser, setupProfile, type TestProfileSetup } from './fixtures.js';
 import { sql } from '../src/db/client.js';
-import { TABLE_SCHEMAS } from '../src/routes/sync.js';
+import { TABLE_SCHEMAS, nextAllowances } from '../src/routes/sync.js';
 
 /** Every row of every table in a pull's `changes`, checked against that table's own shared row schema. */
 function expectChangesShape(changes: Record<string, unknown[]>): void {
@@ -625,6 +625,68 @@ describe('sync', () => {
     const body = expectShape(locked, SyncPushResponseSchema);
     expect(body.rejected).toEqual([]);
     expect(body.applied.sort()).toEqual([ledgerId, locationId].sort());
+  });
+
+  it('redeeming a screen-time reward grants its apps time, once per redeem, stacking onto time left', async () => {
+    const { admin, profileId } = await setupProfile();
+    const rewardId = uuidv7();
+    const t0 = Date.now();
+    const youtube = 'com.google.android.youtube';
+    await pushRequest(app, admin.token, profileId, [
+      {
+        table: 'rewards',
+        id: rewardId,
+        op: 'upsert',
+        row: {
+          id: rewardId, profile_id: profileId, version: 0, client_updated_at: t0, updated_by: admin.id, deleted_at: null,
+          name: 'Screen Time - 15 min', emoji: null, photo_id: null, chip_cost: 5, location_id: null, always_available: false, position: 0,
+          screen_time_minutes: 15, screen_time_packages: [youtube],
+        },
+        client_updated_at: t0,
+      },
+    ]);
+
+    async function allowanceUntil(): Promise<number | undefined> {
+      const [row] = await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId));
+      return row!.settings.timed_app_allowances?.find((a) => a.package_name === youtube)?.allowed_until;
+    }
+
+    // Redeemed from a locked child device: the lock gate refuses `profiles`, so only the server can grant this.
+    const ledgerId = uuidv7();
+    const redeem = { table: 'chip_ledger', id: ledgerId, op: 'upsert' as const, row: chipLedgerRow(ledgerId, profileId, admin.id, t0 + 1, { delta: -5, reason: 'redeem', ref_id: rewardId }), client_updated_at: t0 + 1 };
+    const before = Date.now();
+    await pushRequest(app, admin.token, profileId, [redeem], true);
+    const first = await allowanceUntil();
+    expect(first).toBeGreaterThanOrEqual(before + 15 * 60_000);
+    expect(first).toBeLessThanOrEqual(Date.now() + 15 * 60_000);
+
+    // A replayed push of the same redeem is a no-op append, so no second grant.
+    await pushRequest(app, admin.token, profileId, [redeem]);
+    expect(await allowanceUntil()).toBe(first);
+
+    const secondId = uuidv7();
+    await pushRequest(app, admin.token, profileId, [
+      { table: 'chip_ledger', id: secondId, op: 'upsert', row: chipLedgerRow(secondId, profileId, admin.id, t0 + 2, { delta: -5, reason: 'redeem', ref_id: rewardId }), client_updated_at: t0 + 2 },
+    ]);
+    expect(await allowanceUntil()).toBe(first! + 15 * 60_000);
+  });
+
+  it('nextAllowances drops expired grants and starts a fresh one from now', () => {
+    const now = 1_000_000;
+    expect(
+      nextAllowances(
+        [
+          { package_name: 'a', allowed_until: now - 1 },
+          { package_name: 'b', allowed_until: now + 5 * 60_000 },
+        ],
+        ['a'],
+        10,
+        now,
+      ),
+    ).toEqual([
+      { package_name: 'b', allowed_until: now + 5 * 60_000 },
+      { package_name: 'a', allowed_until: now + 10 * 60_000 },
+    ]);
   });
 
   it('a locked child cannot pick a different reward when child_picks_reward is off', async () => {

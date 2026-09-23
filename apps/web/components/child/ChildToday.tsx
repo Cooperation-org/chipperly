@@ -24,6 +24,7 @@ import { useWorkingFor } from '@/lib/data/chips';
 import { useMediaUrl } from '@/lib/data/media';
 import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
+import { now } from '@/lib/clock';
 import { Picture } from '@/components/media/Picture';
 import { ChipStrip } from '@/components/ui/ChipStrip';
 import { CheckCircle } from '@/components/ui/CheckCircle';
@@ -296,7 +297,10 @@ export function ChildToday() {
   }
 
   const allowedApps = profile?.settings.allowed_app_packages ?? [];
-  const showAllowedApps = Boolean(profile?.settings.child_mode_active) && allowedApps.length > 0 && Capacitor.getPlatform() === 'android';
+  // A redeemed screen-time reward counts too, so its app is reachable from here while its time lasts.
+  const hasTimedApps = (profile?.settings.timed_app_allowances ?? []).some((a) => a.allowed_until > now());
+  const showAllowedApps =
+    Boolean(profile?.settings.child_mode_active) && (allowedApps.length > 0 || hasTimedApps) && Capacitor.getPlatform() === 'android';
   const showBottomBar = options.show_free_time || options.show_first_then || options.show_chipper_chart || showAllowedApps || running;
   const canPickReward = profile?.settings.child_picks_reward !== false;
 
@@ -502,7 +506,7 @@ export function ChildToday() {
             <BigButton
               variant="secondary"
               icon="grid"
-              onClick={() => sheet.open(<AllowedAppsSheet allowedPackages={allowedApps} />, { title: 'Apps' })}
+              onClick={() => sheet.open(<AllowedAppsSheet profileId={profileId} />, { title: 'Apps' })}
             >
               Apps
             </BigButton>

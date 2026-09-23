@@ -11,6 +11,8 @@ export interface DefaultItem {
   readonly recurrence?: 'daily' | 'weekdays' | 'weekends';
   /** HH:MM, optional; orders the starter plan and picks its part of day. */
   readonly recurrence_time?: string;
+  /** Rewards only: minutes of screen time it buys; the caregiver still picks which apps. */
+  readonly screen_time_minutes?: number;
 }
 
 export const DEFAULT_ACTIVITIES: readonly DefaultItem[] = [
@@ -48,9 +50,9 @@ export const DEFAULT_ACTIVITIES: readonly DefaultItem[] = [
 
 export const DEFAULT_REWARDS: readonly DefaultItem[] = [
   { name: 'Ice cream', emoji: '🍦' },
-  { name: 'Screen Time - 15 min', emoji: '📱' },
-  { name: 'Screen Time - 30 min', emoji: '📱' },
-  { name: 'Screen Time - 1 hour', emoji: '📱' },
+  { name: 'Screen Time - 15 min', emoji: '📱', screen_time_minutes: 15 },
+  { name: 'Screen Time - 30 min', emoji: '📱', screen_time_minutes: 30 },
+  { name: 'Screen Time - 1 hour', emoji: '📱', screen_time_minutes: 60 },
   { name: 'Park Visit', emoji: '🌳' },
   { name: 'Movie Time', emoji: '🎬' },
   { name: 'Toy', emoji: '🧸' },

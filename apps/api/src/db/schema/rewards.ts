@@ -14,6 +14,8 @@ export const rewards = pgTable(
     /** True = free-time choice-board tile, costs nothing. */
     always_available: boolean('always_available').notNull().default(false),
     position: integer('position').notNull(),
+    screen_time_minutes: integer('screen_time_minutes'),
+    screen_time_packages: text('screen_time_packages').array(),
   },
   (t) => [index('rewards_profile_version_idx').on(t.profile_id, t.version)],
 );

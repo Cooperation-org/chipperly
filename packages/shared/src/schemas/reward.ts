@@ -11,5 +11,16 @@ export const RewardSchema = SyncColumnsSchema.extend({
   /** True = free-time choice board tile, costs nothing. */
   always_available: z.boolean(),
   position: z.number().int(),
+  /**
+   * Screen time this reward buys: redeeming it grants each app in
+   * `screen_time_packages` this many minutes as a timed app allowance
+   * (profile.ts TimedAppAllowanceSchema), stacked onto any time still left.
+   * The server grants it (routes/sync.ts) when the redeem row lands, so a
+   * locked child device never has to write profile settings itself.
+   * Optional so rows written before these columns existed still parse.
+   */
+  screen_time_minutes: z.number().int().positive().nullable().optional(),
+  /** Android package names; empty or null means no app is chosen yet, so redeeming grants nothing. */
+  screen_time_packages: z.array(z.string()).nullable().optional(),
 });
 export type Reward = z.infer<typeof RewardSchema>;
