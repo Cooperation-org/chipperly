@@ -42,14 +42,14 @@ test.describe('visual schedule', () => {
 
     await page.getByLabel('Name', { exact: true }).fill('Get Ready');
     await page.getByRole('button', { name: /^Steps/ }).click();
-    await page.getByRole('button', { name: 'Add step', exact: true }).click();
+    await page.getByRole('button', { name: 'Type a new step', exact: true }).click();
     await page.getByLabel('Step 1', { exact: true }).fill('Brush teeth');
 
     // Break down the same step (its own button is always the first one in
     // document order) twice, giving it two sub-steps.
-    await page.getByRole('button', { name: 'Break down', exact: true }).nth(0).click();
+    await page.getByRole('button', { name: 'Add sub-steps', exact: true }).nth(0).click();
     await page.getByLabel('Step 2', { exact: true }).fill('Turn on tap');
-    await page.getByRole('button', { name: 'Break down', exact: true }).nth(0).click();
+    await page.getByRole('button', { name: 'Add sub-steps', exact: true }).nth(0).click();
     await page.getByLabel('Step 3', { exact: true }).fill('Rinse');
 
     await expectNoOverflow(page, 'S9 activity form with a broken-down step');

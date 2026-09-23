@@ -52,8 +52,8 @@ test.describe('routines', () => {
     await expect(page.getByLabel('Step 1', { exact: true })).toBeFocused();
     await page.getByLabel('Step 1', { exact: true }).fill('Wash hands');
 
-    await page.getByRole('button', { name: 'Add step', exact: true }).click();
-    await page.getByRole('button', { name: 'From activity', exact: true }).nth(1).click();
+    await page.getByRole('button', { name: 'Type a new step', exact: true }).click();
+    await page.getByRole('button', { name: 'Change picture', exact: true }).nth(1).click();
 
     const fromActivitySheet = page.getByRole('dialog', { name: 'Choose an activity' });
     await expect(fromActivitySheet).toBeVisible();
@@ -127,7 +127,7 @@ test.describe('routines', () => {
     await page.locator('button[class*="ListRow_main"]', { hasText: 'Morning Routine' }).click();
     await page.waitForURL('**/activity/edit/**');
 
-    await page.getByRole('button', { name: 'Add step', exact: true }).click();
+    await page.getByRole('button', { name: 'Type a new step', exact: true }).click();
     await page.getByLabel('Step 3', { exact: true }).fill('Get dressed');
     await page.getByLabel('Minutes for step 3', { exact: true }).fill('5');
     await page.getByRole('button', { name: 'Save', exact: true }).click();

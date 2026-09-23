@@ -92,26 +92,47 @@
 }
 
 .stepRow {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-2);
+  /* Picture | name | move/remove on the first line, the step's own tools
+     (picture, sub-steps, minutes) on a second line that can wrap: one flex
+     line squeezed every label on a phone. */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'pic name actions'
+    'pic tools tools';
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
   padding-left: calc(var(--space-3) * var(--depth, 0));
 }
 
+/* Narrow screens: the move/remove buttons get their own line, or the name field collapses to a few pixels. */
+@media (max-width: 359px) {
+  .stepRow {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'pic name'
+      'pic tools'
+      'pic actions';
+  }
+}
+
+.stepRow > :first-child {
+  grid-area: pic;
+  align-self: start;
+}
+
 .stepMain {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  gap: var(--space-1);
+  display: contents;
 }
 
 .stepInput {
+  grid-area: name;
   min-width: 0;
 }
 
 .fromActivityButton {
-  align-self: flex-start;
+  white-space: nowrap;
   min-height: var(--tap);
   padding: 0 var(--space-2);
   margin: 0 calc(-1 * var(--space-2));
@@ -128,10 +149,12 @@
 }
 
 .stepRow2 {
+  grid-area: tools;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
 }
 
 .durationInput {
@@ -153,6 +176,7 @@
 }
 
 .stepActions {
+  grid-area: actions;
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -188,4 +212,48 @@
 .deleteLink:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
+}
+
+.durationUnit {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.stepGridLabel {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.stepGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(84px, 26vw, 104px), 1fr));
+  gap: var(--space-2);
+}
+
+.stepChoice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.stepChoice:active {
+  background: var(--color-surface-2);
+}
+
+.stepChoiceName {
+  font-size: var(--text-sm);
+  text-align: center;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  max-width: 100%;
 }

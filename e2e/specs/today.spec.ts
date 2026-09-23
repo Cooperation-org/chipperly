@@ -169,7 +169,7 @@ test.describe('today', () => {
     await expect(chipsStepper.getByRole('spinbutton')).toHaveAttribute('aria-valuenow', '2');
 
     await page.getByRole('button', { name: /^Steps/ }).click();
-    await page.getByRole('button', { name: 'Add step', exact: true }).click();
+    await page.getByRole('button', { name: 'Type a new step', exact: true }).click();
     await page.getByLabel('Step 1', { exact: true }).fill('Wash hands');
 
     await page.getByRole('button', { name: 'Save', exact: true }).click();

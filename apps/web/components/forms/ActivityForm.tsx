@@ -6,7 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity, ActivityStep, Recurrence } from '@chipperly/shared/schemas/activity';
 import { CHIP_MAX } from '@chipperly/shared/constants/limits';
 import { db } from '@/lib/db/db';
-import { deleteActivity, saveActivity, useActivity, type SaveActivityStepInput } from '@/lib/data/activities';
+import { deleteActivity, saveActivity, useActivities, useActivity, type SaveActivityStepInput } from '@/lib/data/activities';
 import { addToDay, stepTree, type DayStep, type StepNode } from '@/lib/data/schedule';
 import { useLocations } from '@/lib/data/locations';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -200,6 +200,18 @@ export function ActivityForm() {
 
   function toggle(field: FieldKey): void {
     setOpenField((current) => (current === field ? null : field));
+  }
+
+  // Steps can be picked from the family's own activities, pictures included (the owner's beta built routines this way).
+  const stepChoices = useActivities(profileId).filter((a) => a.id !== editingId);
+  function addStepFrom(source: Activity): void {
+    const picked = { name: source.name, emoji: source.emoji, photo_id: source.photo_id };
+    setSteps((prev) => {
+      const last = prev[prev.length - 1];
+      // The new-routine flow opens with one blank step: fill that instead of leaving it empty above.
+      if (last && !last.parent_step_id && !last.name.trim() && !last.emoji && !last.photo_id) return [...prev.slice(0, -1), { ...last, ...picked }];
+      return [...prev, { ...newDraftStep(null), ...picked }];
+    });
   }
 
   function addStep(): void {
@@ -496,11 +508,11 @@ export function ActivityForm() {
                   />
                   <div className={styles.stepRow2}>
                     <button type="button" className={styles.fromActivityButton} onClick={() => openFromActivity(i)}>
-                      From activity
+                      Change picture
                     </button>
                     {depth < 2 ? (
                       <button type="button" className={styles.fromActivityButton} onClick={() => breakDown(i)}>
-                        Break down
+                        Add sub-steps
                       </button>
                     ) : null}
                     <TextField
@@ -509,7 +521,6 @@ export function ActivityForm() {
                       inputMode="numeric"
                       min={1}
                       max={120}
-                      placeholder="min"
                       className={styles.durationInput}
                       value={step.duration_minutes ?? ''}
                       onChange={(e) => {
@@ -517,6 +528,9 @@ export function ActivityForm() {
                         updateStep(i, { duration_minutes: raw === '' ? null : Math.max(1, Math.min(120, Number(raw))) });
                       }}
                     />
+                    <span className={styles.durationUnit} aria-hidden="true">
+                      min
+                    </span>
                   </div>
                 </div>
                 <div className={styles.stepActions}>
@@ -539,8 +553,21 @@ export function ActivityForm() {
               </div>
             );
           })}
+          {stepChoices.length > 0 ? (
+            <>
+              <p className={styles.stepGridLabel}>Tap an activity to add it as a step</p>
+              <div className={styles.stepGrid}>
+                {stepChoices.map((a) => (
+                  <button key={a.id} type="button" className={styles.stepChoice} onClick={() => addStepFrom(a)}>
+                    <Picture emoji={a.emoji} photo_id={a.photo_id} name={a.name} size="list" />
+                    <span className={styles.stepChoiceName}>{a.name}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
           <BigButton variant="secondary" icon="plus" onClick={addStep}>
-            Add step
+            Type a new step
           </BigButton>
         </div>
       </FormRow>

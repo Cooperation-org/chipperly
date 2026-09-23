@@ -30,9 +30,9 @@ test.describe('child mode', () => {
     await page.waitForURL('**/activity/edit/**');
     await page.getByLabel('Name', { exact: true }).fill('Get Dressed With Steps');
     await page.getByRole('button', { name: /^Steps/ }).click();
-    await page.getByRole('button', { name: 'Add step', exact: true }).click();
+    await page.getByRole('button', { name: 'Type a new step', exact: true }).click();
     await page.getByLabel('Step 1', { exact: true }).fill('Put on shirt');
-    await page.getByRole('button', { name: 'Add step', exact: true }).click();
+    await page.getByRole('button', { name: 'Type a new step', exact: true }).click();
     await page.getByLabel('Step 2', { exact: true }).fill('Put on pants');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/today/');
