@@ -8,7 +8,7 @@ export interface CheckCircleProps {
   onChange?: (next: boolean) => void;
   /** The thing being checked, e.g. "Brush teeth" — the announced label becomes "Brush teeth, checked". */
   name: string;
-  size?: 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   className?: string;
 }

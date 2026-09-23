@@ -65,7 +65,7 @@ export function StepRow({
             {timed && onStartTimer ? (
               <IconButton icon="timer" aria-label={`Start ${durationMinutes} minute timer for ${name}`} onClick={onStartTimer} />
             ) : null}
-            <CheckCircle checked={checked} onChange={onChange} name={name} />
+            <CheckCircle checked={checked} onChange={onChange} name={name} size="sm" />
           </span>
         }
       />

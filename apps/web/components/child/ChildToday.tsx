@@ -262,7 +262,7 @@ export function ChildToday() {
     return (
       <li key={step.id}>
         <StepRow
-          tile={<Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="child" />}
+          tile={<Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="list" />}
           name={step.name}
           checked={node.done}
           onChange={(next) => void handleStepToggle(day, step.id, next)}
@@ -371,6 +371,8 @@ export function ChildToday() {
             const dimmed = day.item.completed_at !== null;
             const hasSteps = day.steps.length > 0;
             const expanded = hasSteps && isExpanded(day.item.id);
+            const topSteps = hasSteps ? stepTree(day.steps) : [];
+            const stepsDone = topSteps.filter((node) => node.done).length;
             const picture = <Picture emoji={day.activity.emoji} photo_id={day.activity.photo_id} name={day.activity.name} size="child" />;
             const nameLabel = (
               <span className={[styles.rowName, dimmed ? styles.dimmed : ''].filter(Boolean).join(' ')}>{day.activity.name}</span>
@@ -386,8 +388,15 @@ export function ChildToday() {
                       onClick={() => toggleExpanded(day.item.id)}
                     >
                       {picture}
-                      {nameLabel}
-                      <Icon name="chevron" size={20} className={[styles.expandChevron, expanded ? styles.open : ''].filter(Boolean).join(' ')} />
+                      <span className={styles.rowText}>
+                        {nameLabel}
+                        {/* Progress shows even collapsed (the old beta's "0/3 steps done"); the chevron rides
+                            on this line, not beside the name, so the name keeps the row's width. */}
+                        <span className={styles.stepProgress}>
+                          {stepsDone}/{topSteps.length} steps done
+                          <Icon name="chevron" size={18} className={[styles.expandChevron, expanded ? styles.open : ''].filter(Boolean).join(' ')} />
+                        </span>
+                      </span>
                     </button>
                   ) : (
                     <>
@@ -408,13 +417,14 @@ export function ChildToday() {
 
                 {day.item.story_id ? <ReadStoryButton storyId={day.item.story_id} /> : null}
 
+                {expanded ? <ul className={styles.steps}>{topSteps.map((node) => renderStepNode(day, node))}</ul> : null}
+
+                {/* After the steps, not between the task and them, so an open routine reads as one block. */}
                 {hasSteps && options.show_visual_schedule ? (
                   <BigButton variant="secondary" icon="expand" onClick={() => setScheduleItemId(day.item.id)}>
                     Steps
                   </BigButton>
                 ) : null}
-
-                {expanded ? <ul className={styles.steps}>{stepTree(day.steps).map((node) => renderStepNode(day, node))}</ul> : null}
 
                 {promptIds.has(day.item.id) ? (
                   <AttitudePrompt profileId={profileId} itemId={day.item.id} onDone={() => hidePromptFor(day.item.id)} />

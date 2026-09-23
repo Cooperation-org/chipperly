@@ -16,6 +16,12 @@
   padding-top: var(--space-2);
 }
 
+/* Own row under name + lock: sharing their row squeezed the name box until the text ran under the chips. */
+.chipRow {
+  order: 3;
+  flex-basis: 100%;
+}
+
 .identity {
   display: flex;
   align-items: center;
@@ -30,12 +36,6 @@
   font-size: var(--text-xl);
   line-height: 1.1;
   overflow-wrap: break-word;
-}
-
-/* Own row under name + lock: sharing their row squeezed the name box until the text ran under the chips. */
-.chipRow {
-  order: 3;
-  flex-basis: 100%;
 }
 
 .lockButton {
@@ -138,13 +138,31 @@
   overflow-wrap: break-word;
 }
 
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stepProgress {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-md);
+  color: var(--color-text-muted);
+}
+
 .expandChevron {
   flex-shrink: 0;
+  transform: rotate(90deg);
   transition: transform 0.15s ease;
 }
 
+/* The icon points right; down when closed, up when open, so it never reads as "back"/"next". */
 .expandChevron.open {
-  transform: rotate(180deg);
+  transform: rotate(-90deg);
 }
 
 .rowName.dimmed {

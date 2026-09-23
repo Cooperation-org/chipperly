@@ -26,6 +26,12 @@
   min-height: 48px;
 }
 
+.sm {
+  /* A step under its task: visibly smaller, still the 44px AAA target minimum. */
+  width: 44px;
+  height: 44px;
+}
+
 .lg {
   width: 64px;
   height: 64px;
