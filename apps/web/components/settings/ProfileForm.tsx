@@ -32,6 +32,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const [chipsByAttitude, setChipsByAttitude] = useState(false);
   const [childPicksReward, setChildPicksReward] = useState(true);
   const [childRedeems, setChildRedeems] = useState(true);
+  const [childLayout, setChildLayout] = useState<'list' | 'tiles'>('list');
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -45,6 +46,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     setChipsByAttitude(row.settings.chips_by_attitude ?? false);
     setChildPicksReward(row.settings.child_picks_reward ?? true);
     setChildRedeems(row.settings.child_redeems ?? true);
+    setChildLayout(row.settings.child_layout ?? 'list');
     setLoadedFor(row.id);
   }
 
@@ -64,6 +66,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
         chips_by_attitude: chipsByAttitude,
         child_picks_reward: childPicksReward,
         child_redeems: childRedeems,
+        child_layout: childLayout,
       },
     });
     setSaving(false);
@@ -92,6 +95,18 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           ]}
           value={redeemMode}
           onChange={(v) => setRedeemMode(v as RedeemMode)}
+        />
+      </div>
+      <div className={styles.setting}>
+        <span className={styles.settingLabel}>Child view</span>
+        <Segmented
+          label="Child view"
+          items={[
+            { value: 'list', label: 'Today list' },
+            { value: 'tiles', label: 'Picture tiles' },
+          ]}
+          value={childLayout}
+          onChange={(v) => setChildLayout(v as 'list' | 'tiles')}
         />
       </div>
       <div className={styles.toggleRow}>

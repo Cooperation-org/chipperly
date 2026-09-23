@@ -131,6 +131,8 @@ export function ChildToday() {
   }, [running]);
 
   const [unlocking, setUnlocking] = useState(false);
+  // Tiles layout only: whether My Day (the list) is open instead of the tile home.
+  const [showDay, setShowDay] = useState(false);
   const [timerOpen, setTimerOpen] = useState(false);
   const [promptIds, setPromptIds] = useState<ReadonlySet<string>>(new Set());
   const [celebrating, setCelebrating] = useState(false);
@@ -284,6 +286,22 @@ export function ChildToday() {
     );
   }
 
+  function openFreeTime(): void {
+    sheet.open(<FreeTimeSheet profileId={profileId} locationId={activeLocation?.id ?? null} canCreate={false} />, { title: 'Free time' });
+  }
+
+  function openFirstThen(): void {
+    sheet.open(<FirstThenPanels profileId={profileId} mode="child" />, { title: 'First, then' });
+  }
+
+  function openChipperChart(): void {
+    sheet.open(<ChipperChartSheet profileId={profileId} userId={userId} />, { title: 'Chipper Chart' });
+  }
+
+  function openApps(): void {
+    sheet.open(<AllowedAppsSheet profileId={profileId} />, { title: 'Apps' });
+  }
+
   function openWorkingFor(): void {
     sheet.open(<WorkingForSheet profileId={profileId} locationId={activeLocation?.id ?? null} />, { title: 'Chips' });
   }
@@ -331,41 +349,74 @@ export function ChildToday() {
     );
   }
 
+  const header = (
+    <header className={styles.header}>
+      <div className={styles.identity}>
+        <Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="child" />
+        <h1 className={styles.name}>{profile.name}</h1>
+      </div>
+      {options.allow_child_location && locations.length > 0 ? (
+        <button type="button" className={styles.locationButton} onClick={openLocationPicker}>
+          {activeLocation?.name ?? 'Location'}
+        </button>
+      ) : null}
+      {workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation) ? (
+        <div className={styles.chipRow}>
+          <ChipStrip
+            size="lg"
+            filled={workingFor.filled}
+            total={workingFor.goal}
+            reward={
+              workingFor.reward
+                ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, photoUrl: rewardPhotoUrl, name: workingFor.reward.name }
+                : undefined
+            }
+            onTap={canPickReward ? openPickReward : openWorkingFor}
+          />
+        </div>
+      ) : null}
+      <IconButton
+        icon="lock"
+        aria-label="Caregiver unlock"
+        variant="solid"
+        className={styles.lockButton}
+        onClick={() => setUnlocking(true)}
+      />
+    </header>
+  );
+
+  // Picture-tiles home (profile setting child_layout, the caregiver's choice):
+  // the same tools as the list view's bottom bar, as big tiles, each shown
+  // only when the lock options already allow it.
+  if (profile.settings.child_layout === 'tiles' && !showDay) {
+    const chipsTile = workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation);
+    return (
+      <div className={styles.screen}>
+        {header}
+        <p className={styles.greeting}>Hi {profile.name}! What do you want to do?</p>
+        <div className={styles.tiles}>
+          <HomeTile emoji="📅" label="My Day" onClick={() => setShowDay(true)} />
+          {chipsTile ? <HomeTile emoji="⭐" label="Chips" onClick={canPickReward ? openPickReward : openWorkingFor} /> : null}
+          {options.show_free_time ? <HomeTile emoji="🎈" label="Free time" onClick={openFreeTime} /> : null}
+          {options.show_first_then ? <HomeTile emoji="➡️" label="First, then" onClick={openFirstThen} /> : null}
+          {options.show_chipper_chart ? <HomeTile emoji="😊" label="Chipper Chart" onClick={openChipperChart} /> : null}
+          {showAllowedApps ? <HomeTile emoji="📱" label="Apps" onClick={openApps} /> : null}
+          {running ? <HomeTile emoji="⏱️" label="Timer" onClick={() => setTimerOpen(true)} /> : null}
+        </div>
+        {timerOpen ? <TimerFullScreen onClose={() => setTimerOpen(false)} /> : null}
+        {unlocking ? <UnlockOverlay onClose={() => setUnlocking(false)} /> : null}
+      </div>
+    );
+  }
+
   return (
     <div className={styles.screen}>
-      <header className={styles.header}>
-        <div className={styles.identity}>
-          <Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="child" />
-          <h1 className={styles.name}>{profile.name}</h1>
-        </div>
-        {options.allow_child_location && locations.length > 0 ? (
-          <button type="button" className={styles.locationButton} onClick={openLocationPicker}>
-            {activeLocation?.name ?? 'Location'}
-          </button>
-        ) : null}
-        {workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation) ? (
-          <div className={styles.chipRow}>
-            <ChipStrip
-              size="lg"
-              filled={workingFor.filled}
-              total={workingFor.goal}
-              reward={
-                workingFor.reward
-                  ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, photoUrl: rewardPhotoUrl, name: workingFor.reward.name }
-                  : undefined
-              }
-              onTap={canPickReward ? openPickReward : openWorkingFor}
-            />
-          </div>
-        ) : null}
-        <IconButton
-          icon="lock"
-          aria-label="Caregiver unlock"
-          variant="solid"
-          className={styles.lockButton}
-          onClick={() => setUnlocking(true)}
-        />
-      </header>
+      {header}
+      {profile.settings.child_layout === 'tiles' ? (
+        <BigButton variant="secondary" icon="arrowLeft" onClick={() => setShowDay(false)}>
+          Home
+        </BigButton>
+      ) : null}
 
       <DayBand profileId={profileId} isoDate={isoDate} itemCount={dayItems.length} workingFor={workingFor} />
 
@@ -463,11 +514,7 @@ export function ChildToday() {
           {options.show_free_time ? (
             <BigButton
               variant="secondary"
-              onClick={() =>
-                sheet.open(<FreeTimeSheet profileId={profileId} locationId={activeLocation?.id ?? null} canCreate={false} />, {
-                  title: 'Free time',
-                })
-              }
+              onClick={openFreeTime}
             >
               <span className={styles.emojiGlyph} aria-hidden="true">
                 🎈
@@ -484,7 +531,7 @@ export function ChildToday() {
             <BigButton
               variant="secondary"
               icon="split"
-              onClick={() => sheet.open(<FirstThenPanels profileId={profileId} mode="child" />, { title: 'First, then' })}
+              onClick={openFirstThen}
             >
               First, then
             </BigButton>
@@ -492,9 +539,7 @@ export function ChildToday() {
           {options.show_chipper_chart ? (
             <BigButton
               variant="secondary"
-              onClick={() =>
-                sheet.open(<ChipperChartSheet profileId={profileId} userId={userId} />, { title: 'Chipper Chart' })
-              }
+              onClick={openChipperChart}
             >
               <span className={styles.emojiGlyph} aria-hidden="true">
                 😊
@@ -506,7 +551,7 @@ export function ChildToday() {
             <BigButton
               variant="secondary"
               icon="grid"
-              onClick={() => sheet.open(<AllowedAppsSheet profileId={profileId} />, { title: 'Apps' })}
+              onClick={openApps}
             >
               Apps
             </BigButton>
@@ -533,4 +578,15 @@ export function ChildToday() {
 function TimerRemaining() {
   const timer = useTimer();
   return <>{formatTimerTime(timer.remaining_ms)}</>;
+}
+
+function HomeTile({ emoji, label, onClick }: { emoji: string; label: string; onClick: () => void }) {
+  return (
+    <button type="button" className={styles.tile} onClick={onClick}>
+      <span className={styles.tileEmoji} aria-hidden="true">
+        {emoji}
+      </span>
+      <span className={styles.tileLabel}>{label}</span>
+    </button>
+  );
 }

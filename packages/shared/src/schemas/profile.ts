@@ -37,6 +37,8 @@ export const ProfileSettingsSchema = z
     child_picks_reward: z.boolean().optional(),
     /** Child view may redeem an affordable reward from the free-time sheet (owner's doc, EI 6). Default true. */
     child_redeems: z.boolean().optional(),
+    /** How the child view opens: today's list (default) or a home of big picture tiles, like the owner's beta dashboard. Set by the caregiver. */
+    child_layout: z.enum(['list', 'tiles']).optional(),
     /**
      * Android app-blocking (accessibility-service based): whether it's on
      * for this profile at all, and which installed packages stay allowed
