@@ -1,0 +1,52 @@
+.trigger {
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-md);
+  cursor: zoom-in;
+}
+
+/* The dialog box is the full viewport, so every tap that misses the image lands on it and closes. */
+.dialog {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: var(--space-5);
+  border: none;
+  background: transparent;
+  place-items: center;
+}
+
+.dialog[open] {
+  display: grid;
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.8);
+}
+
+.img {
+  max-width: 100%;
+  max-height: calc(100dvh - 2 * var(--space-5));
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+}
+
+.close {
+  position: fixed;
+  top: calc(var(--space-3) + env(safe-area-inset-top));
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}

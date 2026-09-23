@@ -2,6 +2,8 @@
 
 import { useBalance, useWorkingFor, setFilled } from '@/lib/data/chips';
 import { Picture } from '@/components/media/Picture';
+import { PhotoZoom } from '@/components/ui/PhotoZoom';
+import { useMediaUrl } from '@/lib/data/media';
 import { ChipBoard } from '@/components/ui/ChipBoard';
 import { playChip } from '@/lib/sound';
 import styles from './WorkingForSheet.module.css';
@@ -25,6 +27,7 @@ export interface WorkingForSheetProps {
 export function WorkingForSheet({ profileId, locationId }: WorkingForSheetProps) {
   const workingFor = useWorkingFor(profileId, locationId);
   const balance = useBalance(profileId, locationId);
+  const rewardPhotoUrl = useMediaUrl(workingFor.reward?.photo_id);
 
   async function handleSetFilled(next: number): Promise<void> {
     if (!locationId) return;
@@ -40,7 +43,13 @@ export function WorkingForSheet({ profileId, locationId }: WorkingForSheetProps)
     <div className={styles.sheet}>
       {workingFor.reward ? (
         <div className={styles.reward}>
-          <Picture emoji={workingFor.reward.emoji} photo_id={workingFor.reward.photo_id} name={workingFor.reward.name} size="grid" />
+          {rewardPhotoUrl ? (
+            <PhotoZoom url={rewardPhotoUrl} name={workingFor.reward.name}>
+              <Picture emoji={workingFor.reward.emoji} photo_id={workingFor.reward.photo_id} name={workingFor.reward.name} size="grid" />
+            </PhotoZoom>
+          ) : (
+            <Picture emoji={workingFor.reward.emoji} photo_id={workingFor.reward.photo_id} name={workingFor.reward.name} size="grid" />
+          )}
           <span>{workingFor.reward.name}</span>
         </div>
       ) : null}

@@ -22,6 +22,7 @@ import {
   type StepNode,
 } from '@/lib/data/schedule';
 import { useActiveLocation } from '@/lib/data/locations';
+import { useMediaUrl } from '@/lib/data/media';
 import { useWorkingFor } from '@/lib/data/chips';
 import { Picker } from '@/components/picker/Picker';
 import { Picture } from '@/components/media/Picture';
@@ -56,6 +57,7 @@ export function TodayScreen() {
   const dayItems = useDayItems(profileId, isoDate);
   const { location } = useActiveLocation(profileId);
   const workingFor = useWorkingFor(profileId, location?.id ?? null);
+  const rewardPhotoUrl = useMediaUrl(workingFor.reward?.photo_id);
 
   useMaterializedDay(profileId, isoDate);
 
@@ -254,6 +256,7 @@ export function TodayScreen() {
                 ? {
                     emoji: workingFor.reward.emoji ?? undefined,
                     photo_id: workingFor.reward.photo_id,
+                    photoUrl: rewardPhotoUrl,
                     name: workingFor.reward.name,
                   }
                 : undefined

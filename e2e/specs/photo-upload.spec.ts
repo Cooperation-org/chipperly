@@ -149,6 +149,17 @@ test.describe('photo upload', () => {
 
     rewardPhotoId = await readRowField(page, 'rewards', 'name', 'E2E Photo Reward', 'photo_id');
     expect(rewardPhotoId, 'reward row has a photo_id once saved').toBeTruthy();
+
+    // Today's chip strip resolves the photo (it used to get only photo_id and
+    // sit on a skeleton), and tapping it opens it large; a tap outside closes.
+    await gotoTab(page, 'today');
+    const zoom = page.getByRole('button', { name: 'View photo: E2E Photo Reward' });
+    await expect(zoom.locator('img')).toBeVisible();
+    await zoom.click();
+    const viewer = page.getByRole('dialog', { name: 'E2E Photo Reward' });
+    await expect(viewer).toBeVisible();
+    await page.mouse.click(5, 5);
+    await expect(viewer).toBeHidden();
   });
 
   test('profile avatar photo via Settings > Edit profile: choose Photo, save, sync completes', async () => {

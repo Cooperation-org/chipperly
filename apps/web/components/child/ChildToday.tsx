@@ -21,6 +21,7 @@ import {
 } from '@/lib/data/schedule';
 import { useActiveLocation, useLocations } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
+import { useMediaUrl } from '@/lib/data/media';
 import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
@@ -77,6 +78,7 @@ export function ChildToday() {
   const { location: activeLocation, setActiveLocationId } = useActiveLocation(profileId);
   const locations = useLocations(profileId);
   const workingFor = useWorkingFor(profileId, activeLocation?.id ?? null);
+  const rewardPhotoUrl = useMediaUrl(workingFor.reward?.photo_id);
 
   useMaterializedDay(profileId, isoDate);
 
@@ -345,7 +347,7 @@ export function ChildToday() {
               total={workingFor.goal}
               reward={
                 workingFor.reward
-                  ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, name: workingFor.reward.name }
+                  ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, photoUrl: rewardPhotoUrl, name: workingFor.reward.name }
                   : undefined
               }
               onTap={canPickReward ? openPickReward : openWorkingFor}
