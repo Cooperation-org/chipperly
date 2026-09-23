@@ -186,6 +186,18 @@ export function ChipsScreen() {
             )}
           </button>
 
+          {/* The card only picks or creates a reward; editing the chosen one used to mean Settings > Library > Rewards. */}
+          {working.reward ? (
+            <div className={styles.links}>
+              <Button variant="secondary" onClick={openRewardPicker}>
+                Change reward
+              </Button>
+              <Button variant="secondary" onClick={() => router.push(`/reward/edit/?id=${working.reward!.id}`)}>
+                Edit {working.reward.name}
+              </Button>
+            </div>
+          ) : null}
+
           <div className={styles.boardWrap}>
             <ChipBoard filled={working.filled} total={working.goal} tones={tones} onSetFilled={(next) => void handleSetFilled(next)} />
             {celebrateMessage ? (

@@ -46,6 +46,15 @@ test.describe('chips and first-then', () => {
     const board = page.getByRole('status', { name: /of \d+ chips/ });
     await expect(page.getByRole('button', { name: /^Working for/ })).toContainText('Ice cream');
 
+    // The chosen reward is editable right here, not only from Settings > Library > Rewards.
+    await page.getByRole('button', { name: 'Edit Ice cream', exact: true }).click();
+    await page.waitForURL('**/reward/edit/?id=**');
+    await expect(page.getByRole('heading', { name: 'Edit reward' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Name/ })).toContainText('Ice cream');
+    await page.goBack();
+    await page.waitForURL('**/chips/');
+    await expect(board).toBeVisible();
+
     // One tap on the last chip fills the whole board (star-rating style: tap
     // an unfilled chip and everything up through it fills in).
     const initialLabel = (await board.getAttribute('aria-label')) ?? '';
