@@ -215,8 +215,9 @@ test.describe('child mode', () => {
     await expect(pinConfirm).toBeHidden();
 
     await expect(page.getByRole('button', { name: 'Home', exact: true })).toBeVisible();
-    // Home earned its one chip back in "check off a row: chip strip updates...".
-    await expect(chipStrip).toHaveAttribute('aria-label', /^1 of 5 chips/);
+    // Home's chips from earlier in this suite: Wake Up in "check off a row: chip
+    // strip updates...", and the routine row's own chip (new activities are worth 1).
+    await expect(chipStrip).toHaveAttribute('aria-label', /^2 of 5 chips/);
 
     // Leave the suite unlocked.
     await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();

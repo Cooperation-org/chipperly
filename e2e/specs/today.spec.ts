@@ -163,7 +163,8 @@ test.describe('today', () => {
 
     await page.getByRole('button', { name: /^Chips/ }).click();
     const chipsStepper = page.getByRole('group', { name: 'Chips earned' });
-    await chipsStepper.getByRole('button', { name: 'Increase', exact: true }).click();
+    // A new activity starts worth 1 chip, like the seeded ones.
+    await expect(chipsStepper.getByRole('spinbutton')).toHaveAttribute('aria-valuenow', '1');
     await chipsStepper.getByRole('button', { name: 'Increase', exact: true }).click();
     await expect(chipsStepper.getByRole('spinbutton')).toHaveAttribute('aria-valuenow', '2');
 

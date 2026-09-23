@@ -155,7 +155,8 @@ export function ActivityForm() {
 
   const [name, setName] = useState('');
   const [picture, setPicture] = useState<PicturePickerValue>({ emoji: null, photo_id: null });
-  const [chips, setChips] = useState(0);
+  // 1, not 0: the seeded activities are worth 1, and a routine a parent just built should earn something.
+  const [chips, setChips] = useState(1);
   const [locationId, setLocationId] = useState<string | null>(null);
   const [repeat, setRepeat] = useState<'none' | Recurrence>('none');
   const [weekdays, setWeekdays] = useState<number[]>([]);
