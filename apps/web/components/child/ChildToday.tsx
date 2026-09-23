@@ -435,7 +435,7 @@ export function ChildToday() {
         </BigButton>
       ) : null}
 
-      <DayBand profileId={profileId} isoDate={isoDate} itemCount={dayItems.length} workingFor={workingFor} />
+      <DayBand profileId={profileId} isoDate={isoDate} itemCount={dayItems.length} />
 
       {dayItems.length === 0 ? (
         <p className={styles.emptyText}>Nothing planned for today</p>
