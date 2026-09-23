@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Capacitor } from '@capacitor/core';
 import { todayIso } from '@chipperly/shared/helpers/date';
@@ -40,6 +40,7 @@ import { WorkingForSheet } from './WorkingForSheet';
 import { FirstThenPanels } from '@/components/firstThen/FirstThenPanels';
 import { TimerFullScreen } from '@/components/timer/TimerFullScreen';
 import { formatTimerTime } from '@/components/timer/time';
+import { groupByPartOfDay } from '@/components/schedule/todayModel';
 import { ChipperChartSheet } from '@/components/chipperChart/ChipperChartSheet';
 import { VisualSchedule } from '@/components/schedule/VisualSchedule';
 import { AttitudePrompt } from './AttitudePrompt';
@@ -75,7 +76,10 @@ export function ChildToday() {
   const [isoDate] = useState(() => todayIso());
 
   const profile = useLiveQuery(() => (profileId ? db.profiles.get(profileId) : undefined), [profileId]);
-  const dayItems = useDayItems(profileId, isoDate);
+  // Same order as the caregiver's Today (groupByPartOfDay): untimed first, then morning/afternoon/evening.
+  // Raw position order dropped anything added later, like a new routine, to the bottom of the child's day.
+  const rawDayItems = useDayItems(profileId, isoDate);
+  const dayItems = useMemo(() => groupByPartOfDay(rawDayItems).flatMap((group) => group.items), [rawDayItems]);
   const { location: activeLocation, setActiveLocationId } = useActiveLocation(profileId);
   const locations = useLocations(profileId);
   const workingFor = useWorkingFor(profileId, activeLocation?.id ?? null);
