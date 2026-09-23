@@ -39,7 +39,7 @@ import { Celebration } from '@/components/ui/Celebration';
 import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { DateNav } from './DateNav';
-import { DayNote } from './DayNote';
+import { DayNote, DayNoteAddButton } from './DayNote';
 import { ItemSheet } from './ItemSheet';
 import { allDone, groupByPartOfDay, moveItem, secondaryText, weekdayName } from './todayModel';
 import styles from './TodayScreen.module.css';
@@ -283,6 +283,7 @@ export function TodayScreen() {
         >
           <span aria-hidden="true">😊</span>
         </button>
+        <DayNoteAddButton profileId={profileId} isoDate={isoDate} childName={profile.name} />
       </div>
 
       {orderedItems.length === 0 ? (
