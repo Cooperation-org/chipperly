@@ -265,3 +265,30 @@
   font-size: var(--text-lg);
   text-align: center;
 }
+
+/* "Phone is resting": one calm, centred page. */
+.resting {
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  text-align: center;
+  padding-bottom: var(--space-6);
+}
+
+.restingMoon {
+  font-size: 5rem;
+  line-height: 1;
+}
+
+.restingTitle {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+}
+
+.restingText {
+  margin: 0;
+  max-width: 28ch;
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+}

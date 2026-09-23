@@ -16,6 +16,7 @@ export const rewards = pgTable(
     position: integer('position').notNull(),
     screen_time_minutes: integer('screen_time_minutes'),
     screen_time_packages: text('screen_time_packages').array(),
+    screen_time_whole_phone: boolean('screen_time_whole_phone'),
   },
   (t) => [index('rewards_profile_version_idx').on(t.profile_id, t.version)],
 );

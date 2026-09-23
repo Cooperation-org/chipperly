@@ -97,4 +97,14 @@ public class ChipperlyBlockServiceTest {
         allow.addAll(ChipperlyBlockService.activeTimedPackages(timed, 500L));
         assertFalse(ChipperlyBlockService.shouldBlock("com.google.android.youtube", true, allow));
     }
+    @Test
+    public void restingKeepsTheNotificationBarSettingsAndDialerButBlocksTheLauncher() {
+        Set<String> allow = ChipperlyBlockService.restingAllowSet(OWN_PACKAGE, "com.google.android.dialer");
+        assertTrue(allow.contains("com.android.systemui"));
+        assertTrue(allow.contains("com.android.settings"));
+        assertTrue(allow.contains("com.google.android.dialer"));
+        assertTrue(allow.contains(OWN_PACKAGE));
+        assertFalse(allow.contains("com.google.android.launcher"));
+        assertFalse(allow.contains("com.google.android.youtube"));
+    }
 }

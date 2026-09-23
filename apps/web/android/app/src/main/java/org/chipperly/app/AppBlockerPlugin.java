@@ -47,6 +47,10 @@ public class AppBlockerPlugin extends Plugin {
     static final String KEY_TIMED_ALLOWANCES = "timed_allowances";
     /** Set by launchApp when it had to drop a non-Device-Owner pin to open an allowed app; MainActivity.onResume re-pins and clears it. */
     static final String KEY_REPIN_ON_RETURN = "repin_on_return";
+    /** "Phone is resting": everything but the notification bar, Settings and the dialer is blocked. Survives reboot (plain prefs). */
+    static final String KEY_RESTING = "resting";
+    /** Epoch ms; whole-phone free time, no blocking at all, until then. */
+    static final String KEY_UNRESTRICTED_UNTIL = "unrestricted_until";
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -247,6 +251,28 @@ public class AppBlockerPlugin extends Plugin {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void setResting(PluginCall call) {
+        prefs().edit().putBoolean(KEY_RESTING, call.getBoolean("resting", false)).apply();
+        applyPinPolicy();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void setUnrestrictedUntil(PluginCall call) {
+        Long until = call.getLong("until");
+        prefs().edit().putLong(KEY_UNRESTRICTED_UNTIL, until == null ? 0L : until).apply();
+        applyPinPolicy();
+        call.resolve();
+    }
+
+    private void applyPinPolicy() {
+        if (getActivity() instanceof MainActivity) {
+            MainActivity activity = (MainActivity) getActivity();
+            activity.runOnUiThread(activity::applyPinPolicy);
+        }
     }
 
     /**

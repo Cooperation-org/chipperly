@@ -31,6 +31,21 @@ export function AppBlockerGuard(): null {
   const profileId = locked_profile_id ?? activeProfile?.id;
   const profile = useLiveQuery(() => (profileId ? db.profiles.get(profileId) : undefined), [profileId]);
   const lastApplied = useRef<{ enabled: boolean; packages: string; allowances: string } | null>(null);
+  const lastPolicy = useRef<string | null>(null);
+
+  // Resting and whole-phone free time, mirrored into native prefs: that copy
+  // is what ChipperlyBlockService enforces, and what survives a reboot with
+  // no network (it needs no JS at all). Independent of child_mode_active.
+  const resting = Boolean(profileId && profile?.settings.resting);
+  const unrestrictedUntil = profileId ? (profile?.settings.unrestricted_until ?? null) : null;
+  useEffect(() => {
+    if (!profile) return;
+    const key = `${resting}:${unrestrictedUntil ?? 0}`;
+    if (lastPolicy.current === key) return;
+    lastPolicy.current = key;
+    void AppBlocker.setResting({ resting });
+    void AppBlocker.setUnrestrictedUntil({ until: unrestrictedUntil });
+  }, [profile, resting, unrestrictedUntil]);
 
   useEffect(() => {
     // Enforced purely off the toggle, regardless of whether this device is

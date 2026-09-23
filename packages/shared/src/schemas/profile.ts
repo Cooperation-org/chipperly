@@ -40,6 +40,16 @@ export const ProfileSettingsSchema = z
     /** How the child view opens: today's list (default) or a home of big picture tiles, like the owner's beta dashboard. Set by the caregiver. */
     child_layout: z.enum(['list', 'tiles']).optional(),
     /**
+     * "Phone is resting": every app blocked, Chipperly shows only a resting
+     * screen, and the notification bar stays usable (Wi-Fi, data). Mirrored
+     * into the device's own storage (AppBlockerPlugin.setResting) so it holds
+     * through a reboot with no network. Ended by the caregiver's PIN on the
+     * device or a remote Wake.
+     */
+    resting: z.boolean().optional(),
+    /** Whole-phone free time: no app blocking until this moment (a whole-phone screen-time reward, or a caregiver's "Free phone"). */
+    unrestricted_until: msTimestampSchema.nullable().optional(),
+    /**
      * Android app-blocking (accessibility-service based): whether it's on
      * for this profile at all, and which installed packages stay allowed
      * (plus Chipperly itself, always implicitly allowed). Off/empty by

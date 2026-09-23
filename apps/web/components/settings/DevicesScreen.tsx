@@ -192,6 +192,23 @@ function DeviceEditSheet({
     }
   }
 
+  const [busy, setBusy] = useState<string | null>(null);
+
+  /**
+   * Rest/wake and whole-phone free time: the device applies these natively
+   * from the push (so they hold through a reboot with no network), and the
+   * profile setting follows through sync for the device's own screens.
+   */
+  async function sendPolicy(key: string, path: string, body: object, sentMessage: string): Promise<void> {
+    setBusy(key);
+    try {
+      const res = await api.post<{ ok: true; sent: boolean }>(`/me/devices/${device.id}/${path}`, body);
+      toast(res.sent ? sentMessage : "Saved, but couldn't reach that device -- it may not have push set up yet.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   /** The other direction of lockNow: same pattern, same handler on the device (LocateRequestMessagingService's unlock_request). */
   async function unlockNow(): Promise<void> {
     setUnlocking(true);
@@ -272,6 +289,33 @@ function DeviceEditSheet({
           </Button>
           <Button fullWidth variant="secondary" loading={unlocking} onClick={() => void unlockNow()}>
             Unlock this device
+          </Button>
+
+          <p className={styles.label}>Rest and free time</p>
+          <p className={styles.locateStatus}>
+            Resting blocks every app and shows only a resting screen, but keeps the notification bar for Wi-Fi and data. It
+            stays on through a restart, even with no internet, until you wake it here or enter your PIN on the device.
+          </p>
+          <Button fullWidth variant="secondary" loading={busy === 'rest'} onClick={() => void sendPolicy('rest', 'rest', { resting: true }, 'Resting request sent.')}>
+            Rest the phone
+          </Button>
+          <Button fullWidth variant="secondary" loading={busy === 'wake'} onClick={() => void sendPolicy('wake', 'rest', { resting: false }, 'Wake request sent.')}>
+            Wake the phone
+          </Button>
+          <p className={styles.locateStatus}>Free phone: every app opens, then blocking and the lock come back on their own.</p>
+          {[15, 30, 60].map((minutes) => (
+            <Button
+              key={minutes}
+              fullWidth
+              variant="secondary"
+              loading={busy === `free${minutes}`}
+              onClick={() => void sendPolicy(`free${minutes}`, 'free', { minutes }, `Free phone for ${minutes < 60 ? `${minutes} min` : '1 hour'} sent.`)}
+            >
+              Free phone for {minutes < 60 ? `${minutes} min` : '1 hour'}
+            </Button>
+          ))}
+          <Button fullWidth variant="secondary" loading={busy === 'free0'} onClick={() => void sendPolicy('free0', 'free', { minutes: 0 }, 'End free time sent.')}>
+            End free time now
           </Button>
         </div>
       )}

@@ -300,23 +300,34 @@ async function applyAppendOnly(tx: Sql, mutation: Mutation, userId: string): Pro
 async function grantScreenTime(tx: Sql, profileId: string, rewardId: string | null, nowMs: number): Promise<void> {
   if (!rewardId) return;
   const [reward] = await tx`
-    select screen_time_minutes, screen_time_packages from rewards
+    select screen_time_minutes, screen_time_packages, screen_time_whole_phone from rewards
     where id = ${rewardId} and profile_id = ${profileId} and deleted_at is null
   `;
   const minutes = reward?.screen_time_minutes as number | null | undefined;
   const packages = (reward?.screen_time_packages as string[] | null | undefined) ?? [];
-  if (!minutes || packages.length === 0) return;
+  const wholePhone = reward?.screen_time_whole_phone === true;
+  if (!minutes || (!wholePhone && packages.length === 0)) return;
 
   const [profile] = await tx`select settings from profiles where id = ${profileId} for update`;
   if (!profile) return;
-  const settings = (profile.settings ?? {}) as { timed_app_allowances?: { package_name: string; allowed_until: number }[] };
-  const allowances = nextAllowances(settings.timed_app_allowances ?? [], packages, minutes, nowMs);
+  const settings = (profile.settings ?? {}) as {
+    timed_app_allowances?: { package_name: string; allowed_until: number }[];
+    unrestricted_until?: number | null;
+  };
+  const [key, value] = wholePhone
+    ? ['unrestricted_until', nextUnrestrictedUntil(settings.unrestricted_until ?? null, minutes, nowMs)]
+    : ['timed_app_allowances', nextAllowances(settings.timed_app_allowances ?? [], packages, minutes, nowMs)];
   await tx`
     update profiles
-    set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{timed_app_allowances}', ${JSON.stringify(allowances)}::jsonb),
+    set settings = jsonb_set(coalesce(settings, '{}'::jsonb), ${`{${key}}`}::text[], ${JSON.stringify(value)}::jsonb),
         client_updated_at = ${nowMs}
     where id = ${profileId}
   `;
+}
+
+/** Pure: whole-phone free time, stacked onto any still running. */
+export function nextUnrestrictedUntil(current: number | null, minutes: number, nowMs: number): number {
+  return Math.max(current ?? nowMs, nowMs) + minutes * 60_000;
 }
 
 /** Pure: drop expired grants, then add `minutes` to each package, starting from now or from its time still left. */

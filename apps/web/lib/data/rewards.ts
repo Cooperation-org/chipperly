@@ -43,6 +43,7 @@ export interface SaveRewardInput {
   /** Minutes of screen time redeeming this grants (with `screen_time_packages`); null for an ordinary reward. */
   screen_time_minutes?: number | null;
   screen_time_packages?: string[] | null;
+  screen_time_whole_phone?: boolean | null;
 }
 
 export async function saveReward(input: SaveRewardInput): Promise<string> {
@@ -65,6 +66,7 @@ export async function saveReward(input: SaveRewardInput): Promise<string> {
     position,
     screen_time_minutes: input.screen_time_minutes ?? null,
     screen_time_packages: input.screen_time_packages ?? null,
+    screen_time_whole_phone: input.screen_time_whole_phone ?? null,
   } satisfies Reward);
   return id;
 }

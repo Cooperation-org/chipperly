@@ -24,4 +24,6 @@ export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
     return { ignoring: false };
   }
   async requestIgnoreBatteryOptimizations(): Promise<void> {}
+  async setResting(): Promise<void> {}
+  async setUnrestrictedUntil(): Promise<void> {}
 }

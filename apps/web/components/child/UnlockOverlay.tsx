@@ -101,7 +101,9 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
    */
   async function finishUnlock(): Promise<void> {
     await Kiosk.exitFocusMode();
-    if (shownProfile) await upsert('profiles', { ...shownProfile, settings: { ...shownProfile.settings, child_mode_active: false } });
+    if (shownProfile) {
+      await upsert('profiles', { ...shownProfile, settings: { ...shownProfile.settings, child_mode_active: false, resting: false } });
+    }
     await unlock();
     await enterParentMode();
     const next = new URLSearchParams(window.location.search).get('next');

@@ -38,6 +38,8 @@ import { normalizeRow } from './sync.js';
 
 const LockBodySchema = z.object({ profile_id: uuidSchema });
 const deviceIdParamSchema = z.object({ id: uuidSchema });
+const RestBodySchema = z.object({ resting: z.boolean() });
+const FreeBodySchema = z.object({ minutes: z.number().int().min(0).max(24 * 60) });
 
 /**
  * Shared by /locate, /lock and /unlock: all three are "caregiver, from any
@@ -53,6 +55,7 @@ async function sendDeviceRequest(
   userId: string,
   deviceId: string,
   type: string,
+  extra: Record<string, string> = {},
 ): Promise<{ ok: true; sent: boolean; profile_id: string | null }> {
   const [device] = await db
     .select({ id: devices.id, profile_id: devices.profile_id })
@@ -63,8 +66,20 @@ async function sendDeviceRequest(
   const tokenRows = await db.select({ token: push_tokens.token }).from(push_tokens).where(eq(push_tokens.device_id, deviceId));
   if (tokenRows.length === 0) return { ok: true, sent: false, profile_id: device.profile_id };
 
-  const sent = await sendDataMessage({ tokens: tokenRows.map((t) => t.token), data: { type } });
+  const sent = await sendDataMessage({ tokens: tokenRows.map((t) => t.token), data: { type, ...extra } });
   return { ok: true, sent, profile_id: device.profile_id };
+}
+
+/** One profile setting, server-side, for the device routes below: resting, unrestricted_until. */
+async function setProfileSetting(profileId: string | null, key: 'resting' | 'unrestricted_until', value: boolean | number | null): Promise<void> {
+  if (!profileId) return;
+  await db
+    .update(profiles)
+    .set({
+      settings: drizzleSql`jsonb_set(${profiles.settings}, ${`{${key}}`}::text[], ${JSON.stringify(value)}::jsonb)`,
+      client_updated_at: Date.now(),
+    })
+    .where(eq(profiles.id, profileId));
 }
 
 /** Lock and Unlock are the one control for "is app blocking on": no more separate always-on allow-list toggle that a locked/unlocked device disagreed with. No-ops if this device was never assigned to a profile (Settings > Devices > Used by). */
@@ -385,6 +400,30 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     const result = await sendDeviceRequest(request.user!.id, id, 'unlock_request');
     await setChildModeActive(result.profile_id, false);
     return { ok: result.ok, sent: result.sent };
+  });
+
+  /**
+   * "Phone is resting" on or off, from any signed-in device. The device
+   * applies it natively from the push (LocateRequestMessagingService), so it
+   * takes hold even with Chipperly in the background; the profile setting
+   * is what the device reads back after a reboot or when it syncs.
+   */
+  app.post('/me/devices/:id/rest', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
+    const { id } = deviceIdParamSchema.parse(request.params);
+    const body = RestBodySchema.parse(request.body);
+    const result = await sendDeviceRequest(request.user!.id, id, body.resting ? 'rest_request' : 'wake_request');
+    await setProfileSetting(result.profile_id, 'resting', body.resting);
+    return { ok: result.ok, sent: result.sent };
+  });
+
+  /** Whole-phone free time for `minutes` (0 ends it now), from any signed-in device. */
+  app.post('/me/devices/:id/free', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean; until: number | null }> => {
+    const { id } = deviceIdParamSchema.parse(request.params);
+    const body = FreeBodySchema.parse(request.body);
+    const until = body.minutes > 0 ? Date.now() + body.minutes * 60_000 : null;
+    const result = await sendDeviceRequest(request.user!.id, id, 'free_request', { until: String(until ?? 0) });
+    await setProfileSetting(result.profile_id, 'unrestricted_until', until);
+    return { ok: result.ok, sent: result.sent, until };
   });
 
   /** Called by a caregiver, from any device, to name/reassign one already in the list -- never creates a row. */

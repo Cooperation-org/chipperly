@@ -829,6 +829,28 @@ describe('/me/devices', () => {
     expect(afterUnlock!.settings.child_mode_active).toBe(false);
   });
 
+  it("rest and wake set the profile's resting; free sets unrestricted_until, and 0 minutes ends it", async () => {
+    const { admin, profileId } = await setupProfile();
+    const deviceId = uuidv7();
+    const auth = { authorization: `Bearer ${admin.token}` };
+    await request(app, { method: 'PUT', url: `/api/me/devices/${deviceId}`, headers: auth, payload: { platform: 'android' } });
+    await request(app, { method: 'PATCH', url: `/api/me/devices/${deviceId}`, headers: auth, payload: { profile_id: profileId } });
+    const settings = async () => (await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId)))[0]!.settings;
+
+    await request(app, { method: 'POST', url: `/api/me/devices/${deviceId}/rest`, headers: auth, payload: { resting: true } });
+    expect((await settings()).resting).toBe(true);
+    await request(app, { method: 'POST', url: `/api/me/devices/${deviceId}/rest`, headers: auth, payload: { resting: false } });
+    expect((await settings()).resting).toBe(false);
+
+    const before = Date.now();
+    const free = await request(app, { method: 'POST', url: `/api/me/devices/${deviceId}/free`, headers: auth, payload: { minutes: 30 } });
+    const until = (free.json() as { until: number }).until;
+    expect(until).toBeGreaterThanOrEqual(before + 30 * 60_000);
+    expect((await settings()).unrestricted_until).toBe(until);
+    await request(app, { method: 'POST', url: `/api/me/devices/${deviceId}/free`, headers: auth, payload: { minutes: 0 } });
+    expect((await settings()).unrestricted_until).toBeNull();
+  });
+
   it('locking a device with no assigned profile sends the push without erroring on the missing profile_id', async () => {
     const admin = await createUser('Unassigned Locker');
     const deviceId = uuidv7();

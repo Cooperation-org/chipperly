@@ -43,6 +43,10 @@ export interface AppBlockerPlugin {
   isIgnoringBatteryOptimizations(): Promise<{ ignoring: boolean }>;
   /** Opens the OS's own "Allow to ignore battery optimizations?" dialog, same disclosed-step requirement as the two above. */
   requestIgnoreBatteryOptimizations(): Promise<void>;
+  /** "Phone is resting", stored natively so it holds through a reboot with no network; also unpins so the notification bar works. */
+  setResting(options: { resting: boolean }): Promise<void>;
+  /** Whole-phone free time until this epoch ms (0 or null: none); unpins meanwhile and re-pins after. */
+  setUnrestrictedUntil(options: { until: number | null }): Promise<void>;
 }
 
 const AppBlocker = registerPlugin<AppBlockerPlugin>('AppBlocker', {

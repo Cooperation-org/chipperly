@@ -54,6 +54,7 @@ export function RewardForm() {
   const [locationId, setLocationId] = useState<string | null>(null);
   const [screenMinutes, setScreenMinutes] = useState(0);
   const [screenPackages, setScreenPackages] = useState<string[]>([]);
+  const [screenWholePhone, setScreenWholePhone] = useState(false);
   // Every app any of the child's Android devices reports (Settings > Devices), same source as App blocking.
   const [deviceApps, setDeviceApps] = useState<{ package_name: string; app_name: string }[] | null>(null);
   const [openField, setOpenField] = useState<FieldKey | null>(editingId ? null : 'name');
@@ -70,10 +71,11 @@ export function RewardForm() {
     setLocationId(reward.location_id);
     setScreenMinutes(reward.screen_time_minutes ?? 0);
     setScreenPackages(reward.screen_time_packages ?? []);
+    setScreenWholePhone(reward.screen_time_whole_phone ?? false);
   }, [editingId, reward]);
 
   useEffect(() => {
-    if (openField !== 'screen' || deviceApps !== null) return;
+    if (openField !== 'screen' || screenWholePhone || deviceApps !== null) return;
     void api
       .get<{ devices: Device[] }>('/me/devices')
       .then((res) => {
@@ -82,7 +84,7 @@ export function RewardForm() {
         setDeviceApps([...seen].map(([package_name, app_name]) => ({ package_name, app_name })).sort((x, y) => x.app_name.localeCompare(y.app_name)));
       })
       .catch(() => setDeviceApps([]));
-  }, [openField, deviceApps]);
+  }, [openField, screenWholePhone, deviceApps]);
 
   function toggleScreenPackage(pkg: string): void {
     setScreenPackages((prev) => (prev.includes(pkg) ? prev.filter((p) => p !== pkg) : [...prev, pkg]));
@@ -106,7 +108,8 @@ export function RewardForm() {
         location_id: locationId,
         always_available: alwaysAvailable,
         screen_time_minutes: screenMinutes > 0 ? screenMinutes : null,
-        screen_time_packages: screenMinutes > 0 ? screenPackages : null,
+        screen_time_packages: screenMinutes > 0 && !screenWholePhone ? screenPackages : null,
+        screen_time_whole_phone: screenMinutes > 0 ? screenWholePhone : null,
       });
 
       if (workingForLocationId && setAsWorkingFor) {
@@ -139,7 +142,9 @@ export function RewardForm() {
   const screenSummary =
     screenMinutes === 0
       ? 'Off'
-      : `${minutesLabel(screenMinutes)}${screenPackages.length === 0 ? ', no app chosen' : `, ${screenPackages.length} app${screenPackages.length === 1 ? '' : 's'}`}`;
+      : screenWholePhone
+        ? `${minutesLabel(screenMinutes)}, whole phone`
+        : `${minutesLabel(screenMinutes)}${screenPackages.length === 0 ? ', no app chosen' : `, ${screenPackages.length} app${screenPackages.length === 1 ? '' : 's'}`}`;
   const costSummary = alwaysAvailable ? 'Always available' : `${cost} chip${cost === 1 ? '' : 's'}`;
 
   return (
@@ -181,6 +186,23 @@ export function RewardForm() {
           onChange={(v) => setScreenMinutes(Number(v))}
         />
         {screenMinutes > 0 ? (
+          <Segmented
+            label="Unlocks"
+            items={[
+              { value: 'apps', label: 'Chosen apps' },
+              { value: 'phone', label: 'Whole phone' },
+            ]}
+            value={screenWholePhone ? 'phone' : 'apps'}
+            onChange={(v) => setScreenWholePhone(v === 'phone')}
+          />
+        ) : null}
+        {screenMinutes > 0 && screenWholePhone ? (
+          <p className={styles.hint}>
+            Redeeming this turns app blocking off entirely for {minutesLabel(screenMinutes)} on the child&rsquo;s Android device, on
+            top of any free time still left. Blocking and the lock come back on when time is up.
+          </p>
+        ) : null}
+        {screenMinutes > 0 && !screenWholePhone ? (
           <>
             <p className={styles.hint}>
               Redeeming this unlocks the apps below for {minutesLabel(screenMinutes)} on the child&rsquo;s Android device, on top

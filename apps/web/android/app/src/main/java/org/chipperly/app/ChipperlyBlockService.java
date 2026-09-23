@@ -97,6 +97,14 @@ public class ChipperlyBlockService extends AccessibilityService {
 
     private void maybeBlock(String foregroundPackage) {
         SharedPreferences prefs = getSharedPreferences(AppBlockerPlugin.PREFS_NAME, MODE_PRIVATE);
+        // Resting overrides everything, including a switched-off allow-list and
+        // free time, and needs no network or JS: it's read straight from prefs,
+        // so it holds from the first app opened after a reboot.
+        if (prefs.getBoolean(AppBlockerPlugin.KEY_RESTING, false)) {
+            if (!restingAllowSet(getPackageName(), defaultDialerPackage()).contains(foregroundPackage)) bringChipperlyBack();
+            return;
+        }
+        if (System.currentTimeMillis() < prefs.getLong(AppBlockerPlugin.KEY_UNRESTRICTED_UNTIL, 0L)) return;
         boolean enabled = prefs.getBoolean(AppBlockerPlugin.KEY_ENABLED, false);
         if (!enabled) return;
 
@@ -105,11 +113,27 @@ public class ChipperlyBlockService extends AccessibilityService {
         String timedJson = prefs.getString(AppBlockerPlugin.KEY_TIMED_ALLOWANCES, null);
         allowSet.addAll(activeTimedPackages(parseTimedAllowances(timedJson), System.currentTimeMillis()));
         if (!shouldBlock(foregroundPackage, true, allowSet)) return;
+        bringChipperlyBack();
+    }
 
+    private void bringChipperlyBack() {
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         intent.putExtra("blocked", true);
         startActivity(intent);
+    }
+
+    /**
+     * What stays usable while resting: Chipperly, the status bar / notification
+     * shade and its quick settings (Wi-Fi, data), Settings behind them, and the
+     * phone/dialer for emergencies. Unlike buildAllowSet: no launcher, and no
+     * caregiver or timed allow-list. Pure, for the plain JUnit test.
+     */
+    static Set<String> restingAllowSet(String ownPackage, String defaultDialerPackage) {
+        Set<String> allow = new HashSet<>(SYSTEM_ALLOWLIST);
+        if (ownPackage != null) allow.add(ownPackage);
+        if (defaultDialerPackage != null) allow.add(defaultDialerPackage);
+        return allow;
     }
 
     @Override

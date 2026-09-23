@@ -324,6 +324,23 @@ export function ChildToday() {
 
   if (!profileId || !profile) return null;
 
+  // "Phone is resting" (profile setting, or a remote Rest): nothing but this
+  // calm page and the caregiver's way back in. Other apps are blocked
+  // natively; the notification bar stays usable for Wi-Fi and data.
+  if (profile.settings.resting) {
+    return (
+      <div className={[styles.screen, styles.resting].join(' ')}>
+        <span className={styles.restingMoon} aria-hidden="true">
+          🌙
+        </span>
+        <h1 className={styles.restingTitle}>Phone is resting</h1>
+        <p className={styles.restingText}>Time for a break. Ask a grown-up when it can wake up.</p>
+        <IconButton icon="lock" aria-label="Caregiver unlock" variant="solid" className={styles.lockButton} onClick={() => setUnlocking(true)} />
+        {unlocking ? <UnlockOverlay onClose={() => setUnlocking(false)} /> : null}
+      </div>
+    );
+  }
+
   // "Only show First-Then" lock option: the sole content, full page --
   // no task list, no other options underneath it (unlike show_first_then,
   // which just adds a button that opens the same panels as a sheet).

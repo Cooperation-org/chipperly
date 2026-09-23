@@ -22,5 +22,7 @@ export const RewardSchema = SyncColumnsSchema.extend({
   screen_time_minutes: z.number().int().positive().nullable().optional(),
   /** Android package names; empty or null means no app is chosen yet, so redeeming grants nothing. */
   screen_time_packages: z.array(z.string()).nullable().optional(),
+  /** True: redeeming frees the whole phone for `screen_time_minutes` (profile unrestricted_until) instead of the chosen apps. */
+  screen_time_whole_phone: z.boolean().nullable().optional(),
 });
 export type Reward = z.infer<typeof RewardSchema>;

@@ -61,7 +61,31 @@ public class LocateRequestMessagingService extends MessagingService {
             handleLockRequest();
         } else if ("unlock_request".equals(type)) {
             handleUnlockRequest();
+        } else if ("rest_request".equals(type) || "wake_request".equals(type)) {
+            blockerPrefs().edit().putBoolean(AppBlockerPlugin.KEY_RESTING, "rest_request".equals(type)).apply();
+            bringForwardForPolicy();
+        } else if ("free_request".equals(type)) {
+            long until = 0L;
+            try {
+                until = Long.parseLong(remoteMessage.getData().get("until"));
+            } catch (NumberFormatException ignored) {
+                // A malformed value ends free time rather than granting some unknown amount.
+            }
+            blockerPrefs().edit().putLong(AppBlockerPlugin.KEY_UNRESTRICTED_UNTIL, until).apply();
+            bringForwardForPolicy();
         }
+    }
+
+    private SharedPreferences blockerPrefs() {
+        return getSharedPreferences(AppBlockerPlugin.PREFS_NAME, Context.MODE_PRIVATE);
+    }
+
+    /** The prefs above already enforce it (ChipperlyBlockService); this brings Chipperly up to show it and fix the pin (MainActivity.applyPinPolicy). */
+    private void bringForwardForPolicy() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        intent.putExtra(MainActivity.EXTRA_POLICY_CHANGED, true);
+        startActivity(intent);
     }
 
     private void handleLockRequest() {

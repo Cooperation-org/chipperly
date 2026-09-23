@@ -14,7 +14,7 @@ import { profiles } from '../src/db/schema/profiles.js';
 import { buildTestApp, expectShape, request } from './helpers.js';
 import { addMember, createUser, setupProfile, type TestProfileSetup } from './fixtures.js';
 import { sql } from '../src/db/client.js';
-import { TABLE_SCHEMAS, nextAllowances } from '../src/routes/sync.js';
+import { TABLE_SCHEMAS, nextAllowances, nextUnrestrictedUntil } from '../src/routes/sync.js';
 
 /** Every row of every table in a pull's `changes`, checked against that table's own shared row schema. */
 function expectChangesShape(changes: Record<string, unknown[]>): void {
@@ -669,6 +669,39 @@ describe('sync', () => {
       { table: 'chip_ledger', id: secondId, op: 'upsert', row: chipLedgerRow(secondId, profileId, admin.id, t0 + 2, { delta: -5, reason: 'redeem', ref_id: rewardId }), client_updated_at: t0 + 2 },
     ]);
     expect(await allowanceUntil()).toBe(first! + 15 * 60_000);
+  });
+
+  it('a whole-phone screen-time reward frees the phone instead of granting apps', async () => {
+    const { admin, profileId } = await setupProfile();
+    const rewardId = uuidv7();
+    const t0 = Date.now();
+    await pushRequest(app, admin.token, profileId, [
+      {
+        table: 'rewards',
+        id: rewardId,
+        op: 'upsert',
+        row: {
+          id: rewardId, profile_id: profileId, version: 0, client_updated_at: t0, updated_by: admin.id, deleted_at: null,
+          name: 'Free phone', emoji: null, photo_id: null, chip_cost: 5, location_id: null, always_available: false, position: 0,
+          screen_time_minutes: 30, screen_time_packages: null, screen_time_whole_phone: true,
+        },
+        client_updated_at: t0,
+      },
+    ]);
+    const ledgerId = uuidv7();
+    const before = Date.now();
+    await pushRequest(app, admin.token, profileId, [
+      { table: 'chip_ledger', id: ledgerId, op: 'upsert', row: chipLedgerRow(ledgerId, profileId, admin.id, t0 + 1, { delta: -5, reason: 'redeem', ref_id: rewardId }), client_updated_at: t0 + 1 },
+    ], true);
+    const [row] = await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId));
+    expect(row!.settings.unrestricted_until).toBeGreaterThanOrEqual(before + 30 * 60_000);
+    expect(row!.settings.timed_app_allowances ?? []).toEqual([]);
+  });
+
+  it('nextUnrestrictedUntil stacks onto free time still running, else starts from now', () => {
+    expect(nextUnrestrictedUntil(null, 15, 1_000)).toBe(1_000 + 15 * 60_000);
+    expect(nextUnrestrictedUntil(500, 15, 1_000)).toBe(1_000 + 15 * 60_000);
+    expect(nextUnrestrictedUntil(5_000, 15, 1_000)).toBe(5_000 + 15 * 60_000);
   });
 
   it('nextAllowances drops expired grants and starts a fresh one from now', () => {
