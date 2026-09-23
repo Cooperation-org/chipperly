@@ -23,6 +23,9 @@ export async function pickAndStoreImage(file: File | Blob): Promise<string> {
   canvas.height = height;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('pickAndStoreImage: canvas 2d context unavailable');
+  // JPEG has no alpha: without a fill, a transparent PNG (clip art, logos) encodes with a black background.
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
