@@ -144,6 +144,10 @@
          openLocationSettings sends the caregiver to grant it by hand
          instead, same pattern as openAccessibilitySettings below. -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- LockNotifier's lock/unlock confirmation, Android 13+. Requested at
+         runtime by PushRegistrationGuard's existing PushNotifications.requestPermissions()
+         call, not a new flow: notifications and push already need the same grant. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- AppBlockerPlugin.requestIgnoreBatteryOptimizations: lets the caregiver
          exempt Chipperly from Doze/App Standby so ChipperlyBlockService's
          relaunch of a blocked app doesn't have to cold-start a killed process. -->

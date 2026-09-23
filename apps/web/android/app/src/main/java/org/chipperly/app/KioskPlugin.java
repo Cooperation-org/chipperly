@@ -28,6 +28,7 @@ public class KioskPlugin extends Plugin {
         Activity activity = getActivity();
         if (activity != null) {
             activity.startLockTask();
+            LockNotifier.notify(getContext(), true);
         }
         call.resolve();
     }
@@ -37,6 +38,7 @@ public class KioskPlugin extends Plugin {
         Activity activity = getActivity();
         if (activity != null) {
             activity.stopLockTask();
+            LockNotifier.notify(getContext(), false);
         }
         call.resolve();
     }

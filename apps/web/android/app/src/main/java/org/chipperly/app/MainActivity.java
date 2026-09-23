@@ -28,8 +28,10 @@ public class MainActivity extends BridgeActivity {
         if (intent == null) return;
         if (intent.getBooleanExtra(EXTRA_LOCK_REQUESTED, false)) {
             startLockTask();
+            LockNotifier.notify(this, true);
         } else if (intent.getBooleanExtra(EXTRA_UNLOCK_REQUESTED, false)) {
             stopLockTask();
+            LockNotifier.notify(this, false);
         }
     }
 }
