@@ -170,7 +170,9 @@ test.describe('child mode', () => {
     await expectNoOverflow(page, 'back at today after unlock');
   });
 
-  test('SOW Q3 decided: lock with "Let Benny switch location" on, child taps location, chip strip follows', async () => {
+  test('SOW Q3 decided: lock with "Let Benny switch location" on, child taps location, chip strip follows', async ({ browserName }) => {
+    // The longest test here (lock, location picker, PIN confirm, unlock): ~18s alone on WebKit, over 60s under full-suite load.
+    test.slow(browserName === 'webkit');
     // Give School a balance that's visibly different from Home's before
     // locking, and leave School as the active location (the child's header
     // opens onto whichever location the device last had active).
