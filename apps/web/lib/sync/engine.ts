@@ -247,6 +247,10 @@ async function pushOutbox(): Promise<void> {
       }
       await db.outbox.where('id').equals(rejected.id).delete();
     }
-    await db.sync_cursors.put({ profile_id: profileId, version: res.version });
+    // No cursor move here: res.version is the server's latest version for
+    // everyone, so advancing to it made the pull that follows skip other
+    // devices' writes since this one's last pull, and any row the server
+    // itself wrote during this push (a redeem's screen-time grant). The
+    // pull re-fetching this device's own rows is harmless.
   }
 }
