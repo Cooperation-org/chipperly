@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db/db';
 import { useLock, lockTo, unlock } from '@/lib/device/settings';
 import { useActiveProfile } from '@/lib/profile/active';
 import { getDeviceId } from '@/lib/device/identity';
@@ -32,6 +34,7 @@ const RECHECK_INTERVAL_MS = 20_000;
 export function LockTaskReconcileGuard(): null {
   const { locked_profile_id } = useLock();
   const { profile } = useActiveProfile();
+  const lockedProfile = useLiveQuery(() => (locked_profile_id ? db.profiles.get(locked_profile_id) : undefined), [locked_profile_id]);
   const lastReported = useRef<boolean | null>(null);
 
   useEffect(() => {
@@ -46,7 +49,12 @@ export function LockTaskReconcileGuard(): null {
     function reconcile(): void {
       void Kiosk.isLockTaskActive().then(({ active }) => {
         if (active && !locked_profile_id && profile) void lockTo(profile.id);
-        else if (!active && locked_profile_id) void unlock();
+        // Pinning without Device Owner is escapable by design (hold Back +
+        // Recents), so "not pinned" alone doesn't mean a caregiver unlocked.
+        // Both caregiver unlock paths (UnlockOverlay, POST /me/devices/:id/unlock)
+        // turn child_mode_active off; a child's unpin leaves it on, and the
+        // lock state stays put so the child view and blocking keep holding.
+        else if (!active && locked_profile_id && lockedProfile && !lockedProfile.settings.child_mode_active) void unlock();
 
         if (Capacitor.getPlatform() !== 'android' || lastReported.current === active) return;
         lastReported.current = active;
@@ -60,7 +68,7 @@ export function LockTaskReconcileGuard(): null {
       document.removeEventListener('visibilitychange', reconcile);
       clearInterval(interval);
     };
-  }, [locked_profile_id, profile]);
+  }, [locked_profile_id, lockedProfile, profile]);
 
   return null;
 }
