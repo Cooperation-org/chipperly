@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
-import { and, desc, eq, inArray, isNull, sql as drizzleSql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, sql as drizzleSql } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
@@ -276,6 +276,14 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
   app.put('/me/push-token', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
     const authUser = request.user!;
     const body = RegisterPushTokenBodySchema.parse(request.body);
+    // One live registration per device: a browser that re-subscribes (new service
+    // worker, cleared site data) gets a new token, and the old one kept every alert
+    // arriving twice until the push service finally reported it gone.
+    if (body.device_id) {
+      await db
+        .delete(push_tokens)
+        .where(and(eq(push_tokens.user_id, authUser.id), eq(push_tokens.device_id, body.device_id), ne(push_tokens.token, body.token)));
+    }
     await db
       .insert(push_tokens)
       .values({ user_id: authUser.id, token: body.token, platform: body.platform, device_id: body.device_id, created_at: Date.now() })
