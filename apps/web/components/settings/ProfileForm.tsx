@@ -12,6 +12,7 @@ import { PicturePicker, type PicturePickerValue } from '@/components/picture/Pic
 import { Switch } from '@/components/ui/Switch';
 import { NotificationCheck } from './NotificationCheck';
 import { UsesAppSwitch } from './UsesAppSwitch';
+import { ReviewReminderSetting } from './ReviewReminderSetting';
 import { db } from '@/lib/db/db';
 import { upsert, softDelete } from '@/lib/sync/mutate';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -143,6 +144,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           </div>
         </>
       ) : null}
+      <ReviewReminderSetting profileId={row.id} name={name || row.name} />
       <Button variant="primary" size="lg" fullWidth onClick={() => void save()} loading={saving}>
         Save
       </Button>

@@ -20,6 +20,8 @@ export function PushRegistrationGuard(): null {
 
   useEffect(() => {
     if (status !== 'signed_in') return;
+    // Routine reminders go out at the caregiver's own local hour.
+    void api.put('/me/time-zone', { time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone }).catch(() => undefined);
     if (!Capacitor.isNativePlatform()) {
       // A browser only prompts from a tap (Settings > Edit profile > reward alerts); once allowed, keep the subscription fresh.
       if (webPushSupported() && Notification.permission === 'granted') void subscribeWebPush().catch(() => undefined);
