@@ -57,7 +57,44 @@ export async function getCurrentUserId(): Promise<string> {
   return id;
 }
 
+/** Who the synced rows on this device belong to; unlike current_user_id it survives sign-out. */
+const DATA_OWNER_KEY = 'data_owner_user_id';
+/** kv entries that describe the previous user's data; device-wide ones (device_id, device_settings, tokens) stay. */
+const PER_USER_KV_KEYS = [
+  ACTIVE_ACCOUNT_KEY,
+  ACTIVE_PROFILE_KEY,
+  'device_role',
+  'lock',
+  'pending_reward_requests',
+  'verify_banner_dismissed',
+  'reward_alerts_banner_dismissed',
+  'timer_state',
+];
+
+/**
+ * Sign-out keeps local data so the same person signing back in (or offline)
+ * loses nothing, including unsent edits. A different person signing in must
+ * not inherit it: their account and profiles never showed up until the site
+ * data was cleared by hand, because the old active ids and rows won.
+ */
+async function resetLocalDataIfNewUser(me: MeResponse): Promise<void> {
+  const owner = await getKv<string>(DATA_OWNER_KEY);
+  // Devices from before this key existed: an active account the user isn't in means someone else's data.
+  const activeAccount = owner ? null : await getKv<string>(ACTIVE_ACCOUNT_KEY);
+  const foreign = owner
+    ? owner !== me.user.id
+    : activeAccount != null && !me.accounts.some((a) => a.account.id === activeAccount);
+  if (foreign) {
+    await db.transaction('rw', db.tables, async () => {
+      await Promise.all(db.tables.filter((table) => table !== db.kv).map((table) => table.clear()));
+      await db.kv.bulkDelete(PER_USER_KV_KEYS);
+    });
+  }
+  await setKv(DATA_OWNER_KEY, me.user.id);
+}
+
 async function applyMe(me: MeResponse): Promise<void> {
+  await resetLocalDataIfNewUser(me);
   await setKv<MeResponse>(ME_KEY, me);
   await setKv<string>(CURRENT_USER_KEY, me.user.id);
   if (me.profiles.length > 0) {

@@ -144,4 +144,26 @@ test.describe('auth', () => {
     await page.waitForURL('http://127.0.0.1:8123/');
     await expect(page.getByRole('heading', { name: 'Chipperly' })).toBeVisible();
   });
+
+  test("a different user signing in on the same device doesn't see the last user's child", async () => {
+    // Before, the old active profile and rows survived sign-out, so the new
+    // user landed on the previous user's child until site data was cleared.
+    await page.goto('/sign-up/');
+    await page.getByLabel('Name', { exact: true }).fill('Second Tester');
+    await page.getByLabel('Email', { exact: true }).fill(`e2e-auth2-${Date.now()}@example.com`);
+    await page.getByLabel('Password', { exact: true }).fill(password);
+    await page.getByLabel('Beta invite code', { exact: true }).fill('e2e-beta-code');
+    await page.getByRole('checkbox', { name: /parent, guardian, or an authorised caregiver/i }).check();
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await page.waitForURL('**/onboarding/kind/');
+    await page.getByRole('button', { name: /My family/ }).click();
+    await page.getByLabel('Name', { exact: true }).fill('Mia');
+    await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByRole('button', { name: 'Go to Today', exact: true }).click();
+    await page.waitForURL('**/today/');
+
+    await expect(page.getByRole('banner').getByText('Mia', { exact: true })).toBeVisible();
+    await expect(page.getByText('Benny', { exact: true })).toHaveCount(0);
+  });
 });
