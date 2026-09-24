@@ -30,6 +30,8 @@ export type RewardRequestSource = z.infer<typeof RewardRequestSource>;
 export const RewardRequestBodySchema = z.object({
   reward_name: z.string().min(1).max(200),
   source: RewardRequestSource,
+  /** Where the child is; care-team members assigned to another location aren't alerted. */
+  location_id: uuidSchema.nullable().optional(),
   /** The child's own device, so its caregiver account doesn't alert the phone the child is holding. */
   device_id: uuidSchema.optional(),
 });

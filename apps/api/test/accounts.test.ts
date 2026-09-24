@@ -346,7 +346,7 @@ describe('accounts routes', () => {
     expect(relabeled?.relationship_label).toBe('Auntie');
   });
 
-  it('reward-request alerts every caregiver phone except the child device, and respects reward_alerts', async () => {
+  it("reward-request alerts the parents and that location's care team (not the child device), and respects reward_alerts", async () => {
     const admin = await createUser('reward-admin');
     const accountRes = await request(app, {
       method: 'POST',
@@ -363,25 +363,38 @@ describe('accounts routes', () => {
     });
     const profile = profileRes.json() as { id: string };
 
+    const home = uuidv7();
+    const therapy = uuidv7();
+    const therapist = await createUser('reward-therapist');
+    await db.insert(account_members).values({ account_id: account.id, user_id: therapist.id, role: 'member' });
+    await db.insert(profile_members).values({ profile_id: profile.id, user_id: therapist.id, assigned_location_id: therapy, location_notify_mode: 'strict' });
+
     const childDevice = uuidv7();
     await db.insert(push_tokens).values([
       { user_id: admin.id, token: `parent-phone-${admin.id}`, platform: 'android', created_at: Date.now(), device_id: uuidv7() },
+      { user_id: admin.id, token: `{"endpoint":"https://push.example/${admin.id}"}`, platform: 'web', created_at: Date.now(), device_id: uuidv7() },
       { user_id: admin.id, token: `child-phone-${admin.id}`, platform: 'android', created_at: Date.now(), device_id: childDevice },
+      { user_id: therapist.id, token: `therapist-phone-${therapist.id}`, platform: 'android', created_at: Date.now(), device_id: uuidv7() },
     ]);
-    const ask = () =>
-      request(app, {
-        method: 'POST',
-        url: `/api/profiles/${profile.id}/reward-request`,
-        headers: auth(admin.token),
-        payload: { reward_name: 'Candy', source: 'first_then', device_id: childDevice },
-      });
+    const ask = async (locationId: string) =>
+      (
+        (
+          await request(app, {
+            method: 'POST',
+            url: `/api/profiles/${profile.id}/reward-request`,
+            headers: auth(admin.token),
+            payload: { reward_name: 'Candy', source: 'first_then', location_id: locationId, device_id: childDevice },
+          })
+        ).json() as { notified: number }
+      ).notified;
 
-    const res = await ask();
-    expect(res.statusCode).toBe(200);
-    expect((res.json() as { notified: number }).notified).toBe(1);
+    // At home: the parent's phone and browser, not the child's phone, not the therapist.
+    expect(await ask(home)).toBe(2);
+    // At therapy: the therapist too.
+    expect(await ask(therapy)).toBe(3);
 
     await db.update(profiles).set({ settings: { reward_alerts: false } }).where(eq(profiles.id, profile.id));
-    expect(((await ask()).json() as { notified: number }).notified).toBe(0);
+    expect(await ask(home)).toBe(0);
   });
 
   it('makes the creator the account owner, distinct from a co-admin', async () => {

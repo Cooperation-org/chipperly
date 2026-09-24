@@ -29,7 +29,7 @@ import { requireUser, canAccessProfile } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
-import { sendDataMessage, sendPush } from '../lib/push.js';
+import { sendDataMessage, sendPush, sendWebPush } from '../lib/push.js';
 import { seedProfile } from '../seed/seedProfile.js';
 import { env } from '../env.js';
 
@@ -591,11 +591,12 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
   });
 
   /**
-   * The child is ready for a reward: a high-priority alert to every
-   * caregiver who can see this profile (account admins plus its care team),
-   * on every phone but the one the child is holding. Data-only, so
-   * LocateRequestMessagingService posts it on its own heads-up channel even
-   * when Chipperly is closed.
+   * The child is ready for a reward: a high-priority alert to the account's
+   * admins (the parents) and to the care-team members assigned to the
+   * location the child is at (the therapist doesn't hear about home), on
+   * every phone or browser but the one the child is holding. Android gets a
+   * data push that LocateRequestMessagingService shows on its heads-up
+   * channel even with Chipperly closed; browsers get Web Push (app/sw.ts).
    */
   app.post('/profiles/:id/reward-request', { preHandler: requireUser }, async (request): Promise<{ notified: number }> => {
     const { id: profileId } = idParamSchema.parse(request.params);
@@ -614,21 +615,29 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       .select({ user_id: account_members.user_id })
       .from(account_members)
       .where(and(eq(account_members.account_id, profile.account_id), eq(account_members.role, 'admin')));
-    const team = await db.select({ user_id: profile_members.user_id }).from(profile_members).where(eq(profile_members.profile_id, profileId));
+    // ponytail: an unassigned non-admin member gets none; assigning them a location in Care team is how they opt in.
+    const team = body.location_id
+      ? await db
+          .select({ user_id: profile_members.user_id })
+          .from(profile_members)
+          .where(and(eq(profile_members.profile_id, profileId), eq(profile_members.assigned_location_id, body.location_id)))
+      : [];
     const recipientIds = [...new Set([...admins, ...team].map((r) => r.user_id))];
 
     const tokenRows = await db
-      .select({ token: push_tokens.token, device_id: push_tokens.device_id })
+      .select({ token: push_tokens.token, platform: push_tokens.platform, device_id: push_tokens.device_id })
       .from(push_tokens)
       .where(inArray(push_tokens.user_id, recipientIds));
-    const tokens = tokenRows.filter((t) => !body.device_id || t.device_id !== body.device_id).map((t) => t.token);
-    if (tokens.length === 0) return { notified: 0 };
+    const targets = tokenRows.filter((t) => !body.device_id || t.device_id !== body.device_id);
+    if (targets.length === 0) return { notified: 0 };
 
-    await sendDataMessage({
-      tokens,
-      data: { type: 'reward_request', profile_id: profileId, title: `${profile.name} wants a reward`, body: rewardRequestText(profile.name, body.reward_name, body.source) },
-    });
-    return { notified: tokens.length };
+    const data = { type: 'reward_request', profile_id: profileId, title: `${profile.name} wants a reward`, body: rewardRequestText(profile.name, body.reward_name, body.source) };
+    const [, stale] = await Promise.all([
+      sendDataMessage({ tokens: targets.filter((t) => t.platform !== 'web').map((t) => t.token), data }),
+      sendWebPush(targets.filter((t) => t.platform === 'web').map((t) => t.token), data),
+    ]);
+    if (stale.length > 0) await db.delete(push_tokens).where(inArray(push_tokens.token, stale));
+    return { notified: targets.length };
   });
 }
 
