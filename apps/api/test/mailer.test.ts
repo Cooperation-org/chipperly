@@ -41,7 +41,7 @@ describe('mailer Resend transport failure (never blocks the caller)', () => {
 
     await expect(
       sendMail({ to: 'kid@example.com', subject: 'Verify your Chipperly email', text: 'link' }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
 
     expect(errorSpy).toHaveBeenCalled();
   });
