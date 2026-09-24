@@ -315,6 +315,11 @@ describe('accounts routes', () => {
     const profile = profileRes.json() as { id: string; version: number };
     await db.update(profiles).set({ settings: { chips_by_attitude: true } }).where(eq(profiles.id, profile.id));
 
+    // The copy a device already holds, before anyone records progress.
+    const pulled = await request(app, { method: 'GET', url: `/api/sync/pull?profile_id=${profile.id}&since=0`, headers: auth(admin.token) });
+    const base = (pulled.json() as { changes: { profiles: Array<Record<string, unknown> & { id: string; client_updated_at: number }> } }).changes.profiles.find(
+      (p) => p.id === profile.id,
+    )!;
     const progress = { date: '2026-09-24', first_id: uuidv7(), then_id: uuidv7(), asked: true };
     const res = await request(app, {
       method: 'POST',
@@ -327,6 +332,22 @@ describe('accounts routes', () => {
     expect(row!.settings).toEqual({ chips_by_attitude: true, first_then_progress: progress });
     // A new version is what makes every other device pull it.
     expect(row!.version).toBeGreaterThan(profile.version);
+
+    // That device then pushes an edit it made to its (older) copy, like a carer
+    // switching redeem mode: it must not be rejected as stale, nor erase the progress.
+    const edited = { ...base, settings: { chips_by_attitude: true, redeem_mode: 'reset' }, client_updated_at: base.client_updated_at + 1 };
+    const push = await request(app, {
+      method: 'POST',
+      url: '/api/sync/push',
+      headers: auth(admin.token),
+      payload: {
+        profile_id: profile.id,
+        mutations: [{ table: 'profiles', id: profile.id, op: 'upsert', row: edited, client_updated_at: edited.client_updated_at }],
+      },
+    });
+    expect(push.json().rejected).toEqual([]);
+    const [pushed] = await db.select().from(profiles).where(eq(profiles.id, profile.id));
+    expect(pushed!.settings).toEqual({ chips_by_attitude: true, redeem_mode: 'reset', first_then_progress: progress });
 
     const cleared = await request(app, {
       method: 'POST',

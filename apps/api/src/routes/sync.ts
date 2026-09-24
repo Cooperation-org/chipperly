@@ -386,11 +386,23 @@ async function applyUpsert(
   // value), so a plain object reaches the wire as `[object Object]` /
   // throws, and `sql.json()` doesn't help either since it hits that same
   // passthrough. Stringifying ourselves is what the passthrough expects.
-  if (mutation.table === 'profiles' && 'settings' in row) {
-    row.settings = JSON.stringify(row.settings);
-  }
-
   const stored = await selectForUpdate(tx, mutation.table, mutation.id);
+
+  if (mutation.table === 'profiles' && 'settings' in row) {
+    // first_then_progress is server-owned (POST /profiles/:id/first-then): a
+    // device pushing its copy of the profile must neither erase nor roll it back.
+    const settings = { ...(row.settings as Record<string, unknown>) };
+    const storedSettings = (typeof stored?.settings === 'string' ? JSON.parse(stored.settings) : stored?.settings) as
+      | Record<string, unknown>
+      | null
+      | undefined;
+    if (storedSettings && 'first_then_progress' in storedSettings) {
+      settings.first_then_progress = storedSettings.first_then_progress;
+    } else {
+      delete settings.first_then_progress;
+    }
+    row.settings = JSON.stringify(settings);
+  }
 
   if (mutation.table === 'profiles') {
     const incomingShareToken = row.share_token ?? null;

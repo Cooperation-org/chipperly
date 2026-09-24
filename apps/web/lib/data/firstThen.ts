@@ -84,7 +84,8 @@ async function sendProgress(profileId: string, progress: FirstThenProgress | nul
 async function saveProgress(profileId: string, progress: FirstThenProgress | null): Promise<void> {
   const profile = await db.profiles.get(profileId);
   if (profile) {
-    await db.profiles.put({ ...profile, settings: { ...profile.settings, first_then_progress: progress }, client_updated_at: now() });
+    // Same client_updated_at: the server row that comes back carries it too and replaces this one cleanly.
+    await db.profiles.put({ ...profile, settings: { ...profile.settings, first_then_progress: progress } });
   }
   const pending = (await getKv<Record<string, FirstThenProgress | null>>(PENDING_KEY)) ?? {};
   if (await sendProgress(profileId, progress)) {

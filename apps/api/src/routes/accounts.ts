@@ -603,9 +603,10 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
   /**
    * Today's First-Then state (FIRST done, THEN asked for), written here rather
    * than synced as a profile upsert because a locked child device may not
-   * push the profile row. Sets only that one settings key and moves
-   * client_updated_at to now, so every device pulls it and none of their
-   * other settings are touched.
+   * push the profile row. Sets only that one settings key; the version
+   * trigger makes every device pull it. client_updated_at stays as it is:
+   * moving it would turn any profile edit a device hasn't pushed yet into a
+   * stale write the server drops (sync.ts keeps this key server-owned instead).
    */
   app.post('/profiles/:id/first-then', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
     const { id: profileId } = idParamSchema.parse(request.params);
@@ -615,7 +616,6 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       .update(profiles)
       .set({
         settings: sql`jsonb_set(coalesce(${profiles.settings}, '{}'::jsonb), '{first_then_progress}', ${JSON.stringify(progress)}::jsonb)`,
-        client_updated_at: Date.now(),
         updated_by: request.user!.id,
       })
       .where(eq(profiles.id, profileId))
