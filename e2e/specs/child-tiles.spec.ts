@@ -54,6 +54,8 @@ test.describe('child view: picture tiles', () => {
       await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
     }
     await expectNoOverflow(page, 'child tiles home');
+    // Short home: nothing to scroll (the screen's full height used to stack on the shell's padding).
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(0);
     await snap(page, 'child-tiles-home');
 
     await myDay.click();

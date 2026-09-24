@@ -2,5 +2,8 @@
   max-width: 720px;
   margin: 0 auto;
   min-height: 100dvh;
+  /* The screen inside fills what's left after this padding; its own 100dvh overflowed by the padding. */
+  display: flex;
+  flex-direction: column;
   padding: var(--space-3);
 }
