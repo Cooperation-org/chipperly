@@ -1,8 +1,10 @@
 .banner {
-  display: flex;
+  /* Message and close on the first row, the button under the message, so the text isn't squeezed on a phone. */
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -10,8 +12,12 @@
 }
 
 .text {
-  flex: 1;
   min-width: 0;
   font-size: var(--text-sm);
   color: var(--color-text);
+}
+
+.resend {
+  grid-column: 1 / -1;
+  justify-self: start;
 }

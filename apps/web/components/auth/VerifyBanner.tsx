@@ -76,10 +76,10 @@ export function VerifyBanner() {
   return (
     <div className={styles.banner} role="status">
       <p className={styles.text}>{note ?? 'Check your email to verify your address.'}</p>
-      <Button variant="secondary" loading={sending} disabled={sending} onClick={() => void resend()}>
+      <IconButton icon="close" aria-label="Dismiss" onClick={dismiss} />
+      <Button className={styles.resend} variant="secondary" loading={sending} disabled={sending} onClick={() => void resend()}>
         Resend email
       </Button>
-      <IconButton icon="close" aria-label="Dismiss" onClick={dismiss} />
     </div>
   );
 }
