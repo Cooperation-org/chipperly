@@ -222,6 +222,25 @@ async function applyRowsToTable(table: SyncedTable, rows: Record<string, unknown
   });
 }
 
+/** Outbox seqs a push settled: the ones it sent for this row, not one written while it was in flight. */
+export function settledSeqs(entries: readonly { seq?: number }[], pushedSeq: number | undefined): number[] {
+  if (pushedSeq === undefined) return [];
+  return entries.flatMap((e) => (e.seq !== undefined && e.seq <= pushedSeq ? [e.seq] : []));
+}
+
+/**
+ * Drops the outbox entries a push just settled for this row, and says
+ * whether a newer one is left. Deleting every entry for the row lost an edit
+ * made mid-push (a redeem clearing working-for, "Start over" saved): nothing
+ * sent it, and the next pull put the server's older copy back.
+ */
+async function settleOutbox(id: string, pushedSeq: number | undefined): Promise<boolean> {
+  const entries = await db.outbox.where('id').equals(id).toArray();
+  const settled = settledSeqs(entries, pushedSeq);
+  await db.outbox.bulkDelete(settled);
+  return entries.length > settled.length;
+}
+
 async function pushOutbox(): Promise<void> {
   const entries = await db.outbox.orderBy('seq').toArray();
   if (entries.length === 0) return;
@@ -255,9 +274,12 @@ async function pushOutbox(): Promise<void> {
     );
 
     for (const id of res.applied) {
-      await db.outbox.where('id').equals(id).delete();
+      await settleOutbox(id, latestById.get(id)?.seq);
     }
     for (const rejected of res.rejected) {
+      const newer = await settleOutbox(rejected.id, latestById.get(rejected.id)?.seq);
+      // A change made during this push is still to send; the server's copy must not overwrite it.
+      if (newer) continue;
       // `rejected.table` is a MutationTable (SyncedTable | 'profiles');
       // narrow explicitly so tableFor()'s SyncedTable-only signature holds.
       if (rejected.table === 'profiles') {
@@ -265,7 +287,6 @@ async function pushOutbox(): Promise<void> {
       } else if (rejected.server_row) {
         await tableFor(rejected.table).put(rejected.server_row as SyncedRow<typeof rejected.table>);
       }
-      await db.outbox.where('id').equals(rejected.id).delete();
     }
     // No cursor move here: res.version is the server's latest version for
     // everyone, so advancing to it made the pull that follows skip other
