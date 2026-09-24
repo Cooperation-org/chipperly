@@ -21,6 +21,7 @@ import {
 } from '@/lib/data/schedule';
 import { useActiveLocation, useLocations } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
+import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { useMediaUrl } from '@/lib/data/media';
 import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
@@ -207,9 +208,16 @@ export function ChildToday() {
     });
   }
 
+  // The chip that fills the board for the reward the child is working for alerts the caregivers.
+  function alertIfBoardFills(chips: number): void {
+    const { reward, goal, filled } = workingFor;
+    if (reward && chips > 0 && filled < goal && filled + chips >= goal) void sendRewardRequest(profileId, reward.name, 'chips');
+  }
+
   async function handleToggle(day: DayItem, next: boolean): Promise<void> {
     await setCompleted(day.item.id, next, userId);
     if (!next) return;
+    alertIfBoardFills(day.activity.chip_value);
     if (day.activity.chip_value > 0) playChip();
     showPromptFor(day.item.id);
   }
@@ -225,6 +233,7 @@ export function ChildToday() {
     const completesParent = stepCompletesParent(day, stepId, next);
     await setStepCompleted(day.item.id, stepId, next, userId);
     if (!completesParent) return;
+    alertIfBoardFills(day.activity.chip_value);
     if (day.activity.chip_value > 0) playChip();
     showPromptFor(day.item.id);
   }

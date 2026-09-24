@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth/session';
 import { useFirstThen, setFirst, setThen, clear, completeFirst, uncompleteFirst } from '@/lib/data/firstThen';
+import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { Picker } from '@/components/picker/Picker';
@@ -90,6 +91,7 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
     if (!bothSet || !user) return;
     if (next) {
       setDone(true);
+      if (!caregiver && then) void sendRewardRequest(profileId, then.name, 'first_then');
       const awarded = await completeFirst(profileId, user.id);
       setCelebrating(true);
       if (awarded) playChip();

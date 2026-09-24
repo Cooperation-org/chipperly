@@ -8,6 +8,7 @@ import { useRewards } from '@/lib/data/rewards';
 import { addChip, redeem, useBalance } from '@/lib/data/chips';
 import { db } from '@/lib/db/db';
 import { toast } from '@/lib/toast';
+import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
@@ -54,6 +55,8 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
   async function doRedeem(reward: Reward): Promise<void> {
     if (!locationId) return;
     const removed = await redeem(profileId, locationId, reward);
+    // canCreate is the caregiver's own sheet; only the child's redeem alerts them.
+    if (!canCreate) void sendRewardRequest(profileId, reward.name, 'free_time');
     playChip();
     toast(`Redeemed ${reward.name}`, {
       // ponytail: restores the balance only; redeem() also clears the
