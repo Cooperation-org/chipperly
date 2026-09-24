@@ -9,6 +9,12 @@ export interface ChipStarProps {
   muted?: boolean;
   /** Colours the centre disc; the rays keep the brand colours. Default is the brand teal. */
   tone?: ChipStarTone | null;
+  /**
+   * How many of the 12 rays are lit, clockwise from the top; the rest and
+   * the disc stay grey until all 12 are. A routine's steps build the chip up
+   * ray by ray (6 steps: 2 rays each). Omitted: the whole star.
+   */
+  rays?: number;
   className?: string;
 }
 
@@ -32,7 +38,8 @@ const RAYS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /** Decorative by default; the parent carries the label. */
-export function ChipStar({ size = 40, muted = false, tone = null, className }: ChipStarProps) {
+export function ChipStar({ size = 40, muted = false, tone = null, rays, className }: ChipStarProps) {
+  const partial = rays !== undefined && rays < RAYS.length;
   return (
     <svg
       viewBox="0 0 1000 1000"
@@ -42,10 +49,11 @@ export function ChipStar({ size = 40, muted = false, tone = null, className }: C
       aria-hidden="true"
       focusable="false"
     >
-      {RAYS.map(([fill, d]) => (
-        <path key={d} d={d} fill={muted ? undefined : fill} className={styles.ray} />
-      ))}
-      <circle cx="500" cy="500" r="200" className={styles.disc} />
+      {RAYS.map(([fill, d], i) => {
+        const lit = !muted && (rays === undefined || i < rays);
+        return <path key={d} d={d} fill={lit ? fill : undefined} className={lit ? styles.ray : [styles.ray, styles.unlitRay].join(' ')} />;
+      })}
+      <circle cx="500" cy="500" r="200" className={partial ? [styles.disc, styles.unlitDisc].join(' ') : styles.disc} />
     </svg>
   );
 }

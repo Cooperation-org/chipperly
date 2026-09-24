@@ -29,3 +29,13 @@
 .negative {
   color: var(--color-danger);
 }
+
+/* A chip being built step by step: rays not earned yet stay a faint outline colour. */
+.unlitRay {
+  fill: var(--color-text-muted);
+  opacity: 0.3;
+}
+
+.unlitDisc {
+  fill: var(--color-surface-2);
+}

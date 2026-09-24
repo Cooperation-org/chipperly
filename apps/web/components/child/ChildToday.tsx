@@ -503,6 +503,8 @@ export function ChildToday() {
                     checked={dimmed}
                     name={day.activity.name}
                     size="lg"
+                    // Each finished step lights its share of the 12-ray star (6 steps: 2 rays each).
+                    progress={hasSteps ? stepsDone / topSteps.length : undefined}
                     // A stepped task's chip only comes from finishing every step
                     // (setStepCompleted's cascade), never a direct tap here --
                     // tapping it just opens the steps, same as tapping the bar.

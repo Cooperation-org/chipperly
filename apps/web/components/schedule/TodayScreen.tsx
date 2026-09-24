@@ -387,7 +387,12 @@ export function TodayScreen() {
                               onClick={() => toggleExpanded(day.item.id)}
                             />
                           ) : null}
-                          <CheckCircle checked={dimmed} name={day.activity.name} onChange={(next) => void onToggleComplete(day, next)} />
+                          <CheckCircle
+                            checked={dimmed}
+                            name={day.activity.name}
+                            progress={day.steps.length > 0 ? stepTree(day.steps).filter((node) => node.done).length / stepTree(day.steps).length : undefined}
+                            onChange={(next) => void onToggleComplete(day, next)}
+                          />
                         </div>
                       }
                     />
