@@ -25,6 +25,7 @@ import { useActiveLocation, useLocations } from '@/lib/data/locations';
 import { Segmented } from '@/components/ui/Segmented';
 import { useMediaUrl } from '@/lib/data/media';
 import { useWorkingFor } from '@/lib/data/chips';
+import { levelEmoji, useMoodLevel } from '@/lib/data/mood';
 import { Picker } from '@/components/picker/Picker';
 import { Picture } from '@/components/media/Picture';
 import { ListRow } from '@/components/ui/ListRow';
@@ -56,6 +57,7 @@ export function TodayScreen() {
   const userId = user?.id ?? '';
 
   const dayItems = useDayItems(profileId, isoDate);
+  const moodLevel = useMoodLevel(profileId, isoDate);
   const { location, setActiveLocationId } = useActiveLocation(profileId);
   const locations = useLocations(profileId);
   const workingFor = useWorkingFor(profileId, location?.id ?? null);
@@ -281,7 +283,7 @@ export function TodayScreen() {
           aria-label="Chipper Chart"
           onClick={() => router.push('/chipper-chart/')}
         >
-          <span aria-hidden="true">😊</span>
+          <span aria-hidden="true">{levelEmoji(moodLevel)}</span>
         </button>
         <DayNoteAddButton profileId={profileId} isoDate={isoDate} childName={profile.name} />
       </div>

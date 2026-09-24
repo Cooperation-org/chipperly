@@ -21,6 +21,7 @@ import {
 } from '@/lib/data/schedule';
 import { useActiveLocation, useLocations } from '@/lib/data/locations';
 import { useWorkingFor } from '@/lib/data/chips';
+import { levelEmoji, useMoodLevel } from '@/lib/data/mood';
 import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { useMediaUrl } from '@/lib/data/media';
 import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } from '@/lib/timer/store';
@@ -87,6 +88,8 @@ export function ChildToday() {
   const rewardPhotoUrl = useMediaUrl(workingFor.reward?.photo_id);
 
   useMaterializedDay(profileId, isoDate);
+  // The Chipper Chart button shows today's face, so it changes as the chart does.
+  const moodLevel = useMoodLevel(profileId, isoDate);
 
   // Best-effort back-gesture trap: every back navigation just re-pushes the
   // same entry, so there is nowhere for "back" to go while hard-locked. Only
@@ -433,7 +436,7 @@ export function ChildToday() {
           {/* Up here with the chips, like the caregiver's Today, not in the bottom bar. */}
           {options.show_chipper_chart ? (
             <button type="button" className={styles.chipperChartButton} aria-label="Chipper Chart" onClick={openChipperChart}>
-              <span aria-hidden="true">😊</span>
+              <span aria-hidden="true">{levelEmoji(moodLevel)}</span>
             </button>
           ) : null}
         </div>
