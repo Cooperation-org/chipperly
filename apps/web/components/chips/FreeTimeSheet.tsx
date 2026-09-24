@@ -128,7 +128,7 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
               const affordable = balance >= cost;
               return (
                 <li key={reward.id} className={styles.earnedRow}>
-                  <Picture emoji={reward.emoji} photo_id={reward.photo_id} name={reward.name} size="list" />
+                  <Picture emoji={reward.emoji} photo_id={reward.photo_id} name={reward.name} size="list" zoomable />
                   <span className={styles.earnedText}>
                     <span className={styles.name}>{reward.name}</span>
                     <span className={styles.cost}>{cost} chips</span>
