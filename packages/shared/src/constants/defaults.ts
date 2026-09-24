@@ -73,3 +73,24 @@ export const DEFAULT_LOCATIONS: readonly DefaultItem[] = [
   { name: 'Home', emoji: '🏠' },
   { name: 'School', emoji: '🏫' },
 ];
+
+/** The owner's morning routine (beta screenshot, 24 Sept 2026); seeded onto existing profiles by `pnpm -F @chipperly/api seed:morning-routine`. */
+export const MORNING_ROUTINE = {
+  name: 'My Morning Routine',
+  emoji: '🔁',
+  recurrence: 'daily',
+  recurrence_time: '06:00',
+  steps: [
+    { name: 'Wake Up', emoji: '⏰' },
+    { name: 'Bathroom', emoji: '🚽' },
+    { name: 'Brush Teeth', emoji: '🪥' },
+    { name: 'Brush Hair', emoji: '🪮' },
+    { name: 'Take Medication', emoji: '💊' },
+    { name: 'Get Dressed', emoji: '👕' },
+    { name: 'Breakfast', emoji: '🍳' },
+    { name: 'Dishes', emoji: '🍽️' },
+    { name: 'Learning', emoji: '📝' },
+    { name: 'Put Shoes', emoji: '👟' },
+    { name: 'Go to School', emoji: '🚌' },
+  ],
+} as const;
