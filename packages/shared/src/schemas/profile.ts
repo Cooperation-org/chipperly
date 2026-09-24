@@ -37,6 +37,8 @@ export const ProfileSettingsSchema = z
     child_picks_reward: z.boolean().optional(),
     /** Child view may redeem an affordable reward from the free-time sheet (owner's doc, EI 6). Default true. */
     child_redeems: z.boolean().optional(),
+    /** Whether the child uses Chipperly themselves (child view, lock, rewards they redeem). False: the app is a tool for the adults only for this child. Default true. */
+    child_uses_app: z.boolean().optional(),
     /** High-priority push to the caregivers' phones when the child is ready for a reward (routes/accounts.ts reward-request). Default true. */
     reward_alerts: z.boolean().optional(),
     /** How the child view opens: today's list (default) or a home of big picture tiles, like the owner's beta dashboard. Set by the caregiver. */

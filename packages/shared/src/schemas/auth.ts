@@ -131,6 +131,8 @@ export const CreateProfileBodySchema = z.object({
   name: z.string().min(1),
   emoji: z.string().nullable().optional(),
   photo_id: uuidSchema.nullable().optional(),
+  /** Onboarding's "Will they use Chipperly themselves?"; stored as settings.child_uses_app. Omitted: yes. */
+  child_uses_app: z.boolean().optional(),
 });
 export type CreateProfileBody = z.infer<typeof CreateProfileBodySchema>;
 

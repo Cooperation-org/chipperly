@@ -160,7 +160,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
           share_token: null,
           first_then_activity_id: null,
           first_then_reward_id: null,
-          settings: {},
+          settings: body.child_uses_app === false ? { child_uses_app: false } : {},
           client_updated_at: now,
           updated_by: userId,
           deleted_at: null,

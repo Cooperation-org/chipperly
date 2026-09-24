@@ -363,6 +363,15 @@ describe('accounts routes', () => {
     });
     const profile = profileRes.json() as { id: string };
 
+    // Onboarding's "will they use Chipperly too?" lands in settings.
+    const adultOnlyRes = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${account.id}/profiles`,
+      headers: auth(admin.token),
+      payload: { name: 'Sam', child_uses_app: false },
+    });
+    expect((adultOnlyRes.json() as { settings: { child_uses_app?: boolean } }).settings.child_uses_app).toBe(false);
+
     const home = uuidv7();
     const therapy = uuidv7();
     const therapist = await createUser('reward-therapist');
