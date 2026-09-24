@@ -1,21 +1,23 @@
 // The only file that changes when the licensed Altone / Code Pro LC files
 // arrive (technical-plan.md "Fonts"). Until then, chosen 19 Sept 2026:
 // Alegreya (serif, SIL OFL) for headings and display, Alegreya Sans (SIL OFL)
-// for body and labels. Both download at build time and self-host; no runtime
-// request to Google.
-import { Alegreya, Alegreya_Sans } from 'next/font/google';
+// for body and labels. The Latin subsets live in fonts/ (see fonts/README.md),
+// so a build never depends on reaching Google Fonts.
 import localFont from 'next/font/local';
 
-export const heading = Alegreya({
-  subsets: ['latin'],
-  weight: ['500', '700', '800'],
+export const heading = localFont({
+  // One variable file covers every weight.
+  src: [{ path: './fonts/alegreya-latin.woff2', weight: '400 900', style: 'normal' }],
   variable: '--font-heading',
   display: 'swap',
 });
 
-export const body = Alegreya_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
+export const body = localFont({
+  src: [
+    { path: './fonts/alegreya-sans-400-latin.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/alegreya-sans-500-latin.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/alegreya-sans-700-latin.woff2', weight: '700', style: 'normal' },
+  ],
   variable: '--font-body',
   display: 'swap',
 });
