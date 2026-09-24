@@ -13,6 +13,8 @@ import { ConsentCheckbox } from './ConsentCheckbox';
 import { getAuthProviders } from './providers';
 import { getPendingInviteToken, redirectAfterAuth } from './postAuthRedirect';
 import styles from './SignUpForm.module.css';
+import { toast } from '@/lib/toast';
+import { claimPromoCode } from '@/lib/billing/promo';
 
 const HAS_OAUTH = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) || Boolean(process.env.NEXT_PUBLIC_APPLE_CLIENT_ID);
 
@@ -24,6 +26,7 @@ export function SignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [promoCode, setPromoCode] = useState('');
   const [inviteCodeRequired, setInviteCodeRequired] = useState(false);
   const [consented, setConsented] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,6 +57,10 @@ export function SignUpForm() {
     try {
       const invite_token = (await getPendingInviteToken()) ?? undefined;
       await signUp(email, password, name, Date.now(), { invite_code: inviteCode || undefined, invite_token });
+      // The account is made either way; a code that doesn't work can still be added in Settings > Account.
+      if (promoCode.trim()) {
+        await claimPromoCode(promoCode).catch(() => toast("That early access code didn't work. You can add it in Settings > Account."));
+      }
       await redirectAfterAuth(router);
     } catch (err) {
       setError(
@@ -110,6 +117,13 @@ export function SignUpForm() {
             onChange={(e) => setInviteCode(e.target.value)}
           />
         ) : null}
+        <TextField
+          label="Early access code (optional)"
+          autoComplete="off"
+          autoCapitalize="characters"
+          value={promoCode}
+          onChange={(e) => setPromoCode(e.target.value)}
+        />
         {error ? (
           <p className={styles.error} role="alert">
             {error}

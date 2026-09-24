@@ -14,6 +14,7 @@ import { useSession, signOut, setPin } from '@/lib/auth/session';
 import { useActiveProfile, useActiveAccount } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import styles from './AccountScreen.module.css';
+import { TrialCard } from './TrialCard';
 
 function ChangePasswordSheet({ email }: { email: string }) {
   return (
@@ -125,6 +126,8 @@ export function AccountScreen() {
           </span>
         </div>
       </div>
+
+      <TrialCard user={user} />
 
       <div className={styles.card}>
         <ListRow
