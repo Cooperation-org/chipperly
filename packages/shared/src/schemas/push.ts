@@ -22,3 +22,15 @@ export const LocationChangedBodySchema = z.object({
   old_location_id: uuidSchema.nullable(),
 });
 export type LocationChangedBody = z.infer<typeof LocationChangedBodySchema>;
+
+/** Where the child asked for a reward: finished a First-then, filled the chip board, or redeemed one from Free time. */
+export const RewardRequestSource = z.enum(['first_then', 'chips', 'free_time']);
+export type RewardRequestSource = z.infer<typeof RewardRequestSource>;
+
+export const RewardRequestBodySchema = z.object({
+  reward_name: z.string().min(1).max(200),
+  source: RewardRequestSource,
+  /** The child's own device, so its caregiver account doesn't alert the phone the child is holding. */
+  device_id: uuidSchema.optional(),
+});
+export type RewardRequestBody = z.infer<typeof RewardRequestBodySchema>;

@@ -12,7 +12,7 @@ import {
   type InvitePublic,
 } from '@chipperly/shared/schemas/account';
 import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema } from '@chipperly/shared/schemas/auth';
-import { LocationChangedBodySchema } from '@chipperly/shared/schemas/push';
+import { LocationChangedBodySchema, RewardRequestBodySchema, type RewardRequestSource } from '@chipperly/shared/schemas/push';
 import { PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { db } from '../db/client.js';
 import { push_tokens } from '../db/schema/push.js';
@@ -29,7 +29,7 @@ import { requireUser, canAccessProfile } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
-import { sendPush } from '../lib/push.js';
+import { sendDataMessage, sendPush } from '../lib/push.js';
 import { seedProfile } from '../seed/seedProfile.js';
 import { env } from '../env.js';
 
@@ -589,4 +589,51 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
 
     return { notified: recipientIds.length };
   });
+
+  /**
+   * The child is ready for a reward: a high-priority alert to every
+   * caregiver who can see this profile (account admins plus its care team),
+   * on every phone but the one the child is holding. Data-only, so
+   * LocateRequestMessagingService posts it on its own heads-up channel even
+   * when Chipperly is closed.
+   */
+  app.post('/profiles/:id/reward-request', { preHandler: requireUser }, async (request): Promise<{ notified: number }> => {
+    const { id: profileId } = idParamSchema.parse(request.params);
+    if (!(await canAccessProfile(request.user!.id, profileId))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+    const body = RewardRequestBodySchema.parse(request.body);
+
+    const [profile] = await db
+      .select({ name: profiles.name, account_id: profiles.account_id, settings: profiles.settings })
+      .from(profiles)
+      .where(eq(profiles.id, profileId))
+      .limit(1);
+    if (!profile) throw new AppError(404, 'not_found', 'Profile not found');
+    if (profile.settings.reward_alerts === false) return { notified: 0 };
+
+    const admins = await db
+      .select({ user_id: account_members.user_id })
+      .from(account_members)
+      .where(and(eq(account_members.account_id, profile.account_id), eq(account_members.role, 'admin')));
+    const team = await db.select({ user_id: profile_members.user_id }).from(profile_members).where(eq(profile_members.profile_id, profileId));
+    const recipientIds = [...new Set([...admins, ...team].map((r) => r.user_id))];
+
+    const tokenRows = await db
+      .select({ token: push_tokens.token, device_id: push_tokens.device_id })
+      .from(push_tokens)
+      .where(inArray(push_tokens.user_id, recipientIds));
+    const tokens = tokenRows.filter((t) => !body.device_id || t.device_id !== body.device_id).map((t) => t.token);
+    if (tokens.length === 0) return { notified: 0 };
+
+    await sendDataMessage({
+      tokens,
+      data: { type: 'reward_request', profile_id: profileId, title: `${profile.name} wants a reward`, body: rewardRequestText(profile.name, body.reward_name, body.source) },
+    });
+    return { notified: tokens.length };
+  });
+}
+
+function rewardRequestText(name: string, reward: string, source: RewardRequestSource): string {
+  if (source === 'first_then') return `${name} finished First and is ready for ${reward}.`;
+  if (source === 'chips') return `${name} filled the chip board for ${reward}.`;
+  return `${name} redeemed ${reward} from Free time.`;
 }

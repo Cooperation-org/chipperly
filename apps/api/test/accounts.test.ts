@@ -14,7 +14,7 @@ import { activities } from '../src/db/schema/activities.js';
 import { rewards } from '../src/db/schema/rewards.js';
 import { locations } from '../src/db/schema/locations.js';
 import { push_tokens } from '../src/db/schema/push.js';
-import { profile_members } from '../src/db/schema/profiles.js';
+import { profile_members, profiles } from '../src/db/schema/profiles.js';
 import { issueTokens } from '../src/lib/tokens.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
 import { isAccountOwner } from '../src/plugins/auth.js';
@@ -344,6 +344,44 @@ describe('accounts routes', () => {
     expect(relabelRes.statusCode).toBe(200);
     const [relabeled] = await db.select().from(profile_members).where(eq(profile_members.user_id, member.id));
     expect(relabeled?.relationship_label).toBe('Auntie');
+  });
+
+  it('reward-request alerts every caregiver phone except the child device, and respects reward_alerts', async () => {
+    const admin = await createUser('reward-admin');
+    const accountRes = await request(app, {
+      method: 'POST',
+      url: '/api/accounts',
+      headers: auth(admin.token),
+      payload: { kind: 'household', name: 'Reward household' },
+    });
+    const { account } = accountRes.json() as { account: { id: string } };
+    const profileRes = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${account.id}/profiles`,
+      headers: auth(admin.token),
+      payload: { name: 'Celia' },
+    });
+    const profile = profileRes.json() as { id: string };
+
+    const childDevice = uuidv7();
+    await db.insert(push_tokens).values([
+      { user_id: admin.id, token: `parent-phone-${admin.id}`, platform: 'android', created_at: Date.now(), device_id: uuidv7() },
+      { user_id: admin.id, token: `child-phone-${admin.id}`, platform: 'android', created_at: Date.now(), device_id: childDevice },
+    ]);
+    const ask = () =>
+      request(app, {
+        method: 'POST',
+        url: `/api/profiles/${profile.id}/reward-request`,
+        headers: auth(admin.token),
+        payload: { reward_name: 'Candy', source: 'first_then', device_id: childDevice },
+      });
+
+    const res = await ask();
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { notified: number }).notified).toBe(1);
+
+    await db.update(profiles).set({ settings: { reward_alerts: false } }).where(eq(profiles.id, profile.id));
+    expect(((await ask()).json() as { notified: number }).notified).toBe(0);
   });
 
   it('makes the creator the account owner, distinct from a co-admin', async () => {
