@@ -51,6 +51,8 @@ export function useSyncStatus(): SyncStatus {
 
 let running = false;
 let cycleRunning = false;
+/** A cycle was asked for while one ran (e.g. an edit made mid-push); run again right after instead of waiting for the poll. */
+let rerunAfterCycle = false;
 let backoffMs = 0;
 let intervalHandle: ReturnType<typeof setInterval> | undefined;
 let debounceHandle: ReturnType<typeof setTimeout> | undefined;
@@ -124,7 +126,12 @@ function inTurn<T>(work: () => Promise<T>): Promise<T> {
 }
 
 async function runCycle(): Promise<void> {
-  if (!running || cycleRunning) return;
+  if (!running) return;
+  if (cycleRunning) {
+    rerunAfterCycle = true;
+    return;
+  }
+  rerunAfterCycle = false;
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     setStatus({ state: 'offline' });
     return;
@@ -141,6 +148,7 @@ async function runCycle(): Promise<void> {
     await uploadPending();
     await flushRewardRequests();
     backoffMs = 0;
+    if (rerunAfterCycle) scheduleCycle();
     const pending = await db.outbox.count();
     setStatus({ state: pending > 0 ? 'pending' : 'synced', pending, last_synced_at: now() });
   } catch (err) {
