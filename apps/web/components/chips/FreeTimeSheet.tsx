@@ -13,7 +13,6 @@ import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
-import { BigButton } from '@/components/ui/BigButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
 import styles from './FreeTimeSheet.module.css';
@@ -134,7 +133,7 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
                     <span className={styles.cost}>{cost} chips</span>
                   </span>
                   {affordable && canRedeem ? (
-                    <BigButton onClick={() => confirmRedeem(reward, cost)}>Redeem</BigButton>
+                    <Button onClick={() => confirmRedeem(reward, cost)}>Redeem</Button>
                   ) : affordable ? null : (
                     <span className={styles.moreChips}>{cost - balance} more chips</span>
                   )}
