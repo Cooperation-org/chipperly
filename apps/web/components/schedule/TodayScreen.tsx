@@ -7,6 +7,7 @@ import type { Activity } from '@chipperly/shared/schemas/activity';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useSession } from '@/lib/auth/session';
 import { VerifyBanner } from '@/components/auth/VerifyBanner';
+import { RewardAlertsBanner } from './RewardAlertsBanner';
 import {
   addToDay,
   copyDay,
@@ -247,6 +248,7 @@ export function TodayScreen() {
   return (
     <div className={styles.screen}>
       <VerifyBanner />
+      <RewardAlertsBanner />
       {/* First thing on Today, not only in Settings: switching place right before handing the device to the child. */}
       {locations.length > 1 ? (
         <Segmented
