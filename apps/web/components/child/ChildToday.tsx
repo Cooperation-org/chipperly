@@ -345,7 +345,17 @@ export function ChildToday() {
   }
 
   function openFirstThen(): void {
-    sheet.open(<FirstThenPanels profileId={profileId} mode="child" />, { title: 'First, then' });
+    sheet.open(
+      <FirstThenPanels
+        profileId={profileId}
+        mode="child"
+        onStartTimer={(minutes, emoji, photoId) => {
+          sheet.close();
+          startStepTimer(minutes, emoji, photoId);
+        }}
+      />,
+      { title: 'First, then' },
+    );
   }
 
   function openChipperChart(): void {
@@ -415,7 +425,8 @@ export function ChildToday() {
             onClick={() => setUnlocking(true)}
           />
         </header>
-        <FirstThenPanels profileId={profileId} mode="child" />
+        <FirstThenPanels profileId={profileId} mode="child" onStartTimer={startStepTimer} />
+        {timerOpen ? <TimerFullScreen onClose={() => setTimerOpen(false)} /> : null}
         {unlocking ? <UnlockOverlay onClose={() => setUnlocking(false)} /> : null}
       </div>
     );

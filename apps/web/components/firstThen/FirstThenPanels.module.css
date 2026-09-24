@@ -117,3 +117,22 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+
+.menuLabel {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.timerChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}

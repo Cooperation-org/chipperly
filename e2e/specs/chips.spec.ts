@@ -116,8 +116,18 @@ test.describe('chips and first-then', () => {
     await expectNoOverflow(page, 'S15 first-then done');
     await snap(page, 's15-first-then-done');
 
+    // Done used to live in component state and was lost every time the view closed.
+    await page.reload();
+    await expect(page.getByRole('checkbox', { name: /^Done,/ })).toHaveAttribute('aria-checked', 'true');
+
+    // Optional reward timer, off by default.
     await page.getByRole('button', { name: 'More', exact: true }).click();
     sheet = page.getByRole('dialog');
+    await expect(sheet.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await sheet.getByRole('button', { name: '15 min', exact: true }).click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    sheet = page.getByRole('dialog');
+    await expect(sheet.getByRole('button', { name: '15 min', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await sheet.getByRole('button', { name: 'Clear both', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Choose an activity', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Choose a reward', exact: true })).toBeVisible();

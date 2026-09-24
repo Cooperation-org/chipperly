@@ -4,7 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity } from '@chipperly/shared/schemas/activity';
 import type { Reward } from '@chipperly/shared/schemas/reward';
 import type { Profile } from '@chipperly/shared/schemas/profile';
+import { todayIso } from '@chipperly/shared/helpers/date';
 import { db } from '../db/db';
+import { setKv, useKv } from '../db/kv';
 import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert } from '../sync/mutate';
@@ -32,7 +34,7 @@ export function useFirstThen(profileId: string): FirstThen {
 /** `first_then_*` live on the profile row (CONTRACTS.md); pushed as an upsert on table 'profiles'. */
 async function patchProfile(
   profileId: string,
-  patch: Partial<Pick<Profile, 'first_then_activity_id' | 'first_then_reward_id'>>,
+  patch: Partial<Pick<Profile, 'first_then_activity_id' | 'first_then_reward_id' | 'settings'>>,
 ): Promise<void> {
   const profile = await db.profiles.get(profileId);
   if (!profile) return;
@@ -50,6 +52,49 @@ export async function setThen(profileId: string, rewardId: string | null): Promi
 
 export async function clear(profileId: string): Promise<void> {
   await patchProfile(profileId, { first_then_activity_id: null, first_then_reward_id: null });
+}
+
+/** Caregiver-only: minutes of timer when the child asks for the reward, or null for none. */
+export async function setFirstThenTimer(profileId: string, minutes: number | null): Promise<void> {
+  const profile = await db.profiles.get(profileId);
+  if (!profile) return;
+  await patchProfile(profileId, { settings: { ...profile.settings, first_then_timer_minutes: minutes } });
+}
+
+interface FirstThenProgress {
+  date: string;
+  first_id: string;
+  then_id: string;
+  /** The child tapped the reward, which alerted the caregivers (and started the timer, if set). */
+  asked: boolean;
+}
+
+/**
+ * Whether FIRST is checked (and the reward asked for) on this device. Kept in
+ * kv, not on the profile: a locked child device can't write the profile row
+ * (server lock gate). It only counts for today and for the same First/Then
+ * pair, so a new day or a new pair starts unchecked; before this it lived in
+ * component state and was lost every time the sheet closed.
+ */
+export function useFirstThenProgress(
+  profileId: string,
+  firstId: string | undefined,
+  thenId: string | undefined,
+): { done: boolean; asked: boolean; set: (next: { done: boolean; asked?: boolean }) => Promise<void> } {
+  const key = `first_then_progress:${profileId}`;
+  const stored = useKv<FirstThenProgress | null>(key, null);
+  const current =
+    stored && firstId && thenId && stored.date === todayIso() && stored.first_id === firstId && stored.then_id === thenId
+      ? stored
+      : null;
+  return {
+    done: current !== null,
+    asked: current?.asked ?? false,
+    set: async ({ done, asked = false }) => {
+      if (!done || !firstId || !thenId) return setKv(key, null);
+      await setKv<FirstThenProgress>(key, { date: todayIso(), first_id: firstId, then_id: thenId, asked });
+    },
+  };
 }
 
 /** Marks FIRST done. Awards a chip through the ledger when the activity earns one; returns whether it did. */

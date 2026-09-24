@@ -1,9 +1,20 @@
 'use client';
 
 import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth/session';
-import { useFirstThen, setFirst, setThen, clear, completeFirst, uncompleteFirst } from '@/lib/data/firstThen';
+import { db } from '@/lib/db/db';
+import {
+  useFirstThen,
+  useFirstThenProgress,
+  setFirst,
+  setThen,
+  setFirstThenTimer,
+  clear,
+  completeFirst,
+  uncompleteFirst,
+} from '@/lib/data/firstThen';
 import { useActiveLocation } from '@/lib/data/locations';
 import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { playChip } from '@/lib/sound';
@@ -19,16 +30,22 @@ import styles from './FirstThenPanels.module.css';
 export interface FirstThenPanelsProps {
   profileId: string;
   mode: 'caregiver' | 'child';
+  /** Child view: opens the full-screen timer when the child asks for the reward and a timer is set. */
+  onStartTimer?: (minutes: number, emoji: string | null, photoId: string | null) => void;
 }
 
+const TIMER_CHOICES = [5, 10, 15, 30, 60] as const;
+
 /** S15: two panels, empty until set, never default content (ux-plan.md "must not have"). */
-export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
+export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPanelsProps) {
   const router = useRouter();
   const sheet = useSheet();
   const { user } = useSession();
   const { first, then } = useFirstThen(profileId);
   const { location } = useActiveLocation(profileId);
-  const [done, setDone] = useState(false);
+  const timerMinutes = useLiveQuery(() => db.profiles.get(profileId), [profileId])?.settings.first_then_timer_minutes ?? null;
+  const progress = useFirstThenProgress(profileId, first?.id, then?.id);
+  const { done, asked } = progress;
   const [celebrating, setCelebrating] = useState(false);
 
   const caregiver = mode === 'caregiver';
@@ -78,12 +95,28 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
           fullWidth
           onClick={() => {
             void clear(profileId);
-            setDone(false);
+            void progress.set({ done: false });
             sheet.close();
           }}
         >
           Clear both
         </Button>
+        <p className={styles.menuLabel}>Timer when the child asks for the reward</p>
+        <div className={styles.timerChoices}>
+          {[null, ...TIMER_CHOICES].map((minutes) => (
+            <Button
+              key={minutes ?? 'off'}
+              variant={minutes === timerMinutes ? 'primary' : 'secondary'}
+              aria-pressed={minutes === timerMinutes}
+              onClick={() => {
+                void setFirstThenTimer(profileId, minutes);
+                sheet.close();
+              }}
+            >
+              {minutes === null ? 'Off' : `${minutes} min`}
+            </Button>
+          ))}
+        </div>
       </div>,
       { title: 'First-Then' },
     );
@@ -92,16 +125,27 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
   async function handleToggleDone(next: boolean) {
     if (!bothSet || !user) return;
     if (next) {
-      setDone(true);
-      if (!caregiver && then) void sendRewardRequest(profileId, location?.id ?? null, then.name, 'first_then');
+      await progress.set({ done: true });
       const awarded = await completeFirst(profileId, user.id);
       setCelebrating(true);
       if (awarded) playChip();
     } else {
-      setDone(false);
+      await progress.set({ done: false });
       await uncompleteFirst(profileId, user.id);
     }
   }
+
+  // The child asking for the reward is what alerts the grown-ups where they are
+  // (parents plus that location's care team), once per First-Then; checking
+  // FIRST no longer does, so nobody gets two buzzes for one reward.
+  async function askForReward(): Promise<void> {
+    if (!then || asked) return;
+    await progress.set({ done: true, asked: true });
+    void sendRewardRequest(profileId, location?.id ?? null, then.name, 'first_then', first?.name);
+    if (timerMinutes && onStartTimer) onStartTimer(timerMinutes, then.emoji, then.photo_id);
+  }
+
+  const canAsk = !caregiver && done && Boolean(then) && !asked;
 
   return (
     <div className={styles.wrap}>
@@ -125,10 +169,18 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
         <div className={[styles.panel, done ? styles.enlarged : ''].filter(Boolean).join(' ')}>
           <span className={styles.label}>Then</span>
           {then ? (
-            <PanelBody name={then.name} emoji={then.emoji} photoId={then.photo_id} onTap={caregiver ? openThenPicker : undefined} />
+            <PanelBody
+              name={then.name}
+              emoji={then.emoji}
+              photoId={then.photo_id}
+              onTap={caregiver ? openThenPicker : canAsk ? () => void askForReward() : undefined}
+              tapLabel={canAsk ? `Ask for ${then.name}` : undefined}
+            />
           ) : (
             <EmptyPanel sentence="Choose a reward" onTap={caregiver ? openThenPicker : undefined} />
           )}
+          {canAsk ? <span className={styles.hint}>Tap to ask for it</span> : null}
+          {!caregiver && asked ? <span className={styles.hint}>Asked. A grown-up is on the way.</span> : null}
         </div>
 
         {celebrating ? (
@@ -146,9 +198,10 @@ interface PanelBodyProps {
   emoji: string | null;
   photoId: string | null;
   onTap?: () => void;
+  tapLabel?: string;
 }
 
-function PanelBody({ name, emoji, photoId, onTap }: PanelBodyProps) {
+function PanelBody({ name, emoji, photoId, onTap, tapLabel }: PanelBodyProps) {
   const content = (
     <>
       <Picture emoji={emoji} photo_id={photoId} name={name} size="child" />
@@ -157,7 +210,7 @@ function PanelBody({ name, emoji, photoId, onTap }: PanelBodyProps) {
   );
   if (onTap) {
     return (
-      <button type="button" className={styles.tap} onClick={onTap}>
+      <button type="button" className={styles.tap} onClick={onTap} aria-label={tapLabel}>
         {content}
       </button>
     );
