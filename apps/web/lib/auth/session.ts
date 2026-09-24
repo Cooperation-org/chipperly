@@ -86,7 +86,9 @@ async function resetLocalDataIfNewUser(me: MeResponse): Promise<void> {
     : activeAccount != null && !me.accounts.some((a) => a.account.id === activeAccount);
   if (foreign) {
     await db.transaction('rw', db.tables, async () => {
-      await Promise.all(db.tables.filter((table) => table !== db.kv).map((table) => table.clear()));
+      // By name: inside a transaction db.tables can hand back different Table objects than db.kv,
+      // and clearing kv would take the just-issued tokens with it.
+      await Promise.all(db.tables.filter((table) => table.name !== 'kv').map((table) => table.clear()));
       await db.kv.bulkDelete(PER_USER_KV_KEYS);
     });
   }
