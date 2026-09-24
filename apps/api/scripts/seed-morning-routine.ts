@@ -12,6 +12,7 @@
 import { and, eq, gte, inArray, isNotNull, isNull, min, ne, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { MORNING_ROUTINE } from '@chipperly/shared/constants/defaults';
+import { materializedId } from '@chipperly/shared/helpers/recurrence';
 import { closeDb, db } from '../src/db/client.js';
 import { accounts } from '../src/db/schema/accounts.js';
 import { activities, activity_steps } from '../src/db/schema/activities.js';
@@ -109,7 +110,31 @@ async function main(): Promise<void> {
           );
       }
 
-      // Days already built before the routine existed got it appended last.
+      // Days already built before the routine existed: add its row (same id
+      // the app would materialize), then it moves to the top below.
+      const builtDays = await tx
+        .selectDistinct({ date: schedule_items.date })
+        .from(schedule_items)
+        .where(and(eq(schedule_items.profile_id, p.id), isNull(schedule_items.deleted_at), gte(schedule_items.date, FROM_DATE)));
+      for (const { date } of builtDays) {
+        await tx
+          .insert(schedule_items)
+          .values({
+            id: materializedId(routineId, date),
+            ...sync,
+            date,
+            position: 0,
+            activity_id: routineId,
+            start_time: MORNING_ROUTINE.recurrence_time,
+            part_of_day: 'morning',
+            source: 'recurring',
+            completed_at: null,
+            completed_by: null,
+          })
+          .onConflictDoNothing();
+      }
+
+      // Those days (and any the app already built) had it appended last.
       const routineItems = await tx
         .select({ id: schedule_items.id, date: schedule_items.date })
         .from(schedule_items)
