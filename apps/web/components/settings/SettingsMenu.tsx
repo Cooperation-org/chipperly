@@ -89,10 +89,10 @@ export function SettingsMenu() {
               onTap={() => router.push(`/settings/profile/edit/?id=${profile.id}`)}
             />
             <ListRow
-              tile={<Icon name="lock" size={20} />}
-              name={`Lock this device to ${profile.name}`}
+              tile={<Icon name="gear" size={20} />}
+              name={`Child view options for ${profile.name}`}
               trailing={<Icon name="chevron" size={20} />}
-              onTap={() => open(<LockSheet profileId={profile.id} />, { title: 'Lock this device' })}
+              onTap={() => open(<LockSheet profileId={profile.id} />, { title: 'Child view options' })}
             />
             <ListRow
               tile={<Icon name="lock" size={20} />}

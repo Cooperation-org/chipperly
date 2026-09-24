@@ -2,50 +2,49 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { BigButton } from '@/components/ui/BigButton';
 import { useSheet } from '@/components/ui/Sheet';
 import { PinPad } from '@/components/pin/PinPad';
 import { useSession, setPin } from '@/lib/auth/session';
-import { api } from '@/lib/api/client';
-import { db } from '@/lib/db/db';
-import { upsert } from '@/lib/sync/mutate';
-import { lockTo, type LockOptions } from '@/lib/device/settings';
-import Kiosk from '@/lib/native/kiosk';
+import { saveLockOptions, useSavedLockOptions, type LockOptions } from '@/lib/device/settings';
+import { lockToChild } from '@/lib/device/lock';
+import { toast } from '@/lib/toast';
 import styles from './LockSheet.module.css';
 import { Switch } from '@/components/ui/Switch';
 
 export interface LockSheetProps {
   profileId: string;
+  /**
+   * Set when the top bar's lock was tapped with no PIN yet: once the PIN is
+   * set, lock straight away (with the saved options) instead of showing them.
+   */
+  lockAfter?: 'lock' | 'lockPhone';
 }
-
-const DEFAULT_OPTIONS: LockOptions = {
-  show_free_time: true,
-  show_first_then: true,
-  attitude_prompt: false,
-  expand_steps: true,
-  show_chipper_chart: true,
-  allow_child_location: false,
-  show_step_timers: false,
-  show_visual_schedule: true,
-  first_then_only: false,
-};
 
 type Step = 'set' | 'confirm' | 'ready';
 
-/** S23: lock this device to a profile's view, setting a PIN first if none exists yet. */
-export function LockSheet({ profileId }: LockSheetProps) {
+/**
+ * S23: the child view's options for this profile on this device (Settings >
+ * Child view options), setting a PIN first if none exists yet. Saving only
+ * saves; the top bar's lock button (or a remote lock) is what locks.
+ */
+export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
   const router = useRouter();
   const { close } = useSheet();
   const { user, profiles } = useSession();
   const profileName = profiles.find((p) => p.id === profileId)?.name ?? 'this profile';
-  const profile = useLiveQuery(() => db.profiles.get(profileId), [profileId]);
+  const saved = useSavedLockOptions(profileId);
 
   const [step, setStep] = useState<Step>(user?.pin_hash ? 'ready' : 'set');
   const [firstPin, setFirstPin] = useState('');
   const [pinError, setPinError] = useState<string | undefined>();
-  const [options, setOptions] = useState<LockOptions>(DEFAULT_OPTIONS);
-  const [locking, setLocking] = useState(false);
+  // Edits start from the saved options (loaded async from kv) and only diverge once touched.
+  const [edited, setEdited] = useState<LockOptions | null>(null);
+  const options = edited ?? saved;
+  function setOptions(update: (o: LockOptions) => LockOptions): void {
+    setEdited(update(options));
+  }
+  const [saving, setSaving] = useState(false);
 
   async function handleFirstPin(pin: string): Promise<boolean> {
     setFirstPin(pin);
@@ -63,40 +62,29 @@ export function LockSheet({ profileId }: LockSheetProps) {
     }
     await setPin(pin);
     setPinError(undefined);
+    if (lockAfter) {
+      await lockToChild(profileId, { blockApps: lockAfter === 'lockPhone' });
+      close();
+      router.push('/child/');
+      return true;
+    }
     setStep('ready');
     return true;
   }
 
-  async function handleLock(): Promise<void> {
-    setLocking(true);
-    try {
-      // Server-side lock is what sync/push actually enforces (CONTRACTS.md
-      // "Sync authorization"); this device's own kv state below is only
-      // the local UI's idea of it. Best-effort: an offline caregiver still
-      // gets the local child view immediately, same as today.
-      await api.post('/me/lock', { profile_id: profileId });
-    } catch {
-      // ponytail: offline/unreachable, local child view still locks; retry
-      // when back online if this matters (Lock this device is caregiver-
-      // initiated and rarely offline in practice).
-    }
-    // Lock is the one control for "is app blocking on" now, matching the
-    // remote Lock button (routes/me.ts's /lock): turning the OS pin on
-    // without this used to leave whatever the allow-list toggle happened
-    // to already be set to, which read as the two disagreeing.
-    if (profile) await upsert('profiles', { ...profile, settings: { ...profile.settings, child_mode_active: true } });
-    await lockTo(profileId, options);
-    await Kiosk.enterFocusMode({ profileName });
-    setLocking(false);
+  async function handleSave(): Promise<void> {
+    setSaving(true);
+    await saveLockOptions(profileId, options);
+    setSaving(false);
     close();
-    router.push('/child/');
+    toast(`Saved ${profileName}'s child view`);
   }
 
   if (step !== 'ready') {
     return (
       <div className={styles.sheet}>
         <p className={styles.intro}>
-          Lock this device to {profileName}&apos;s view. You&apos;ll need your PIN to get back.
+          Set a PIN first. You&apos;ll need it to get back from {profileName}&apos;s view.
         </p>
         <PinPad
           key={step}
@@ -111,7 +99,7 @@ export function LockSheet({ profileId }: LockSheetProps) {
   return (
     <div className={styles.sheet}>
       <p className={styles.intro}>
-        Lock this device to {profileName}&apos;s view. You&apos;ll need your PIN to get back.
+        What {profileName} sees in the child view on this device. Lock with the lock button at the top.
       </p>
       <div className={styles.toggles}>
         <div className={styles.toggleRow}>
@@ -171,8 +159,8 @@ export function LockSheet({ profileId }: LockSheetProps) {
           </>
         ) : null}
       </div>
-      <BigButton fullWidth icon="lock" onClick={() => void handleLock()} disabled={locking}>
-        Lock
+      <BigButton fullWidth onClick={() => void handleSave()} disabled={saving}>
+        Save
       </BigButton>
     </div>
   );

@@ -161,10 +161,14 @@ describe('POST /me/lock, POST /me/unlock', () => {
       payload: { profile_id: profileId },
     });
     expect(lock.statusCode).toBe(200);
-    // The client's own child_mode_active write lands after this, when the
-    // lock gate already refuses `profiles` -- so the lock itself must set it.
+    // A plain lock pins the app and leaves app blocking as it is...
     const [afterLock] = await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId));
-    expect(afterLock!.settings.child_mode_active).toBe(true);
+    expect(afterLock!.settings.child_mode_active ?? false).toBe(false);
+    // ..."Lock phone" (block_apps) turns it on server-side, since the client's
+    // own profile write would meet a locked session the lock gate refuses.
+    await request(app, { method: 'POST', url: '/api/me/lock', headers: { authorization: `Bearer ${admin.token}` }, payload: { profile_id: profileId, block_apps: true } });
+    const [afterLockPhone] = await db.select({ settings: profiles.settings }).from(profiles).where(eq(profiles.id, profileId));
+    expect(afterLockPhone!.settings.child_mode_active).toBe(true);
 
     const gatedPush = await request(app, {
       method: 'POST',

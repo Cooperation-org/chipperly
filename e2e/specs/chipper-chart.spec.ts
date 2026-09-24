@@ -69,8 +69,8 @@ test.describe('chipper chart', () => {
   test('child mode: the Chipper Chart button opens the sheet, plus works, then unlock', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const lockSheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: 'Child view options' });
 
     await enterPin(page, '2468');
     await expect(lockSheet.getByText('Enter it again')).toBeVisible();
@@ -78,7 +78,8 @@ test.describe('chipper chart', () => {
 
     // show_chipper_chart defaults to true (lib/device/settings.ts).
     await expect(lockSheet.getByRole('switch', { name: 'Show Chipper Chart' })).toHaveAttribute('aria-checked', 'true');
-    await lockSheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
 
     await page.getByRole('button', { name: 'Chipper Chart', exact: true }).click();

@@ -111,8 +111,8 @@ test.describe('visual schedule', () => {
   test('S32 child today: Steps button opens the overlay, checking a step works locked', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const lockSheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: 'Child view options' });
     await enterPin(page, '1234');
     await expect(lockSheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
@@ -120,7 +120,9 @@ test.describe('visual schedule', () => {
     // On by default (lib/device/settings.ts DEFAULT_LOCK_OPTIONS).
     await expect(lockSheet.getByRole('switch', { name: 'Let Benny open a step list' })).toHaveAttribute('aria-checked', 'true');
 
-    await lockSheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
+
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
 
     const stepsButton = page.getByRole('button', { name: 'Steps', exact: true });

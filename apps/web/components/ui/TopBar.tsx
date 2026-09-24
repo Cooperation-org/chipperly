@@ -21,7 +21,11 @@ export interface TopBarProps {
   onSyncTap?: () => void;
   onSettingsTap?: () => void;
   /** Leaves caregiver mode for the child view (lib/device/settings.ts's useParentMode). Omitted: no button shown. */
-  onChildViewTap?: () => void;
+  /** Locks this device to the child's view (and pins the app on Android). */
+  onLockTap?: () => void;
+  lockLabel?: string;
+  /** Lock and also turn on app blocking; only passed once blocking is set up on this Android device. */
+  onLockPhoneTap?: () => void;
 }
 
 /**
@@ -30,7 +34,7 @@ export interface TopBarProps {
  * supplies its own h1, or none, per CONTRACTS.md "Layout rules") - so it's a
  * plain span, never an h1, to keep exactly one h1 per route.
  */
-export function TopBar({ profile, onProfileTap, title, sync, onSyncTap, onSettingsTap, onChildViewTap }: TopBarProps) {
+export function TopBar({ profile, onProfileTap, title, sync, onSyncTap, onSettingsTap, onLockTap, lockLabel, onLockPhoneTap }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.leading}>
@@ -46,7 +50,8 @@ export function TopBar({ profile, onProfileTap, title, sync, onSyncTap, onSettin
       </div>
       <div className={styles.trailing}>
         <SyncMark state={sync.state} pending={sync.pending} onTap={onSyncTap} />
-        {onChildViewTap ? <IconButton icon="lock" aria-label="Switch to child view" onClick={onChildViewTap} /> : null}
+        {onLockPhoneTap ? <IconButton icon="phoneLock" aria-label="Lock phone" onClick={onLockPhoneTap} /> : null}
+        {onLockTap ? <IconButton icon="lock" aria-label={lockLabel ?? 'Lock'} onClick={onLockTap} /> : null}
         <IconButton icon="gear" aria-label="Settings" onClick={onSettingsTap} />
       </div>
     </header>

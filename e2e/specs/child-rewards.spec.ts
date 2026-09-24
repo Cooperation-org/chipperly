@@ -37,12 +37,13 @@ test.describe('child picks and redeems a reward', () => {
   test('lock into the child view (child.spec.ts)', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Child view options' });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
-    await sheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
   });
 
@@ -83,10 +84,11 @@ test.describe('child picks and redeems a reward', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
 
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const lockSheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: 'Child view options' });
     await expect(lockSheet).toBeVisible();
-    await lockSheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
 
     // With child_picks_reward off, tapping the strip opens the "Chips"
@@ -128,10 +130,11 @@ test.describe('child picks and redeems a reward', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
 
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const lockSheetAgain = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const lockSheetAgain = page.getByRole('dialog', { name: 'Child view options' });
     await expect(lockSheetAgain).toBeVisible();
-    await lockSheetAgain.getByRole('button', { name: 'Lock', exact: true }).click();
+    await lockSheetAgain.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
   });
 
@@ -189,10 +192,11 @@ test.describe('child picks and redeems a reward', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
 
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const lockSheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: 'Child view options' });
     await expect(lockSheet).toBeVisible();
-    await lockSheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
 
     // Balance and working-for both settled at zero/none in the previous

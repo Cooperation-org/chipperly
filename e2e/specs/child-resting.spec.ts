@@ -59,12 +59,13 @@ test.describe('child view: phone is resting', () => {
   test('lock the device, then a remote Rest shows only the resting page', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Child view options' });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
-    await sheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
 
     const rest = await page.request.post(`/api/me/devices/${deviceId}/rest`, { headers: auth, data: { resting: true } });

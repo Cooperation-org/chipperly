@@ -21,7 +21,7 @@ test.describe('settings', () => {
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     for (const name of [
       'Edit profile',
-      /Lock this device to/,
+      /Child view options for/,
       'Attitude history',
       'Share link',
       'Activities',

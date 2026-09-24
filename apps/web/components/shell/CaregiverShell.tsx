@@ -5,7 +5,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
-import { useParentMode, useParentModeLoaded, exitParentMode } from '@/lib/device/settings';
+import { useParentMode, useParentModeLoaded } from '@/lib/device/settings';
+import { lockToChild } from '@/lib/device/lock';
+import { useBlockingReady } from '@/lib/native/useBlockingReady';
+import { LockSheet } from '@/components/settings/LockSheet';
 import { useSyncStatus } from '@/lib/sync/engine';
 import { useSheet } from '@/components/ui/Sheet';
 import { TopBar } from '@/components/ui/TopBar';
@@ -52,7 +55,8 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   // mount) gates the redirect so it can't flicker true while Dexie's live
   // query for `useActiveProfile().profiles` (used for the switcher list) is
   // still resolving its first result.
-  const { status: sessionStatus, profiles: sessionProfiles } = useSession();
+  const { status: sessionStatus, profiles: sessionProfiles, user } = useSession();
+  const blockingReady = useBlockingReady();
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
   const sync = useSyncStatus();
   const { open, close } = useSheet();
@@ -84,6 +88,16 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
     else if (parentModeLoaded && !parentMode) router.replace(`/child/?next=${encodeURIComponent(pathname)}`);
   }, [sessionStatus, sessionProfiles.length, parentModeLoaded, parentMode, router, pathname]);
 
+  // No PIN yet: set one first (you need it to get back), then lock.
+  async function lockNow(profileId: string, blockApps: boolean): Promise<void> {
+    if (!user?.pin_hash) {
+      open(<LockSheet profileId={profileId} lockAfter={blockApps ? 'lockPhone' : 'lock'} />, { title: 'Set a PIN' });
+      return;
+    }
+    await lockToChild(profileId, { blockApps });
+    router.push('/child/');
+  }
+
   if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !parentModeLoaded || !parentMode) return null;
 
   return (
@@ -107,10 +121,9 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
         }
         onSyncTap={() => open(<SyncSheet />, { title: 'Sync' })}
         onSettingsTap={() => router.push('/settings/')}
-        onChildViewTap={() => {
-          void exitParentMode();
-          router.push('/child/');
-        }}
+        onLockTap={profile ? () => void lockNow(profile.id, false) : undefined}
+        lockLabel={profile ? `Lock to ${profile.name}` : undefined}
+        onLockPhoneTap={profile && blockingReady ? () => void lockNow(profile.id, true) : undefined}
       />
       <TimerPill />
       <main className={styles.content}>{children}</main>

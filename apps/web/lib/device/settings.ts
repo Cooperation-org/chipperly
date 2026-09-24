@@ -43,7 +43,7 @@ export interface LockState {
 }
 
 const LOCK_KEY = 'lock';
-const DEFAULT_LOCK_OPTIONS: LockOptions = {
+export const DEFAULT_LOCK_OPTIONS: LockOptions = {
   show_free_time: true,
   show_first_then: true,
   // The Chipper Chart meter replaces the per-task prompt by default; the
@@ -62,10 +62,26 @@ export function useLock(): LockState {
   return useKv<LockState>(LOCK_KEY, DEFAULT_LOCK_STATE);
 }
 
-export async function lockTo(profileId: string, options: Partial<LockOptions> = {}): Promise<void> {
+/** The child-view options saved for a profile on this device (Settings > Child view options). */
+function lockOptionsKey(profileId: string): string {
+  return `lock_options:${profileId}`;
+}
+
+export function useSavedLockOptions(profileId: string): LockOptions {
+  const saved = useKv<Partial<LockOptions>>(lockOptionsKey(profileId), {});
+  return { ...DEFAULT_LOCK_OPTIONS, ...saved };
+}
+
+export async function saveLockOptions(profileId: string, options: LockOptions): Promise<void> {
+  await setKv<LockOptions>(lockOptionsKey(profileId), options);
+}
+
+/** Locks this device to a profile's view, with that profile's saved options unless others are given. */
+export async function lockTo(profileId: string, options?: Partial<LockOptions>): Promise<void> {
+  const saved = options ?? (await getKv<Partial<LockOptions>>(lockOptionsKey(profileId))) ?? {};
   await setKv<LockState>(LOCK_KEY, {
     locked_profile_id: profileId,
-    options: { ...DEFAULT_LOCK_OPTIONS, ...options },
+    options: { ...DEFAULT_LOCK_OPTIONS, ...saved },
   });
 }
 

@@ -59,15 +59,17 @@ test.describe('day bands', () => {
   test('lock into the child view', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Child view options' });
     await expect(sheet).toBeVisible();
 
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
 
-    await sheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Save', exact: true }).click();
+
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
     await expect(page.getByRole('heading', { name: 'Benny' })).toBeVisible();
   });

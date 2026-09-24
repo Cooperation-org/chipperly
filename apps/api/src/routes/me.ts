@@ -36,7 +36,11 @@ import { canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { normalizeRow } from './sync.js';
 
-const LockBodySchema = z.object({ profile_id: uuidSchema });
+const LockBodySchema = z.object({
+  profile_id: uuidSchema,
+  /** "Lock phone": also turn on the profile's app blocking. A plain lock (pin the app) leaves it as it is. */
+  block_apps: z.boolean().optional(),
+});
 const deviceIdParamSchema = z.object({ id: uuidSchema });
 const RestBodySchema = z.object({ resting: z.boolean() });
 const FreeBodySchema = z.object({ minutes: z.number().int().min(0).max(24 * 60) });
@@ -463,11 +467,11 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     if (!allowed) throw new AppError(403, 'forbidden', 'Cannot lock to this profile');
 
     await db.update(sessions).set({ locked_profile_id: body.profile_id }).where(eq(sessions.id, authUser.session_id));
-    // Set here, not left to the client's own profile write: that write is
-    // pushed after this call, when the session is already locked, and the
-    // sync lock gate refuses `profiles` -- so the server kept blocking off
-    // and the next pull elsewhere (reinstall, a caregiver edit) turned it off.
-    await setChildModeActive(body.profile_id, true);
+    // "Lock phone" (block_apps) turns app blocking on here, not only through
+    // the client's own profile write: a write pushed after this call meets a
+    // locked session, and the sync lock gate refuses `profiles`. A plain lock
+    // (pinning the app) leaves blocking as it is.
+    if (body.block_apps) await setChildModeActive(body.profile_id, true);
     return { locked_profile_id: body.profile_id };
   });
 

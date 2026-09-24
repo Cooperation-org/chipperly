@@ -45,8 +45,8 @@ test.describe('child mode', () => {
   test('S23 lock this device with a PIN', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Child view options' });
     await expect(sheet).toBeVisible();
     await expectNoOverflow(page, 'S23 lock this device (set PIN)');
     await snap(page, 's23-lock-set-pin');
@@ -66,7 +66,9 @@ test.describe('child mode', () => {
     await expectNoOverflow(page, 'S23 lock this device (toggles)');
     await snap(page, 's23-lock-toggles');
 
-    await sheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Save', exact: true }).click();
+
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
   });
 
@@ -184,8 +186,8 @@ test.describe('child mode', () => {
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Child view options' });
     await expect(sheet).toBeVisible();
 
     const locationToggle = sheet.getByRole('switch', { name: 'Let Benny switch location' });
@@ -193,7 +195,9 @@ test.describe('child mode', () => {
     await locationToggle.click();
     await expect(locationToggle).toHaveAttribute('aria-checked', 'true');
 
-    await sheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Save', exact: true }).click();
+
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
 
     const locationButton = page.getByRole('button', { name: 'School', exact: true });

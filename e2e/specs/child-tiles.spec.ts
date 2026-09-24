@@ -35,12 +35,13 @@ test.describe('child view: picture tiles', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
 
-    await page.getByRole('button', { name: /Lock this device to/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Lock this device' });
+    await page.getByRole('button', { name: /Child view options for/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Child view options' });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
-    await sheet.getByRole('button', { name: 'Lock', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
   });
 

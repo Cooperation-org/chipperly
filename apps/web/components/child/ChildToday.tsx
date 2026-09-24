@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Capacitor } from '@capacitor/core';
 import { todayIso } from '@chipperly/shared/helpers/date';
-import { useLock } from '@/lib/device/settings';
+import { exitParentMode, useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
 import { verifyPin } from '@/lib/auth/pin';
@@ -101,6 +101,13 @@ export function ChildToday() {
     }
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
+  }, [locked_profile_id]);
+
+  // A locked device never stays in caregiver mode behind the child view
+  // (lockToChild navigates here first, then this switches it off), so the
+  // caregiver screens still need the PIN.
+  useEffect(() => {
+    if (locked_profile_id) void exitParentMode();
   }, [locked_profile_id]);
 
   // Belt for the CSS overscroll-behavior on .screen: some browsers only
