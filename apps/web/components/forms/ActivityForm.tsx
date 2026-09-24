@@ -586,6 +586,7 @@ export function ActivityForm() {
 
       {showSchedule ? (
         <VisualSchedule
+          printable
           title={name || 'Activity'}
           picture={picture}
           nodes={draftStepTree(steps, editingId ?? '')}

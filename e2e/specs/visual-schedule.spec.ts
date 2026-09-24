@@ -131,6 +131,8 @@ test.describe('visual schedule', () => {
 
     const overlay = page.getByRole('dialog', { name: 'Get Ready' });
     await expect(overlay).toBeVisible();
+    // Printing is a caregiver action; the child's overlay has only Close.
+    await expect(overlay.getByRole('button', { name: 'Print' })).toHaveCount(0);
     await expectNoOverflow(page, 'S32 child visual schedule overlay');
     await snap(page, 's32-child-visual-schedule');
 

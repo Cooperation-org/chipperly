@@ -240,6 +240,7 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
 
       {scheduleView ? (
         <VisualSchedule
+          printable
           title={scheduleView === 'item' ? day.activity.name : (scheduleNode?.node.step.name ?? '')}
           picture={
             scheduleView === 'item'

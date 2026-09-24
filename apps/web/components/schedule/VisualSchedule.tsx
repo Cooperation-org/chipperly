@@ -16,6 +16,8 @@ export interface VisualScheduleProps {
   onClose: () => void;
   /** No check circles are interactive; used for the activity editor's print preview, which has no real completions. */
   readOnly?: boolean;
+  /** Shows the Print button; caregiver screens only, the child's view never prints. */
+  printable?: boolean;
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
@@ -27,7 +29,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [ta
  * can hide every other `body` child (the whole app shell) while this is the
  * one thing left showing, per docs/ux-plan.md section 12.
  */
-export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readOnly }: VisualScheduleProps) {
+export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readOnly, printable }: VisualScheduleProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -97,7 +99,7 @@ export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readO
   const content = (
     <div data-visual-schedule-root className={styles.overlay} role="dialog" aria-modal="true" aria-label={title} ref={panelRef} tabIndex={-1}>
       <div className={styles.chrome}>
-        <IconButton icon="print" aria-label="Print" variant="solid" onClick={() => window.print()} />
+        {printable ? <IconButton icon="print" aria-label="Print" variant="solid" onClick={() => window.print()} /> : null}
         <IconButton icon="close" aria-label="Close visual schedule" variant="solid" onClick={onClose} />
       </div>
       <header className={styles.header}>
