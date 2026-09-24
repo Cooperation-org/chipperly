@@ -5,7 +5,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { ProvidersResponseSchema, TokensResponseSchema, type TokensResponse } from '@chipperly/shared/schemas/auth';
 import { buildTestApp, expectShape, request } from './helpers.js';
 import { db } from '../src/db/client.js';
-import { invites, users } from '../src/db/schema/accounts.js';
+import { email_verifications, invites, users } from '../src/db/schema/accounts.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
 import { issueTokens } from '../src/lib/tokens.js';
 import { isValidInviteCode } from '../src/routes/auth.js';
@@ -223,6 +223,32 @@ describe('auth routes', () => {
     const verifyAgain = await request(app, { method: 'GET', url: `/api/auth/verify/${token}` });
     expect(verifyAgain.statusCode).toBe(400);
     expect(verifyAgain.json().error.code).toBe('invalid_token');
+  });
+
+  it('resends the verification email at most once a day, and not at all once verified', async () => {
+    const registered = await request(app, {
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'resend@example.com', password: 'correct-horse', display_name: 'Resend', consented_at: Date.now() },
+    });
+    const token = (registered.json() as TokensResponse).access_token;
+
+    // Sign-up already sent one today: the next is allowed ~24h later.
+    const tooSoon = await request(app, { method: 'POST', url: '/api/me/verify-email', headers: auth(token) });
+    expect(tooSoon.statusCode).toBe(200);
+    expect(tooSoon.json().sent).toBe(false);
+    expect(tooSoon.json().retry_at).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000);
+
+    // Once that link has expired, a new one goes out.
+    const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, 'resend@example.com'));
+    await db.update(email_verifications).set({ expires_at: Date.now() - 1 }).where(eq(email_verifications.user_id, user!.id));
+    const resent = await request(app, { method: 'POST', url: '/api/me/verify-email', headers: auth(token) });
+    expect(resent.json()).toEqual({ sent: true });
+    const link = extractToken(getLastMailMessage()!.text);
+
+    await request(app, { method: 'GET', url: `/api/auth/verify/${link}` });
+    const afterVerify = await request(app, { method: 'POST', url: '/api/me/verify-email', headers: auth(token) });
+    expect(afterVerify.json()).toEqual({ sent: false, already_verified: true });
   });
 
   it('reports provider availability from env', async () => {

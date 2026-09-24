@@ -59,16 +59,19 @@ export function getLastMailMessage(): MailMessage | null {
  * caller's request (register still creates the account; forgot-password
  * must return the same `{ ok: true }` whether or not the account exists,
  * sec: enumeration). The failure is still logged for operator visibility.
+ * Resolves false when Resend refused it, for callers that care (verification resend).
  */
-export async function sendMail(message: MailMessage): Promise<void> {
+export async function sendMail(message: MailMessage): Promise<boolean> {
   lastMessage = message;
   if (env.mailEnabled) {
     try {
       await sendViaResend(message);
+      return true;
     } catch (err) {
       console.error('sendMail: Resend send failed', err);
+      return false;
     }
-    return;
   }
   sendViaConsole(message);
+  return true;
 }

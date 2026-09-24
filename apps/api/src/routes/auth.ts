@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import {
   AppleAuthBodySchema,
@@ -17,6 +17,7 @@ import { db } from '../db/client.js';
 import { email_verifications, invites, password_resets, sessions, users } from '../db/schema/accounts.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { linkBase } from '../lib/links.js';
+import { requireUser } from '../plugins/auth.js';
 import { sendMail } from '../lib/mailer.js';
 import { verifyGoogleIdToken, type VerifiedIdentity } from '../lib/google.js';
 import { verifyAppleIdToken } from '../lib/apple.js';
@@ -56,21 +57,25 @@ function newRawToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
-async function sendVerificationEmail(userId: string, email: string, request: FastifyRequest): Promise<void> {
+/** False when the mail provider refused it; the token row is removed so a failed send never blocks a resend. */
+async function sendVerificationEmail(userId: string, email: string, request: FastifyRequest): Promise<boolean> {
   const rawToken = newRawToken();
+  const id = uuidv7();
   await db.insert(email_verifications).values({
-    id: uuidv7(),
+    id,
     user_id: userId,
     token_hash: hashToken(rawToken),
     expires_at: Date.now() + EMAIL_VERIFICATION_TTL_MS,
     used_at: null,
   });
   const link = `${linkBase(request)}/verify/?token=${rawToken}`;
-  await sendMail({
+  const sent = await sendMail({
     to: email,
     subject: 'Verify your Chipperly email',
     text: `Welcome to Chipperly! Verify your email address: ${link}`,
   });
+  if (!sent) await db.delete(email_verifications).where(eq(email_verifications.id, id));
+  return sent;
 }
 
 /**
@@ -296,6 +301,44 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     await db.update(password_resets).set({ used_at: now }).where(eq(password_resets.id, resetRow.id));
 
     return { ok: true };
+  });
+
+  /**
+   * One verification email a day: a link lasts EMAIL_VERIFICATION_TTL_MS (24h), so an
+   * unused, unexpired one means the last email went out less than a day ago. A send
+   * the provider refused leaves no row (sendVerificationEmail), so it can be retried at once.
+   */
+  // Under /me, not /auth: the web client never refresh-retries /auth/* calls, and this is a signed-in action.
+  app.post('/me/verify-email', { ...AUTH_RATE_LIMIT, preHandler: requireUser }, async (request) => {
+    const authUser = request.user;
+    if (!authUser) throw new AppError(401, 'unauthorized', 'Sign-in required');
+    const [user] = await db
+      .select({ email: users.email, email_verified_at: users.email_verified_at })
+      .from(users)
+      .where(eq(users.id, authUser.id))
+      .limit(1);
+    if (!user) throw new AppError(401, 'unauthorized', 'Sign-in required');
+    if (user.email_verified_at !== null) return { sent: false, already_verified: true };
+
+    const now = Date.now();
+    const live = await db
+      .select({ expires_at: email_verifications.expires_at })
+      .from(email_verifications)
+      .where(
+        and(
+          eq(email_verifications.user_id, authUser.id),
+          isNull(email_verifications.used_at),
+          gt(email_verifications.expires_at, now),
+        ),
+      );
+    if (live.length > 0) {
+      // The newest live link was sent TTL before it expires; the next send is allowed a day after that.
+      return { sent: false, retry_at: Math.max(...live.map((row) => row.expires_at)) };
+    }
+
+    const sent = await sendVerificationEmail(authUser.id, user.email, request);
+    if (!sent) throw new AppError(502, 'mail_failed', "We couldn't send the email. Try again in a few minutes.");
+    return { sent: true };
   });
 
   app.get<{ Params: { token: string } }>('/auth/verify/:token', async (request) => {
