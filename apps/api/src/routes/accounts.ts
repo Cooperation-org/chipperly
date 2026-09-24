@@ -16,6 +16,7 @@ import { LocationChangedBodySchema, RewardRequestBodySchema, type RewardRequestS
 import { PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { db } from '../db/client.js';
 import { push_tokens } from '../db/schema/push.js';
+import { devices } from '../db/schema/devices.js';
 import { account_members, accounts, invites, users } from '../db/schema/accounts.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
 import { locations } from '../db/schema/locations.js';
@@ -624,11 +625,13 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       : [];
     const recipientIds = [...new Set([...admins, ...team].map((r) => r.user_id))];
 
+    // Not a device set up as a child's ("Who uses this device"), nor the one asking.
     const tokenRows = await db
-      .select({ token: push_tokens.token, platform: push_tokens.platform, device_id: push_tokens.device_id })
+      .select({ token: push_tokens.token, platform: push_tokens.platform, device_id: push_tokens.device_id, child: devices.profile_id })
       .from(push_tokens)
+      .leftJoin(devices, eq(devices.id, push_tokens.device_id))
       .where(inArray(push_tokens.user_id, recipientIds));
-    const targets = tokenRows.filter((t) => !body.device_id || t.device_id !== body.device_id);
+    const targets = tokenRows.filter((t) => t.child === null && (!body.device_id || t.device_id !== body.device_id));
     if (targets.length === 0) return { notified: 0 };
 
     const data = { type: 'reward_request', profile_id: profileId, title: `${profile.name} wants a reward`, body: rewardRequestText(profile.name, body.reward_name, body.source) };

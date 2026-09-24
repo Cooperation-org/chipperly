@@ -14,6 +14,7 @@ import { activities } from '../src/db/schema/activities.js';
 import { rewards } from '../src/db/schema/rewards.js';
 import { locations } from '../src/db/schema/locations.js';
 import { push_tokens } from '../src/db/schema/push.js';
+import { devices } from '../src/db/schema/devices.js';
 import { profile_members, profiles } from '../src/db/schema/profiles.js';
 import { issueTokens } from '../src/lib/tokens.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
@@ -379,12 +380,16 @@ describe('accounts routes', () => {
     await db.insert(profile_members).values({ profile_id: profile.id, user_id: therapist.id, assigned_location_id: therapy, location_notify_mode: 'strict' });
 
     const childDevice = uuidv7();
+    const childTablet = uuidv7();
     await db.insert(push_tokens).values([
       { user_id: admin.id, token: `parent-phone-${admin.id}`, platform: 'android', created_at: Date.now(), device_id: uuidv7() },
       { user_id: admin.id, token: `{"endpoint":"https://push.example/${admin.id}"}`, platform: 'web', created_at: Date.now(), device_id: uuidv7() },
       { user_id: admin.id, token: `child-phone-${admin.id}`, platform: 'android', created_at: Date.now(), device_id: childDevice },
       { user_id: therapist.id, token: `therapist-phone-${therapist.id}`, platform: 'android', created_at: Date.now(), device_id: uuidv7() },
+      { user_id: admin.id, token: `tablet-${admin.id}`, platform: 'android', created_at: Date.now(), device_id: childTablet },
     ]);
+    // Celia's own tablet ("Who uses this device"), not the one asking right now: still never alerted.
+    await db.insert(devices).values({ id: childTablet, user_id: admin.id, name: null, profile_id: profile.id, platform: 'android', last_seen_at: Date.now(), created_at: Date.now() });
     const ask = async (locationId: string) =>
       (
         (
