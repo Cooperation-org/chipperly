@@ -5,7 +5,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
-import { useParentMode, useParentModeLoaded } from '@/lib/device/settings';
+import { useLock, useLockLoaded, useParentMode, useParentModeLoaded } from '@/lib/device/settings';
+import { usesApp, useCaregiverDevice } from '@/lib/device/role';
 import { lockToChild } from '@/lib/device/lock';
 import { useBlockingReady } from '@/lib/native/useBlockingReady';
 import { LockSheet } from '@/components/settings/LockSheet';
@@ -72,6 +73,12 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   // /child/ before the real value ever arrives.
   const parentMode = useParentMode();
   const parentModeLoaded = useParentModeLoaded();
+  // A caregiver's own device needs no PIN, unless it's been locked to a child for now.
+  const caregiverDevice = useCaregiverDevice();
+  const { locked_profile_id } = useLock();
+  const lockLoaded = useLockLoaded();
+  const decided = parentModeLoaded && lockLoaded && caregiverDevice !== undefined;
+  const allowed = parentMode || (caregiverDevice === true && !locked_profile_id);
 
   useEffect(() => {
     // Same reasoning as ChildShell/KindPicker's matching guards: `status`
@@ -85,8 +92,9 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
     // a deep link, this same e2e-style direct nav) through UnlockOverlay's
     // PIN/password gate, so unlocking lands back where they meant to go
     // instead of always dumping them on Today.
-    else if (parentModeLoaded && !parentMode) router.replace(`/child/?next=${encodeURIComponent(pathname)}`);
-  }, [sessionStatus, sessionProfiles.length, parentModeLoaded, parentMode, router, pathname]);
+    // Locking isn't trying to reach this page, so no ?next= (unlocking should land on Today, not back here).
+    else if (decided && !allowed) router.replace(locked_profile_id ? '/child/' : `/child/?next=${encodeURIComponent(pathname)}`);
+  }, [sessionStatus, sessionProfiles.length, decided, allowed, locked_profile_id, router, pathname]);
 
   // No PIN yet: set one first (you need it to get back), then lock.
   async function lockNow(profileId: string, blockApps: boolean): Promise<void> {
@@ -98,7 +106,9 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
     router.push('/child/');
   }
 
-  if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !parentModeLoaded || !parentMode) return null;
+  if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !decided || !allowed) return null;
+  // Lock buttons only for a child who uses the app themselves.
+  const lockable = profile && usesApp(profile) ? profile : null;
 
   return (
     <div className={styles.shell}>
@@ -121,9 +131,9 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
         }
         onSyncTap={() => open(<SyncSheet />, { title: 'Sync' })}
         onSettingsTap={() => router.push('/settings/')}
-        onLockTap={profile ? () => void lockNow(profile.id, false) : undefined}
-        lockLabel={profile ? `Lock to ${profile.name}` : undefined}
-        onLockPhoneTap={profile && blockingReady ? () => void lockNow(profile.id, true) : undefined}
+        onLockTap={lockable ? () => void lockNow(lockable.id, false) : undefined}
+        lockLabel={lockable ? `Lock to ${lockable.name}` : undefined}
+        onLockPhoneTap={lockable && blockingReady ? () => void lockNow(lockable.id, true) : undefined}
       />
       <TimerPill />
       <main className={styles.content}>{children}</main>

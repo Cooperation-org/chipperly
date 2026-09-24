@@ -14,11 +14,13 @@ import { useSession, refreshMe } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import styles from './ProfilesScreen.module.css';
+import { UsesAppSwitch } from './UsesAppSwitch';
 
 function AddProfileSheet({ accountId, onCreated }: { accountId: string; onCreated: (profile: Profile) => void }) {
   const { close } = useSheet();
   const [name, setName] = useState('');
   const [picture, setPicture] = useState<PicturePickerValue>({});
+  const [usesApp, setUsesApp] = useState(true);
   const [error, setError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
 
@@ -34,6 +36,7 @@ function AddProfileSheet({ accountId, onCreated }: { accountId: string; onCreate
         name: name.trim(),
         emoji: picture.emoji ?? null,
         photo_id: picture.photo_id ?? null,
+        child_uses_app: usesApp,
       });
       await refreshMe();
       onCreated(profile);
@@ -49,6 +52,7 @@ function AddProfileSheet({ accountId, onCreated }: { accountId: string; onCreate
     <div className={styles.addForm}>
       <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} error={error} autoFocus />
       <PicturePicker value={picture} onChange={setPicture} name={name || 'New profile'} />
+      <UsesAppSwitch name={name} checked={usesApp} onChange={setUsesApp} />
       <BigButton fullWidth onClick={() => void submit()} disabled={saving}>
         Create
       </BigButton>

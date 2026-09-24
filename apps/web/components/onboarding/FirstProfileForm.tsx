@@ -12,6 +12,7 @@ import { useActiveProfile } from '@/lib/profile/active';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import { UsesAppSwitch } from '@/components/settings/UsesAppSwitch';
 import styles from './FirstProfileForm.module.css';
 
 /** kv key documented in CONTRACTS.md's lib/db/db.ts; set by S3 (KindPicker) via useActiveAccount().setActiveAccountId. */
@@ -24,6 +25,7 @@ export function FirstProfileForm() {
   const { setActiveProfileId } = useActiveProfile();
   const [name, setName] = useState('');
   const [picture, setPicture] = useState<PicturePickerValue>({ emoji: null, photo_id: null });
+  const [usesApp, setUsesApp] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +42,7 @@ export function FirstProfileForm() {
         name,
         emoji: picture.emoji ?? null,
         photo_id: picture.photo_id ?? null,
+        child_uses_app: usesApp,
       });
       await refreshMe();
       setActiveProfileId(profile.id);
@@ -59,6 +62,7 @@ export function FirstProfileForm() {
       </div>
       <TextField label="Name" autoFocus required value={name} onChange={(e) => setName(e.target.value)} />
       <PicturePicker value={picture} onChange={setPicture} name={name} choices={AVATAR_EMOJI} />
+      <UsesAppSwitch name={name} checked={usesApp} onChange={setUsesApp} />
       {error ? (
         <p className={styles.error} role="alert">
           {error}

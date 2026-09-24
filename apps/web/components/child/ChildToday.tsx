@@ -7,6 +7,7 @@ import { todayIso } from '@chipperly/shared/helpers/date';
 import { exitParentMode, useLock } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
+import { childViewProfileId, useDeviceRole } from '@/lib/device/role';
 import { verifyPin } from '@/lib/auth/pin';
 import { PinPad } from '@/components/pin/PinPad';
 import { db } from '@/lib/db/db';
@@ -65,7 +66,8 @@ import styles from './ChildToday.module.css';
 export function ChildToday() {
   const { locked_profile_id, options } = useLock();
   const { user } = useSession();
-  const { profile: activeProfile } = useActiveProfile();
+  const { profile: activeProfile, profiles: allProfiles } = useActiveProfile();
+  const deviceRole = useDeviceRole();
   const sheet = useSheet();
   // Selector hook, not useTimer(): the full TimerState changes ~60x/sec while
   // a timer runs, and re-executing this whole screen's body on every tick
@@ -73,7 +75,7 @@ export function ChildToday() {
   // that needs the live remaining_ms is isolated in TimerRemaining below.
   const running = useTimerRunning();
 
-  const profileId = locked_profile_id ?? activeProfile?.id ?? '';
+  const profileId = childViewProfileId(locked_profile_id, deviceRole, activeProfile, allProfiles);
   const userId = user?.id ?? '';
   const [isoDate] = useState(() => todayIso());
 

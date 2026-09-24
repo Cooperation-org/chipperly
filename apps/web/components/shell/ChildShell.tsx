@@ -3,6 +3,8 @@
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth/session';
+import { useLock, useLockLoaded } from '@/lib/device/settings';
+import { useCaregiverDevice } from '@/lib/device/role';
 import styles from './ChildShell.module.css';
 
 /**
@@ -18,6 +20,11 @@ import styles from './ChildShell.module.css';
 export function ChildShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { status, profiles } = useSession();
+  const caregiverDevice = useCaregiverDevice();
+  const { locked_profile_id } = useLock();
+  const lockLoaded = useLockLoaded();
+  // A caregiver's device has no child view unless it's locked to a child right now.
+  const toCaregiver = caregiverDevice === true && lockLoaded && !locked_profile_id;
 
   useEffect(() => {
     document.documentElement.dataset.mode = 'child';
@@ -35,9 +42,10 @@ export function ChildShell({ children }: { children: ReactNode }) {
     // /onboarding/kind/ and back once the real session settled again.
     if (status === 'signed_out') router.replace('/');
     else if (status === 'signed_in' && profiles.length === 0) router.replace('/onboarding/kind/');
-  }, [status, profiles.length, router]);
+    else if (status === 'signed_in' && toCaregiver) router.replace('/today/');
+  }, [status, profiles.length, toCaregiver, router]);
 
-  if (status !== 'signed_in' || profiles.length === 0) return null;
+  if (status !== 'signed_in' || profiles.length === 0 || toCaregiver) return null;
 
   return <div className={styles.column}>{children}</div>;
 }

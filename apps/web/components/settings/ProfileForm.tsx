@@ -11,6 +11,7 @@ import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Switch } from '@/components/ui/Switch';
 import { NotificationCheck } from './NotificationCheck';
+import { UsesAppSwitch } from './UsesAppSwitch';
 import { db } from '@/lib/db/db';
 import { upsert, softDelete } from '@/lib/sync/mutate';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -34,6 +35,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const [childPicksReward, setChildPicksReward] = useState(true);
   const [childRedeems, setChildRedeems] = useState(true);
   const [rewardAlerts, setRewardAlerts] = useState(true);
+  const [childUsesApp, setChildUsesApp] = useState(true);
   const [childLayout, setChildLayout] = useState<'list' | 'tiles'>('list');
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -49,6 +51,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     setChildPicksReward(row.settings.child_picks_reward ?? true);
     setChildRedeems(row.settings.child_redeems ?? true);
     setRewardAlerts(row.settings.reward_alerts ?? true);
+    setChildUsesApp(row.settings.child_uses_app ?? true);
     setChildLayout(row.settings.child_layout ?? 'list');
     setLoadedFor(row.id);
   }
@@ -70,6 +73,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
         child_picks_reward: childPicksReward,
         child_redeems: childRedeems,
         reward_alerts: rewardAlerts,
+        child_uses_app: childUsesApp,
         child_layout: childLayout,
       },
     });
@@ -89,6 +93,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     <div className={styles.form}>
       <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
       <PicturePicker value={picture} onChange={setPicture} name={name || row.name} />
+      <UsesAppSwitch name={name || row.name} checked={childUsesApp} onChange={setChildUsesApp} />
       <div className={styles.setting}>
         <span className={styles.settingLabel}>After a reward</span>
         <Segmented
@@ -101,37 +106,43 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           onChange={(v) => setRedeemMode(v as RedeemMode)}
         />
       </div>
-      <div className={styles.setting}>
-        <span className={styles.settingLabel}>Child view</span>
-        <Segmented
-          label="Child view"
-          items={[
-            { value: 'list', label: 'Today list' },
-            { value: 'tiles', label: 'Picture tiles' },
-          ]}
-          value={childLayout}
-          onChange={(v) => setChildLayout(v as 'list' | 'tiles')}
-        />
-      </div>
+      {childUsesApp ? (
+        <div className={styles.setting}>
+          <span className={styles.settingLabel}>Child view</span>
+          <Segmented
+            label="Child view"
+            items={[
+              { value: 'list', label: 'Today list' },
+              { value: 'tiles', label: 'Picture tiles' },
+            ]}
+            value={childLayout}
+            onChange={(v) => setChildLayout(v as 'list' | 'tiles')}
+          />
+        </div>
+      ) : null}
       <div className={styles.toggleRow}>
         <span className={styles.settingLabel}>Colour chips by attitude</span>
         <Switch label="Colour chips by attitude" checked={chipsByAttitude} onChange={setChipsByAttitude} />
       </div>
-      <div className={styles.toggleRow}>
-        <span className={styles.settingLabel}>Child can choose the reward</span>
-        <Switch label="Child can choose the reward" checked={childPicksReward} onChange={setChildPicksReward} />
-      </div>
-      <div className={styles.toggleRow}>
-        <span className={styles.settingLabel}>Child can redeem rewards</span>
-        <Switch label="Child can redeem rewards" checked={childRedeems} onChange={setChildRedeems} />
-      </div>
-      <div className={styles.setting}>
-        <div className={styles.toggleRow}>
-          <span className={styles.settingLabel}>Alert me when {name || row.name} wants a reward</span>
-          <Switch label="Reward alerts" checked={rewardAlerts} onChange={setRewardAlerts} />
-        </div>
-        {rewardAlerts ? <NotificationCheck /> : null}
-      </div>
+      {childUsesApp ? (
+        <>
+          <div className={styles.toggleRow}>
+            <span className={styles.settingLabel}>Child can choose the reward</span>
+            <Switch label="Child can choose the reward" checked={childPicksReward} onChange={setChildPicksReward} />
+          </div>
+          <div className={styles.toggleRow}>
+            <span className={styles.settingLabel}>Child can redeem rewards</span>
+            <Switch label="Child can redeem rewards" checked={childRedeems} onChange={setChildRedeems} />
+          </div>
+          <div className={styles.setting}>
+            <div className={styles.toggleRow}>
+              <span className={styles.settingLabel}>Alert me when {name || row.name} wants a reward</span>
+              <Switch label="Reward alerts" checked={rewardAlerts} onChange={setRewardAlerts} />
+            </div>
+            {rewardAlerts ? <NotificationCheck /> : null}
+          </div>
+        </>
+      ) : null}
       <Button variant="primary" size="lg" fullWidth onClick={() => void save()} loading={saving}>
         Save
       </Button>

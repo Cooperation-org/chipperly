@@ -13,6 +13,8 @@ import { useActiveProfile } from '@/lib/profile/active';
 import { useDeviceSettings, setDeviceSettings } from '@/lib/device/settings';
 import { toast } from '@/lib/toast';
 import { Switch } from '@/components/ui/Switch';
+import { usesApp, useDeviceRole } from '@/lib/device/role';
+import { DeviceRolePicker } from '@/components/onboarding/DeviceRolePicker';
 import { LockSheet } from './LockSheet';
 import { ShareSheet } from './ShareSheet';
 import { SyncSheet } from '@/components/shell/SyncSheet';
@@ -51,6 +53,7 @@ export function SettingsMenu() {
   const { open, close } = useSheet();
   const { user, accounts } = useSession();
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
+  const deviceRole = useDeviceRole();
   const deviceSettings = useDeviceSettings();
 
   const role = accounts.find((a) => a.account.id === profile?.account_id)?.role;
@@ -88,18 +91,22 @@ export function SettingsMenu() {
               trailing={<Icon name="chevron" size={20} />}
               onTap={() => router.push(`/settings/profile/edit/?id=${profile.id}`)}
             />
-            <ListRow
-              tile={<Icon name="gear" size={20} />}
-              name={`Child view options for ${profile.name}`}
-              trailing={<Icon name="chevron" size={20} />}
-              onTap={() => open(<LockSheet profileId={profile.id} />, { title: 'Child view options' })}
-            />
-            <ListRow
-              tile={<Icon name="lock" size={20} />}
-              name="App blocking"
-              trailing={<Icon name="chevron" size={20} />}
-              onTap={() => router.push('/settings/app-blocking/')}
-            />
+            {usesApp(profile) ? (
+              <>
+                <ListRow
+                  tile={<Icon name="gear" size={20} />}
+                  name={`Child view options for ${profile.name}`}
+                  trailing={<Icon name="chevron" size={20} />}
+                  onTap={() => open(<LockSheet profileId={profile.id} />, { title: 'Child view options' })}
+                />
+                <ListRow
+                  tile={<Icon name="lock" size={20} />}
+                  name="App blocking"
+                  trailing={<Icon name="chevron" size={20} />}
+                  onTap={() => router.push('/settings/app-blocking/')}
+                />
+              </>
+            ) : null}
             <ListRow
               tile={<Icon name="star" size={20} />}
               name="Attitude history"
@@ -183,6 +190,29 @@ export function SettingsMenu() {
       <div className={styles.section}>
         <span className={styles.sectionTitle}>This device</span>
         <div className={styles.card}>
+          <ListRow
+            tile={<span aria-hidden="true">📱</span>}
+            name="Who uses this device"
+            secondary={
+              deviceRole?.kind === 'caregiver'
+                ? 'Me, a caregiver'
+                : deviceRole?.kind === 'child'
+                  ? `${profiles.find((p) => p.id === deviceRole.profile_id)?.name ?? 'A child'}'s device`
+                  : 'Not chosen yet (child view first)'
+            }
+            trailing={<Icon name="chevron" size={20} />}
+            onTap={() =>
+              open(
+                <DeviceRolePicker
+                  onDone={(role) => {
+                    close();
+                    if (role.kind === 'child') router.push('/child/');
+                  }}
+                />,
+                { title: 'Who uses this device?' },
+              )
+            }
+          />
           <ListRow tile={<Icon name="sync" size={20} />} name="Sync status" trailing={<Icon name="chevron" size={20} />} onTap={() => open(<SyncSheet />, { title: 'Sync' })} />
           <div className={styles.controlRow}>
             <span className={styles.controlLabel}>Sounds</span>

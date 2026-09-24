@@ -2,6 +2,7 @@ import type { useRouter } from 'next/navigation';
 import type { MeResponse } from '@chipperly/shared/schemas/auth';
 import { api } from '@/lib/api/client';
 import { getKv, setKv } from '@/lib/db/kv';
+import { asksDeviceRole, getDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
 import { inviteTokenFromRedirect } from './inviteToken';
 
 type Router = ReturnType<typeof useRouter>;
@@ -25,8 +26,8 @@ export async function getPendingInviteToken(): Promise<string | null> {
 /**
  * Where to land right after a successful sign-in/sign-up: a pending redirect
  * (e.g. back to the invite that sent the visitor to sign in) takes priority,
- * otherwise the child view for a user with profiles (the app's default --
- * see lib/device/settings.ts's useParentMode) or onboarding for one without.
+ * otherwise onboarding for a user without profiles, else this device's
+ * screens (lib/device/role.ts), asking who it's for the first time.
  */
 export async function redirectAfterAuth(router: Router): Promise<void> {
   const next = await getKv<string>(POST_AUTH_REDIRECT_KEY);
@@ -36,5 +37,20 @@ export async function redirectAfterAuth(router: Router): Promise<void> {
     return;
   }
   const me = await api.get<MeResponse>('/me');
-  router.push(me.profiles.length > 0 ? '/child/' : '/onboarding/kind/');
+  if (me.profiles.length === 0) {
+    router.push('/onboarding/kind/');
+    return;
+  }
+  const role = await getDeviceRole();
+  if (role) {
+    router.push(role.kind === 'caregiver' ? '/today/' : '/child/');
+    return;
+  }
+  // First sign-in here: a phone or tablet asks who it's for; a browser, or an account with no child using the app, is the caregiver's.
+  if (asksDeviceRole() && me.profiles.some(usesApp)) {
+    router.push('/onboarding/device/');
+    return;
+  }
+  await setDeviceRole({ kind: 'caregiver' });
+  router.push('/today/');
 }
