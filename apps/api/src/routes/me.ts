@@ -260,6 +260,11 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
+  /** The VAPID public key a browser subscribes to push with; null when web push isn't configured. */
+  app.get('/me/push/web-key', { preHandler: requireUser }, async (): Promise<{ key: string | null }> => ({
+    key: env.webPushEnabled ? env.VAPID_PUBLIC_KEY! : null,
+  }));
+
   /** Called on sign-out/unregister so a stale token isn't pushed to after the device stops wanting it. */
   app.delete('/me/push-token', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
     const authUser = request.user!;

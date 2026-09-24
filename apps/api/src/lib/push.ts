@@ -115,3 +115,32 @@ export async function sendDataMessage(message: DataMessage): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Browser push (Web Push/VAPID) to subscriptions stored as push_tokens rows
+ * with platform 'web' (the token is the JSON PushSubscription). The service
+ * worker (apps/web/app/sw.ts) shows the notification. Never throws; returns
+ * the subscriptions the push service says are gone, to delete.
+ */
+export async function sendWebPush(subscriptions: readonly string[], payload: Record<string, string>): Promise<string[]> {
+  if (subscriptions.length === 0) return [];
+  if (!env.webPushEnabled) {
+    console.log(`── push (console transport) ── web push, ${subscriptions.length} subscription(s): ${JSON.stringify(payload)}`);
+    return [];
+  }
+  const webpush = (await import('web-push')).default;
+  webpush.setVapidDetails(env.VAPID_SUBJECT, env.VAPID_PUBLIC_KEY!, env.VAPID_PRIVATE_KEY!);
+  const stale: string[] = [];
+  await Promise.all(
+    subscriptions.map(async (sub) => {
+      try {
+        await webpush.sendNotification(JSON.parse(sub), JSON.stringify(payload), { urgency: 'high', TTL: 60 * 60 });
+      } catch (err) {
+        const status = (err as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) stale.push(sub);
+        else console.error('sendWebPush: send failed for one subscription', err);
+      }
+    }),
+  );
+  return stale;
+}

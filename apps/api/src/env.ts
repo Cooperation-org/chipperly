@@ -31,6 +31,10 @@ const EnvSchema = z.object({
   MAIL_FROM: z.string().min(1).default('Chipperly <no-reply@chipperlyapp.com>'),
   /** The Firebase service account key JSON, as a single-line string (a deploy sets this, not a file path). Unset = push logs to the console instead of sending. */
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
+  /** Web Push (VAPID) keys, from `npx web-push generate-vapid-keys`. Unset = browser push logs to the console. */
+  VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  VAPID_SUBJECT: z.string().min(1).default('mailto:hello@chipperlyapp.com'),
   APP_ORIGIN: z.string().min(1).optional(),
   LOG_LEVEL: z.string().min(1).default('info'),
 });
@@ -59,6 +63,8 @@ export const env = {
   mailEnabled: Boolean(parsed.RESEND_API_KEY),
   /** True when a Firebase service account is configured; false = push logs to stdout instead of sending. */
   pushEnabled: Boolean(parsed.FIREBASE_SERVICE_ACCOUNT_JSON),
+  /** True when both VAPID keys are set, so browsers can subscribe to push. */
+  webPushEnabled: Boolean(parsed.VAPID_PUBLIC_KEY && parsed.VAPID_PRIVATE_KEY),
   /** True when a closed beta invite code gates /auth/register and new-user /auth/google, /auth/apple. */
   inviteCodeRequired: Boolean(parsed.BETA_INVITE_CODE),
 };
