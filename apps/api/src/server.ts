@@ -1,11 +1,14 @@
 import { env } from './env.js';
 import { buildApp } from './app.js';
 import { closeDb } from './db/client.js';
+import { startReminders } from './lib/reminders.js';
 
 const app = await buildApp({ env });
+const stopReminders = startReminders((err) => app.log.error(err, 'routine reminders failed'));
 
 async function shutdown(signal: string): Promise<void> {
   app.log.info(`received ${signal}, shutting down`);
+  stopReminders();
   try {
     await app.close();
     await closeDb();

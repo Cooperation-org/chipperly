@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, check, integer, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
 import type { AccountKind, Role } from '@chipperly/shared/schemas/account';
 
 export const accounts = pgTable('accounts', {
@@ -31,6 +31,13 @@ export const users = pgTable(
     /** Epoch ms the "parent/guardian/caregiver, 18+, agree to Terms and Privacy" checkbox was ticked (SOW Q21 / COPPA). Nullable: null for accounts created before this column existed. */
     consented_at: bigint('consented_at', { mode: 'number' }),
     created_at: bigint('created_at', { mode: 'number' }).notNull(),
+    /** End of the free trial; null = 21 days from created_at (lib/trial.ts). Set when a super admin extends it. */
+    trial_ends_at: bigint('trial_ends_at', { mode: 'number' }),
+    /** The early access code this person claimed (promo_codes.code), and when. */
+    promo_code: text('promo_code'),
+    promo_code_at: bigint('promo_code_at', { mode: 'number' }),
+    /** IANA zone the app last reported (e.g. "Africa/Cairo"), so routine reminders arrive at their local hour. */
+    time_zone: text('time_zone'),
   },
   // Belt-and-suspenders: callers should already lowercase before insert.
   (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`)],
@@ -88,3 +95,29 @@ export const email_verifications = pgTable('email_verifications', {
   expires_at: bigint('expires_at', { mode: 'number' }).notNull(),
   used_at: bigint('used_at', { mode: 'number' }),
 });
+
+/** Discount codes (the conference's early access code), managed from the super admin dashboard. Payments aren't wired yet: a claim is recorded and honoured once they are. */
+export const promo_codes = pgTable('promo_codes', {
+  code: text('code').primaryKey(),
+  /** null until decided in the admin dashboard. */
+  percent_off: integer('percent_off'),
+  applies_to: text('applies_to').$type<'annual' | 'any'>().notNull().default('annual'),
+  valid_from: bigint('valid_from', { mode: 'number' }).notNull(),
+  valid_until: bigint('valid_until', { mode: 'number' }).notNull(),
+  active: boolean('active').notNull().default(true),
+  note: text('note'),
+  created_at: bigint('created_at', { mode: 'number' }).notNull(),
+});
+
+/** One caregiver's "remind me to check this child's routines" choice; no row = the default (weekly, 7 pm). every_days 0 = off. */
+export const review_reminders = pgTable(
+  'review_reminders',
+  {
+    user_id: uuid('user_id').notNull(),
+    profile_id: uuid('profile_id').notNull(),
+    every_days: integer('every_days').notNull().default(7),
+    hour: integer('hour').notNull().default(19),
+    last_sent_at: bigint('last_sent_at', { mode: 'number' }),
+  },
+  (t) => [primaryKey({ columns: [t.user_id, t.profile_id] })],
+);

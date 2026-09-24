@@ -27,6 +27,8 @@ const EnvSchema = z.object({
   APPLE_SIGNIN_KEY_ID: z.string().min(1).optional(),
   APPLE_SIGNIN_PRIVATE_KEY: z.string().min(1).optional(),
   BETA_INVITE_CODE: z.string().min(1).optional(),
+  /** Comma-separated emails that see the super admin dashboard (routes/admin.ts). */
+  SUPER_ADMIN_EMAILS: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(1).default('Chipperly <no-reply@chipperlyapp.com>'),
   /** The Firebase service account key JSON, as a single-line string (a deploy sets this, not a file path). Unset = push logs to the console instead of sending. */
@@ -67,6 +69,7 @@ export const env = {
   webPushEnabled: Boolean(parsed.VAPID_PUBLIC_KEY && parsed.VAPID_PRIVATE_KEY),
   /** True when a closed beta invite code gates /auth/register and new-user /auth/google, /auth/apple. */
   inviteCodeRequired: Boolean(parsed.BETA_INVITE_CODE),
+  superAdminEmails: new Set((parsed.SUPER_ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)),
 };
 
 export type Env = typeof env;

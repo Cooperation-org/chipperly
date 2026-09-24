@@ -18,7 +18,15 @@ import type { Profile } from '@chipperly/shared/schemas/profile';
 import { TABLE_NAMES } from '@chipperly/shared/constants/tables';
 import { db, sql } from '../db/client.js';
 import { env } from '../env.js';
-import { account_members, accounts, invites, sessions, users } from '../db/schema/accounts.js';
+import { account_members, accounts, invites, promo_codes, review_reminders, sessions, users } from '../db/schema/accounts.js';
+import {
+  ClaimPromoBodySchema,
+  DEFAULT_REVIEW_REMINDER,
+  ReviewReminderSchema,
+  TimeZoneBodySchema,
+  type ReviewReminder,
+} from '@chipperly/shared/schemas/billing';
+import { isSuperAdmin, trialEndsAt } from '../lib/trial.js';
 import { push_tokens } from '../db/schema/push.js';
 import { devices } from '../db/schema/devices.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
@@ -110,12 +118,23 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         email_verified_at: users.email_verified_at,
         created_at: users.created_at,
         auth_provider: users.auth_provider,
+        trial_ends_at: users.trial_ends_at,
+        promo_code: users.promo_code,
       })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
     if (!userRow) throw new AppError(401, 'unauthorized', 'Sign-in required');
-    const user: UserPublic = userRow;
+    const { trial_ends_at: _trial, promo_code: promoCode, ...publicFields } = userRow;
+    const [promo] = promoCode
+      ? await db.select({ code: promo_codes.code, percent_off: promo_codes.percent_off }).from(promo_codes).where(eq(promo_codes.code, promoCode)).limit(1)
+      : [];
+    const user: UserPublic = {
+      ...publicFields,
+      trial_ends_at: trialEndsAt(userRow),
+      promo: promo ?? null,
+      is_super_admin: isSuperAdmin(userRow.email),
+    };
 
     const memberships = await db.select().from(account_members).where(eq(account_members.user_id, userId));
     const accountIds = memberships.map((m) => m.account_id);
@@ -258,6 +277,53 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         set: { platform: body.platform, device_id: body.device_id },
       });
     return { ok: true };
+  });
+
+  /** Claims an early access code: it must exist, be active, and be claimed inside its dates. One code per person. */
+  app.post('/me/promo-code', { preHandler: requireUser }, async (request): Promise<{ code: string; percent_off: number | null }> => {
+    const { code } = ClaimPromoBodySchema.parse(request.body);
+    const [promo] = await db.select().from(promo_codes).where(eq(promo_codes.code, code.toUpperCase())).limit(1);
+    const at = Date.now();
+    if (!promo || !promo.active || at < promo.valid_from || at > promo.valid_until) {
+      throw new AppError(404, 'promo_not_found', "That code isn't valid (or has ended).");
+    }
+    await db.update(users).set({ promo_code: promo.code, promo_code_at: at }).where(eq(users.id, request.user!.id));
+    return { code: promo.code, percent_off: promo.percent_off };
+  });
+
+  /** The app's time zone, so routine reminders (lib/reminders.ts) arrive at the chosen local hour. */
+  app.put('/me/time-zone', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const { time_zone } = TimeZoneBodySchema.parse(request.body);
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: time_zone });
+    } catch {
+      throw new AppError(400, 'bad_time_zone', 'Unknown time zone');
+    }
+    await db.update(users).set({ time_zone }).where(eq(users.id, request.user!.id));
+    return { ok: true };
+  });
+
+  /** This caregiver's "remind me to check this child's routines" choice (default weekly at 7 pm). */
+  app.get('/profiles/:id/review-reminder', { preHandler: requireUser }, async (request): Promise<ReviewReminder> => {
+    const { id } = z.object({ id: uuidSchema }).parse(request.params);
+    if (!(await canAccessProfile(request.user!.id, id))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+    const [row] = await db
+      .select({ every_days: review_reminders.every_days, hour: review_reminders.hour })
+      .from(review_reminders)
+      .where(and(eq(review_reminders.user_id, request.user!.id), eq(review_reminders.profile_id, id)))
+      .limit(1);
+    return row ? ReviewReminderSchema.parse(row) : DEFAULT_REVIEW_REMINDER;
+  });
+
+  app.put('/profiles/:id/review-reminder', { preHandler: requireUser }, async (request): Promise<ReviewReminder> => {
+    const { id } = z.object({ id: uuidSchema }).parse(request.params);
+    if (!(await canAccessProfile(request.user!.id, id))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+    const body = ReviewReminderSchema.parse(request.body);
+    await db
+      .insert(review_reminders)
+      .values({ user_id: request.user!.id, profile_id: id, ...body })
+      .onConflictDoUpdate({ target: [review_reminders.user_id, review_reminders.profile_id], set: body });
+    return body;
   });
 
   /** The VAPID public key a browser subscribes to push with; null when web push isn't configured. */

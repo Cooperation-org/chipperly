@@ -127,6 +127,13 @@
       "when": 1790160000000,
       "tag": "0017_reward_whole_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790170000000,
+      "tag": "0018_trial_promo_reminders",
+      "breakpoints": true
     }
   ]
 }
