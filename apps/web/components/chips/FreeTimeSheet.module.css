@@ -25,6 +25,8 @@
 }
 
 .earnedRow {
+  /* The child view raises --tap to 64px; a long list of Redeem buttons reads better at the 48px minimum. */
+  --tap: 48px;
   display: flex;
   align-items: center;
   gap: var(--space-3);
