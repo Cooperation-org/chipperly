@@ -6,6 +6,7 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { useSession } from '@/lib/auth/session';
 import { api } from '@/lib/api/client';
 import { getDeviceId } from '@/lib/device/identity';
+import { subscribeWebPush, webPushSupported } from '@/lib/push/webPush';
 
 /**
  * Registers this device for push once signed in, and tells the server the
@@ -18,7 +19,12 @@ export function PushRegistrationGuard(): null {
   const { status } = useSession();
 
   useEffect(() => {
-    if (status !== 'signed_in' || !Capacitor.isNativePlatform()) return;
+    if (status !== 'signed_in') return;
+    if (!Capacitor.isNativePlatform()) {
+      // A browser only prompts from a tap (Settings > Edit profile > reward alerts); once allowed, keep the subscription fresh.
+      if (webPushSupported() && Notification.permission === 'granted') void subscribeWebPush().catch(() => undefined);
+      return;
+    }
 
     let cancelled = false;
     const registrationHandle = PushNotifications.addListener('registration', (token) => {

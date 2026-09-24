@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import AppBlocker from '@/lib/native/appBlocker';
+import { subscribeWebPush, webPushSupported } from '@/lib/push/webPush';
 import { Button } from '@/components/ui/Button';
 import styles from './ProfileForm.module.css';
 
@@ -13,9 +14,9 @@ export function NotificationCheck() {
   const [granted, setGranted] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!native) return;
     function check(): void {
-      void PushNotifications.checkPermissions().then((p) => setGranted(p.receive === 'granted'));
+      if (native) void PushNotifications.checkPermissions().then((p) => setGranted(p.receive === 'granted'));
+      else if (webPushSupported()) setGranted(Notification.permission === 'granted');
     }
     check();
     // Back from system notification settings.
@@ -27,6 +28,12 @@ export function NotificationCheck() {
   }, [native]);
 
   async function turnOn(): Promise<void> {
+    if (!native) {
+      const permission = await Notification.requestPermission();
+      setGranted(permission === 'granted');
+      if (permission === 'granted') await subscribeWebPush();
+      return;
+    }
     const result = await PushNotifications.requestPermissions();
     if (result.receive === 'granted') {
       setGranted(true);
@@ -38,13 +45,27 @@ export function NotificationCheck() {
     }
   }
 
-  if (!native) return <p className={styles.hint}>Alerts go to the Chipperly app on caregivers&rsquo; Android phones.</p>;
+  if (!native && !webPushSupported()) {
+    return (
+      <p className={styles.hint}>
+        This browser can&rsquo;t get alerts. On iPhone, add Chipperly to your Home Screen (Share, then Add to Home Screen) and turn them on
+        from there.
+      </p>
+    );
+  }
   if (granted === null) return null;
-  if (granted) return <p className={styles.hint}>Notifications are on for this phone.</p>;
+  if (granted) return <p className={styles.hint}>Notifications are on for this {native ? 'phone' : 'browser'}.</p>;
+  if (!native && Notification.permission === 'denied') {
+    return (
+      <p className={styles.warning} role="alert">
+        Notifications are blocked for Chipperly in this browser. Allow them in the site settings (the lock icon by the address), then come back.
+      </p>
+    );
+  }
   return (
     <div className={styles.setting}>
       <p className={styles.warning} role="alert">
-        Notifications are off on this phone, so alerts can&rsquo;t reach it.
+        Notifications are off on this {native ? 'phone' : 'browser'}, so alerts can&rsquo;t reach it.
       </p>
       <Button variant="secondary" onClick={() => void turnOn()}>
         Turn on notifications

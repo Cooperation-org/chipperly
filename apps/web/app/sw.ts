@@ -51,3 +51,43 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Web Push from the API (apps/api/src/lib/push.ts sendWebPush), e.g. "Celia
+// wants a reward". Loose local types: this file is checked against the DOM
+// lib, which has no service-worker event types (see the note at the top).
+interface WorkerScope {
+  registration: ServiceWorkerRegistration;
+  clients: {
+    matchAll(options: { type: 'window'; includeUncontrolled: boolean }): Promise<{ focus(): Promise<unknown> }[]>;
+    openWindow(url: string): Promise<unknown>;
+  };
+  addEventListener(type: 'push' | 'notificationclick', listener: (event: WorkerEvent) => void): void;
+}
+interface WorkerEvent {
+  data?: { json(): unknown } | null;
+  notification?: Notification;
+  waitUntil(promise: Promise<unknown>): void;
+}
+const scope = self as unknown as WorkerScope;
+
+scope.addEventListener('push', (event) => {
+  const data = (event.data?.json() ?? {}) as { title?: string; body?: string; type?: string };
+  event.waitUntil(
+    scope.registration.showNotification(data.title ?? 'Chipperly', {
+      body: data.body,
+      icon: 'icons/icon-192.png',
+      tag: `${data.type ?? 'chipperly'}-${Date.now()}`,
+      // A reward request waits on screen until the caregiver sees it.
+      requireInteraction: data.type === 'reward_request',
+    }),
+  );
+});
+
+scope.addEventListener('notificationclick', (event) => {
+  event.notification?.close();
+  event.waitUntil(
+    scope.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) =>
+      windows[0] ? windows[0].focus() : scope.clients.openWindow(scope.registration.scope),
+    ),
+  );
+});
