@@ -16,7 +16,7 @@ function toInput(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** Creates or edits a code. Dates are whole days, UTC: from the start of the first to the end of the last. */
+/** Creates or edits an early access offer. Dates are whole days, UTC: from the start of the first to the end of the last. */
 export function PromoCodeSheet({ code, onSaved }: { code: PromoCode | null; onSaved: () => void }) {
   const [name, setName] = useState(code?.code ?? '');
   const [percent, setPercent] = useState(code?.percent_off ? String(code.percent_off) : '');
@@ -24,6 +24,7 @@ export function PromoCodeSheet({ code, onSaved }: { code: PromoCode | null; onSa
   const [from, setFrom] = useState(() => toInput(code?.valid_from ?? Date.now()));
   const [until, setUntil] = useState(() => toInput(code?.valid_until ?? Date.now() + 30 * DAY_MS));
   const [active, setActive] = useState(code?.active ?? true);
+  const [autoIssue, setAutoIssue] = useState(code?.auto_issue ?? false);
   const [note, setNote] = useState(code?.note ?? '');
   const [error, setError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
@@ -41,6 +42,7 @@ export function PromoCodeSheet({ code, onSaved }: { code: PromoCode | null; onSa
       valid_from: Date.parse(`${from}T00:00:00Z`),
       valid_until: Date.parse(`${until}T23:59:59Z`),
       active,
+      auto_issue: autoIssue,
       note: note.trim() || null,
     };
     setSaving(true);
@@ -57,7 +59,7 @@ export function PromoCodeSheet({ code, onSaved }: { code: PromoCode | null; onSa
 
   return (
     <div className={styles.form}>
-      <TextField label="Code" value={name} disabled={Boolean(code)} onChange={(e) => setName(e.target.value)} autoCapitalize="characters" />
+      <TextField label="Offer name" value={name} disabled={Boolean(code)} onChange={(e) => setName(e.target.value)} autoCapitalize="characters" />
       <TextField label="Discount (%)" inputMode="numeric" value={percent} onChange={(e) => setPercent(e.target.value)} hint="Empty until decided." />
       <Segmented
         label="Applies to"
@@ -73,6 +75,10 @@ export function PromoCodeSheet({ code, onSaved }: { code: PromoCode | null; onSa
       <div className={styles.toggleRow}>
         <span>Active</span>
         <Switch label="Active" checked={active} onChange={setActive} />
+      </div>
+      <div className={styles.toggleRow}>
+        <span>Give everyone who signs up in these dates a code</span>
+        <Switch label="Give a code at sign-up" checked={autoIssue} onChange={setAutoIssue} />
       </div>
       <TextField label="Note (just for the team)" value={note} onChange={(e) => setNote(e.target.value)} error={error} />
       <Button onClick={() => void save()} loading={saving} disabled={!name.trim()}>

@@ -11,7 +11,7 @@ test('a super admin sees the dashboard, sets the early access discount, and exte
   await expect(page.getByText('People', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('region', { name: 'Sign-ups, last 30 days' })).toBeVisible();
 
-  const codes = page.getByRole('region', { name: 'Early access codes' });
+  const codes = page.getByRole('region', { name: 'Early access offers' });
   await codes.getByRole('button', { name: /^EARLYCHIPPER/ }).click();
   const sheet = page.getByRole('dialog');
   await sheet.getByLabel('Discount (%)').fill('30');
@@ -20,7 +20,8 @@ test('a super admin sees the dashboard, sets the early access discount, and exte
 
   const people = page.getByRole('region', { name: 'People' });
   await people.getByLabel('Search name or email').fill(`admin-${testInfo.project.name}`);
-  await expect(people.getByText(/^Trial: 21 days left/)).toBeVisible();
+  // They signed up inside EARLYCHIPPER's dates, so they already have their own code.
+  await expect(people.getByText(/^Trial: 21 days left · EARLY-/)).toBeVisible();
   await people.getByRole('button', { name: '+7 days', exact: true }).click();
   await expect(people.getByText(/^Trial: 28 days left/)).toBeVisible();
   await expectNoOverflow(page, 'admin dashboard');

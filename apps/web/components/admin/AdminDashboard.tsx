@@ -63,6 +63,22 @@ export function AdminDashboard() {
     }
   }
 
+  const offers = (codes ?? []).filter((c) => c.active);
+
+  async function issue(person: AdminUser): Promise<void> {
+    // ponytail: the first active offer; a picker once there's more than one running at a time.
+    const offer = offers[0];
+    if (!offer) return;
+    try {
+      const { code } = await api.post<{ code: string }>(`/admin/users/${person.id}/issue-code`, { offer: offer.code });
+      toast(`Gave ${person.display_name} ${code}`);
+      loadPeople(query);
+      loadCodes();
+    } catch {
+      toast("Couldn't give a code.");
+    }
+  }
+
   function editCode(code: PromoCode | null): void {
     sheet.open(
       <PromoCodeSheet
@@ -72,7 +88,7 @@ export function AdminDashboard() {
           loadCodes();
         }}
       />,
-      { title: code ? `Edit ${code.code}` : 'New code' },
+      { title: code ? `Edit ${code.code}` : 'New offer' },
     );
   }
 
@@ -90,7 +106,7 @@ export function AdminDashboard() {
             <Stat label="Children" value={overview.children} />
             <Stat label="On trial" value={overview.trials_active} />
             <Stat label="Trial ended" value={overview.trials_ended} />
-            <Stat label="Early access codes used" value={overview.promo_claims} />
+            <Stat label="Early access codes given" value={overview.promo_claims} />
           </div>
 
           <section className={styles.card} aria-label="Sign-ups, last 30 days">
@@ -111,19 +127,21 @@ export function AdminDashboard() {
         </>
       ) : null}
 
-      <section className={styles.card} aria-label="Early access codes">
+      <section className={styles.card} aria-label="Early access offers">
         <div className={styles.headRow}>
-          <h2 className={styles.heading}>Early access codes</h2>
+          <h2 className={styles.heading}>Early access offers</h2>
           <Button variant="secondary" onClick={() => editCode(null)}>
-            New code
+            New offer
           </Button>
         </div>
+        <p className={styles.muted}>Nobody types these. Each person gets their own code under an offer, used once their trial ends.</p>
         {codes?.map((c) => (
           <button key={c.code} type="button" className={styles.codeRow} onClick={() => editCode(c)}>
             <span className={styles.code}>{c.code}</span>
             <span>{c.percent_off ? `${c.percent_off}% off ${c.applies_to === 'annual' ? 'annual' : 'any plan'}` : 'Discount not set'}</span>
             <span className={styles.muted}>
-              {day(c.valid_from)} to {day(c.valid_until)} · {c.claims} used{c.active ? '' : ' · off'}
+              {c.auto_issue ? 'Everyone who signs up ' : 'Given by hand, '}
+              {day(c.valid_from)} to {day(c.valid_until)} · {c.issued} code{c.issued === 1 ? '' : 's'} given{c.active ? '' : ' · off'}
             </span>
           </button>
         ))}
@@ -146,10 +164,15 @@ export function AdminDashboard() {
                 </span>
                 <span>
                   {left > 0 ? `Trial: ${left} day${left === 1 ? '' : 's'} left` : 'Trial ended'}
-                  {p.promo_code ? ` · ${p.promo_code}` : ''}
+                  {p.personal_code ? ` · ${p.personal_code}` : ''}
                 </span>
               </div>
               <div className={styles.actions}>
+                {!p.personal_code && offers.length > 0 ? (
+                  <Button variant="secondary" onClick={() => void issue(p)}>
+                    Give code
+                  </Button>
+                ) : null}
                 <Button variant="secondary" onClick={() => void extend(p, 7)}>
                   +7 days
                 </Button>

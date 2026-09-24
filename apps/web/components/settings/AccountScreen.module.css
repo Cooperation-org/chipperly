@@ -75,3 +75,12 @@
   color: var(--color-text-muted);
   text-decoration: underline;
 }
+
+.code {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-text);
+  user-select: all;
+}
