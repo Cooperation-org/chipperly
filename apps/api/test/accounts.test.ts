@@ -286,6 +286,16 @@ describe('accounts routes', () => {
     expect(afterRemovalRes.statusCode).toBe(403);
   });
 
+  it('ignores an X-Account-Id the user is not a member of instead of locking them out', async () => {
+    const user = await createUser('staleaccount');
+    const res = await request(app, {
+      method: 'GET',
+      url: '/api/me',
+      headers: { ...auth(user.token), 'x-account-id': '01a0d269-b593-7196-bcfa-444d05873021' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
   it('refuses to remove the last admin', async () => {
     const admin = await createUser('lastadmin');
     const accountRes = await request(app, {

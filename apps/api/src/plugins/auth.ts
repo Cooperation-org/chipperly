@@ -61,10 +61,11 @@ export default async function registerAuth(app: FastifyInstance): Promise<void> 
         .from(account_members)
         .where(and(eq(account_members.account_id, accountId), eq(account_members.user_id, request.user.id)))
         .limit(1);
-      if (!membership) {
-        throw new AppError(403, 'forbidden', 'Not a member of this account');
-      }
-      request.accountId = accountId;
+      // A foreign or stale id (left from another sign-in on this device) is
+      // ignored, not a 403: throwing here blocked /auth/login and /me too, so
+      // the user could never sign in again. Account routes still refuse via
+      // requireAccount because request.accountId stays unset.
+      if (membership) request.accountId = accountId;
     }
   });
 }
