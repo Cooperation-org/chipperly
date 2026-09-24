@@ -23,13 +23,15 @@ export const LocationChangedBodySchema = z.object({
 });
 export type LocationChangedBody = z.infer<typeof LocationChangedBodySchema>;
 
-/** Where the child asked for a reward: finished a First-then, filled the chip board, or redeemed one from Free time. */
-export const RewardRequestSource = z.enum(['first_then', 'chips', 'free_time']);
+/** Where the child earned or asked for a reward: a First-then, the chip board, Free time, a routine's goal, or the day's goal. */
+export const RewardRequestSource = z.enum(['first_then', 'chips', 'free_time', 'routine', 'day_goal']);
 export type RewardRequestSource = z.infer<typeof RewardRequestSource>;
 
 export const RewardRequestBodySchema = z.object({
   reward_name: z.string().min(1).max(200),
   source: RewardRequestSource,
+  /** The routine whose goal was met (source 'routine'). */
+  activity_name: z.string().min(1).max(200).optional(),
   /** Where the child is; care-team members assigned to another location aren't alerted. */
   location_id: uuidSchema.nullable().optional(),
   /** The child's own device, so its caregiver account doesn't alert the phone the child is holding. */

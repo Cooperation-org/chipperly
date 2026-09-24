@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { eq } from 'drizzle-orm';
@@ -402,8 +402,15 @@ describe('accounts routes', () => {
         ).json() as { notified: number }
       ).notified;
 
+    await db.insert(locations).values({ id: home, profile_id: profile.id, version: 0, client_updated_at: Date.now(), updated_by: admin.id, deleted_at: null, name: 'Home', emoji: null, photo_id: null, position: 0, chip_goal: 5, working_for_reward_id: null, lat: null, lng: null, radius_m: null });
+
     // At home: the parent's phone and browser, not the child's phone, not the therapist.
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     expect(await ask(home)).toBe(2);
+    // Says where, and a tap opens this child's Chips.
+    expect(logSpy.mock.calls.join(' ')).toContain('Celia finished First and is ready for Candy at Home.');
+    expect(logSpy.mock.calls.join(' ')).toContain(`chips/?profile=${profile.id}`);
+    logSpy.mockRestore();
     // At therapy: the therapist too.
     expect(await ask(therapy)).toBe(3);
 

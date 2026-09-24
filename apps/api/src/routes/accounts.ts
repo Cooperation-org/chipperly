@@ -634,7 +634,18 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const targets = tokenRows.filter((t) => t.child === null && (!body.device_id || t.device_id !== body.device_id));
     if (targets.length === 0) return { notified: 0 };
 
-    const data = { type: 'reward_request', profile_id: profileId, title: `${profile.name} wants a reward`, body: rewardRequestText(profile.name, body.reward_name, body.source) };
+    const [location] = body.location_id
+      ? await db.select({ name: locations.name }).from(locations).where(eq(locations.id, body.location_id)).limit(1)
+      : [];
+    const text = rewardRequestText(profile.name, body.reward_name, body.source, body.activity_name);
+    const data = {
+      type: 'reward_request',
+      profile_id: profileId,
+      title: `${profile.name} wants a reward`,
+      body: location ? `${text.slice(0, -1)} at ${location.name}.` : text,
+      // Where a tap lands: this child's Chips (app/sw.ts, RewardNotifier).
+      path: `chips/?profile=${profileId}`,
+    };
     const [, stale] = await Promise.all([
       sendDataMessage({ tokens: targets.filter((t) => t.platform !== 'web').map((t) => t.token), data }),
       sendWebPush(targets.filter((t) => t.platform === 'web').map((t) => t.token), data),
@@ -644,8 +655,10 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
   });
 }
 
-function rewardRequestText(name: string, reward: string, source: RewardRequestSource): string {
+function rewardRequestText(name: string, reward: string, source: RewardRequestSource, activity?: string): string {
   if (source === 'first_then') return `${name} finished First and is ready for ${reward}.`;
   if (source === 'chips') return `${name} filled the chip board for ${reward}.`;
+  if (source === 'routine') return `${name} finished ${activity ?? 'a routine'} and earned ${reward}.`;
+  if (source === 'day_goal') return `${name} met the day's goal and earned ${reward}.`;
   return `${name} redeemed ${reward} from Free time.`;
 }
