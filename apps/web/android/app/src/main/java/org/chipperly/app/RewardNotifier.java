@@ -23,17 +23,25 @@ final class RewardNotifier {
 
     private static final String TAG = "RewardNotifier";
     private static final String CHANNEL_ID = "reward_requests";
+    private static final String REMINDER_CHANNEL_ID = "routine_reminders";
 
     private RewardNotifier() {}
 
     static void notify(Context context, String title, String body, String path) {
+        post(context, CHANNEL_ID, "Reward requests", NotificationManager.IMPORTANCE_HIGH, NotificationCompat.PRIORITY_HIGH, title, body, path);
+    }
+
+    /** "Check X's routines" (lib/reminders.ts on the server): a normal, non-urgent notification on its own channel. */
+    static void notifyReminder(Context context, String title, String body, String path) {
+        post(context, REMINDER_CHANNEL_ID, "Routine reminders", NotificationManager.IMPORTANCE_DEFAULT, NotificationCompat.PRIORITY_DEFAULT, title, body, path);
+    }
+
+    private static void post(Context context, String channelId, String channelName, int importance, int priority, String title, String body, String path) {
         try {
             NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager == null) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                manager.createNotificationChannel(
-                    new NotificationChannel(CHANNEL_ID, "Reward requests", NotificationManager.IMPORTANCE_HIGH)
-                );
+                manager.createNotificationChannel(new NotificationChannel(channelId, channelName, importance));
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                     && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -47,12 +55,12 @@ final class RewardNotifier {
             // A request code per notification, so each tap carries its own child's path.
             PendingIntent tap = PendingIntent.getActivity(context, id, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
-            NotificationCompat.Builder notification = new NotificationCompat.Builder(context, CHANNEL_ID)
+            NotificationCompat.Builder notification = new NotificationCompat.Builder(context, channelId)
                     .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentTitle(title != null ? title : "A reward is waiting")
+                    .setContentTitle(title != null ? title : "Chipperly")
                     .setContentText(body)
                     .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setPriority(priority)
                     .setCategory(NotificationCompat.CATEGORY_REMINDER)
                     .setDefaults(NotificationCompat.DEFAULT_ALL)
                     .setContentIntent(tap)

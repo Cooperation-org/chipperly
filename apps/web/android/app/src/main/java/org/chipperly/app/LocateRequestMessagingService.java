@@ -66,6 +66,8 @@ public class LocateRequestMessagingService extends MessagingService {
             bringForwardForPolicy();
         } else if ("reward_request".equals(type)) {
             RewardNotifier.notify(this, remoteMessage.getData().get("title"), remoteMessage.getData().get("body"), remoteMessage.getData().get("path"));
+        } else if ("review_reminder".equals(type)) {
+            RewardNotifier.notifyReminder(this, remoteMessage.getData().get("title"), remoteMessage.getData().get("body"), remoteMessage.getData().get("path"));
         } else if ("free_request".equals(type)) {
             long until = 0L;
             try {
