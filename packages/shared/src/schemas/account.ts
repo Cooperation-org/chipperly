@@ -43,8 +43,8 @@ export const UserPublicSchema = z.object({
   auth_provider: z.enum(['google', 'apple']).nullable(),
   /** When the free trial ends (21 days from sign-up unless extended). Payments aren't wired yet, so nothing locks after it. */
   trial_ends_at: msTimestampSchema.optional(),
-  /** The early access code this person claimed, and its discount once decided. */
-  promo: z.object({ code: z.string(), percent_off: z.number().nullable() }).nullable().optional(),
+  /** Their own early access code (given by Chipperly, not typed in) and its discount once decided; it applies after the trial ends. */
+  promo: z.object({ code: z.string(), percent_off: z.number().nullable(), applies_to: z.enum(['annual', 'any']) }).nullable().optional(),
   /** Listed in the server's SUPER_ADMIN_EMAILS: sees the admin dashboard. */
   is_super_admin: z.boolean().optional(),
 });

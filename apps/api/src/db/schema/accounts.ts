@@ -33,9 +33,11 @@ export const users = pgTable(
     created_at: bigint('created_at', { mode: 'number' }).notNull(),
     /** End of the free trial; null = 21 days from created_at (lib/trial.ts). Set when a super admin extends it. */
     trial_ends_at: bigint('trial_ends_at', { mode: 'number' }),
-    /** The early access code this person claimed (promo_codes.code), and when. */
+    /** The offer (promo_codes.code) this person's own code was issued under, and when. */
     promo_code: text('promo_code'),
     promo_code_at: bigint('promo_code_at', { mode: 'number' }),
+    /** Their own early access code (EARLY-XXXXXX), given by Chipperly, not typed in; the discount applies once the trial ends. */
+    personal_code: text('personal_code').unique(),
     /** IANA zone the app last reported (e.g. "Africa/Cairo"), so routine reminders arrive at their local hour. */
     time_zone: text('time_zone'),
   },
@@ -96,7 +98,13 @@ export const email_verifications = pgTable('email_verifications', {
   used_at: bigint('used_at', { mode: 'number' }),
 });
 
-/** Discount codes (the conference's early access code), managed from the super admin dashboard. Payments aren't wired yet: a claim is recorded and honoured once they are. */
+/**
+ * Early access offers (EARLYCHIPPER), managed from the super admin dashboard.
+ * Nobody types these: each person gets their own code (users.personal_code)
+ * under an offer, automatically when they sign up inside an auto_issue
+ * offer's dates, or from the dashboard. Payments aren't wired yet; the
+ * discount is honoured once they are, after the trial ends.
+ */
 export const promo_codes = pgTable('promo_codes', {
   code: text('code').primaryKey(),
   /** null until decided in the admin dashboard. */
@@ -105,6 +113,8 @@ export const promo_codes = pgTable('promo_codes', {
   valid_from: bigint('valid_from', { mode: 'number' }).notNull(),
   valid_until: bigint('valid_until', { mode: 'number' }).notNull(),
   active: boolean('active').notNull().default(true),
+  /** Everyone who signs up between valid_from and valid_until gets a code under this offer. */
+  auto_issue: boolean('auto_issue').notNull().default(false),
   note: text('note'),
   created_at: bigint('created_at', { mode: 'number' }).notNull(),
 });

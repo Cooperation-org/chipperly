@@ -134,6 +134,13 @@
       "when": 1790170000000,
       "tag": "0018_trial_promo_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790180000000,
+      "tag": "0019_personal_early_access_codes",
+      "breakpoints": true
     }
   ]
 }

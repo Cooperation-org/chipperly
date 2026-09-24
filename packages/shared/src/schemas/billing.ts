@@ -3,12 +3,9 @@ import { msTimestampSchema, uuidSchema } from './common.js';
 
 export const TRIAL_DAYS = 21;
 
-export const ClaimPromoBodySchema = z.object({ code: z.string().trim().min(1).max(40) });
-export type ClaimPromoBody = z.infer<typeof ClaimPromoBodySchema>;
-
-/** "Remind me to check this child's routines": every 3 or 7 days (0 = off), at this local hour. */
+/** "Remind me to check this child's routines": every 1 to 30 days (0 = off), at this local hour. */
 export const ReviewReminderSchema = z.object({
-  every_days: z.union([z.literal(0), z.literal(3), z.literal(7)]),
+  every_days: z.number().int().min(0).max(30),
   hour: z.number().int().min(0).max(23),
 });
 export type ReviewReminder = z.infer<typeof ReviewReminderSchema>;
@@ -23,10 +20,12 @@ export const PromoCodeSchema = z.object({
   valid_from: msTimestampSchema,
   valid_until: msTimestampSchema,
   active: z.boolean(),
+  /** Everyone who signs up inside the dates gets their own code under this offer. */
+  auto_issue: z.boolean(),
   note: z.string().nullable(),
   created_at: msTimestampSchema,
-  /** How many people claimed it. */
-  claims: z.number().int(),
+  /** How many people have a code under it. */
+  issued: z.number().int(),
 });
 export type PromoCode = z.infer<typeof PromoCodeSchema>;
 
@@ -42,6 +41,7 @@ export const UpsertPromoCodeBodySchema = z.object({
   valid_from: msTimestampSchema,
   valid_until: msTimestampSchema,
   active: z.boolean(),
+  auto_issue: z.boolean(),
   note: z.string().max(200).nullable(),
 });
 export type UpsertPromoCodeBody = z.infer<typeof UpsertPromoCodeBodySchema>;
@@ -53,7 +53,8 @@ export const AdminUserSchema = z.object({
   created_at: msTimestampSchema,
   email_verified: z.boolean(),
   trial_ends_at: msTimestampSchema,
-  promo_code: z.string().nullable(),
+  /** Their own early access code, if they have one. */
+  personal_code: z.string().nullable(),
   account_kinds: z.array(z.string()),
   children: z.number().int(),
   devices: z.number().int(),
@@ -75,5 +76,7 @@ export const AdminOverviewSchema = z.object({
   signups_by_day: z.array(z.object({ day: z.string(), count: z.number().int() })),
 });
 export type AdminOverview = z.infer<typeof AdminOverviewSchema>;
+
+export const IssueCodeBodySchema = z.object({ offer: z.string().min(1) });
 
 export const ExtendTrialBodySchema = z.object({ days: z.number().int().min(1).max(365) });

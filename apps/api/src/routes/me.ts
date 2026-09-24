@@ -20,13 +20,13 @@ import { db, sql } from '../db/client.js';
 import { env } from '../env.js';
 import { account_members, accounts, invites, promo_codes, review_reminders, sessions, users } from '../db/schema/accounts.js';
 import {
-  ClaimPromoBodySchema,
   DEFAULT_REVIEW_REMINDER,
   ReviewReminderSchema,
   TimeZoneBodySchema,
   type ReviewReminder,
 } from '@chipperly/shared/schemas/billing';
 import { isSuperAdmin, trialEndsAt } from '../lib/trial.js';
+import { issueIfEligible } from '../lib/earlyAccess.js';
 import { push_tokens } from '../db/schema/push.js';
 import { devices } from '../db/schema/devices.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
@@ -120,19 +120,26 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         auth_provider: users.auth_provider,
         trial_ends_at: users.trial_ends_at,
         promo_code: users.promo_code,
+        personal_code: users.personal_code,
       })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
     if (!userRow) throw new AppError(401, 'unauthorized', 'Sign-in required');
-    const { trial_ends_at: _trial, promo_code: promoCode, ...publicFields } = userRow;
-    const [promo] = promoCode
-      ? await db.select({ code: promo_codes.code, percent_off: promo_codes.percent_off }).from(promo_codes).where(eq(promo_codes.code, promoCode)).limit(1)
-      : [];
+    await issueIfEligible(userRow);
+    const [codes] = await db
+      .select({ personal_code: users.personal_code, offer: users.promo_code, percent_off: promo_codes.percent_off, applies_to: promo_codes.applies_to })
+      .from(users)
+      .leftJoin(promo_codes, eq(promo_codes.code, users.promo_code))
+      .where(eq(users.id, userId))
+      .limit(1);
+    const { trial_ends_at: _trial, promo_code: _offer, personal_code: _code, ...publicFields } = userRow;
     const user: UserPublic = {
       ...publicFields,
       trial_ends_at: trialEndsAt(userRow),
-      promo: promo ?? null,
+      promo: codes?.personal_code
+        ? { code: codes.personal_code, percent_off: codes.percent_off ?? null, applies_to: codes.applies_to ?? 'annual' }
+        : null,
       is_super_admin: isSuperAdmin(userRow.email),
     };
 
@@ -277,18 +284,6 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         set: { platform: body.platform, device_id: body.device_id },
       });
     return { ok: true };
-  });
-
-  /** Claims an early access code: it must exist, be active, and be claimed inside its dates. One code per person. */
-  app.post('/me/promo-code', { preHandler: requireUser }, async (request): Promise<{ code: string; percent_off: number | null }> => {
-    const { code } = ClaimPromoBodySchema.parse(request.body);
-    const [promo] = await db.select().from(promo_codes).where(eq(promo_codes.code, code.toUpperCase())).limit(1);
-    const at = Date.now();
-    if (!promo || !promo.active || at < promo.valid_from || at > promo.valid_until) {
-      throw new AppError(404, 'promo_not_found', "That code isn't valid (or has ended).");
-    }
-    await db.update(users).set({ promo_code: promo.code, promo_code_at: at }).where(eq(users.id, request.user!.id));
-    return { code: promo.code, percent_off: promo.percent_off };
   });
 
   /** The app's time zone, so routine reminders (lib/reminders.ts) arrive at the chosen local hour. */

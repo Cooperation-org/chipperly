@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   ExtendTrialBodySchema,
+  IssueCodeBodySchema,
   UpsertPromoCodeBodySchema,
   type AdminOverview,
   type AdminUser,
@@ -12,6 +13,7 @@ import { uuidSchema } from '@chipperly/shared/schemas/common';
 import { db, sql } from '../db/client.js';
 import { promo_codes, users } from '../db/schema/accounts.js';
 import { isSuperAdmin, trialEndsAt } from '../lib/trial.js';
+import { issuePersonalCode } from '../lib/earlyAccess.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -30,7 +32,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/admin/overview', guard, async (): Promise<AdminOverview> => {
     const now = Date.now();
-    const rows = await db.select({ created_at: users.created_at, trial_ends_at: users.trial_ends_at, promo_code: users.promo_code }).from(users);
+    const rows = await db.select({ created_at: users.created_at, trial_ends_at: users.trial_ends_at, personal_code: users.personal_code }).from(users);
     const [{ active } = { active: 0 }] = await sql<{ active: number }[]>`
       select count(distinct user_id)::int as active from devices where last_seen_at > ${now - 7 * DAY_MS}`;
     const [{ children } = { children: 0 }] = await sql<{ children: number }[]>`
@@ -53,7 +55,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       accounts_by_kind: Object.fromEntries(kinds.map((k) => [k.kind, k.count])),
       trials_active: trialsActive,
       trials_ended: rows.length - trialsActive,
-      promo_claims: rows.filter((r) => r.promo_code).length,
+      promo_claims: rows.filter((r) => r.personal_code).length,
       signups_by_day: [...byDay].map(([day, count]) => ({ day, count })),
     };
   });
@@ -70,14 +72,14 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         created_at: string;
         email_verified_at: string | null;
         trial_ends_at: string | null;
-        promo_code: string | null;
+        personal_code: string | null;
         account_kinds: string[] | null;
         children: number;
         devices: number;
         last_seen_at: string | null;
       }[]
     >`
-      select u.id, u.email, u.display_name, u.created_at, u.email_verified_at, u.trial_ends_at, u.promo_code,
+      select u.id, u.email, u.display_name, u.created_at, u.email_verified_at, u.trial_ends_at, u.personal_code,
         (select array_agg(distinct a.kind) from account_members m join accounts a on a.id = m.account_id where m.user_id = u.id) as account_kinds,
         (select count(*)::int from account_members m join profiles p on p.account_id = m.account_id
            where m.user_id = u.id and m.role = 'admin' and p.deleted_at is null) as children,
@@ -95,13 +97,25 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         created_at: Number(r.created_at),
         email_verified: r.email_verified_at !== null,
         trial_ends_at: trialEndsAt({ created_at: Number(r.created_at), trial_ends_at: r.trial_ends_at === null ? null : Number(r.trial_ends_at) }),
-        promo_code: r.promo_code,
+        personal_code: r.personal_code,
         account_kinds: r.account_kinds ?? [],
         children: r.children,
         devices: r.devices,
         last_seen_at: r.last_seen_at === null ? null : Number(r.last_seen_at),
       })),
     };
+  });
+
+  /** Gives someone their own early access code under an offer (e.g. a person who signed up before or after its dates). */
+  app.post('/admin/users/:id/issue-code', guard, async (request): Promise<{ code: string }> => {
+    const { id } = z.object({ id: uuidSchema }).parse(request.params);
+    const { offer } = IssueCodeBodySchema.parse(request.body);
+    const [user] = await db.select({ personal_code: users.personal_code }).from(users).where(eq(users.id, id)).limit(1);
+    if (!user) throw new AppError(404, 'not_found', 'User not found');
+    if (user.personal_code) throw new AppError(409, 'has_code', 'They already have a code');
+    const [known] = await db.select({ code: promo_codes.code }).from(promo_codes).where(eq(promo_codes.code, offer)).limit(1);
+    if (!known) throw new AppError(404, 'not_found', 'Offer not found');
+    return { code: await issuePersonalCode(id, known.code) };
   });
 
   /** Adds days to someone's trial, counted from today if it already ended. */
@@ -117,9 +131,10 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/admin/promo-codes', guard, async (): Promise<{ codes: PromoCode[] }> => {
     const codes = await db.select().from(promo_codes).orderBy(promo_codes.created_at);
-    const claims = await sql<{ code: string; n: number }[]>`select promo_code as code, count(*)::int as n from users where promo_code is not null group by promo_code`;
-    const byCode = new Map(claims.map((c) => [c.code, c.n]));
-    return { codes: codes.map((c) => ({ ...c, claims: byCode.get(c.code) ?? 0 })) };
+    const issued = await sql<{ code: string; n: number }[]>`
+      select promo_code as code, count(*)::int as n from users where personal_code is not null group by promo_code`;
+    const byCode = new Map(issued.map((c) => [c.code, c.n]));
+    return { codes: codes.map((c) => ({ ...c, issued: byCode.get(c.code) ?? 0 })) };
   });
 
   /** Creates or edits a code (same body both ways; the code is the key). */

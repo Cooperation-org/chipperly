@@ -55,26 +55,29 @@ describe('trial, early access codes, routine reminders, super admin', () => {
   it('a new person has 21 days of trial and is not a super admin', async () => {
     const u = await createUser('trial');
     const me = (await request(app, { method: 'GET', url: '/api/me', headers: auth(u.token) })).json() as {
-      user: { trial_ends_at: number; created_at: number; is_super_admin: boolean; promo: unknown };
+      user: { trial_ends_at: number; created_at: number; is_super_admin: boolean };
     };
     expect(me.user.trial_ends_at - me.user.created_at).toBe(21 * DAY);
     expect(me.user.is_super_admin).toBe(false);
-    expect(me.user.promo).toBeNull();
   });
 
-  it('claims a live code, refuses an ended or unknown one', async () => {
-    const u = await createUser('promo');
+  it('gives each person who signs up inside an offer their own code, and nobody outside it', async () => {
     const now = Date.now();
-    await db.insert(promo_codes).values([
-      { code: 'TESTLIVE', percent_off: 30, valid_from: now - DAY, valid_until: now + DAY, created_at: now },
-      { code: 'TESTOLD', percent_off: 30, valid_from: now - 9 * DAY, valid_until: now - DAY, created_at: now },
-    ]);
-    const claim = (code: string) => request(app, { method: 'POST', url: '/api/me/promo-code', headers: auth(u.token), payload: { code } });
-    expect((await claim('testold')).statusCode).toBe(404);
-    expect((await claim('NOPE')).statusCode).toBe(404);
-    expect((await claim('testlive')).statusCode).toBe(200);
-    const me = (await request(app, { method: 'GET', url: '/api/me', headers: auth(u.token) })).json() as { user: { promo: unknown } };
-    expect(me.user.promo).toEqual({ code: 'TESTLIVE', percent_off: 30 });
+    // Far from any real offer's dates, so EARLYCHIPPER can't be the one that matches.
+    const start = Date.UTC(2031, 0, 1);
+    await db.insert(promo_codes).values({ code: 'TESTAUTO', percent_off: 30, auto_issue: true, valid_from: start, valid_until: start + 10 * DAY, created_at: now });
+    const inside = await createUser('inside', start + DAY);
+    const alsoInside = await createUser('alsoinside', start + 2 * DAY);
+    const outside = await createUser('outside', start + 20 * DAY);
+    const promoOf = async (token: string) =>
+      ((await request(app, { method: 'GET', url: '/api/me', headers: auth(token) })).json() as { user: { promo: { code: string; percent_off: number } | null } }).user.promo;
+
+    const a = await promoOf(inside.token);
+    expect(a?.code).toMatch(/^EARLY-[A-HJ-KM-NP-Z2-9]{6}$/);
+    expect(a?.percent_off).toBe(30);
+    expect(await promoOf(inside.token)).toEqual(a); // the same code every time
+    expect((await promoOf(alsoInside.token))?.code).not.toBe(a?.code);
+    expect(await promoOf(outside.token)).toBeNull();
   });
 
   it('the conference code EARLYCHIPPER runs from 24 Sept to the end of 24 Oct 2026', async () => {
@@ -110,13 +113,20 @@ describe('trial, early access codes, routine reminders, super admin', () => {
       method: 'PUT',
       url: '/api/admin/promo-codes',
       headers: auth(boss.token),
-      payload: { code: 'springsale', percent_off: 15, applies_to: 'annual', valid_from: Date.now(), valid_until: Date.now() + DAY, active: true, note: null },
+      payload: { code: 'springsale', percent_off: 15, applies_to: 'annual', valid_from: Date.now(), valid_until: Date.now() + DAY, active: true, auto_issue: false, note: null },
     });
     expect(put.statusCode).toBe(200);
     const codes = (await request(app, { method: 'GET', url: '/api/admin/promo-codes', headers: auth(boss.token) })).json() as {
       codes: { code: string }[];
     };
     expect(codes.codes.map((c) => c.code)).toContain('SPRINGSALE');
+
+    // Giving a code by hand, to someone outside any offer's dates.
+    const late = await createUser('late', Date.UTC(2035, 0, 1));
+    const given = await request(app, { method: 'POST', url: `/api/admin/users/${late.id}/issue-code`, headers: auth(boss.token), payload: { offer: 'SPRINGSALE' } });
+    expect((given.json() as { code: string }).code).toMatch(/^EARLY-/);
+    const again = await request(app, { method: 'POST', url: `/api/admin/users/${late.id}/issue-code`, headers: auth(boss.token), payload: { offer: 'SPRINGSALE' } });
+    expect(again.statusCode).toBe(409);
     env.superAdminEmails.delete(boss.email);
   });
 
