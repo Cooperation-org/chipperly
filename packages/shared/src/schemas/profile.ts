@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { msTimestampSchema, uuidSchema } from './common.js';
+import { isoDateSchema, msTimestampSchema, uuidSchema } from './common.js';
 
 /** SOW Q1, decided: per profile, whether redeeming a reward subtracts its cost or empties the board. */
 export const RedeemModeSchema = z.enum(['subtract', 'reset']);
@@ -13,6 +13,24 @@ export type RedeemMode = z.infer<typeof RedeemModeSchema>;
  * than being actively pruned, so a stale entry left behind by a caregiver
  * going offline mid-grant can never re-arm itself.
  */
+/**
+ * Where today's First-Then stands, so every device shows the same: FIRST is
+ * done (the row exists) and whether the child has asked for THEN. Only counts
+ * for `date` and this exact pair; a new day or a new pair reads as not done.
+ * Written server-side by POST /profiles/:id/first-then, because a locked
+ * child device can't push the profile row.
+ */
+export const FirstThenProgressSchema = z.object({
+  date: isoDateSchema,
+  first_id: uuidSchema,
+  then_id: uuidSchema,
+  asked: z.boolean(),
+});
+export type FirstThenProgress = z.infer<typeof FirstThenProgressSchema>;
+
+export const FirstThenProgressBodySchema = z.object({ progress: FirstThenProgressSchema.nullable() });
+export type FirstThenProgressBody = z.infer<typeof FirstThenProgressBodySchema>;
+
 export const TimedAppAllowanceSchema = z.object({
   package_name: z.string(),
   allowed_until: msTimestampSchema,
@@ -30,6 +48,7 @@ export const ProfileSettingsSchema = z
     chips_by_attitude: z.boolean().optional(),
     /** Minutes of timer that start when the child asks for the First-Then reward (a park visit, 30 min). Null/absent: no timer (default). */
     first_then_timer_minutes: z.number().int().positive().max(240).nullable().optional(),
+    first_then_progress: FirstThenProgressSchema.nullable().optional(),
     /** Standing goal for the day ("stay on task") and its reward; owner's doc, My Day 9. Shown in the Chips tab's "by day" view. */
     day_goal_text: z.string().nullable().optional(),
     day_goal_reward_id: uuidSchema.nullable().optional(),

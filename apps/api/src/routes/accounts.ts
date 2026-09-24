@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
-import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import {
@@ -14,6 +14,7 @@ import {
 import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema } from '@chipperly/shared/schemas/auth';
 import { LocationChangedBodySchema, RewardRequestBodySchema, type RewardRequestSource } from '@chipperly/shared/schemas/push';
 import { PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
+import { FirstThenProgressBodySchema } from '@chipperly/shared/schemas/profile';
 import { db } from '../db/client.js';
 import { push_tokens } from '../db/schema/push.js';
 import { devices } from '../db/schema/devices.js';
@@ -599,6 +600,30 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
    * data push that LocateRequestMessagingService shows on its heads-up
    * channel even with Chipperly closed; browsers get Web Push (app/sw.ts).
    */
+  /**
+   * Today's First-Then state (FIRST done, THEN asked for), written here rather
+   * than synced as a profile upsert because a locked child device may not
+   * push the profile row. Sets only that one settings key and moves
+   * client_updated_at to now, so every device pulls it and none of their
+   * other settings are touched.
+   */
+  app.post('/profiles/:id/first-then', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
+    const { id: profileId } = idParamSchema.parse(request.params);
+    if (!(await canAccessProfile(request.user!.id, profileId))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+    const { progress } = FirstThenProgressBodySchema.parse(request.body);
+    const updated = await db
+      .update(profiles)
+      .set({
+        settings: sql`jsonb_set(coalesce(${profiles.settings}, '{}'::jsonb), '{first_then_progress}', ${JSON.stringify(progress)}::jsonb)`,
+        client_updated_at: Date.now(),
+        updated_by: request.user!.id,
+      })
+      .where(eq(profiles.id, profileId))
+      .returning({ id: profiles.id });
+    if (updated.length === 0) throw new AppError(404, 'not_found', 'Profile not found');
+    return { ok: true };
+  });
+
   app.post('/profiles/:id/reward-request', { preHandler: requireUser }, async (request): Promise<{ notified: number }> => {
     const { id: profileId } = idParamSchema.parse(request.params);
     if (!(await canAccessProfile(request.user!.id, profileId))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
@@ -656,7 +681,8 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
 }
 
 function rewardRequestText(name: string, reward: string, source: RewardRequestSource, activity?: string): string {
-  if (source === 'first_then') return `${name} finished First and is ready for ${reward}.`;
+  // Sent when the child taps THEN after checking FIRST (components/firstThen/FirstThenPanels.tsx).
+  if (source === 'first_then') return `${name} finished ${activity ?? 'First'} and is asking for ${reward}.`;
   if (source === 'chips') return `${name} filled the chip board for ${reward}.`;
   if (source === 'routine') return `${name} finished ${activity ?? 'a routine'} and earned ${reward}.`;
   if (source === 'day_goal') return `${name} met the day's goal and earned ${reward}.`;

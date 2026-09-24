@@ -13,6 +13,7 @@ import { clearSession } from '../auth/session';
 import { applyPulledRow } from './applyPulledRow';
 import { mutationProfileId } from './mutationProfileId';
 import { flushRewardRequests } from '../data/rewardRequest';
+import { flushFirstThenProgress } from '../data/firstThen';
 
 export { applyPulledRow };
 
@@ -147,6 +148,7 @@ async function runCycle(): Promise<void> {
     });
     await uploadPending();
     await flushRewardRequests();
+    await flushFirstThenProgress();
     backoffMs = 0;
     if (rerunAfterCycle) scheduleCycle();
     const pending = await db.outbox.count();

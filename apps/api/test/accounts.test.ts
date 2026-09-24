@@ -296,6 +296,57 @@ describe('accounts routes', () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it('records First-Then progress server-side for every device, touching only that setting', async () => {
+    const admin = await createUser('firstthen');
+    const outsider = await createUser('firstthen-outsider');
+    const accountRes = await request(app, {
+      method: 'POST',
+      url: '/api/accounts',
+      headers: auth(admin.token),
+      payload: { kind: 'household', name: 'FT family' },
+    });
+    const { account } = accountRes.json() as { account: { id: string } };
+    const profileRes = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${account.id}/profiles`,
+      headers: auth(admin.token),
+      payload: { name: 'Mia' },
+    });
+    const profile = profileRes.json() as { id: string; version: number };
+    await db.update(profiles).set({ settings: { chips_by_attitude: true } }).where(eq(profiles.id, profile.id));
+
+    const progress = { date: '2026-09-24', first_id: uuidv7(), then_id: uuidv7(), asked: true };
+    const res = await request(app, {
+      method: 'POST',
+      url: `/api/profiles/${profile.id}/first-then`,
+      headers: auth(admin.token),
+      payload: { progress },
+    });
+    expect(res.statusCode).toBe(200);
+    const [row] = await db.select().from(profiles).where(eq(profiles.id, profile.id));
+    expect(row!.settings).toEqual({ chips_by_attitude: true, first_then_progress: progress });
+    // A new version is what makes every other device pull it.
+    expect(row!.version).toBeGreaterThan(profile.version);
+
+    const cleared = await request(app, {
+      method: 'POST',
+      url: `/api/profiles/${profile.id}/first-then`,
+      headers: auth(admin.token),
+      payload: { progress: null },
+    });
+    expect(cleared.statusCode).toBe(200);
+    const [after] = await db.select().from(profiles).where(eq(profiles.id, profile.id));
+    expect(after!.settings.first_then_progress).toBeNull();
+
+    const forbidden = await request(app, {
+      method: 'POST',
+      url: `/api/profiles/${profile.id}/first-then`,
+      headers: auth(outsider.token),
+      payload: { progress },
+    });
+    expect(forbidden.statusCode).toBe(403);
+  });
+
   it('refuses to remove the last admin', async () => {
     const admin = await createUser('lastadmin');
     const accountRes = await request(app, {
@@ -418,7 +469,7 @@ describe('accounts routes', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     expect(await ask(home)).toBe(2);
     // Says where, and a tap opens this child's Chips.
-    expect(logSpy.mock.calls.join(' ')).toContain('Celia finished First and is ready for Candy at Home.');
+    expect(logSpy.mock.calls.join(' ')).toContain('Celia finished First and is asking for Candy at Home.');
     expect(logSpy.mock.calls.join(' ')).toContain(`chips/?profile=${profile.id}`);
     logSpy.mockRestore();
     // At therapy: the therapist too.

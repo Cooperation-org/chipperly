@@ -3,10 +3,11 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity } from '@chipperly/shared/schemas/activity';
 import type { Reward } from '@chipperly/shared/schemas/reward';
-import type { Profile } from '@chipperly/shared/schemas/profile';
+import type { FirstThenProgress, Profile } from '@chipperly/shared/schemas/profile';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { db } from '../db/db';
-import { setKv, useKv } from '../db/kv';
+import { getKv, setKv } from '../db/kv';
+import { api, ApiError } from '../api/client';
 import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert } from '../sync/mutate';
@@ -61,28 +62,62 @@ export async function setFirstThenTimer(profileId: string, minutes: number | nul
   await patchProfile(profileId, { settings: { ...profile.settings, first_then_timer_minutes: minutes } });
 }
 
-interface FirstThenProgress {
-  date: string;
-  first_id: string;
-  then_id: string;
-  /** The child tapped the reward, which alerted the caregivers (and started the timer, if set). */
-  asked: boolean;
+const PENDING_KEY = 'pending_first_then';
+
+/** POSTs today's progress; false when it should be retried (offline, server down). */
+async function sendProgress(profileId: string, progress: FirstThenProgress | null): Promise<boolean> {
+  try {
+    await api.post(`/profiles/${profileId}/first-then`, { progress });
+    return true;
+  } catch (err) {
+    return err instanceof ApiError && err.status >= 400 && err.status < 500;
+  }
 }
 
 /**
- * Whether FIRST is checked (and the reward asked for) on this device. Kept in
- * kv, not on the profile: a locked child device can't write the profile row
- * (server lock gate). It only counts for today and for the same First/Then
- * pair, so a new day or a new pair starts unchecked; before this it lived in
- * component state and was lost every time the sheet closed.
+ * Records FIRST done / THEN asked for, for every device of this family. The
+ * server writes it (a locked child device can't push the profile row) and it
+ * syncs back down; the local profile row is updated at once so this screen
+ * doesn't wait for that. Offline, the latest state waits in kv for
+ * flushFirstThenProgress after the next sync.
+ */
+async function saveProgress(profileId: string, progress: FirstThenProgress | null): Promise<void> {
+  const profile = await db.profiles.get(profileId);
+  if (profile) {
+    await db.profiles.put({ ...profile, settings: { ...profile.settings, first_then_progress: progress }, client_updated_at: now() });
+  }
+  const pending = (await getKv<Record<string, FirstThenProgress | null>>(PENDING_KEY)) ?? {};
+  if (await sendProgress(profileId, progress)) {
+    if (profileId in pending) {
+      delete pending[profileId];
+      await setKv(PENDING_KEY, pending);
+    }
+    return;
+  }
+  await setKv(PENDING_KEY, { ...pending, [profileId]: progress });
+}
+
+/** Sends First-Then progress saved while offline; called after each sync cycle (lib/sync/engine.ts). */
+export async function flushFirstThenProgress(): Promise<void> {
+  const pending = (await getKv<Record<string, FirstThenProgress | null>>(PENDING_KEY)) ?? {};
+  const left: Record<string, FirstThenProgress | null> = {};
+  for (const [profileId, progress] of Object.entries(pending)) {
+    if (!(await sendProgress(profileId, progress))) left[profileId] = progress;
+  }
+  if (Object.keys(pending).length > 0) await setKv(PENDING_KEY, left);
+}
+
+/**
+ * Whether FIRST is checked and THEN asked for, read from the synced profile so
+ * the child's tablet and the parent's phone agree. Only today's entry for this
+ * exact First/Then pair counts: a new day or a new pair starts unchecked.
  */
 export function useFirstThenProgress(
   profileId: string,
   firstId: string | undefined,
   thenId: string | undefined,
 ): { done: boolean; asked: boolean; set: (next: { done: boolean; asked?: boolean }) => Promise<void> } {
-  const key = `first_then_progress:${profileId}`;
-  const stored = useKv<FirstThenProgress | null>(key, null);
+  const stored = useLiveQuery(() => db.profiles.get(profileId), [profileId])?.settings.first_then_progress ?? null;
   const current =
     stored && firstId && thenId && stored.date === todayIso() && stored.first_id === firstId && stored.then_id === thenId
       ? stored
@@ -90,10 +125,11 @@ export function useFirstThenProgress(
   return {
     done: current !== null,
     asked: current?.asked ?? false,
-    set: async ({ done, asked = false }) => {
-      if (!done || !firstId || !thenId) return setKv(key, null);
-      await setKv<FirstThenProgress>(key, { date: todayIso(), first_id: firstId, then_id: thenId, asked });
-    },
+    set: ({ done, asked = false }) =>
+      saveProgress(
+        profileId,
+        done && firstId && thenId ? { date: todayIso(), first_id: firstId, then_id: thenId, asked } : null,
+      ),
   };
 }
 
