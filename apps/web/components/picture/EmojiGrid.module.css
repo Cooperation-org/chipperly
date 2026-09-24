@@ -3,6 +3,12 @@
   /* As many columns as fit (6 on a normal phone); a fixed 6 x 48px ran off narrow screens. Cells never under the 44px AAA target. */
   grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
   gap: var(--space-2);
+  /* Full width (a centring parent shrank it to one column), and it scrolls inside its own box rather than making the page very long. */
+  width: 100%;
+  max-height: min(40vh, 18rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
 }
 
 .cell {
