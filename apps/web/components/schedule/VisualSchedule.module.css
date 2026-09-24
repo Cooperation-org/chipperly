@@ -27,7 +27,8 @@
 }
 
 .title {
-  font-size: var(--text-xl);
+  /* ~22px on a phone, 28px on a desktop: text-xl (31px at 400px wide) still split "Medication". */
+  font-size: clamp(1.25rem, 1rem + 1.5vw, 1.75rem);
   color: var(--color-text);
 }
 
@@ -63,7 +64,7 @@
   flex: 1;
   min-width: 0;
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: clamp(1.25rem, 1rem + 1.5vw, 1.75rem);
   color: var(--color-text);
   overflow-wrap: break-word;
 }
