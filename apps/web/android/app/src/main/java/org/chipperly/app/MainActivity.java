@@ -13,6 +13,8 @@ public class MainActivity extends BridgeActivity {
     static final String EXTRA_UNLOCK_REQUESTED = "unlock_requested";
     /** Set by LocateRequestMessagingService after a rest/wake/free push has already updated the prefs. */
     static final String EXTRA_POLICY_CHANGED = "policy_changed";
+    /** Set by RewardNotifier: the app page a tapped notification opens (e.g. a child's Chips). */
+    static final String EXTRA_OPEN_PATH = "open_path";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -61,6 +63,11 @@ public class MainActivity extends BridgeActivity {
 
     private void maybeApplyLockFromIntent(Intent intent) {
         if (intent == null) return;
+        String openPath = intent.getStringExtra(EXTRA_OPEN_PATH);
+        if (openPath != null && getBridge() != null) {
+            getBridge().getWebView().loadUrl(getBridge().getLocalUrl() + "/" + openPath);
+            return;
+        }
         if (intent.getBooleanExtra(EXTRA_POLICY_CHANGED, false)) {
             applyPinPolicy();
             return;

@@ -26,7 +26,7 @@ final class RewardNotifier {
 
     private RewardNotifier() {}
 
-    static void notify(Context context, String title, String body) {
+    static void notify(Context context, String title, String body, String path) {
         try {
             NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager == null) return;
@@ -42,7 +42,10 @@ final class RewardNotifier {
 
             Intent open = new Intent(context, MainActivity.class);
             open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-            PendingIntent tap = PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            if (path != null) open.putExtra(MainActivity.EXTRA_OPEN_PATH, path);
+            int id = (int) (System.currentTimeMillis() & 0x7fffffff);
+            // A request code per notification, so each tap carries its own child's path.
+            PendingIntent tap = PendingIntent.getActivity(context, id, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
             NotificationCompat.Builder notification = new NotificationCompat.Builder(context, CHANNEL_ID)
                     .setSmallIcon(R.mipmap.ic_launcher)
@@ -55,7 +58,7 @@ final class RewardNotifier {
                     .setContentIntent(tap)
                     .setAutoCancel(true);
             // Each request its own notification, so two in a row don't overwrite each other.
-            manager.notify((int) (System.currentTimeMillis() & 0x7fffffff), notification.build());
+            manager.notify(id, notification.build());
         } catch (RuntimeException e) {
             Log.w(TAG, "Failed to post reward request notification", e);
         }
