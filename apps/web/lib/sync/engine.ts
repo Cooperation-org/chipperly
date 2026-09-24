@@ -12,6 +12,7 @@ import { uploadPending } from '../media/upload';
 import { clearSession } from '../auth/session';
 import { applyPulledRow } from './applyPulledRow';
 import { mutationProfileId } from './mutationProfileId';
+import { flushRewardRequests } from '../data/rewardRequest';
 
 export { applyPulledRow };
 
@@ -138,6 +139,7 @@ async function runCycle(): Promise<void> {
       }
     });
     await uploadPending();
+    await flushRewardRequests();
     backoffMs = 0;
     const pending = await db.outbox.count();
     setStatus({ state: pending > 0 ? 'pending' : 'synced', pending, last_synced_at: now() });

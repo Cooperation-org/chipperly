@@ -55,10 +55,14 @@ serwist.addEventListeners();
 // Web Push from the API (apps/api/src/lib/push.ts sendWebPush), e.g. "Celia
 // wants a reward". Loose local types: this file is checked against the DOM
 // lib, which has no service-worker event types (see the note at the top).
+interface WindowClientLike {
+  focus(): Promise<unknown>;
+  navigate(url: string): Promise<WindowClientLike | null>;
+}
 interface WorkerScope {
   registration: ServiceWorkerRegistration;
   clients: {
-    matchAll(options: { type: 'window'; includeUncontrolled: boolean }): Promise<{ focus(): Promise<unknown> }[]>;
+    matchAll(options: { type: 'window'; includeUncontrolled: boolean }): Promise<WindowClientLike[]>;
     openWindow(url: string): Promise<unknown>;
   };
   addEventListener(type: 'push' | 'notificationclick', listener: (event: WorkerEvent) => void): void;
@@ -71,7 +75,7 @@ interface WorkerEvent {
 const scope = self as unknown as WorkerScope;
 
 scope.addEventListener('push', (event) => {
-  const data = (event.data?.json() ?? {}) as { title?: string; body?: string; type?: string };
+  const data = (event.data?.json() ?? {}) as { title?: string; body?: string; type?: string; path?: string };
   event.waitUntil(
     scope.registration.showNotification(data.title ?? 'Chipperly', {
       body: data.body,
@@ -79,15 +83,18 @@ scope.addEventListener('push', (event) => {
       tag: `${data.type ?? 'chipperly'}-${Date.now()}`,
       // A reward request waits on screen until the caregiver sees it.
       requireInteraction: data.type === 'reward_request',
+      data: { path: data.path ?? '' },
     }),
   );
 });
 
 scope.addEventListener('notificationclick', (event) => {
   event.notification?.close();
+  // e.g. "chips/?profile=..." for a reward request, relative to the app's own scope.
+  const url = scope.registration.scope + ((event.notification?.data as { path?: string } | undefined)?.path ?? '');
   event.waitUntil(
     scope.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) =>
-      windows[0] ? windows[0].focus() : scope.clients.openWindow(scope.registration.scope),
+      windows[0] ? windows[0].navigate(url).then((w) => (w ?? windows[0]!).focus()) : scope.clients.openWindow(url),
     ),
   );
 });

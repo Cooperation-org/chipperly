@@ -213,16 +213,28 @@ export function ChildToday() {
     });
   }
 
-  // The chip that fills the board for the reward the child is working for alerts the caregivers.
-  function alertIfBoardFills(chips: number): void {
+  // Finishing something can earn a reward three ways; each one alerts the caregivers: the chip that fills
+  // the board for the reward being worked for, the routine's own goal reward, and the day's goal reward
+  // once this was the last thing left today.
+  async function alertRewardsFor(day: DayItem): Promise<void> {
+    const locationId = activeLocation?.id ?? null;
     const { reward, goal, filled } = workingFor;
-    if (reward && chips > 0 && filled < goal && filled + chips >= goal) void sendRewardRequest(profileId, activeLocation?.id ?? null, reward.name, 'chips');
+    const chips = day.activity.chip_value;
+    if (reward && chips > 0 && filled < goal && filled + chips >= goal) void sendRewardRequest(profileId, locationId, reward.name, 'chips');
+
+    const routineReward = day.activity.goal_reward_id ? await db.rewards.get(day.activity.goal_reward_id) : undefined;
+    if (routineReward) void sendRewardRequest(profileId, locationId, routineReward.name, 'routine', day.activity.name);
+
+    const dayRewardId = profile?.settings.day_goal_reward_id;
+    const lastOne = dayItems.every((d) => d.item.id === day.item.id || d.item.completed_at !== null);
+    const dayReward = dayRewardId && lastOne ? await db.rewards.get(dayRewardId) : undefined;
+    if (dayReward) void sendRewardRequest(profileId, locationId, dayReward.name, 'day_goal');
   }
 
   async function handleToggle(day: DayItem, next: boolean): Promise<void> {
     await setCompleted(day.item.id, next, userId);
     if (!next) return;
-    alertIfBoardFills(day.activity.chip_value);
+    void alertRewardsFor(day);
     if (day.activity.chip_value > 0) playChip();
     showPromptFor(day.item.id);
   }
@@ -238,7 +250,7 @@ export function ChildToday() {
     const completesParent = stepCompletesParent(day, stepId, next);
     await setStepCompleted(day.item.id, stepId, next, userId);
     if (!completesParent) return;
-    alertIfBoardFills(day.activity.chip_value);
+    void alertRewardsFor(day);
     if (day.activity.chip_value > 0) playChip();
     showPromptFor(day.item.id);
   }

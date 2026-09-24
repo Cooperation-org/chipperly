@@ -96,6 +96,17 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
     else if (decided && !allowed) router.replace(locked_profile_id ? '/child/' : `/child/?next=${encodeURIComponent(pathname)}`);
   }, [sessionStatus, sessionProfiles.length, decided, allowed, locked_profile_id, router, pathname]);
 
+  // A tapped reward alert opens ".../chips/?profile=<id>": show that child, once (then drop the query so switching profile later sticks).
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const wanted = url.searchParams.get('profile');
+    if (!wanted || !profiles.some((p) => p.id === wanted)) return;
+    setActiveProfileId(wanted);
+    url.searchParams.delete('profile');
+    window.history.replaceState(null, '', url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setActiveProfileId is a new function every render
+  }, [profiles, pathname]);
+
   // No PIN yet: set one first (you need it to get back), then lock.
   async function lockNow(profileId: string, blockApps: boolean): Promise<void> {
     if (!user?.pin_hash) {

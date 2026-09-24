@@ -6,6 +6,7 @@ import { PhotoZoom } from '@/components/ui/PhotoZoom';
 import { useMediaUrl } from '@/lib/data/media';
 import { ChipBoard } from '@/components/ui/ChipBoard';
 import { playChip } from '@/lib/sound';
+import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import styles from './WorkingForSheet.module.css';
 
 export interface WorkingForSheetProps {
@@ -33,6 +34,9 @@ export function WorkingForSheet({ profileId, locationId }: WorkingForSheetProps)
     if (!locationId) return;
     const filling = next > balance;
     await setFilled(profileId, locationId, next, balance);
+    // Filling the board from here earns the reward just like finishing tasks does.
+    const { reward, goal, filled } = workingFor;
+    if (reward && filled < goal && next >= goal) void sendRewardRequest(profileId, locationId, reward.name, 'chips');
     if (filling) {
       playChip();
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
