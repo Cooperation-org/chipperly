@@ -85,7 +85,19 @@ export function buildHeaders(params: {
   return headers;
 }
 
-async function refreshTokens(refreshToken: string): Promise<boolean> {
+// Parallel requests that 401 together (every sync pull after the 15-minute
+// access token expires) used to each POST /auth/refresh with the same token;
+// the server rotates it on the first, the rest failed and signed the user out.
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshTokens(refreshToken: string): Promise<boolean> {
+  refreshInFlight ??= doRefresh(refreshToken).finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+async function doRefresh(refreshToken: string): Promise<boolean> {
   try {
     const res = await fetch(`${apiBase}/auth/refresh`, {
       method: 'POST',
@@ -93,6 +105,8 @@ async function refreshTokens(refreshToken: string): Promise<boolean> {
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
     if (!res.ok) {
+      // A request that read the old token after another refresh already rotated it.
+      if ((await getTokens())?.refresh_token !== refreshToken) return true;
       await setTokens(null);
       return false;
     }

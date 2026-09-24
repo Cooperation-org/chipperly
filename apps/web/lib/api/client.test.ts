@@ -106,4 +106,28 @@ describe('401 retry-with-refresh', () => {
 
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/auth/refresh'))).toBe(true);
   });
+
+  it('refreshes once for parallel 401s, and a rotated-away token does not sign the user out', async () => {
+    kv.set('auth_tokens', { access_token: 'stale', refresh_token: 'r', expires_in: 900, obtained_at: Date.now() });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url).includes('/auth/refresh')) {
+        // Like the server: the first use of 'r' rotates it, any second use is rejected.
+        const used = fetchMock.mock.calls.filter(([u]) => String(u).includes('/auth/refresh')).length > 1;
+        return Promise.resolve(
+          used
+            ? new Response(JSON.stringify({ error: { code: 'invalid_refresh' } }), { status: 401 })
+            : new Response(JSON.stringify({ access_token: 'fresh', refresh_token: 'r2', token_type: 'Bearer', expires_in: 900 }), { status: 200 }),
+        );
+      }
+      const auth = new Headers(init?.headers).get('Authorization');
+      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: auth === 'Bearer fresh' ? 200 : 401 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const results = await Promise.all([api.get('/sync/pull?a'), api.get('/sync/pull?b'), api.get('/me')]);
+
+    expect(results).toEqual([{ ok: true }, { ok: true }, { ok: true }]);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/auth/refresh'))).toHaveLength(1);
+    expect(kv.get('auth_tokens')).toMatchObject({ refresh_token: 'r2' });
+  });
 });
