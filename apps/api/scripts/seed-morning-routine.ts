@@ -18,7 +18,8 @@ import { activities, activity_steps } from '../src/db/schema/activities.js';
 import { profiles } from '../src/db/schema/profiles.js';
 import { schedule_items } from '../src/db/schema/schedule.js';
 
-const STEP_NAMES = MORNING_ROUTINE.steps.map((step) => step.name);
+// Older morning routines count too: this one takes their place.
+const STEP_NAMES = [...MORNING_ROUTINE.steps.map((step) => step.name), 'Morning Routine'];
 // Yesterday covers profiles whose local date is behind the server's.
 const FROM_DATE = sql<string>`current_date - 1`;
 
