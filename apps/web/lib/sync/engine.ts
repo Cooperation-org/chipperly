@@ -108,6 +108,20 @@ export async function syncNow(): Promise<void> {
   await runCycle();
 }
 
+/**
+ * Pushes and pulls take turns. A pull that overlapped a push could fetch a
+ * row from before the push landed and apply it after the push had cleared
+ * that row's outbox entry, silently undoing the change (a redeem's
+ * working-for clear, a profile setting). materializeRecurringFresh pulls
+ * outside runCycle, so the cycle guard alone didn't prevent it.
+ */
+let syncQueue: Promise<unknown> = Promise.resolve();
+function inTurn<T>(work: () => Promise<T>): Promise<T> {
+  const run = syncQueue.then(work, work);
+  syncQueue = run.catch(() => undefined);
+  return run;
+}
+
 async function runCycle(): Promise<void> {
   if (!running || cycleRunning) return;
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -116,11 +130,13 @@ async function runCycle(): Promise<void> {
   }
   cycleRunning = true;
   try {
-    await pushOutbox();
-    const profiles = await db.profiles.toArray();
-    for (const profile of profiles) {
-      await pullProfile(profile.id);
-    }
+    await inTurn(async () => {
+      await pushOutbox();
+      const profiles = await db.profiles.toArray();
+      for (const profile of profiles) {
+        await pullProfileNow(profile.id);
+      }
+    });
     await uploadPending();
     backoffMs = 0;
     const pending = await db.outbox.count();
@@ -150,7 +166,11 @@ async function runCycle(): Promise<void> {
 }
 
 /** Also called directly by lib/data/schedule.ts's materializeRecurringFresh, ahead of materializing. */
-export async function pullProfile(profileId: string): Promise<void> {
+export function pullProfile(profileId: string): Promise<void> {
+  return inTurn(() => pullProfileNow(profileId));
+}
+
+async function pullProfileNow(profileId: string): Promise<void> {
   let cursor = (await db.sync_cursors.get(profileId))?.version ?? 0;
   let hasMore = true;
   while (hasMore) {
