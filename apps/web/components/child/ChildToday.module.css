@@ -20,6 +20,22 @@
 .chipRow {
   order: 3;
   flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.chipperChartButton {
+  flex: 0 0 auto;
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: var(--text-xl);
+  line-height: 1;
+  cursor: pointer;
 }
 
 .identity {

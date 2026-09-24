@@ -340,8 +340,9 @@ export function ChildToday() {
   const hasTimedApps = (profile?.settings.timed_app_allowances ?? []).some((a) => a.allowed_until > now());
   const showAllowedApps =
     Boolean(profile?.settings.child_mode_active) && (allowedApps.length > 0 || hasTimedApps) && Capacitor.getPlatform() === 'android';
-  const showBottomBar = options.show_free_time || options.show_first_then || options.show_chipper_chart || showAllowedApps || running;
+  const showBottomBar = options.show_free_time || options.show_first_then || showAllowedApps || running;
   const canPickReward = profile?.settings.child_picks_reward !== false;
+  const showChipStrip = Boolean(workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation));
 
   if (!profileId || !profile) return null;
 
@@ -398,19 +399,27 @@ export function ChildToday() {
           {activeLocation?.name ?? 'Location'}
         </button>
       ) : null}
-      {workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation) ? (
+      {showChipStrip || options.show_chipper_chart ? (
         <div className={styles.chipRow}>
-          <ChipStrip
-            size="lg"
-            filled={workingFor.filled}
-            total={workingFor.goal}
-            reward={
-              workingFor.reward
-                ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, photoUrl: rewardPhotoUrl, name: workingFor.reward.name }
-                : undefined
-            }
-            onTap={canPickReward ? openPickReward : openWorkingFor}
-          />
+          {showChipStrip ? (
+            <ChipStrip
+              size="lg"
+              filled={workingFor.filled}
+              total={workingFor.goal}
+              reward={
+                workingFor.reward
+                  ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, photoUrl: rewardPhotoUrl, name: workingFor.reward.name }
+                  : undefined
+              }
+              onTap={canPickReward ? openPickReward : openWorkingFor}
+            />
+          ) : null}
+          {/* Up here with the chips, like the caregiver's Today, not in the bottom bar. */}
+          {options.show_chipper_chart ? (
+            <button type="button" className={styles.chipperChartButton} aria-label="Chipper Chart" onClick={openChipperChart}>
+              <span aria-hidden="true">😊</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
       <IconButton
@@ -437,7 +446,6 @@ export function ChildToday() {
           {chipsTile ? <HomeTile emoji="⭐" label="Chips" onClick={canPickReward ? openPickReward : openWorkingFor} /> : null}
           {options.show_free_time ? <HomeTile emoji="🎈" label="Free time" onClick={openFreeTime} /> : null}
           {options.show_first_then ? <HomeTile emoji="➡️" label="First, then" onClick={openFirstThen} /> : null}
-          {options.show_chipper_chart ? <HomeTile emoji="😊" label="Chipper Chart" onClick={openChipperChart} /> : null}
           {showAllowedApps ? <HomeTile emoji="📱" label="Apps" onClick={openApps} /> : null}
           {running ? <HomeTile emoji="⏱️" label="Timer" onClick={() => setTimerOpen(true)} /> : null}
         </div>
@@ -574,17 +582,6 @@ export function ChildToday() {
               onClick={openFirstThen}
             >
               First, then
-            </BigButton>
-          ) : null}
-          {options.show_chipper_chart ? (
-            <BigButton
-              variant="secondary"
-              onClick={openChipperChart}
-            >
-              <span className={styles.emojiGlyph} aria-hidden="true">
-                😊
-              </span>
-              Chipper Chart
             </BigButton>
           ) : null}
           {showAllowedApps ? (
