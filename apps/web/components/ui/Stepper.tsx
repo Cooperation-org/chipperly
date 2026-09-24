@@ -11,10 +11,12 @@ export interface StepperProps {
   step?: number;
   /** Accessible name for the group, e.g. "Chips earned". */
   label: string;
+  /** How the value reads, e.g. an hour as "7 PM". Default: the number. */
+  format?: (value: number) => string;
 }
 
 /** − value + with a large value. Used for chip cost, reward cost, goal. */
-export function Stepper({ value, min, max, onChange, step = 1, label }: StepperProps) {
+export function Stepper({ value, min, max, onChange, step = 1, label, format }: StepperProps) {
   return (
     <div className={styles.stepper} role="group" aria-label={label}>
       <IconButton icon="minus" aria-label="Decrease" variant="muted" onClick={() => onChange(Math.max(min, value - step))} disabled={value <= min} />
@@ -24,9 +26,10 @@ export function Stepper({ value, min, max, onChange, step = 1, label }: StepperP
         aria-valuenow={value}
         aria-valuemin={min}
         aria-valuemax={max}
+        aria-valuetext={format ? format(value) : undefined}
         aria-label={label}
       >
-        {value}
+        {format ? format(value) : value}
       </span>
       <IconButton icon="plus" aria-label="Increase" variant="muted" onClick={() => onChange(Math.min(max, value + step))} disabled={value >= max} />
     </div>
