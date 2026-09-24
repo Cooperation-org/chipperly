@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
+import { useMediaUrl } from '@/lib/data/media';
 import { useLock, useLockLoaded, useParentMode, useParentModeLoaded } from '@/lib/device/settings';
 import { usesApp, useCaregiverDevice } from '@/lib/device/role';
 import { lockToChild } from '@/lib/device/lock';
@@ -59,6 +60,8 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   const { status: sessionStatus, profiles: sessionProfiles, user } = useSession();
   const blockingReady = useBlockingReady();
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
+  // TopBar is a dumb tile: without a resolved URL a photo avatar stays a skeleton forever.
+  const avatarUrl = useMediaUrl(profile?.avatar_photo_id);
   const sync = useSyncStatus();
   const { open, close } = useSheet();
   // The app's default is the child view (lib/device/settings.ts's
@@ -125,7 +128,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
     <div className={styles.shell}>
       <TopBar
         profile={
-          profile ? { name: profile.name, emoji: profile.avatar_emoji ?? undefined, photo_id: profile.avatar_photo_id } : null
+          profile ? { name: profile.name, emoji: profile.avatar_emoji ?? undefined, photo_id: profile.avatar_photo_id, photoUrl: avatarUrl } : null
         }
         title={profile?.name ?? 'Chipperly'}
         sync={sync}
