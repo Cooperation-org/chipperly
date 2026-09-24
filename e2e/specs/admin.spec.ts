@@ -20,6 +20,8 @@ test('a super admin sees the dashboard, sets the early access discount, and exte
 
   const people = page.getByRole('region', { name: 'People' });
   await people.getByLabel('Search name or email').fill(`admin-${testInfo.project.name}`);
+  // Wait for the search to narrow the list to just them (it runs a beat after typing).
+  await expect(people.getByText(/@example\.com$/)).toHaveCount(1);
   // They signed up inside EARLYCHIPPER's dates, so they already have their own code.
   await expect(people.getByText(/^Trial: 21 days left · EARLY-/)).toBeVisible();
   await people.getByRole('button', { name: '+7 days', exact: true }).click();
