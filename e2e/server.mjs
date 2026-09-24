@@ -35,6 +35,8 @@ const env = {
   APP_ORIGIN: 'http://127.0.0.1:8123',
   UPLOAD_DIR: uploadDir,
   BETA_INVITE_CODE: 'e2e-beta-code',
+  // admin.spec.ts signs up as these (one per Playwright project, same database).
+  SUPER_ADMIN_EMAILS: ['phone', 'tablet', 'desktop', 'ipad-webkit'].map((p) => `admin-${p}@example.com`).join(','),
   TEST_ENDPOINTS: '1',
   LOG_LEVEL: 'warn',
   NODE_ENV: 'production',

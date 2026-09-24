@@ -20,7 +20,7 @@ const BETA_INVITE_CODE = 'e2e-beta-code';
  * (lib/auth/session.ts), not cookies, so every spec signs up its own fresh
  * account with a unique email rather than reusing storageState.
  */
-export async function signUp(page: Page, opts: { name: string }): Promise<SignUpResult> {
+export async function signUp(page: Page, opts: { name: string; email?: string }): Promise<SignUpResult> {
   const password = 'correct-horse-battery-staple';
   let email = '';
 
@@ -35,7 +35,7 @@ export async function signUp(page: Page, opts: { name: string }): Promise<SignUp
   let landed = false;
   for (let attempt = 0; attempt < 3 && !landed; attempt += 1) {
     const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${attempt}`;
-    email = `e2e-${unique}@example.com`;
+    email = opts.email ?? `e2e-${unique}@example.com`;
 
     await page.goto('/sign-up/');
     await page.getByLabel('Name', { exact: true }).fill(opts.name);

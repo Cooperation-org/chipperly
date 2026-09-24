@@ -177,6 +177,15 @@ export function SettingsMenu() {
       <div className={styles.section}>
         <div className={styles.card}>
           <ListRow tile={<Icon name="gear" size={20} />} name="Account" secondary={user?.email} trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/account/')} />
+          {user?.is_super_admin ? (
+            <ListRow
+              tile={<Icon name="gear" size={20} />}
+              name="Admin dashboard"
+              secondary="Sign-ups, trials, early access codes"
+              trailing={<Icon name="chevron" size={20} />}
+              onTap={() => router.push('/settings/admin/')}
+            />
+          ) : null}
           <ListRow
             tile={<span aria-hidden="true">📱</span>}
             name="Devices"
