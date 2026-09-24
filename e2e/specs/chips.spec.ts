@@ -57,9 +57,10 @@ test.describe('chips and first-then', () => {
 
     // One tap on the last chip fills the whole board (star-rating style: tap
     // an unfilled chip and everything up through it fills in).
-    const initialLabel = (await board.getAttribute('aria-label')) ?? '';
-    const total = Number(/of (\d+) chips/.exec(initialLabel)?.[1] ?? 0);
-    expect(total).toBeGreaterThan(0);
+    // Poll: right after returning from the reward page the board can briefly render before its goal loads.
+    const totalOf = async () => Number(/of (\d+) chips/.exec((await board.getAttribute('aria-label')) ?? '')?.[1] ?? 0);
+    await expect.poll(totalOf).toBeGreaterThan(0);
+    const total = await totalOf();
     await page.getByRole('button', { name: `Set chips to ${total} of ${total}`, exact: true }).click();
     await expect(board).toHaveAttribute('aria-label', `${total} of ${total} chips`);
 
