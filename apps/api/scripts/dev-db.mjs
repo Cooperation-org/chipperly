@@ -3,6 +3,7 @@ import { connectionUrl, ensureDatabase, ensureServer } from './embedded.mjs';
 const server = await ensureServer();
 await ensureDatabase('chipperly');
 await ensureDatabase('chipperly_test');
+await ensureDatabase('chipperly_site');
 
 console.log(`DATABASE_URL=${connectionUrl('chipperly')}`);
 console.log('Postgres is running. Press Ctrl+C to stop.');
