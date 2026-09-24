@@ -201,8 +201,7 @@ export function AppBlockingScreen() {
       ) : selectedDevice ? (
         <div className={styles.card}>
           <p className={styles.hint}>
-            Open Settings &gt; App blocking on {selectedDevice.name ?? 'this device'} itself to check whether the
-            accessibility service is on, or to turn it on.
+            Turn blocking on from Settings &gt; App blocking on {selectedDevice.name ?? 'the device'} itself.
           </p>
         </div>
       ) : null}
@@ -277,11 +276,7 @@ export function AppBlockingScreen() {
               Allow running in background
             </Button>
           ) : null}
-          <p className={styles.hint}>
-            On some phones (Xiaomi/MIUI, and similar OEM skins) this alone isn&rsquo;t enough &mdash; also check Settings &gt;
-            Apps &gt; Chipperly for an &ldquo;Autostart&rdquo; toggle and set its own battery saver to &ldquo;No
-            restrictions.&rdquo;
-          </p>
+          <p className={styles.hint}>On Xiaomi and similar phones, also turn on Autostart for Chipperly in Settings &gt; Apps.</p>
         </div>
       ) : null}
 
@@ -295,10 +290,7 @@ export function AppBlockingScreen() {
           />
         </div>
         <p className={styles.hint}>
-          Only Chipperly and the apps checked below can open on this device while it&rsquo;s showing {profile.name}
-          &rsquo;s view -- this applies right away, even if you&rsquo;re still in your own caregiver view here.
-          Locking or unlocking the device (here or on the device itself) turns this on and off too, so the two
-          always agree; flip it here directly if you want blocking on without engaging the hard lock.
+          On {profile.name}&rsquo;s device, only Chipperly and the apps checked below can open. &ldquo;Lock phone&rdquo; turns this on too.
         </p>
         {childModeActive && isThisDevice && !serviceEnabled ? (
           <p className={styles.warning} role="alert">
@@ -313,7 +305,7 @@ export function AppBlockingScreen() {
       ) : apps.length === 0 ? (
         <EmptyState sentence={`Waiting for ${selectedDevice?.name ?? 'that device'} to report its apps. Open Chipperly there once, then come back here.`} />
       ) : (
-        <div className={styles.card}>
+        <div className={[styles.card, styles.appList].join(' ')}>
           {apps.map((app) => {
             const active = activeAllowanceFor(app.packageName);
             return (
@@ -327,8 +319,8 @@ export function AppBlockingScreen() {
                 name={app.appName}
                 secondary={
                   active
-                    ? `${app.packageName} -- until ${new Date(active.allowed_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                    : app.packageName
+                    ? `Until ${new Date(active.allowed_until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                    : undefined
                 }
                 trailing={
                   <span className={styles.trailingRow}>
