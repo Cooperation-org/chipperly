@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth/session';
 import { useFirstThen, setFirst, setThen, clear, completeFirst, uncompleteFirst } from '@/lib/data/firstThen';
+import { useActiveLocation } from '@/lib/data/locations';
 import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
@@ -26,6 +27,7 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
   const sheet = useSheet();
   const { user } = useSession();
   const { first, then } = useFirstThen(profileId);
+  const { location } = useActiveLocation(profileId);
   const [done, setDone] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
 
@@ -91,7 +93,7 @@ export function FirstThenPanels({ profileId, mode }: FirstThenPanelsProps) {
     if (!bothSet || !user) return;
     if (next) {
       setDone(true);
-      if (!caregiver && then) void sendRewardRequest(profileId, then.name, 'first_then');
+      if (!caregiver && then) void sendRewardRequest(profileId, location?.id ?? null, then.name, 'first_then');
       const awarded = await completeFirst(profileId, user.id);
       setCelebrating(true);
       if (awarded) playChip();

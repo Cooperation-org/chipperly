@@ -211,7 +211,7 @@ export function ChildToday() {
   // The chip that fills the board for the reward the child is working for alerts the caregivers.
   function alertIfBoardFills(chips: number): void {
     const { reward, goal, filled } = workingFor;
-    if (reward && chips > 0 && filled < goal && filled + chips >= goal) void sendRewardRequest(profileId, reward.name, 'chips');
+    if (reward && chips > 0 && filled < goal && filled + chips >= goal) void sendRewardRequest(profileId, activeLocation?.id ?? null, reward.name, 'chips');
   }
 
   async function handleToggle(day: DayItem, next: boolean): Promise<void> {

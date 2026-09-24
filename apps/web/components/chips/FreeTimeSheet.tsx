@@ -56,7 +56,7 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
     if (!locationId) return;
     const removed = await redeem(profileId, locationId, reward);
     // canCreate is the caregiver's own sheet; only the child's redeem alerts them.
-    if (!canCreate) void sendRewardRequest(profileId, reward.name, 'free_time');
+    if (!canCreate) void sendRewardRequest(profileId, locationId, reward.name, 'free_time');
     playChip();
     toast(`Redeemed ${reward.name}`, {
       // ponytail: restores the balance only; redeem() also clears the
