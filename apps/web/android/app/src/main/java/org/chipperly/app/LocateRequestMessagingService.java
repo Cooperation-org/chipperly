@@ -64,6 +64,8 @@ public class LocateRequestMessagingService extends MessagingService {
         } else if ("rest_request".equals(type) || "wake_request".equals(type)) {
             blockerPrefs().edit().putBoolean(AppBlockerPlugin.KEY_RESTING, "rest_request".equals(type)).apply();
             bringForwardForPolicy();
+        } else if ("reward_request".equals(type)) {
+            RewardNotifier.notify(this, remoteMessage.getData().get("title"), remoteMessage.getData().get("body"));
         } else if ("free_request".equals(type)) {
             long until = 0L;
             try {

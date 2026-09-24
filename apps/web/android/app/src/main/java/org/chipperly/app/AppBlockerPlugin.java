@@ -293,6 +293,16 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve(result);
     }
 
+    /** Opens this app's own notification settings, for when notifications (or the reward alerts channel) were turned off and Android won't prompt again. */
+    @PluginMethod
+    public void openNotificationSettings(PluginCall call) {
+        Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+        intent.putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+        call.resolve();
+    }
+
     /** Opens the OS's own "Allow [app] to ignore battery optimizations?" dialog -- same disclosed-step requirement as openAccessibilitySettings/requestDeviceAdmin. */
     @PluginMethod
     public void requestIgnoreBatteryOptimizations(PluginCall call) {
