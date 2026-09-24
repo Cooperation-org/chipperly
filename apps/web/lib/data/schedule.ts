@@ -444,9 +444,14 @@ export async function reorder(profileId: string, isoDate: string, orderedIds: re
  * on the client").
  */
 async function materializeRecurring(profileId: string, isoDate: string): Promise<void> {
-  const activities = (await db.activities.where('profile_id').equals(profileId).toArray()).filter(
-    (activity) => activity.deleted_at === null && activity.recurrence !== null,
-  );
+  // Time order (untimed last, then position): the index returns key order, so
+  // a routine added later for 07:00 used to land after the whole day.
+  const activities = (await db.activities.where('profile_id').equals(profileId).toArray())
+    .filter((activity) => activity.deleted_at === null && activity.recurrence !== null)
+    .sort(
+      (a, b) =>
+        (a.recurrence_time ?? '99:99').localeCompare(b.recurrence_time ?? '99:99') || a.position - b.position,
+    );
   if (activities.length === 0) return;
 
   const skips = (await db.recurrence_skips.where('profile_id').equals(profileId).toArray()).filter(
