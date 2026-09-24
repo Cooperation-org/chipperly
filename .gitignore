@@ -28,3 +28,6 @@ e2e/test-results
 apps/web/AGENTS.md
 apps/web/CLAUDE.md
 graphify-out/
+apps/site/AGENTS.md
+apps/site/CLAUDE.md
+apps/site/media/
