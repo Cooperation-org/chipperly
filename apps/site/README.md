@@ -19,21 +19,23 @@ Run `pnpm -F @chipperly/site generate:types` after schema changes, and `generate
 
 | Area | What it holds |
 | --- | --- |
-| Posts | Blog posts: drafts, scheduled publishing, version history, preview, hero image, categories, related posts, authors and an SEO tab (title, description, share image, noindex) |
+| Posts | Blog posts: drafts, scheduled publishing, version history, preview, hero image, categories, related posts, authors, an FAQ tab (accordion + FAQPage schema) and an SEO tab (title, description, share image, noindex) |
 | Categories | Blog categories at `/blog/category/<slug>` |
-| Pages | Free-form pages at `/<slug>` (press kit, resources). Home, Features and About are designed in code (`src/app/(site)`, copy in `src/lib/content.ts`) |
+| Pages | Free-form pages at `/<slug>` (press kit, resources), with the same FAQ and SEO tabs. Home, Features and About are designed in code (`src/app/(site)`, copy in `src/lib/content.ts`) |
 | Media | Images. Alt text is required. Resized to webp on upload |
 | Waitlist | Sign-ups from the "Join the waitlist" form. Export to CSV from the list view |
 | Redirects | 301/302 redirects for moved posts or pages |
-| Site settings | Announcement bar, "app is open to the public" switch (turns every waitlist button into "Get started"), contact email, social profiles |
+| Site settings | General: announcement bar, "app is open to the public" switch (turns every waitlist button into "Get started"), contact email. Social: footer follow icons and which share buttons posts show. Analytics & search: Microsoft Clarity project ID, Google Search Console and Bing verification codes |
 | Users | Editors. Name, role and bio show as the byline on posts |
 
 ## SEO
 
 - Per-page `<title>`, description, canonical, Open Graph and Twitter tags (`src/lib/seo.ts`); posts and pages take overrides from their SEO tab.
-- JSON-LD: Organization, WebSite, SoftwareApplication, FAQPage, Person (founder), Blog, BlogPosting and BreadcrumbList (`src/lib/jsonld.ts`).
-- `/sitemap.xml`, `/robots.txt`, `/blog/rss.xml` and `/llms.txt` are generated from the CMS. Anything marked noindex stays out of all of them.
+- JSON-LD (`src/lib/jsonld.ts`): Organization (with `sameAs` from the follow links), WebSite, SoftwareApplication, Person (founder), Blog, BlogPosting, BreadcrumbList, and FAQPage on Features and on every post or page that has FAQs.
+- `/sitemap.xml`, `/robots.txt`, `/blog/rss.xml`, `/llms.txt` and `/llms-full.txt` (every page and post as Markdown) are generated from the CMS and refreshed the moment an editor saves. Anything marked noindex stays out of all of them.
 - Share images: the SEO image if set, otherwise one drawn at `/og?title=...`.
+- Search Console: paste the HTML-tag verification code in Site settings (or verify by DNS), then submit `https://<domain>/sitemap.xml` in Search Console. Same for Bing Webmaster Tools.
+- Microsoft Clarity: paste the project ID in Site settings. It loads on the public site only, never in `/admin`. Clarity records sessions, so the privacy policy should mention it.
 - Pages are static or cached (ISR, one hour) and refreshed as soon as an editor saves.
 
 ## Product screenshots

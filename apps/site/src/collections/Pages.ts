@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload';
 import { slugField } from 'payload';
 import { signedIn, signedInOrPublished } from '../lib/access';
 import { revalidate } from '../lib/revalidate';
+import { faqTab } from '../lib/faqField';
 import { seoTab } from '../lib/seoFields';
 
 // Free-form pages served at /<slug> (press kit, resources, a landing page
@@ -21,7 +22,7 @@ export const Pages: CollectionConfig<'pages'> = {
     { name: 'intro', type: 'textarea' },
     {
       type: 'tabs',
-      tabs: [{ label: 'Content', fields: [{ name: 'content', type: 'richText', required: true }] }, seoTab],
+      tabs: [{ label: 'Content', fields: [{ name: 'content', type: 'richText', required: true }] }, faqTab, seoTab],
     },
     slugField({
       overrides: (field) => {

@@ -1,10 +1,12 @@
 import { Crumbs } from '../../../components/Crumbs';
+import { Faq } from '../../../components/Faq';
 import { Icon } from '../../../components/Icon';
 import { JsonLd } from '../../../components/JsonLd';
 import { Phone } from '../../../components/Phone';
 import { CARE_TEAM, FAQS, TOOLS } from '../../../lib/content';
 import { breadcrumbs, faqPage, softwareApp } from '../../../lib/jsonld';
 import { buildMetadata } from '../../../lib/seo';
+import { abs } from '../../../lib/site';
 
 export const metadata = buildMetadata({
   title: 'Features: All Your Visual Supports in One App',
@@ -67,24 +69,13 @@ export default function Features() {
         </div>
       </section>
 
-      <section id="faq" className="section" aria-labelledby="faq-title">
+      <section className="section">
         <div className="narrow">
-          <div className="section-head">
-            <p className="eyebrow">Questions</p>
-            <h2 id="faq-title">Frequently asked questions</h2>
-          </div>
-          <div className="faq">
-            {FAQS.map((f) => (
-              <details key={f.q}>
-                <summary>{f.q}</summary>
-                <p>{f.a}</p>
-              </details>
-            ))}
-          </div>
+          <Faq items={FAQS} />
         </div>
       </section>
 
-      <JsonLd graph={[softwareApp(), faqPage(FAQS), breadcrumbs([['Features', '/features']])]} />
+      <JsonLd graph={[softwareApp(), faqPage(FAQS, abs('/features')), breadcrumbs([['Features', '/features']])]} />
     </>
   );
 }

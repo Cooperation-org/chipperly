@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { CtaBand } from '../../components/CtaBand';
+import { Clarity } from '../../components/Clarity';
 import { Footer } from '../../components/Footer';
 import { Header } from '../../components/Header';
 import { JsonLd } from '../../components/JsonLd';
@@ -10,7 +11,7 @@ import { APP_URL, CONTACT_EMAIL, DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from
 import { body, heading } from '../fonts';
 import './site.css';
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: `${SITE_NAME} - Visual Supports for Neurodivergent Individuals`, template: `%s | ${SITE_NAME}` },
   description: DEFAULT_DESCRIPTION,
@@ -22,6 +23,16 @@ export const metadata: Metadata = {
   alternates: { types: { 'application/rss+xml': `${SITE_URL}/blog/rss.xml` } },
   formatDetection: { telephone: false },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  const other: Record<string, string> = {};
+  if (settings.bingVerification) other['msvalidate.01'] = settings.bingVerification;
+  return {
+    ...baseMetadata,
+    verification: { google: settings.googleVerification || undefined, other },
+  };
+}
 
 export const viewport: Viewport = { themeColor: '#1f6f78' };
 
@@ -45,6 +56,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <CtaBand launched={Boolean(settings.launched)} appUrl={APP_URL} />
         <Footer email={settings.contactEmail || CONTACT_EMAIL} social={social} appUrl={APP_URL} />
         <JsonLd graph={[organization(social.map((s) => s.url)), website()]} />
+        <Clarity id={settings.clarityId} />
       </body>
     </html>
   );

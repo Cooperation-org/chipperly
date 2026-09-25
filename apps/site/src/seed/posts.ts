@@ -27,6 +27,11 @@ export const POSTS = [
   {
     title: 'What is a visual schedule, and how do you start one?',
     slug: 'what-is-a-visual-schedule',
+    faqs: [
+      { question: "How many pictures should a visual schedule have?", answer: "Start with four to six for one part of the day, like the morning. Add more once that routine feels easy. Too many steps at once is harder to follow than no schedule at all." },
+      { question: "Should I use photos or icons?", answer: "Either works. Photos of your own things (your sink, your child's shoes) are easiest to recognise at first; simple icons are quicker to make. Keep the same picture for the same activity every day." },
+      { question: "What age is a visual schedule for?", answer: "Any age. Toddlers use two or three pictures; teenagers and adults often prefer a short list with small icons. Chipperly lets each profile have its own schedule." },
+    ],
     excerpt: 'A visual schedule shows the day in pictures, in order. Here is why it helps and a simple way to set up your first one.',
     categories: ['visual-supports'],
     publishedAt: '2026-09-22T09:00:00.000Z',
@@ -49,6 +54,10 @@ export const POSTS = [
   {
     title: 'Five ways to make transitions easier',
     slug: 'five-ways-to-make-transitions-easier',
+    faqs: [
+      { question: "How early should I warn before a transition?", answer: "Five minutes is a good start for most children, with a second reminder at one or two minutes. A visual timer makes the countdown easier to follow than words alone." },
+      { question: "What if my child still melts down at transitions?", answer: "Keep the routine the same every day and make the next step visible before it starts. Breaking the change into smaller steps, and praising the effort, helps more over weeks than any single trick." },
+    ],
     excerpt: 'Stopping one thing and starting another is hard for many kids. These five small changes can make it calmer.',
     categories: ['routines', 'visual-supports'],
     publishedAt: '2026-09-23T09:00:00.000Z',
@@ -69,6 +78,10 @@ export const POSTS = [
   {
     title: 'Why we built Chipperly',
     slug: 'why-we-built-chipperly',
+    faqs: [
+      { question: "Who made Chipperly?", answer: "Taymar Pixleysmith, a mom in Tucson, Arizona, built Chipperly for her son Benny after finding no single app with all the visual supports he needed." },
+      { question: "When does Chipperly launch?", answer: "Soon. Join the waitlist at the bottom of any page and we will email you the moment it opens." },
+    ],
     excerpt: 'Chipperly started with one family, a stack of laminated cards and four different apps that each did one thing.',
     categories: ['news'],
     publishedAt: '2026-09-24T09:00:00.000Z',

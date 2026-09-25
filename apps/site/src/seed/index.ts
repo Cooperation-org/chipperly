@@ -35,13 +35,22 @@ for (const c of CATEGORIES) {
   cats[c.slug] = doc.id;
 }
 
+const current = await payload.findGlobal({ slug: 'settings' });
 await payload.updateGlobal({
   slug: 'settings',
-  data: { contactEmail: 'info@chipperlyapp.com', launched: false, announcement: { enabled: false } },
+  data: {
+    contactEmail: current.contactEmail || 'info@chipperlyapp.com',
+    share: current.share?.length ? current.share : ['facebook', 'x', 'linkedin', 'whatsapp', 'email', 'copy'],
+  },
 });
 
 for (const post of POSTS) {
-  if (await findOne('posts', 'slug', post.slug)) continue;
+  const existing = await findOne('posts', 'slug', post.slug);
+  if (existing) {
+    // Posts seeded before FAQs existed get the starter FAQs, nothing else changes.
+    if (!existing.faqs?.length) await payload.update({ collection: 'posts', id: existing.id, data: { faqs: post.faqs } });
+    continue;
+  }
   await payload.create({
     collection: 'posts',
     data: {
@@ -49,6 +58,7 @@ for (const post of POSTS) {
       slug: post.slug,
       excerpt: post.excerpt,
       content: post.content,
+      faqs: post.faqs,
       categories: post.categories.map((c) => cats[c]),
       authors: [admin.id],
       publishedAt: post.publishedAt,

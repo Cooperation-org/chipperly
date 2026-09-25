@@ -1,10 +1,12 @@
 import { notFound } from 'next/navigation';
 import { Crumbs } from '../../../components/Crumbs';
+import { Faq } from '../../../components/Faq';
 import { JsonLd } from '../../../components/JsonLd';
 import { RichText } from '../../../components/RichText';
-import { breadcrumbs } from '../../../lib/jsonld';
+import { breadcrumbs, faqPage } from '../../../lib/jsonld';
 import { followRedirect, getPage } from '../../../lib/payload';
 import { buildMetadata } from '../../../lib/seo';
+import { abs } from '../../../lib/site';
 
 // Pages written in the CMS (Pages collection), e.g. /press or /resources.
 export const revalidate = 3600;
@@ -44,8 +46,9 @@ export default async function CmsPage({ params }: Props) {
       </section>
       <div className="narrow" style={{ paddingBottom: 96 }}>
         <RichText data={page.content} />
+        <Faq items={page.faqs ?? []} />
       </div>
-      <JsonLd graph={[breadcrumbs([[page.title, `/${page.slug}`]])]} />
+      <JsonLd graph={[breadcrumbs([[page.title, `/${page.slug}`]]), ...(page.faqs?.length ? [faqPage(page.faqs, abs(`/${page.slug}`))] : [])]} />
     </>
   );
 }

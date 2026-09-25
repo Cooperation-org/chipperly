@@ -75,7 +75,8 @@ export function breadcrumbs(items: [name: string, path: string][]) {
   };
 }
 
-export const faqPage = (faqs: { q: string; a: string }[]) => ({
+export const faqPage = (faqs: { question: string; answer: string }[], url?: string) => ({
   '@type': 'FAQPage',
-  mainEntity: faqs.map(({ q, a }) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  ...(url ? { '@id': `${url}#faq`, url } : {}),
+  mainEntity: faqs.map(({ question, answer }) => ({ '@type': 'Question', name: question, acceptedAnswer: { '@type': 'Answer', text: answer } })),
 });

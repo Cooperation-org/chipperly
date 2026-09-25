@@ -4,12 +4,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Crumbs } from '../../../../components/Crumbs';
+import { Faq } from '../../../../components/Faq';
+import { ShareButtons, type ShareTarget } from '../../../../components/ShareButtons';
 import { JsonLd } from '../../../../components/JsonLd';
 import { PostCard } from '../../../../components/PostCard';
 import { RichText } from '../../../../components/RichText';
 import { formatDate, readingMinutes } from '../../../../lib/format';
-import { breadcrumbs, ORG_ID } from '../../../../lib/jsonld';
-import { followRedirect, getPost, payload } from '../../../../lib/payload';
+import { breadcrumbs, faqPage, ORG_ID } from '../../../../lib/jsonld';
+import { followRedirect, getPost, getSettings, payload } from '../../../../lib/payload';
 import { buildMetadata, ogImageUrl } from '../../../../lib/seo';
 import { abs } from '../../../../lib/site';
 import type { Media, Post } from '../../../../payload-types';
@@ -47,7 +49,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function PostPage({ params }: Props) {
   const { slug } = await params;
-  const post = await getPost(slug);
+  const [post, settings] = await Promise.all([getPost(slug), getSettings()]);
   if (!post) {
     await followRedirect(`/blog/${slug}`);
     notFound();
@@ -59,6 +61,8 @@ export default async function PostPage({ params }: Props) {
   const related = (post.relatedPosts ?? []).filter((p): p is Post => typeof p === 'object' && p._status === 'published');
   const minutes = readingMinutes(convertLexicalToPlaintext({ data: post.content }));
   const url = abs(`/blog/${post.slug}`);
+  const faqs = post.faqs ?? [];
+  const share = (settings.share ?? []) as ShareTarget[];
 
   return (
     <article>
@@ -93,6 +97,10 @@ export default async function PostPage({ params }: Props) {
 
       <div className="narrow">
         <RichText data={post.content} />
+
+        <Faq items={faqs} title="Questions about this topic" />
+
+        <ShareButtons targets={share} url={url} title={post.title} />
 
         {byline.map((a) => {
           const avatar = typeof a.avatar === 'object' ? a.avatar : null;
@@ -145,6 +153,7 @@ export default async function PostPage({ params }: Props) {
             ['Blog', '/blog'],
             [post.title, `/blog/${post.slug}`],
           ]),
+          ...(faqs.length ? [faqPage(faqs, url)] : []),
         ]}
       />
     </article>

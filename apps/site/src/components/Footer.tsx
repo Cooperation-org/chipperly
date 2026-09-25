@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { TAGLINE } from '../lib/site';
+import type { SocialPlatform } from '../lib/social';
+import { SocialLinks } from './SocialLinks';
 
-export function Footer({ email, social, appUrl }: { email: string; social: { label: string; url: string }[]; appUrl: string }) {
+export function Footer({ email, social, appUrl }: { email: string; social: { platform: SocialPlatform; url: string }[]; appUrl: string }) {
   return (
     <footer className="site-footer">
       <div className="wrap footer-grid">
@@ -13,6 +15,7 @@ export function Footer({ email, social, appUrl }: { email: string; social: { lab
           </Link>
           <p>{TAGLINE}</p>
           <p className="muted-light">Chipperly LLC · Founded in Tucson, Arizona</p>
+          <SocialLinks links={social} />
         </div>
         <nav aria-label="Product">
           <h2>Product</h2>
@@ -26,11 +29,6 @@ export function Footer({ email, social, appUrl }: { email: string; social: { lab
           <Link href="/about">Our story</Link>
           <Link href="/blog">Blog</Link>
           <a href={`mailto:${email}`}>{email}</a>
-          {social.map((s) => (
-            <a key={s.url} href={s.url} rel="me noopener">
-              {s.label}
-            </a>
-          ))}
         </nav>
         <nav aria-label="Legal">
           <h2>Legal</h2>

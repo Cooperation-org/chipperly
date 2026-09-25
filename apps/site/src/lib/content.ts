@@ -75,27 +75,27 @@ export const AUDIENCES = [
 
 export const FAQS = [
   {
-    q: 'Who is Chipperly for?',
-    a: 'Neurodivergent children and adults, and everyone who supports them: parents, caregivers, teachers, therapists and aides. It works for anyone who does better with structure and visual cues.',
+    question: 'Who is Chipperly for?',
+    answer: 'Neurodivergent children and adults, and everyone who supports them: parents, caregivers, teachers, therapists and aides. It works for anyone who does better with structure and visual cues.',
   },
   {
-    q: 'What are visual supports?',
-    a: 'Pictures and visual tools that show what is happening, what comes next and how long something lasts: picture schedules, token boards, timers, first-then boards and social stories. Chipperly puts all of them in one app instead of a stack of laminated cards.',
+    question: 'What are visual supports?',
+    answer: 'Pictures and visual tools that show what is happening, what comes next and how long something lasts: picture schedules, token boards, timers, first-then boards and social stories. Chipperly puts all of them in one app instead of a stack of laminated cards.',
   },
   {
-    q: 'Can the whole care team use the same schedules?',
-    a: 'Yes. Invite family members, teachers and therapists to a household so everyone works from the same schedules, chips and rewards. You can also send a read-only share link that needs no account.',
+    question: 'Can the whole care team use the same schedules?',
+    answer: 'Yes. Invite family members, teachers and therapists to a household so everyone works from the same schedules, chips and rewards. You can also send a read-only share link that needs no account.',
   },
   {
-    q: 'Can I lock a shared tablet to one child?',
-    a: 'Yes. PIN-protected mode locks the device to one profile, so the child sees only their own tools and a caregiver PIN is needed to leave.',
+    question: 'Can I lock a shared tablet to one child?',
+    answer: 'Yes. PIN-protected mode locks the device to one profile, so the child sees only their own tools and a caregiver PIN is needed to leave.',
   },
   {
-    q: 'Does Chipperly work without internet?',
-    a: 'Yes. The app keeps working offline and syncs changes across devices when the connection comes back.',
+    question: 'Does Chipperly work without internet?',
+    answer: 'Yes. The app keeps working offline and syncs changes across devices when the connection comes back.',
   },
   {
-    q: 'What devices does it run on?',
-    a: 'Chipperly runs in the browser on phones, tablets and computers, and can be added to the home screen like an app.',
+    question: 'What devices does it run on?',
+    answer: 'Chipperly runs in the browser on phones, tablets and computers, and can be added to the home screen like an app.',
   },
 ];

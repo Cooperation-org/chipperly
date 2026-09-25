@@ -172,6 +172,16 @@ export interface Post {
     };
     [k: string]: unknown;
   };
+  /**
+   * Real questions readers ask about this topic, answered in two to four plain sentences.
+   */
+  faqs?:
+    | {
+        question: string;
+        answer: string;
+        id?: string | null;
+      }[]
+    | null;
   meta?: {
     title?: string | null;
     description?: string | null;
@@ -330,6 +340,16 @@ export interface Page {
     };
     [k: string]: unknown;
   };
+  /**
+   * Real questions readers ask about this topic, answered in two to four plain sentences.
+   */
+  faqs?:
+    | {
+        question: string;
+        answer: string;
+        id?: string | null;
+      }[]
+    | null;
   meta?: {
     title?: string | null;
     description?: string | null;
@@ -660,6 +680,13 @@ export interface PostsSelect<T extends boolean = true> {
   excerpt?: T;
   heroImage?: T;
   content?: T;
+  faqs?:
+    | T
+    | {
+        question?: T;
+        answer?: T;
+        id?: T;
+      };
   meta?:
     | T
     | {
@@ -699,6 +726,13 @@ export interface PagesSelect<T extends boolean = true> {
   title?: T;
   intro?: T;
   content?: T;
+  faqs?:
+    | T
+    | {
+        question?: T;
+        answer?: T;
+        id?: T;
+      };
   meta?:
     | T
     | {
@@ -971,15 +1005,44 @@ export interface Setting {
   launched?: boolean | null;
   contactEmail?: string | null;
   /**
-   * Profiles linked in the footer and listed as sameAs in structured data.
+   * Icon buttons in the footer, in this order. Also listed as sameAs in structured data.
    */
   social?:
     | {
-        label: string;
+        platform:
+          | 'facebook'
+          | 'instagram'
+          | 'x'
+          | 'youtube'
+          | 'tiktok'
+          | 'pinterest'
+          | 'threads'
+          | 'bluesky'
+          | 'whatsapp'
+          | 'reddit'
+          | 'linkedin';
         url: string;
         id?: string | null;
       }[]
     | null;
+  /**
+   * Leave empty to hide share buttons. On phones a "Share" button opens the phone's own share sheet as well.
+   */
+  share?:
+    | ('facebook' | 'x' | 'pinterest' | 'threads' | 'bluesky' | 'whatsapp' | 'reddit' | 'linkedin' | 'email' | 'copy')[]
+    | null;
+  /**
+   * From clarity.microsoft.com > Settings > Overview, e.g. "abcd1234ef". Empty turns Clarity off. Loads on the public site only, never in the admin.
+   */
+  clarityId?: string | null;
+  /**
+   * Only the content="..." value of the HTML tag method. Not needed if you verify by DNS.
+   */
+  googleVerification?: string | null;
+  /**
+   * The content="..." value of the msvalidate.01 tag.
+   */
+  bingVerification?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1000,10 +1063,14 @@ export interface SettingsSelect<T extends boolean = true> {
   social?:
     | T
     | {
-        label?: T;
+        platform?: T;
         url?: T;
         id?: T;
       };
+  share?: T;
+  clarityId?: T;
+  googleVerification?: T;
+  bingVerification?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

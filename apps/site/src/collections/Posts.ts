@@ -2,6 +2,7 @@ import type { CollectionConfig, FieldHook } from 'payload';
 import { slugField } from 'payload';
 import { signedIn, signedInOrPublished } from '../lib/access';
 import { revalidate } from '../lib/revalidate';
+import { faqTab } from '../lib/faqField';
 import { seoTab } from '../lib/seoFields';
 
 const stampPublishedAt: FieldHook = ({ siblingData, value }) =>
@@ -35,6 +36,7 @@ export const Posts: CollectionConfig<'posts'> = {
             { name: 'content', type: 'richText', required: true },
           ],
         },
+        faqTab,
         seoTab,
       ],
     },
