@@ -607,10 +607,18 @@ export function ChildToday() {
                       </span>
                     </button>
                   ) : (
-                    <>
+                    // The whole bar ticks the task (owner, 26 Sept: not just the small circle).
+                    // Pointer-only: the circle is the one control for keyboards and screen readers.
+                    <button
+                      type="button"
+                      className={styles.rowTap}
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      onClick={() => void handleToggle(day, !dimmed)}
+                    >
                       {picture}
                       {nameLabel}
-                    </>
+                    </button>
                   )}
                   {readAloud ? (
                     <IconButton icon="speaker" aria-label={`Say ${day.activity.name}`} onClick={() => speak(day.activity.name)} />

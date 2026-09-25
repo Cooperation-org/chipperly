@@ -134,9 +134,11 @@
 .rowTap {
   display: flex;
   align-items: center;
+  align-self: stretch;
   gap: var(--space-3);
   flex: 1;
   min-width: 0;
+  touch-action: manipulation;
   background: none;
   border: none;
   padding: 0;

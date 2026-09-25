@@ -8,6 +8,9 @@
 .face {
   display: grid;
   place-items: center;
+  padding: 0;
+  line-height: 1;
+  overflow: hidden;
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   background: var(--color-surface-2);
@@ -17,13 +20,14 @@
 .lg .face {
   width: var(--tap-child);
   height: var(--tap-child);
-  font-size: var(--text-2xl);
+  /* Sized to the button, not the text scale: child mode's larger root font made the face outgrow its box. */
+  font-size: calc(var(--tap-child) * 0.55);
 }
 
 .md .face {
   width: var(--tap);
   height: var(--tap);
-  font-size: var(--text-xl);
+  font-size: calc(var(--tap) * 0.55);
 }
 
 .face:hover {

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { expectNoOverflow, signUp, snap } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
@@ -8,6 +8,20 @@ async function enterPin(page: Page, digits: string): Promise<void> {
     await page.getByRole('button', { name: d, exact: true }).click();
   }
   await page.getByRole('button', { name: 'OK', exact: true }).click();
+}
+
+/** Each face's picture sits inside its button (it used to outgrow it in child mode). One in-page measurement: the prompt fades after 10s. */
+async function expectFacesFit(scope: Locator): Promise<void> {
+  const group = scope.getByRole('group', { name: 'How it felt' });
+  await expect(group.getByRole('button')).toHaveCount(5);
+  const overflows = await group.evaluate((el) =>
+    [...el.querySelectorAll('button')].filter((b) => {
+      const box = b.getBoundingClientRect();
+      const glyph = b.querySelector('span')?.getBoundingClientRect();
+      return !glyph || glyph.width > box.width || glyph.height > box.height;
+    }).length,
+  );
+  expect(overflows).toBe(0);
 }
 
 /** Owner feedback 25 Sept 2026: five-face feelings, the check-ups, and the whole-routine bonus. */
@@ -94,9 +108,12 @@ test.describe('feelings, check-ups and the whole-routine bonus', () => {
     await expect(sheet).toBeHidden();
   });
 
-  test('child: five faces after a task', async () => {
-    await page.getByRole('checkbox', { name: /^Wake Up,/ }).click();
+  test('child: five faces after a task (tapping the task bar, not just the circle)', async () => {
+    // Owner, 26 Sept: the whole bar ticks the task.
+    await page.locator('span[class*="ChildToday_rowName"]', { hasText: /^Wake Up$/ }).click();
+    await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByText('How did it feel?')).toBeVisible();
+    await expectFacesFit(page.locator('div[class*="ChildToday_card"]', { hasText: 'How did it feel?' }));
     await snap(page, 'child-feeling-after-task');
     await page.getByRole('button', { name: 'Okay', exact: true }).click();
     await expect(page.getByText('How did it feel?')).toHaveCount(0);

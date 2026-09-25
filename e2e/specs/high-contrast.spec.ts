@@ -131,6 +131,12 @@ test.describe('high contrast (CVI) child view', () => {
     const sheet = page.getByRole('dialog', { name: 'How do I feel?' });
     await expect(sheet).toBeVisible();
     await expect(sheet).toHaveCSS('background-color', BLACK);
+    // The faces fit their boxes with the thick borders too.
+    for (const f of await sheet.getByRole('group', { name: 'How it felt' }).getByRole('button').all()) {
+      const box = await f.boundingBox();
+      const glyph = await f.locator('span').boundingBox();
+      expect((glyph?.width ?? 999) <= (box?.width ?? 0) && (glyph?.height ?? 999) <= (box?.height ?? 0)).toBe(true);
+    }
     const face = sheet.getByRole('button', { name: 'Great', exact: true });
     await expect(face).toHaveCSS('border-top-color', YELLOW);
     await expectNoOverflow(page, 'child sheet, high contrast');
@@ -150,6 +156,13 @@ test.describe('high contrast (CVI) child view', () => {
     await expectNoOverflow(page, 'visual schedule, high contrast');
     await snap(page, 'visual-schedule-high-contrast');
     await overlay.getByRole('button', { name: 'Close visual schedule', exact: true }).click();
+  });
+
+  test('tapping anywhere on a task bar ticks it', async () => {
+    const check = page.getByRole('checkbox', { name: /^Breakfast,/ });
+    await expect(check).toHaveAttribute('aria-checked', 'false');
+    await page.locator('span[class*="ChildToday_rowName"]', { hasText: /^Breakfast$/ }).click();
+    await expect(check).toHaveAttribute('aria-checked', 'true');
   });
 
   test('back in the team view, the usual colours return', async () => {
