@@ -29,3 +29,6 @@ onlyBuiltDependencies:
   - "@embedded-postgres/linux-arm64"
   - "@embedded-postgres/darwin-arm64"
   - "@embedded-postgres/darwin-x64"
+
+patchedDependencies:
+  payload@3.90.2: patches/payload@3.90.2.patch

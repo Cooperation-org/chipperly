@@ -17,7 +17,8 @@
     "seed": "cross-env NODE_OPTIONS=--no-deprecation tsx --env-file=.env src/seed/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "reset-admin": "cross-env NODE_OPTIONS=--no-deprecation tsx --env-file=.env src/seed/reset-admin.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "1.20.1",
