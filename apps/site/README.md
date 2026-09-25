@@ -1,19 +1,59 @@
 # Chipperly marketing site
 
-chipperlyapp.com: the public site, blog and CMS. Next.js 16 with Payload 3 running inside it, so the admin lives at `/admin` in the same app. It has its own Postgres database (never the app's: both have a `users` table).
+chipperlyapp.com: the public site, blog and CMS. Next.js 16 with Payload 3 running inside it, so the admin lives at `/admin` in the same app.
+
+It runs entirely on Cloudflare, separate from the app: one Worker (built by OpenNext), D1 for data, R2 for uploads, and Cloudflare's cache in front. Visitors and crawlers are answered at the edge and never reach the app's container or database.
 
 ## Run it locally
 
 ```bash
-pnpm -F @chipperly/api db:start          # embedded Postgres, creates chipperly_site too
 cp apps/site/.env.example apps/site/.env # fill PAYLOAD_SECRET and the SEED_ADMIN_* pair
+pnpm -F @chipperly/site migrate          # creates the local D1 under apps/site/.wrangler/state
 pnpm -F @chipperly/site seed             # first admin, categories, settings, 3 starter posts
 pnpm -F @chipperly/site dev              # http://localhost:3100, admin at /admin
 ```
 
-In dev the schema is pushed straight to the database. After changing a collection or field, run `pnpm -F @chipperly/site payload migrate:create <name>` and commit the file in `src/migrations/`. Production runs `pnpm -F @chipperly/site migrate` before `next build`, and the build reads the database, so it has to be reachable at build time.
+No database to install: wrangler runs a local D1 and R2. Local runs always use those local copies. The default bindings in `wrangler.jsonc` are local-only; the live D1/R2 are only reachable through its `remote` environment, which only the `deploy:*` scripts (and a deliberate live seed) select with `CLOUDFLARE_ENV=remote CLOUDFLARE_REMOTE_BINDINGS=1`.
 
-Run `pnpm -F @chipperly/site generate:types` after schema changes, and `generate:importmap` after adding an admin component.
+Schema changes go through migrations, in dev too: after changing a collection or field, run `pnpm -F @chipperly/site payload migrate:create <name>`, then `pnpm -F @chipperly/site migrate`, and commit the file in `src/migrations/`. Run `generate:types` after schema or `wrangler.jsonc` changes, and `generate:importmap` after adding an admin component.
+
+To run the real Worker locally (workerd, same runtime as Cloudflare): `pnpm -F @chipperly/site preview`. OpenNext does not build on Windows; there, use Docker:
+
+```bash
+docker run --rm -it -p 3100:3100 -v "<repo path>:/src:ro" node:22-bookworm bash /src/apps/site/scripts/cf-linux.sh preview
+```
+
+## Deploy to Cloudflare
+
+Account: the owner's (`e576a82e9534f6dcf627eeaf15adf6d7`), zone `chipperlyapp.com`, Workers Paid plan (Payload's bundle is over the free plan's size limit). The app lives at `app.chipperlyapp.com` (`deploy/cloudflare/`); this site is a separate Worker, `chipperly-site`.
+
+One-time setup, from `apps/site/`:
+
+```bash
+npx wrangler d1 create chipperly-site                 # paste the id into every REPLACE_WITH_D1_ID in wrangler.jsonc
+npx wrangler r2 bucket create chipperly-site-media
+npx wrangler r2 bucket create chipperly-site-cache
+npx wrangler secret put PAYLOAD_SECRET                # openssl rand -hex 32
+npx wrangler secret put CACHE_PURGE_API_TOKEN         # API token with Zone > Cache Purge on chipperlyapp.com
+```
+
+Then enable Images for next/image resizing (dashboard > Images; the binding is already in `wrangler.jsonc`).
+
+Deploy (Linux or WSL, or `scripts/cf-linux.sh deploy` in Docker on Windows). Set `NEXT_PUBLIC_SITE_URL=https://chipperlyapp.com` for the build, plus `CLOUDFLARE_ACCOUNT_ID` and a `CLOUDFLARE_API_TOKEN`:
+
+```bash
+pnpm -F @chipperly/site deploy     # migrates the live D1, builds with live data, deploys the Worker
+CLOUDFLARE_ENV=remote CLOUDFLARE_REMOTE_BINDINGS=1 pnpm -F @chipperly/site seed   # once, for the first admin
+```
+
+Pointing chipperlyapp.com at the Worker: uncomment `routes` in `wrangler.jsonc` and deploy again. Custom domains create the DNS records; the old site stops answering on those names at that moment.
+
+### How caching works
+
+- Static files (`/_next/static`, fonts) are served from the edge as immutable; screenshots and brand files for a day (`public/_headers`).
+- Every page is pre-rendered or ISR. Rendered pages live in R2 with a copy in the nearest data centre's cache, and cache interception answers them before Next.js starts (`open-next.config.ts`).
+- Saving in the admin calls `revalidatePath` for every URL the change touches (the page, lists, sitemap, RSS, llms files). OpenNext marks them stale in the D1 tag cache and purges exactly those URLs from Cloudflare's CDN. The next visitor gets the new version; everything else stays cached.
+- Pages also refresh hourly in the background through a Durable Object queue, so no visitor waits on a rebuild.
 
 ## What editors can do in /admin
 
