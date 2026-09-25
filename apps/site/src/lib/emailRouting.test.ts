@@ -21,6 +21,11 @@ describe('ruleBody', () => {
       actions: [{ type: 'forward', value: ['tamar.pixley@gmail.com'] }],
     });
   });
+  it('hands addresses with extra recipients to the fan-out Worker', () => {
+    const body = ruleBody({ localPart: 'info', destination: 'a@b.co', enabled: true, fanout: true }, 'chipperlyapp.com');
+    expect(body.actions).toEqual([{ type: 'worker', value: ['chipperly-mail'] }]);
+    expect(body.matchers).toEqual([{ type: 'literal', field: 'to', value: 'info@chipperlyapp.com' }]);
+  });
   it('builds the catch-all rule for "*"', () => {
     const body = ruleBody({ localPart: '*', destination: 'a@b.co', enabled: false }, 'chipperlyapp.com');
     expect(body.matchers).toEqual([{ type: 'all' }]);

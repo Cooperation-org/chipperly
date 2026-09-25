@@ -363,7 +363,7 @@ export interface Waitlist {
   createdAt: string;
 }
 /**
- * Forwarding addresses at @chipperlyapp.com. Mail sent to the address arrives in the destination inbox. A new destination gets a verification email from Cloudflare and must click it once. Use * as the name for the catch-all (any other address).
+ * Forwarding addresses at @chipperlyapp.com. Mail sent to the address arrives in the destination inbox. A new destination gets a verification email from Cloudflare and must click it once; then open the address and press Save to switch it on. Use * as the name for the catch-all (any other address).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "email-addresses".
@@ -375,6 +375,15 @@ export interface EmailAddress {
    */
   localPart: string;
   destination: string;
+  /**
+   * Extra people who get a copy, e.g. info@ to both the founder and support. Each must verify once, like the main destination.
+   */
+  alsoForwardTo?:
+    | {
+        email: string;
+        id?: string | null;
+      }[]
+    | null;
   enabled?: boolean | null;
   /**
    * Who or what this address is for.
@@ -382,7 +391,7 @@ export interface EmailAddress {
   note?: string | null;
   address?: string | null;
   /**
-   * Pending until the destination clicks the verification email from Cloudflare.
+   * Waiting: the destination has been sent a verification email by Cloudflare. After they click it, open this address and press Save to switch it on.
    */
   status?: ('active' | 'pending' | 'disabled' | 'not-synced') | null;
   ruleId?: string | null;
@@ -790,6 +799,12 @@ export interface WaitlistSelect<T extends boolean = true> {
 export interface EmailAddressesSelect<T extends boolean = true> {
   localPart?: T;
   destination?: T;
+  alsoForwardTo?:
+    | T
+    | {
+        email?: T;
+        id?: T;
+      };
   enabled?: T;
   note?: T;
   address?: T;

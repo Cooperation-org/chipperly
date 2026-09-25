@@ -10,7 +10,12 @@
 export const CATCH_ALL = '*';
 const API = 'https://api.cloudflare.com/client/v4';
 
-export type Forward = { localPart: string; destination: string; enabled: boolean };
+// Worker that copies one message to several people (mail-worker/). Cloudflare
+// rules forward to a single destination, so addresses with extra recipients
+// hand the message to this Worker instead.
+export const FANOUT_WORKER = process.env.EMAIL_FANOUT_WORKER || 'chipperly-mail';
+
+export type Forward = { localPart: string; destination: string; enabled: boolean; fanout?: boolean };
 
 export function emailConfig() {
   const token = process.env.CLOUDFLARE_EMAIL_API_TOKEN;
@@ -27,7 +32,9 @@ export function validLocalPart(value: unknown) {
 
 /** Body for a literal-address rule, or for the catch-all rule. */
 export function ruleBody(f: Forward, domain: string) {
-  const actions = [{ type: 'forward', value: [f.destination.trim().toLowerCase()] }];
+  const actions = f.fanout
+    ? [{ type: 'worker', value: [FANOUT_WORKER] }]
+    : [{ type: 'forward', value: [f.destination.trim().toLowerCase()] }];
   if (f.localPart === CATCH_ALL) {
     return { name: 'Catch-all (managed in /admin)', enabled: f.enabled, matchers: [{ type: 'all' }], actions };
   }

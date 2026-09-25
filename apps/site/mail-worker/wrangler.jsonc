@@ -1,0 +1,12 @@
+// chipperly-mail: Email Worker that copies one incoming message to several
+// people (see src/index.ts). Reads recipients from the site's D1.
+// Deploy from apps/site: npx wrangler deploy --config mail-worker/wrangler.jsonc
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "chipperly-mail",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-15",
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  "d1_databases": [{ "binding": "DB", "database_name": "chipperly-site", "database_id": "5195570c-3b7a-4fa7-af24-c0b66d0bb939" }],
+}
