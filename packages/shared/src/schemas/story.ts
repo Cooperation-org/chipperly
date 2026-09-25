@@ -15,5 +15,7 @@ export const StoryPageSchema = SyncColumnsSchema.extend({
   text: z.string().min(1),
   emoji: z.string().nullable(),
   photo_id: uuidSchema.nullable(),
+  /** The page read aloud in a team member's own voice (media kind 'audio'). Optional so older rows still parse. */
+  audio_id: uuidSchema.nullable().optional(),
 });
 export type StoryPage = z.infer<typeof StoryPageSchema>;

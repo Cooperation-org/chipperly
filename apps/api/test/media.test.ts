@@ -1,4 +1,8 @@
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
@@ -80,6 +84,32 @@ describe('media', () => {
     expect(head.statusCode).toBe(200);
     expect(head.headers['content-type']).toBe('image/webp');
     expect(head.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+  });
+
+  it('converts a recorded voice (webm/opus, as Chrome and Android record it) to AAC in .m4a', async () => {
+    const { admin, accountId } = await setupProfile();
+    // One second of a 440 Hz tone, encoded the way MediaRecorder does in Chrome.
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'chipperly-audio-test-'));
+    const webm = path.join(dir, 'voice.webm');
+    execFileSync('ffmpeg', ['-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-c:a', 'libopus', '-y', webm], { stdio: 'ignore' });
+
+    const { body, contentType } = buildMultipart('file', 'voice', 'audio/webm;codecs=opus', await readFile(webm));
+    const upload = await request(app, {
+      method: 'POST',
+      url: '/api/media',
+      headers: { authorization: `Bearer ${admin.token}`, 'x-account-id': accountId, 'content-type': contentType },
+      payload: body,
+    });
+    expect(upload.statusCode).toBe(201);
+    const { id, status } = upload.json() as { id: string; status: string };
+    expect(status).toBe('ready');
+
+    const fetched = await request(app, { method: 'GET', url: `/api/media/${id}` });
+    expect(fetched.statusCode).toBe(200);
+    expect(fetched.headers['content-type']).toBe('audio/mp4');
+    // ISO media file: 'ftyp' box at offset 4.
+    expect(fetched.rawPayload.subarray(4, 8).toString('ascii')).toBe('ftyp');
+    await rm(dir, { recursive: true, force: true });
   });
 
   it('rejects an unsupported content type with 415', async () => {

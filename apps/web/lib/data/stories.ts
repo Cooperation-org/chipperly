@@ -38,6 +38,7 @@ export interface SaveStoryPageInput {
   text: string;
   emoji: string | null;
   photo_id: string | null;
+  audio_id?: string | null;
 }
 
 export interface SaveStoryInput {
@@ -91,6 +92,7 @@ export async function saveStory(input: SaveStoryInput): Promise<string> {
       text: pageInput.text,
       emoji: pageInput.emoji,
       photo_id: pageInput.photo_id,
+      audio_id: pageInput.audio_id ?? null,
     } satisfies StoryPage);
   }
 
@@ -113,7 +115,7 @@ export async function duplicateStory(id: string): Promise<string> {
     title: `${story.title} copy`,
     emoji: story.emoji,
     cover_photo_id: story.cover_photo_id,
-    pages: pages.map((page) => ({ text: page.text, emoji: page.emoji, photo_id: page.photo_id })),
+    pages: pages.map((page) => ({ text: page.text, emoji: page.emoji, photo_id: page.photo_id, audio_id: page.audio_id ?? null })),
   });
 }
 

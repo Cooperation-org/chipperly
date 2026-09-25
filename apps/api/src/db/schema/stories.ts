@@ -22,6 +22,8 @@ export const story_pages = pgTable(
     text: text('text').notNull(),
     emoji: text('emoji'),
     photo_id: uuid('photo_id'),
+    /** A recorded voice for the page (media kind 'audio'). Migration 0021. */
+    audio_id: uuid('audio_id'),
   },
   (t) => [index('story_pages_profile_version_idx').on(t.profile_id, t.version)],
 );

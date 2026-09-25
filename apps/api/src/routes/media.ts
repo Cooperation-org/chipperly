@@ -10,7 +10,7 @@ import type { MediaStatus, MediaUploadResponse } from '@chipperly/shared/schemas
 import { env } from '../env.js';
 import { db } from '../db/client.js';
 import { media } from '../db/schema/media.js';
-import { processImage, processVideo } from '../media/pipeline.js';
+import { processAudio, processImage, processVideo } from '../media/pipeline.js';
 import { getStorageDriver, S3Driver } from '../media/storage.js';
 import { videoQueue } from '../media/queue.js';
 import { requireAccount, requireUser } from '../plugins/auth.js';
@@ -20,12 +20,14 @@ const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']);
 const VIDEO_MIME_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska']);
+const AUDIO_MIME_TYPES = new Set(['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav']);
 
-/** Content-type first; falls back to sniffing magic bytes for a generic/missing content type. */
-function detectKind(mimetype: string, buffer: Buffer): 'image' | 'video' | null {
-  const normalized = mimetype.toLowerCase();
+/** Content-type first (parameters like `;codecs=opus` dropped); falls back to sniffing magic bytes for a generic/missing content type. */
+function detectKind(mimetype: string, buffer: Buffer): 'image' | 'video' | 'audio' | null {
+  const normalized = mimetype.toLowerCase().split(';')[0]?.trim() ?? '';
   if (IMAGE_MIME_TYPES.has(normalized)) return 'image';
   if (VIDEO_MIME_TYPES.has(normalized)) return 'video';
+  if (AUDIO_MIME_TYPES.has(normalized)) return 'audio';
   return sniffKind(buffer);
 }
 
@@ -147,6 +149,40 @@ export default async function mediaRoutes(app: FastifyInstance): Promise<void> {
         height: processed.height,
         bytes: processed.buffer.length,
       };
+    }
+
+    if (kind === 'audio') {
+      // Short (a story page): converted inside the request, through the same one-at-a-time ffmpeg queue as video.
+      const tmpIn = path.join(os.tmpdir(), `chipperly-audio-${mediaId}`);
+      const tmpOut = `${tmpIn}.m4a`;
+      await writeFile(tmpIn, buffer);
+      try {
+        await videoQueue.add(() => processAudio(tmpIn, tmpOut));
+        const out = await readFile(tmpOut);
+        const key = `${accountId}/${mediaId}.m4a`;
+        await getStorageDriver().put(key, out, 'audio/mp4');
+        await db.insert(media).values({
+          id: mediaId,
+          account_id: accountId,
+          kind: 'audio',
+          status: 'ready',
+          storage_key: key,
+          content_type: 'audio/mp4',
+          width: null,
+          height: null,
+          duration_ms: null,
+          bytes: out.length,
+          original_bytes: buffer.length,
+          created_by: user.id,
+          created_at: createdAt,
+        });
+      } catch {
+        throw new AppError(422, 'unprocessable_audio', "Couldn't read that recording");
+      } finally {
+        await Promise.allSettled([unlink(tmpIn), unlink(tmpOut)]);
+      }
+      reply.code(201);
+      return { id: mediaId, status: 'ready' };
     }
 
     // Video: write to a temp file, insert a `processing` row, transcode off the request in the queue.

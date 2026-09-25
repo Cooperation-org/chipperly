@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { msTimestampSchema, uuidSchema } from './common.js';
 
-export const MediaKind = z.enum(['image', 'video']);
+/** `audio`: a story page read in a grown-up's own voice, stored as AAC (.m4a) so every device can play it. */
+export const MediaKind = z.enum(['image', 'video', 'audio']);
 export type MediaKind = z.infer<typeof MediaKind>;
 
 export const MediaStatus = z.enum(['processing', 'ready', 'failed']);

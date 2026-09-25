@@ -134,6 +134,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Recording a story page in your own voice (components/story/VoiceRecorder.tsx):
+         Capacitor's WebChromeClient asks for these at runtime when the page calls getUserMedia. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- @capacitor/geolocation: the plugin's own manifest declares no
          permissions (confirmed in its README/AndroidManifest.xml), so the
          app must declare these itself for the merger to include them. -->

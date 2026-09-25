@@ -39,6 +39,13 @@ export async function pickAndStoreImage(file: File | Blob): Promise<string> {
   return media_id;
 }
 
+/** Stores a voice recording locally and queues it for upload (the server turns it into .m4a); returns its media id. */
+export async function storeAudio(blob: Blob): Promise<string> {
+  const media_id = newId();
+  await db.media_blobs.put({ media_id, bytes: await blob.arrayBuffer(), type: blob.type, uploaded: 0 });
+  return media_id;
+}
+
 /** Object URL from the local bytes if we have them (revoked on unmount/change), else the API route. */
 export function useMediaUrl(mediaId: string | null | undefined): string | null {
   const row = useLiveQuery(() => (mediaId ? db.media_blobs.get(mediaId) : undefined), [mediaId]);

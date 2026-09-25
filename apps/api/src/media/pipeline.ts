@@ -51,6 +51,22 @@ export interface ProcessedVideo {
   readonly duration_ms: number | null;
 }
 
+/** ffmpeg: any recorded audio (webm/opus from Chrome and Android, mp4 from Safari) to mono AAC in .m4a, which every browser plays. */
+export function processAudio(inPath: string, outPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ffmpeg = spawn('ffmpeg', ['-i', inPath, '-vn', '-ac', '1', '-c:a', 'aac', '-b:a', '64k', '-movflags', '+faststart', '-y', outPath]);
+    let stderr = '';
+    ffmpeg.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    ffmpeg.on('error', reject);
+    ffmpeg.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-2000)}`));
+    });
+  });
+}
+
 /** ffmpeg: scale to fit 720p without upscaling, H.264/AAC, faststart. Exact args from technical-plan.md 7b. */
 export function processVideo(inPath: string, outPath: string): Promise<ProcessedVideo> {
   return new Promise((resolve, reject) => {

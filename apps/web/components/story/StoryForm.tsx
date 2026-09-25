@@ -18,6 +18,7 @@ import { Picture } from '@/components/media/Picture';
 import { PicturePicker } from '@/components/picture/PicturePicker';
 import type { PicturePickerValue } from '@/components/picture/PicturePicker';
 import { StoryViewer } from './StoryViewer';
+import { VoiceRecorder } from './VoiceRecorder';
 import styles from './StoryForm.module.css';
 
 interface DraftPage {
@@ -25,6 +26,7 @@ interface DraftPage {
   text: string;
   emoji: string | null;
   photo_id: string | null;
+  audio_id: string | null;
 }
 
 /** S18: title, cover, an ordered list of pages, preview, and a sticky save. Handles both create
@@ -52,7 +54,7 @@ export function StoryForm() {
     hydrated.current = true;
     setTitle(story.title);
     setCover({ emoji: story.emoji, photo_id: story.cover_photo_id });
-    setDraftPages(pages.map((p) => ({ id: p.id, text: p.text, emoji: p.emoji, photo_id: p.photo_id })));
+    setDraftPages(pages.map((p) => ({ id: p.id, text: p.text, emoji: p.emoji, photo_id: p.photo_id, audio_id: p.audio_id ?? null })));
   }, [id, story, pages]);
 
   if (!profile) return null;
@@ -63,7 +65,7 @@ export function StoryForm() {
   }
 
   function addPage(): void {
-    setDraftPages((prev) => [...prev, { id: newId(), text: '', emoji: null, photo_id: null }]);
+    setDraftPages((prev) => [...prev, { id: newId(), text: '', emoji: null, photo_id: null, audio_id: null }]);
   }
 
   function removePage(pageId: string): void {
@@ -110,7 +112,7 @@ export function StoryForm() {
       title: title.trim() || 'Untitled story',
       emoji: cover.emoji ?? null,
       cover_photo_id: cover.photo_id ?? null,
-      pages: draftPages.map((p) => ({ id: p.id, text: p.text, emoji: p.emoji, photo_id: p.photo_id })),
+      pages: draftPages.map((p) => ({ id: p.id, text: p.text, emoji: p.emoji, photo_id: p.photo_id, audio_id: p.audio_id })),
     });
     router.push('/stories/');
   }
@@ -146,6 +148,7 @@ export function StoryForm() {
     text: p.text,
     emoji: p.emoji,
     photo_id: p.photo_id,
+    audio_id: p.audio_id,
   }));
 
   return (
@@ -184,6 +187,9 @@ export function StoryForm() {
               onChange={(e) => updatePage(page.id, { text: e.target.value })}
               aria-label={`Page ${i + 1} text`}
             />
+            <div className={styles.pageVoice}>
+              <VoiceRecorder audioId={page.audio_id} onChange={(audio_id) => updatePage(page.id, { audio_id })} label={`page ${i + 1}`} />
+            </div>
             <div className={styles.pageActions}>
               <IconButton
                 icon="chevron"

@@ -36,6 +36,7 @@
 
 .pageRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3);
@@ -87,4 +88,9 @@
   bottom: 0;
   padding: var(--space-3) 0;
   background: var(--color-bg);
+}
+
+/* The voice recorder takes its own line under the picture, text and arrows. */
+.pageVoice {
+  flex-basis: 100%;
 }
