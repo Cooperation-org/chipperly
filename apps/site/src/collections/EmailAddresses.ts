@@ -12,7 +12,7 @@ export const EmailAddresses: CollectionConfig = {
     useAsTitle: 'address',
     defaultColumns: ['address', 'destination', 'status', 'enabled'],
     description:
-      'Forwarding addresses at @chipperlyapp.com. Mail sent to the address arrives in the destination inbox. A new destination gets a verification email from Cloudflare and must click it once. Use * as the name for the catch-all (any other address).',
+      'Forwarding addresses at @chipperlyapp.com. Mail sent to the address arrives in the destination inbox. A new destination gets a verification email from Cloudflare and must click it once; then open the address and press Save to switch it on. Use * as the name for the catch-all (any other address).',
   },
   fields: [
     {
@@ -39,7 +39,10 @@ export const EmailAddresses: CollectionConfig = {
     {
       name: 'status',
       type: 'select',
-      admin: { readOnly: true, description: 'Pending until the destination clicks the verification email from Cloudflare.' },
+      admin: {
+        readOnly: true,
+        description: 'Waiting: the destination has been sent a verification email by Cloudflare. After they click it, open this address and press Save to switch it on.',
+      },
       options: [
         { label: 'Active', value: 'active' },
         { label: 'Waiting for destination to verify', value: 'pending' },
@@ -58,8 +61,11 @@ export const EmailAddresses: CollectionConfig = {
         if (!emailConfig()) return { ...data, status: 'not-synced' };
         try {
           const verified = await ensureDestination(destination);
+          // Cloudflare refuses rules for unverified destinations. Keep the
+          // entry as pending; saving it again after the click activates it.
+          if (verified !== 'verified') return { ...data, status: 'pending' };
           const ruleId = await upsertRule({ localPart, destination, enabled }, originalDoc?.ruleId);
-          return { ...data, ruleId, status: !enabled ? 'disabled' : verified === 'verified' ? 'active' : 'pending' };
+          return { ...data, ruleId, status: enabled ? 'active' : 'disabled' };
         } catch (err) {
           throw new APIError(err instanceof Error ? err.message : 'Could not update Cloudflare.', 502, undefined, true);
         }

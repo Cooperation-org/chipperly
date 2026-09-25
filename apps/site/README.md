@@ -39,7 +39,7 @@ npx wrangler secret put CACHE_PURGE_API_TOKEN         # API token with Zone > Ca
 
 Then enable Images for next/image resizing (dashboard > Images; the binding is already in `wrangler.jsonc`).
 
-Deploy (Linux or WSL, or `scripts/cf-linux.sh deploy` in Docker on Windows). Set `NEXT_PUBLIC_SITE_URL=https://chipperlyapp.com` for the build, plus `CLOUDFLARE_ACCOUNT_ID` and a `CLOUDFLARE_API_TOKEN`:
+Deploy (Linux or WSL, or `scripts/cf-linux.sh deploy` in Docker on Windows). Set `NEXT_PUBLIC_SITE_URL=https://chipperlyapp.com` for the build, plus `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Use the dedicated "chipperly-site deploy" API token (Workers Scripts, D1, R2 edit, Account Settings read on the owner's account; Workers Routes on the zone), not a copied `wrangler login`: OAuth refresh tokens rotate and a shared copy gets the session revoked. The live values sit in the git-ignored `apps/site/.env.live`.
 
 ```bash
 pnpm -F @chipperly/site deploy     # migrates the live D1, builds with live data, deploys the Worker
@@ -47,6 +47,14 @@ CLOUDFLARE_ENV=remote CLOUDFLARE_REMOTE_BINDINGS=1 pnpm -F @chipperly/site seed 
 ```
 
 Pointing chipperlyapp.com at the Worker: uncomment `routes` in `wrangler.jsonc` and deploy again. Custom domains create the DNS records; the old site stops answering on those names at that moment.
+
+### Passwords on Workers
+
+Payload 3.90 hashes passwords with PBKDF2 at 600,000 iterations; production Workers cap PBKDF2 at 100,000, so logins fail there (local workerd does not enforce the cap). `patches/payload@3.90.2.patch` sets Payload to 100,000 everywhere. Re-check this patch whenever Payload is upgraded. To reset an editor's password or clear a lockout: `RESET_EMAIL=... RESET_PASSWORD=... pnpm -F @chipperly/site reset-admin` (add `CLOUDFLARE_ENV=remote CLOUDFLARE_REMOTE_BINDINGS=1` for live).
+
+### Team email
+
+`/admin` > Email addresses manages forwarding addresses at @chipperlyapp.com through Cloudflare Email Routing (`src/lib/emailRouting.ts`). Needs the `CLOUDFLARE_EMAIL_API_TOKEN` Worker secret (Email Routing Addresses edit on the account, Email Routing Rules edit on the zone). A new destination receives a Cloudflare verification email and must click it once; until then its address shows "Waiting for destination to verify".
 
 ### How caching works
 
