@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
+import { HeroDemo } from '../../components/HeroDemo';
 import { Icon } from '../../components/Icon';
 import { JsonLd } from '../../components/JsonLd';
 import { Phone } from '../../components/Phone';
@@ -7,7 +8,6 @@ import { PostCard } from '../../components/PostCard';
 import { TOOLS } from '../../lib/content';
 import { softwareApp } from '../../lib/jsonld';
 import { getPosts, getSettings } from '../../lib/payload';
-import { screens } from '../../lib/screens';
 import { buildMetadata } from '../../lib/seo';
 import { APP_URL, SITE_NAME } from '../../lib/site';
 
@@ -54,10 +54,7 @@ export default async function Home() {
           </div>
           <div className="hero-art">
             <img className="hero-star" src="/brand/mark.svg" alt="" aria-hidden="true" />
-            <div className="phone-pair">
-              <Phone src={screens.childHome} alt="The child's home screen with big buttons: My Day, Chips, Free time and First, then." priority />
-              <Phone src={screens.today} alt="The caregiver's Today screen with the day's schedule in pictures." priority />
-            </div>
+            <HeroDemo ctaHref={launched ? `${APP_URL}/sign-up/` : '#waitlist'} ctaLabel={launched ? 'Get started' : 'Join the waitlist'} />
           </div>
         </div>
       </section>

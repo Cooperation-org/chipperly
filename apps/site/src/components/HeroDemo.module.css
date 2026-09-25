@@ -1,0 +1,275 @@
+/* The working mini Chipperly in the hero. Motion follows the brand rules:
+   150-250ms for UI, one spring (chip landing), nothing under reduced motion. */
+
+.demo {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  font-family: var(--font-body), var(--emoji, 'Twemoji Mozilla'), system-ui, sans-serif;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--teal);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 6px 16px 6px 12px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+.hintDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sun);
+  box-shadow: 0 0 0 0 rgb(247 147 30 / 45%);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+@keyframes breathe {
+  50% { box-shadow: 0 0 0 7px rgb(247 147 30 / 0%); }
+}
+
+.phone {
+  width: min(340px, calc(100vw - 48px));
+  border-radius: 44px;
+  padding: 11px;
+  background: #1b2625;
+  box-shadow: 0 40px 80px -30px rgb(20 63 69 / 55%), inset 0 0 0 2px #334544;
+}
+.screen {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  height: 620px;
+  border-radius: 34px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+}
+@media (max-width: 520px) { .screen { height: 590px; } }
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 10px;
+  font-family: var(--font-heading), serif;
+  font-size: 1.25rem;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--teal-soft);
+  font-size: 1.4rem;
+}
+.reset {
+  margin-left: auto;
+  font: inherit;
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--teal);
+  background: none;
+  border: 0;
+  min-height: 44px;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.board {
+  margin: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+.slots { display: flex; gap: 4px; }
+.slot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: #d9d1c3;
+  font-family: system-ui, sans-serif;
+  transition: color 0.2s var(--ease-out);
+}
+.slotOn { color: var(--sun); }
+.working { display: grid; text-align: right; font-weight: 700; font-size: 0.95rem; line-height: 1.25; }
+.small { font-size: 0.78rem; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
+
+.body { overflow: hidden; padding: 6px 14px 10px; display: grid; align-content: start; }
+.section {
+  font-family: var(--font-heading), serif;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 10px 4px 8px;
+}
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+
+.item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px 7px 7px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s var(--ease-out), transform 0.15s var(--ease-out);
+}
+.item:active { transform: scale(0.98); }
+.item:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.tile {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--sand);
+  font-size: 1.45rem;
+  transition: opacity 0.2s;
+}
+.label { display: grid; font-weight: 500; font-size: 1.02rem; line-height: 1.2; }
+.time { font-size: 0.8rem; color: var(--muted); font-weight: 400; }
+
+.check {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid #d9d1c3;
+  display: grid;
+  place-items: center;
+  transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+.check svg, .ftCheck svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.check path, .ftCheck path { stroke-dasharray: 20; stroke-dashoffset: 20; transition: stroke-dashoffset 0.25s var(--ease-out) 0.05s; }
+.itemDone { background: #f4faf9; }
+.itemDone .check { background: var(--teal); border-color: var(--teal); }
+.itemDone .check path { stroke-dashoffset: 0; }
+.itemDone .label { color: var(--muted); }
+.itemDone .tile { opacity: 0.55; }
+
+.redeem, .cta {
+  justify-self: center;
+  margin-top: 12px;
+  min-height: 48px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  background: var(--teal);
+  color: #fff;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.redeem { margin-top: 0; min-height: 44px; padding: 8px 16px; background: var(--sun); color: #3a2200; animation: rise 0.25s var(--ease-out); }
+.redeem:hover { background: #e8850f; }
+.cta:hover { background: var(--teal-deep); color: #fff; }
+.linkBtn { background: none; border: 0; font: inherit; font-weight: 700; color: var(--teal); min-height: 44px; cursor: pointer; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+
+.celebrate { display: grid; justify-items: center; text-align: center; gap: 6px; padding-top: 36px; animation: rise 0.25s var(--ease-out); }
+.bigEmoji { font-size: 3.2rem; line-height: 1.1; }
+.allDone { font-family: var(--font-heading), serif; font-size: 2rem; font-weight: 800; color: var(--teal); }
+
+.timer { display: grid; justify-items: center; padding-top: 22px; position: relative; }
+.ring { width: 200px; height: 200px; transform: rotate(-90deg); }
+.ringTrack { fill: none; stroke: var(--sand); stroke-width: 10; }
+.ringFill { fill: none; stroke: var(--teal); stroke-width: 10; stroke-linecap: round; }
+.clock { position: absolute; top: 94px; font-family: var(--font-heading), serif; font-size: 2.6rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; }
+.row { display: flex; align-items: center; gap: 12px; }
+
+.ft { display: grid; gap: 12px; padding-top: 12px; }
+.ftCard {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  font: inherit;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: inherit;
+  transition: transform 0.2s var(--ease-out), border-color 0.2s var(--ease-out), opacity 0.2s;
+}
+button.ftCard { cursor: pointer; }
+.ftCheck {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #d9d1c3;
+  display: grid;
+  place-items: center;
+  transition: background-color 0.2s var(--ease-out), border-color 0.2s;
+}
+.ftDone { opacity: 0.6; }
+.ftDone .ftCheck { background: var(--teal); border-color: var(--teal); }
+.ftDone .ftCheck path { stroke-dashoffset: 0; }
+.ftNow { border-color: var(--teal); transform: translateY(-4px); box-shadow: var(--shadow); }
+.ftNow .small { color: var(--teal); font-weight: 700; }
+
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); background: var(--surface); padding: 6px 6px 10px; }
+.tab {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabOn { color: var(--teal); background: var(--teal-soft); font-weight: 700; }
+
+/* The flying chip lives on <body>, outside the phone. */
+.flyer {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--sun);
+  text-shadow: 0 4px 12px rgb(247 147 30 / 35%);
+  font-family: system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hintDot, .redeem, .celebrate { animation: none; }
+}
