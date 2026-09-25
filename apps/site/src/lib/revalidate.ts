@@ -7,6 +7,8 @@ export function revalidate(...paths: string[]) {
     for (const path of paths) revalidatePath(path);
     revalidatePath('/sitemap.xml');
     revalidatePath('/blog/rss.xml');
+    revalidatePath('/llms.txt');
+    revalidatePath('/llms-full.txt');
   } catch {
     // not inside Next
   }
