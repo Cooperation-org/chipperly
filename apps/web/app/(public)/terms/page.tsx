@@ -34,9 +34,9 @@ export default function TermsPage() {
 
       <h2>Who can use Chipperly</h2>
       <p>
-        You must be a parent, guardian, or an authorised caregiver, and 18 or older, to create an
-        account. You&apos;re responsible for what you and anyone you invite to your care team enter
-        about a child in your care.
+        You must be a parent, guardian, or another adult authorised to support the child, and 18 or older, to create an
+        account. You&apos;re responsible for what you and anyone you invite to your team enter
+        about a child you support.
       </p>
 
       <h2>Your account</h2>

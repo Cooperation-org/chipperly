@@ -92,7 +92,7 @@ export function InviteAccept() {
         {invite.inviter_name} invited you to {invite.account_name}
       </h1>
       <p className={styles.text}>
-        As a {invite.role === 'admin' ? 'caregiver' : 'member'} you&apos;ll see the schedule, chips and stories for:
+        As {invite.role === 'admin' ? 'an admin' : 'a team member'} you&apos;ll see the schedule, chips and stories for:
       </p>
       <div className={styles.profiles}>
         {invite.profiles.map((profile) => (

@@ -97,7 +97,7 @@ test.describe('story attached to a schedule item', () => {
     await expect(page.getByRole('heading', { name: 'Benny' })).toBeVisible();
 
     // Leave the suite unlocked.
-    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
   });

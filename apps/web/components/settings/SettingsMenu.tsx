@@ -109,7 +109,7 @@ export function SettingsMenu() {
             ) : null}
             <ListRow
               tile={<Icon name="star" size={20} />}
-              name="Attitude history"
+              name="Feelings"
               trailing={<Icon name="chevron" size={20} />}
               onTap={() => router.push('/settings/attitude/')}
             />
@@ -142,7 +142,7 @@ export function SettingsMenu() {
       {isAdmin ? (
         <div className={styles.section}>
           <div className={styles.card}>
-            <ListRow tile={<Icon name="users" size={20} />} name="Care team" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/care-team/')} />
+            <ListRow tile={<Icon name="users" size={20} />} name="Team" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/team/')} />
           </div>
         </div>
       ) : null}
@@ -204,7 +204,7 @@ export function SettingsMenu() {
             name="Who uses this device"
             secondary={
               deviceRole?.kind === 'caregiver'
-                ? 'Me, a caregiver'
+                ? 'Me, a team member'
                 : deviceRole?.kind === 'child'
                   ? `${profiles.find((p) => p.id === deviceRole.profile_id)?.name ?? 'A child'}'s device`
                   : 'Not chosen yet (child view first)'

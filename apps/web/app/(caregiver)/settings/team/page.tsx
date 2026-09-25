@@ -3,14 +3,14 @@ import { CareTeamScreen } from '@/components/careTeam/CareTeamScreen';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
-  title: 'Care team',
+  title: 'Team',
   robots: { index: false, follow: false },
 };
 
-export default function CareTeamPage() {
+export default function TeamPage() {
   return (
     <>
-      <PageHeader title="Care team" backHref="/settings/" />
+      <PageHeader title="Team" backHref="/settings/" />
       <CareTeamScreen />
     </>
   );

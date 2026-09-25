@@ -170,14 +170,14 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
       <IconButton icon="close" aria-label="Cancel unlock" variant="solid" className={styles.close} onClick={onClose} />
       {mode === 'pin' ? (
         <>
-          <PinPad title="Caregiver PIN" onComplete={handlePinComplete} error={pinMessage} />
+          <PinPad title="Team PIN" onComplete={handlePinComplete} error={pinMessage} />
           <button type="button" className={styles.switchMode} onClick={() => setMode('password')}>
             Use my password instead
           </button>
         </>
       ) : (
         <form className={styles.passwordForm} onSubmit={(e) => void handlePasswordSubmit(e)}>
-          <p className={styles.passwordTitle}>Caregiver password</p>
+          <p className={styles.passwordTitle}>Team password</p>
           <TextField
             label="Password"
             type="password"

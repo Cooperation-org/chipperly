@@ -161,7 +161,7 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
       {pinPrompt ? (
         <div className={styles.ended}>
           <PinPad
-            title="Caregiver PIN"
+            title="Team PIN"
             error={pinError}
             onComplete={(pin) =>
               handlePinComplete(pin).then((ok) => {

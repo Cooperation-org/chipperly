@@ -22,12 +22,12 @@ test.describe('settings', () => {
     for (const name of [
       'Edit profile',
       /Child view options for/,
-      'Attitude history',
+      'Feelings',
       'Share link',
       'Activities',
       'Rewards',
       'Locations',
-      'Care team',
+      /^Team$/,
       'Switch profile',
       'Add profile',
       'Account',
@@ -187,8 +187,8 @@ test.describe('settings', () => {
     test.setTimeout(120_000);
 
     try {
-      await page.getByRole('button', { name: 'Care team', exact: true }).click();
-      await page.waitForURL('**/settings/care-team/');
+      await page.getByRole('button', { name: 'Team', exact: true }).click();
+      await page.waitForURL('**/settings/team/');
       await expectNoOverflow(page, 'S26 care team');
       await snap(page, 's26-care-team');
 
@@ -230,7 +230,7 @@ test.describe('settings', () => {
         await inviteePage.getByLabel('Email', { exact: true }).fill(inviteEmail);
         await inviteePage.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple');
         // S2's required consent checkbox (SOW Q21 / COPPA): Create account stays disabled without it.
-        await inviteePage.getByRole('checkbox', { name: /parent, guardian, or an authorised caregiver/i }).check();
+        await inviteePage.getByRole('checkbox', { name: /parent, guardian, or another adult authorised to support the child/i }).check();
         await inviteePage.getByRole('button', { name: 'Create account', exact: true }).click();
 
         await inviteePage.waitForURL('**/invite/?token=**');

@@ -70,7 +70,7 @@ test.describe('child picks and redeems a reward', () => {
   });
 
   test('with child_picks_reward off, the child can still tap the board directly', async () => {
-    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
 
@@ -118,7 +118,7 @@ test.describe('child picks and redeems a reward', () => {
     await sheet.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(sheet).toBeHidden();
 
-    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
 
@@ -172,7 +172,7 @@ test.describe('child picks and redeems a reward', () => {
   });
 
   test('caregiver turns both switches off; locked again, the strip is not a button and Redeem is absent', async () => {
-    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
 

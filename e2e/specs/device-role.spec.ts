@@ -22,10 +22,10 @@ test.describe('device role and children who use the app', () => {
     await page.reload();
     await page.waitForURL('**/today/');
     await expect(page.locator('nav[aria-label="Primary"]:visible')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Caregiver unlock' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Team unlock' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await expect(page.getByRole('button', { name: /^Who uses this device/ })).toContainText('Me, a caregiver');
+    await expect(page.getByRole('button', { name: /^Who uses this device/ })).toContainText('Me, a team member');
   });
 
   test('a child who does not use the app has no lock or child view options', async () => {
@@ -49,10 +49,10 @@ test.describe('device role and children who use the app', () => {
     await page.getByRole('button', { name: /^Who uses this device/ }).click();
     await page.getByRole('dialog').getByRole('button', { name: /'s device/ }).click();
     await page.waitForURL('**/child/**');
-    await expect(page.getByRole('button', { name: 'Caregiver unlock', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Team unlock', exact: true })).toBeVisible();
 
     await page.goto('/today/');
-    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
     await page.waitForURL('**/today/');

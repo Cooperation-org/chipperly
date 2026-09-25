@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { SignInForm } from '@/components/auth/SignInForm';
 
-const description = 'Neurodivergent life made easier: visual schedules, chips, timers, first-then boards and social stories for the whole care team.';
+const description = 'Neurodivergent life made easier: visual schedules, chips, timers, first-then boards and social stories for the whole team.';
 
 // No title override: root layout's default "Chipperly" is exactly right for
 // the homepage (a title here would run through the "%s · Chipperly" template).

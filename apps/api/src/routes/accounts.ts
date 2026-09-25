@@ -207,7 +207,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       to: invite!.email,
       rawToken,
       accountName: account.name,
-      inviterName: inviter?.display_name ?? 'A caregiver',
+      inviterName: inviter?.display_name ?? 'A team member',
       request,
     });
 
@@ -242,7 +242,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       to: invite!.email,
       rawToken,
       accountName: account?.name ?? '',
-      inviterName: inviter?.display_name ?? 'A caregiver',
+      inviterName: inviter?.display_name ?? 'A team member',
       request,
     });
 

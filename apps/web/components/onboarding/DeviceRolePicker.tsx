@@ -40,7 +40,7 @@ export function DeviceRolePicker({ onDone }: DeviceRolePickerProps) {
     <div className={styles.list}>
       <ListRow
         tile={<PictureTile emoji="🧑" name="Me" size="list" />}
-        name="Me, a caregiver"
+        name="Me, a team member"
         secondary="Opens to your screens. No child view, no PIN."
         trailing={current?.kind === 'caregiver' ? check : undefined}
         onTap={() => void choose({ kind: 'caregiver' })}

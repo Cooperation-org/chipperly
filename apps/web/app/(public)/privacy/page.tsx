@@ -26,7 +26,7 @@ export default function PrivacyPage() {
       <p className={styles.updated}>Last updated 18 September 2026.</p>
 
       <p>
-        Chipperly helps a parent, guardian, or care team build visual schedules, chip boards, and
+        Chipperly helps a parent, guardian, or support team build visual schedules, chip boards, and
         social stories for a child. This page explains what we store, where it lives, and who can
         see it.
       </p>
@@ -34,10 +34,10 @@ export default function PrivacyPage() {
       <h2>What we store</h2>
       <p>
         For you: your name, email, and password (stored as a hash, never in plain text). For each
-        child profile a parent or caregiver sets up: a name, a picture, daily schedules and
+        child profile a parent or team member sets up: a name, a picture, daily schedules and
         routines, rewards and chip totals, social stories, and mood check-ins entered by an adult.
         We don&apos;t collect anything directly from a child; every entry comes from the parent or
-        caregiver who set up the profile.
+        team member who set up the profile.
       </p>
 
       <h2>Where it lives</h2>
@@ -49,7 +49,7 @@ export default function PrivacyPage() {
 
       <h2>Who can see it</h2>
       <p>
-        The parent or admin who creates a child&apos;s profile, and any care team member that
+        The parent or admin who creates a child&apos;s profile, and any team member that
         parent invites by email (a therapist, teacher, or co-parent, for example). A parent can
         also turn on a read-only link to share today&apos;s schedule with someone outside the app;
         that link shows nothing else. Nobody else can see a child&apos;s data.
@@ -67,15 +67,15 @@ export default function PrivacyPage() {
       <p>
         From Settings, Account, you can download everything stored about you and the profiles you
         manage as one file, or delete your account and everything in it. Deleting an account
-        removes its data from our server; it doesn&apos;t remove data other care team members still
+        removes its data from our server; it doesn&apos;t remove data other team members still
         rely on for a shared profile.
       </p>
 
       <h2>Children under 13</h2>
       <p>
         Chipperly is built for use by an adult on a child&apos;s behalf, not for a child to sign up
-        directly. Creating an account requires confirming you&apos;re a parent, guardian, or an
-        authorised caregiver, and 18 or older.
+        directly. Creating an account requires confirming you&apos;re a parent, guardian, or
+        another adult authorised to support the child, and 18 or older.
       </p>
 
       <h2>Questions</h2>

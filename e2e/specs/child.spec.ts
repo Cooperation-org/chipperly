@@ -56,12 +56,8 @@ test.describe('child mode', () => {
     await enterPin(page, '1234');
 
     await expect(sheet.getByRole('switch', { name: 'Show free-time choices' })).toHaveAttribute('aria-checked', 'true');
-    // Off by default now that the Chipper Chart meter replaces it
-    // (lib/device/settings.ts); this test still wants the attitude prompt
-    // for the row below, so it opts back in here.
+    // On by default: five faces after each task (lib/device/settings.ts).
     const attitudeToggle = sheet.getByRole('switch', { name: 'Ask how it went after each task' });
-    await expect(attitudeToggle).toHaveAttribute('aria-checked', 'false');
-    await attitudeToggle.click();
     await expect(attitudeToggle).toHaveAttribute('aria-checked', 'true');
     await expectNoOverflow(page, 'S23 lock this device (toggles)');
     await snap(page, 's23-lock-toggles');
@@ -158,7 +154,7 @@ test.describe('child mode', () => {
   });
 
   test('S24 lock glyph -> PIN pad -> wrong then correct PIN', async () => {
-    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     const overlay = page.getByRole('dialog', { name: 'Unlock' });
     await expect(overlay).toBeVisible();
     await expectNoOverflow(page, 'S24 pin pad');
@@ -224,7 +220,7 @@ test.describe('child mode', () => {
     await expect(chipStrip).toHaveAttribute('aria-label', /^2 of 5 chips/);
 
     // Leave the suite unlocked.
-    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
   });

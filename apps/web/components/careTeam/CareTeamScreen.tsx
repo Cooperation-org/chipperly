@@ -63,7 +63,7 @@ export function CareTeamScreen() {
   if (!accountId) return null;
 
   if (!isAdmin) {
-    return <p className={styles.memberNote}>Only an account admin can see the care team.</p>;
+    return <p className={styles.memberNote}>Only an account admin can see the team.</p>;
   }
 
   async function removeMember(userId: string, name: string): Promise<void> {

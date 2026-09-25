@@ -48,7 +48,7 @@ test.describe('auth', () => {
     email = `e2e-auth-${unique}@example.com`;
     password = 'correct-horse-battery-staple';
 
-    const consentCheckbox = page.getByRole('checkbox', { name: /parent, guardian, or an authorised caregiver/i });
+    const consentCheckbox = page.getByRole('checkbox', { name: /parent, guardian, or another adult authorised to support the child/i });
     const createButton = page.getByRole('button', { name: 'Create account', exact: true });
     await expect(createButton).toBeDisabled();
 
@@ -153,7 +153,7 @@ test.describe('auth', () => {
     await page.getByLabel('Email', { exact: true }).fill(`e2e-auth2-${Date.now()}@example.com`);
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByLabel('Beta invite code', { exact: true }).fill('e2e-beta-code');
-    await page.getByRole('checkbox', { name: /parent, guardian, or an authorised caregiver/i }).check();
+    await page.getByRole('checkbox', { name: /parent, guardian, or another adult authorised to support the child/i }).check();
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
     await page.waitForURL('**/onboarding/kind/');
     await page.getByRole('button', { name: /My family/ }).click();

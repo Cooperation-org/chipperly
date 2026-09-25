@@ -79,7 +79,7 @@ test.describe('child view: phone is resting', () => {
   });
 
   test('the caregiver PIN ends resting', async () => {
-    await page.getByRole('button', { name: 'Caregiver unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 10_000 });
 

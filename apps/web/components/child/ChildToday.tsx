@@ -297,7 +297,7 @@ export function ChildToday() {
       });
     }
 
-    sheet.replace(<PinPad title="Caregiver PIN" onComplete={handlePinComplete} />, { title: 'Confirm location change' });
+    sheet.replace(<PinPad title="Team PIN" onComplete={handlePinComplete} />, { title: 'Confirm location change' });
   }
 
   function openMoment(): void {
@@ -419,7 +419,7 @@ export function ChildToday() {
         </span>
         <h1 className={styles.restingTitle}>Phone is resting</h1>
         <p className={styles.restingText}>Time for a break. Ask a grown-up when it can wake up.</p>
-        <IconButton icon="lock" aria-label="Caregiver unlock" variant="solid" className={styles.lockButton} onClick={() => setUnlocking(true)} />
+        <IconButton icon="lock" aria-label="Team unlock" variant="solid" className={styles.lockButton} onClick={() => setUnlocking(true)} />
         {unlocking ? <UnlockOverlay onClose={() => setUnlocking(false)} /> : null}
       </div>
     );
@@ -438,7 +438,7 @@ export function ChildToday() {
           </div>
           <IconButton
             icon="lock"
-            aria-label="Caregiver unlock"
+            aria-label="Team unlock"
             variant="solid"
             className={styles.lockButton}
             onClick={() => setUnlocking(true)}
@@ -492,7 +492,7 @@ export function ChildToday() {
       </div>
       <IconButton
         icon="lock"
-        aria-label="Caregiver unlock"
+        aria-label="Team unlock"
         variant="solid"
         className={styles.lockButton}
         onClick={() => setUnlocking(true)}

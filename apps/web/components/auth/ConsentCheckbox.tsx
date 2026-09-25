@@ -23,7 +23,7 @@ export function ConsentCheckbox({ id = 'consent', checked, onChange, required }:
         onChange={(e) => onChange(e.target.checked)}
       />
       <span>
-        I&apos;m a parent, guardian, or an authorised caregiver, and I&apos;m 18 or older. I agree to the{' '}
+        I&apos;m a parent, guardian, or another adult authorised to support the child, and I&apos;m 18 or older. I agree to the{' '}
         <Link href="/terms/" className={styles.link}>
           Terms
         </Link>{' '}

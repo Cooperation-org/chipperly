@@ -44,7 +44,7 @@ export async function signUp(page: Page, opts: { name: string; email?: string })
     const inviteCodeField = page.getByLabel('Beta invite code', { exact: true });
     if (await inviteCodeField.isVisible()) await inviteCodeField.fill(BETA_INVITE_CODE);
     // S2's required consent checkbox (SOW Q21 / COPPA): Create account stays disabled without it.
-    await page.getByRole('checkbox', { name: /parent, guardian, or an authorised caregiver/i }).check();
+    await page.getByRole('checkbox', { name: /parent, guardian, or another adult authorised to support the child/i }).check();
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
     landed = await page
@@ -125,7 +125,7 @@ export async function gotoTab(page: Page, tab: TabName): Promise<void> {
  * don't need to navigate again afterward.
  */
 async function unlockIfBounced(page: Page, path: string, password: string): Promise<void> {
-  const unlockButton = page.getByRole('button', { name: 'Caregiver unlock', exact: true });
+  const unlockButton = page.getByRole('button', { name: 'Team unlock', exact: true });
   // :visible, not just present: CaregiverShell always renders both
   // TabBar and TabRail (CSS hides one per breakpoint), so an unqualified
   // match here is two elements and .waitFor() on the wrong (hidden) one
@@ -187,7 +187,7 @@ export async function setCaregiverPin(page: Page, pin: string): Promise<void> {
  * setCaregiverPin() to have run earlier, while online.
  */
 export async function unlockPinIfBounced(page: Page, path: string, pin: string): Promise<void> {
-  const unlockButton = page.getByRole('button', { name: 'Caregiver unlock', exact: true });
+  const unlockButton = page.getByRole('button', { name: 'Team unlock', exact: true });
   const caregiverNav = page.locator('nav[aria-label="Primary"]:visible');
   await unlockButton.or(caregiverNav).first().waitFor({ state: 'visible' });
   if (!(await unlockButton.isVisible())) return;

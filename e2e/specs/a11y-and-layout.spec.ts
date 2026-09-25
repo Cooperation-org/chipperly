@@ -22,8 +22,8 @@ const ROUTES: { path: string; name: string }[] = [
   { path: '/settings/library/activities/', name: 'library activities' },
   { path: '/settings/library/rewards/', name: 'library rewards' },
   { path: '/settings/library/locations/', name: 'library locations' },
-  { path: '/settings/care-team/', name: 'care team' },
-  { path: '/settings/attitude/', name: 'attitude history' },
+  { path: '/settings/team/', name: 'care team' },
+  { path: '/settings/attitude/', name: 'feelings' },
   { path: '/settings/account/', name: 'account' },
 ];
 
