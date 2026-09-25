@@ -1,6 +1,6 @@
 # Roadmap: the owner's notes, line by line
 
-The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned into a checklist, in her order and her words, with what the rebuild does about each line. Status as of 19 Sept 2026. Legend: **built** (in the app and covered by tests), **partly** (some of it), **not built**, **skipped on purpose** (with the reason). Screen numbers (S6, S32...) are `docs/ux-plan.md`.
+The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned into a checklist, in her order and her words, with what the rebuild does about each line. Status as of 25 Sept 2026. Legend: **built** (in the app and covered by tests), **partly** (some of it), **not built**, **skipped on purpose** (with the reason). Screen numbers (S6, S32...) are `docs/ux-plan.md`.
 
 ## Dashboard
 
@@ -20,7 +20,7 @@ The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned 
 | 2 | "copy and paste images from internet, upload images or take photos" | built | Picture picker: paste, upload, camera, or emoji, on activities, steps, rewards, locations, profiles, story pages. Uploads are compressed to WebP on the server. |
 | 3 | "Schedule can be time-based but shouldn't have to be ... steps to a routine ... having to put a time to each ... is unnecessary" | built | Time is optional; ordering is by hand, with an optional morning / afternoon / evening grouping. Steps have no time unless you give one a number of minutes to start a timer. |
 | 4 | "change the order of activities without having to delete and start over" | built | Reorder from the item sheet (S7). |
-| 5 | "assign chip value to certain tasks as well as to rewards" | built | `chip_value` on activities and steps, `chip_cost` on rewards; the board goal follows the chosen reward's cost. |
+| 5 | "assign chip value to certain tasks as well as to rewards" | built | `chip_value` on activities, `chip_cost` on rewards; the board goal follows the chosen reward's cost. Steps earn nothing on their own: a routine's chips come when it is finished, plus the optional whole-routine bonus (see 25 Sept). |
 | 6 | "prompted daily, weekly or monthly to update the schedule" | not built | Proposal: a settings choice (off / weekly / monthly) that shows a calm banner on Today when the plan has not changed in that long. Small; waiting on her to say she wants it. |
 | 7 | "location based free time ... choices always available, with location-based rewards that have to be earned only showing as available if ... earned enough" | built | Rewards and free-time choices are one list per location, each either costing chips or always available (her Reward Library suggestion). Free time shows the always-available ones; earned ones show with their cost and can be redeemed when affordable (see EI 6). |
 | 8 | "incorporate the chipper chart ... visual timers and social stories ... a dentist appointment ... a social story that Benny could click on" | built | Chipper Chart: above. Timers: any step can carry minutes and start the timer. A social story can be attached to any Today item; the child sees a "Read story" button on it (19 Sept 2026). |
@@ -83,7 +83,7 @@ The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned 
 | --- | --- | --- |
 | "combine the choice and rewards, and just indicate whether this is something that is always available during free time or if there need to be chips earned ... where a location could be added ... customize new rewards with images, and indicate how many chips a reward costs" | built | Exactly this: one list, always-available flag, location, picture, chip cost (S25). She confirmed the merge on 18 Sept. |
 
-## Care team
+## Team (was "Care team")
 
 | She wrote | Status | Where / why |
 | --- | --- | --- |
@@ -93,7 +93,22 @@ The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned 
 
 | She wrote | Status | Where / why |
 | --- | --- | --- |
-| "doesn't do much yet but I like that it exists" | built | Profiles, care team, share link, account, per-child settings: redeem mode, chips coloured by attitude, per-task attitude prompt, child can choose the reward, child can redeem. |
+| "doesn't do much yet but I like that it exists" | built | Profiles, team, share link, account, per-child settings: redeem mode, chips coloured by attitude, per-task attitude prompt, child can choose the reward, child can redeem. |
+
+## Feedback, 25 Sept 2026
+
+| # | She wrote | Status | Where / why |
+| --- | --- | --- | --- |
+| 1 | "terminology to avoid 'care' and the person who gives support" | built | The people who support a child are the **team**: "Team" in Settings (`/settings/team/`), "Team PIN", "Team unlock", "Me, a team member", the invite email and the privacy and terms pages. Code names (`caregiver` in routes and types) are unchanged. |
+| 2 | "giving the feeling in control" | built | New profile switch "Child can change the order of the day": the child view gets "Change my order", big pictures with up and down. Adds to what the child already chooses: the reward they work for, redeeming free time, asking for the "then", their location, and now how they feel. |
+| 3 | "each location has different routines and each location have it's own available rewards" | built | Rewards were already per location. Routines now are too: Today (team and child) and the add picker only show routines tagged to the active location or to "Everywhere". |
+| 4 | "camera access to add images to the chips and tasks" | built | Camera, photo, paste or emoji on activities, rewards, locations, profiles, stories and now **each step** (tap a step's picture). |
+| 4 | "bigger images and less words eg. dyslexic users (option to the team to enable and disable)" | built | Profile switch "Big pictures, fewer words": bigger pictures in the child view and no text that only repeats what a picture or the check star shows. Task names stay, for read-aloud. |
+| 5 | "enhance steps creation UI" | built | Enter adds the next step and moves the cursor there; every step has its own picture button; the minutes field hides behind "Add a timer". |
+| 6 | "routines are mostly step based not time based so the time is optional" | built | Nothing asks for a time. A routine's time only shows once Repeat is set, and a step's minutes only after "Add a timer". |
+| 7 | "a final check up routine for the team/child so it's not like tasks" | built | The child's list ends with "Check-up" (not a task, nothing to tick): how was the day, five faces, then which things were hard, as picture tiles. The team's Today ends with "Day check-up": the child's faces so far, how the day went, and a note. |
+| 8 | "how he feels in each task ... + how he felt through out the day with no just +15 -10 like the chart history" | built | Five faces after each task (now on by default), a "How do I feel?" button any time, and the check-ups. Settings > Feelings shows one timeline per day (faces, check-ups, notes and Chipper Chart taps with times) and a 7-day chart of the average face. The Chipper Chart page drops the "+15 −10" counts and links there. |
+| 9 | "reward finishing the routine and all the steps if it was done without breaking down the steps (optional controllable by the account admin)" | built | Profile setting "Whole-routine bonus" (Off, +1, +2, +3, +5): extra chips when a routine is finished in one go, before any step is ticked. In the child view the routine's check star finishes it in one go while the bonus is on. |
 
 ## Not in her doc, waiting on her
 
@@ -102,4 +117,4 @@ The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned 
 - Google client id for Google sign-in; Apple only if store apps happen.
 - Counsel review of the privacy and terms drafts; HIPAA expectations, if any.
 - Hosting decision for production (our dedicated VM or her account).
-- The attitude-bonus reward (proposal in the 18 Sept meeting note): not started.
+- The attitude-bonus reward (proposal in the 18 Sept meeting note): not started. The whole-routine bonus (25 Sept, 9) is a different reward.
