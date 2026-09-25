@@ -28,6 +28,8 @@ e2e/test-results
 apps/web/AGENTS.md
 apps/web/CLAUDE.md
 graphify-out/
+.dev.vars
 apps/site/AGENTS.md
 apps/site/CLAUDE.md
 apps/site/media/
+deploy/cloudflare/worker-configuration.d.ts

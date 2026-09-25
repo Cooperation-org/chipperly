@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chipperly",
+  "account_id": "e576a82e9534f6dcf627eeaf15adf6d7",
+  "routes": [{ "pattern": "app.chipperlyapp.com", "custom_domain": true }],
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+
+  // The Next static export. Build it first with NEXT_PUBLIC_BASE_PATH and
+  // NEXT_PUBLIC_API_ORIGIN empty: `pnpm -F @chipperly/web build`.
+  "assets": {
+    "directory": "../../apps/web/out",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    // Only /api wakes the Worker (and the container); pages are served free.
+    "run_worker_first": ["/api/*"]
+  },
+
+  "containers": [
+    {
+      "class_name": "ChipperlyApi",
+      "image": "./Dockerfile",
+      "image_build_context": "../..",
+      "instance_type": "basic",
+      // One instance: the rate limiter and video queue live in process
+      // memory. More instances would split them.
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "API", "class_name": "ChipperlyApi" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChipperlyApi"] }],
+
+  // Hourly: wakes the container to send due routine reminders (see src/index.ts).
+  "triggers": { "crons": ["0 * * * *"] },
+
+  // Non-secret config. Secrets go in with `wrangler secret put`, see README.md.
+  "vars": {
+    "APP_ORIGIN": "https://app.chipperlyapp.com",
+    "STORAGE_DRIVER": "s3",
+    "MEDIA_PUBLIC_BASE": "https://media.chipperlyapp.com",
+    "LOG_LEVEL": "info"
+  }
+}

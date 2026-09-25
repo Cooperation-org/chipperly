@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.next
+apps/web
+e2e
+graphify-out
+test-results
+apps/api/uploads
+apps/api/.pgdata
+**/.env
+**/.env.*
+.git
