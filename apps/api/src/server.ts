@@ -4,7 +4,10 @@ import { closeDb } from './db/client.js';
 import { startReminders } from './lib/reminders.js';
 
 const app = await buildApp({ env });
-const stopReminders = startReminders((err) => app.log.error(err, 'routine reminders failed'));
+// With CRON_SECRET an outside cron drives reminders (routes/internal.ts); a timer here would double-send.
+const stopReminders = env.CRON_SECRET
+  ? () => {}
+  : startReminders((err) => app.log.error(err, 'routine reminders failed'));
 
 async function shutdown(signal: string): Promise<void> {
   app.log.info(`received ${signal}, shutting down`);

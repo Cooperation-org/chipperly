@@ -38,6 +38,8 @@ const EnvSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().min(1).optional(),
   VAPID_SUBJECT: z.string().min(1).default('mailto:hello@chipperlyapp.com'),
   APP_ORIGIN: z.string().min(1).optional(),
+  /** Set = reminders run from an outside cron via POST /api/internal/reminders (routes/internal.ts) instead of the in-process timer. */
+  CRON_SECRET: z.string().min(32).optional(),
   LOG_LEVEL: z.string().min(1).default('info'),
 });
 

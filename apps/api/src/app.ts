@@ -16,6 +16,7 @@ import shareRoutes from './routes/share.js';
 import deviceLocationRoutes from './routes/deviceLocation.js';
 import testingRoutes from './routes/testing.js';
 import adminRoutes from './routes/admin.js';
+import internalRoutes from './routes/internal.js';
 
 export interface BuildAppOptions {
   readonly env: Env;
@@ -78,7 +79,8 @@ export async function buildApp({ env }: BuildAppOptions): Promise<FastifyInstanc
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 20 } });
 
   const apiPrefix = `${env.BASE_PATH}/api`;
-  for (const plugin of routePlugins) {
+  const plugins = env.CRON_SECRET ? [...routePlugins, internalRoutes(env.CRON_SECRET)] : routePlugins;
+  for (const plugin of plugins) {
     await app.register(plugin, { prefix: apiPrefix });
   }
 
