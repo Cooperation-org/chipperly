@@ -18,8 +18,8 @@
   // Payload data. The OpenNext tag cache uses the same database (its own
   // "revalidations" table).
   "d1_databases": [
-    { "binding": "D1", "database_name": "chipperly-site", "database_id": "REPLACE_WITH_D1_ID" },
-    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "chipperly-site", "database_id": "REPLACE_WITH_D1_ID" },
+    { "binding": "D1", "database_name": "chipperly-site", "database_id": "5195570c-3b7a-4fa7-af24-c0b66d0bb939" },
+    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "chipperly-site", "database_id": "5195570c-3b7a-4fa7-af24-c0b66d0bb939" },
   ],
 
   "r2_buckets": [
@@ -53,7 +53,7 @@
   // a live seed): they set CLOUDFLARE_ENV=remote. Everything else stays local.
   "env": {
     "remote": {
-      "d1_databases": [{ "binding": "D1", "database_name": "chipperly-site", "database_id": "REPLACE_WITH_D1_ID", "remote": true }],
+      "d1_databases": [{ "binding": "D1", "database_name": "chipperly-site", "database_id": "5195570c-3b7a-4fa7-af24-c0b66d0bb939", "remote": true }],
       "r2_buckets": [{ "binding": "R2", "bucket_name": "chipperly-site-media", "remote": true }],
     },
   },
