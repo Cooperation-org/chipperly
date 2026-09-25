@@ -11,7 +11,7 @@ SRC="${SRC:-/src}"
 WORK=/work
 mkdir -p "$WORK"
 # Copy the repo without Windows-built artefacts.
-tar -C "$SRC" --exclude=node_modules --exclude=.next --exclude=.open-next --exclude=out \
+tar -C "$SRC" --exclude=.git --exclude=node_modules --exclude=.next --exclude=.open-next --exclude=out \
   --exclude=apps/web/android --exclude=apps/web/ios --exclude=e2e/screenshots -cf - . | tar -C "$WORK" -xf -
 cd "$WORK"
 corepack enable >/dev/null 2>&1
