@@ -41,6 +41,7 @@ await payload.updateGlobal({
   data: {
     contactEmail: current.contactEmail || 'info@chipperlyapp.com',
     share: current.share?.length ? current.share : ['facebook', 'x', 'linkedin', 'whatsapp', 'email', 'copy'],
+    social: current.social?.length ? current.social : [{ platform: 'facebook', url: 'https://www.facebook.com/chipperly' }],
   },
 });
 
