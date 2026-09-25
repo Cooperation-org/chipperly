@@ -126,6 +126,17 @@ function inTurn<T>(work: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/**
+ * Pushes whatever is queued right now and waits for it, in turn with any
+ * cycle already running (syncNow returns at once when one is). For a step
+ * that must not overtake local edits: locking (lib/device/lock.ts), after
+ * which the server refuses a device's profile writes.
+ */
+export function flushOutbox(): Promise<void> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve();
+  return inTurn(() => pushOutbox());
+}
+
 async function runCycle(): Promise<void> {
   if (!running) return;
   if (cycleRunning) {
