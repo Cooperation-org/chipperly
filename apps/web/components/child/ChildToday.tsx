@@ -335,11 +335,27 @@ export function ChildToday() {
 
   // Child mode never collapses (S32 "steps shown expanded"): the lock option
   // just gates whether the tree shows at all, so every level renders here.
+  // Sub-steps start closed; tapping their parent step opens them (its star still ticks it all).
+  const [openStepIds, setOpenStepIds] = useState<ReadonlySet<string>>(new Set());
+  function toggleStepOpen(stepId: string): void {
+    setOpenStepIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) next.delete(stepId);
+      else next.add(stepId);
+      return next;
+    });
+  }
+
   function renderStepNode(day: DayItem, node: StepNode): ReactNode {
     const step = node.node.step;
+    const hasChildren = node.children.length > 0;
+    const open = openStepIds.has(step.id);
     return (
       <li key={step.id}>
         <StepRow
+          hasChildren={hasChildren}
+          expanded={open}
+          onToggle={hasChildren ? () => toggleStepOpen(step.id) : undefined}
           tile={<Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="list" />}
           name={step.name}
           checked={node.done}
@@ -352,7 +368,7 @@ export function ChildToday() {
               : undefined
           }
         />
-        {node.children.length > 0 ? (
+        {hasChildren && open ? (
           <ul className={styles.steps}>{node.children.map((child) => renderStepNode(day, child))}</ul>
         ) : null}
       </li>

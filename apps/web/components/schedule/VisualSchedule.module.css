@@ -55,9 +55,46 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding-right: var(--space-3);
   background: var(--color-surface);
   border-radius: var(--radius-lg);
+}
+
+/* Picture and name are one big button filling the card, so a tap anywhere lands. */
+.rowTap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap-child);
+  padding: var(--space-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius-lg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+span.rowTap {
+  cursor: default;
+}
+
+.rowTap:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
 }
 
 .rowName {
@@ -90,7 +127,8 @@
     display: none !important;
   }
 
-  .check {
+  .check,
+  .chevron {
     display: none !important;
   }
 

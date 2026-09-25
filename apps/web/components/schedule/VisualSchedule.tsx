@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { StepNode } from '@/lib/data/schedule';
 import { Picture } from '@/components/media/Picture';
 import { CheckCircle } from '@/components/ui/CheckCircle';
+import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import styles from './VisualSchedule.module.css';
 
@@ -31,6 +32,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [ta
  */
 export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readOnly, printable }: VisualScheduleProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Steps with sub-steps start closed and open on a tap; the print preview shows everything.
+  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set());
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -75,13 +78,43 @@ export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readO
     };
   }, [onClose, title]);
 
+  function toggleOpen(id: string): void {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   function renderRow(node: StepNode, depth: number): ReactNode {
     const step = node.node.step;
+    const hasChildren = node.children.length > 0;
+    const open = readOnly || openIds.has(step.id);
+    const body = (
+      <>
+        <Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="child" />
+        <span className={styles.rowName}>{step.name}</span>
+      </>
+    );
     return (
       <li key={step.id} className={styles.row} style={{ '--depth': depth } as CSSProperties}>
         <div className={styles.rowMain}>
-          <Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="child" />
-          <span className={styles.rowName}>{step.name}</span>
+          {readOnly ? (
+            <span className={styles.rowTap}>{body}</span>
+          ) : hasChildren ? (
+            // A step with sub-steps: tapping the card opens them; the star still ticks the whole step.
+            <button type="button" className={styles.rowTap} aria-expanded={open} onClick={() => toggleOpen(step.id)}>
+              {body}
+              <Icon name="chevron" size={28} className={[styles.chevron, open ? styles.chevronOpen : ''].filter(Boolean).join(' ')} />
+            </button>
+          ) : (
+            // The whole card ticks the step (owner, 26 Sept: small circles take a child two or three tries).
+            // Pointer-only: the star next to it is the one control screen readers and keyboards use.
+            <button type="button" className={styles.rowTap} tabIndex={-1} aria-hidden="true" onClick={() => onToggle(step.id, !node.done)}>
+              {body}
+            </button>
+          )}
           <CheckCircle
             checked={node.done}
             onChange={readOnly ? undefined : (next) => onToggle(step.id, next)}
@@ -91,7 +124,7 @@ export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readO
             className={styles.check}
           />
         </div>
-        {node.children.length > 0 ? <ul className={styles.rows}>{node.children.map((child) => renderRow(child, depth + 1))}</ul> : null}
+        {hasChildren && open ? <ul className={styles.rows}>{node.children.map((child) => renderRow(child, depth + 1))}</ul> : null}
       </li>
     );
   }

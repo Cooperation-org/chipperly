@@ -68,7 +68,9 @@ test.describe('visual schedule', () => {
     await itemSheet.getByRole('button', { name: 'Open as visual schedule', exact: true }).click();
     const overlay = page.getByRole('dialog', { name: 'Get Ready' });
     await expect(overlay).toBeVisible();
-    // The parent step plus its two sub-steps, nothing else.
+    // One parent step; its two sub-steps open when the card is tapped.
+    await expect(overlay.getByRole('checkbox')).toHaveCount(1);
+    await overlay.getByRole('button', { name: 'Brush teeth', expanded: false }).click();
     await expect(overlay.getByRole('checkbox')).toHaveCount(3);
     await expect(overlay.getByText('Brush teeth')).toBeVisible();
     await expect(overlay.getByText('Turn on tap')).toBeVisible();
@@ -136,11 +138,13 @@ test.describe('visual schedule', () => {
     await expectNoOverflow(page, 'S32 child visual schedule overlay');
     await snap(page, 's32-child-visual-schedule');
 
+    await overlay.getByRole('button', { name: 'Brush teeth', expanded: false }).click();
     const rinse = overlay.getByRole('checkbox', { name: /^Rinse,/ });
     await expect(rinse).toHaveAttribute('aria-checked', 'true'); // cascaded from the earlier caregiver check
     const turnOnTap = overlay.getByRole('checkbox', { name: /^Turn on tap,/ });
     await expect(turnOnTap).toHaveAttribute('aria-checked', 'false'); // left unchecked by the previous test
-    await turnOnTap.click();
+    // Owner, 26 Sept: the whole card is the target, not just the small circle. Tap the words.
+    await overlay.getByText('Turn on tap', { exact: true }).click();
     await expect(turnOnTap).toHaveAttribute('aria-checked', 'true');
 
     await overlay.getByRole('button', { name: 'Close visual schedule', exact: true }).click();
