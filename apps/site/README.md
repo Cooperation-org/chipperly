@@ -35,7 +35,7 @@ Run `pnpm -F @chipperly/site generate:types` after schema changes, and `generate
 - `/sitemap.xml`, `/robots.txt`, `/blog/rss.xml`, `/llms.txt` and `/llms-full.txt` (every page and post as Markdown) are generated from the CMS and refreshed the moment an editor saves. Anything marked noindex stays out of all of them.
 - Share images: the SEO image if set, otherwise one drawn at `/og?title=...`.
 - Search Console: paste the HTML-tag verification code in Site settings (or verify by DNS), then submit `https://<domain>/sitemap.xml` in Search Console. Same for Bing Webmaster Tools.
-- Microsoft Clarity: paste the project ID in Site settings. It loads on the public site only, never in `/admin`. Clarity records sessions, so the privacy policy should mention it.
+- Microsoft Clarity (project `ynqc1d26iw`): set `CLARITY_ID` on the live server, or the field in Site settings. It records only on the live domain: never in dev, on localhost or a LAN IP, on any other host, or in `/admin` (`src/lib/clarity.ts`, tested). Clarity records sessions, so the privacy policy should mention it.
 - Pages are static or cached (ISR, one hour) and refreshed as soon as an editor saves.
 
 ## Product screenshots
