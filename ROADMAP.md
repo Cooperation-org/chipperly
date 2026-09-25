@@ -110,6 +110,14 @@ The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned 
 | 8 | "how he feels in each task ... + how he felt through out the day with no just +15 -10 like the chart history" | built | Five faces after each task (now on by default), a "How do I feel?" button any time, and the check-ups. Settings > Feelings shows one timeline per day (faces, check-ups, notes and Chipper Chart taps with times) and a 7-day chart of the average face. The Chipper Chart page drops the "+15 −10" counts and links there. |
 | 9 | "reward finishing the routine and all the steps if it was done without breaking down the steps (optional controllable by the account admin)" | built | Profile setting "Whole-routine bonus" (Off, +1, +2, +3, +5): extra chips when a routine is finished in one go, before any step is ticked. In the child view the routine's check star finishes it in one go while the bonus is on. |
 
+## Since then (26 Sept 2026)
+
+| She wrote | Status | Where / why |
+| --- | --- | --- |
+| "The entire button on the visual schedule should be a clickable surface. Benny sometimes takes two or three tries to click on the little circle." | built | Tapping anywhere on a step's card ticks it; a step with sub-steps opens them instead (its star still ticks it all). Same in the child's Today. |
+| Read aloud, and a parent's own voice on story pages | built | Profile switch "Read tasks aloud": a speaker on every task and step, and "Brush teeth, done!" on a tick. Each story page can be recorded in a grown-up's own voice ("Listen" in the viewer). Works in the Android app too (native text-to-speech). |
+| High-contrast visuals like the CVI supports a parent uses | built | Profile switch "High contrast (CVI)": the child view, its sheets, visual schedule and stories go black with white text and bright yellow outlines. |
+
 ## Not in her doc, waiting on her
 
 - Railway database dump and R2 / Spaces credentials, to import the beta families (`docs/import-rails.md`).
