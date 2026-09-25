@@ -6,11 +6,10 @@ import { getKv, setKv, useKv, useKvLoaded } from '../db/kv';
 export interface DeviceSettings {
   sounds: boolean;
   reduce_motion: 'system' | 'on' | 'off';
-  high_contrast: boolean;
 }
 
 const DEVICE_SETTINGS_KEY = 'device_settings';
-const DEFAULT_DEVICE_SETTINGS: DeviceSettings = { sounds: true, reduce_motion: 'system', high_contrast: false };
+const DEFAULT_DEVICE_SETTINGS: DeviceSettings = { sounds: true, reduce_motion: 'system' };
 
 export function useDeviceSettings(): DeviceSettings {
   return useKv<DeviceSettings>(DEVICE_SETTINGS_KEY, DEFAULT_DEVICE_SETTINGS);

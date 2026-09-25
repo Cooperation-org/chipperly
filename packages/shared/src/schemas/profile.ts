@@ -68,6 +68,12 @@ export const ProfileSettingsSchema = z
     child_reorders: z.boolean().optional(),
     /** Child view reads tasks and steps aloud: a speaker button on each, and "<name>, done!" when ticked. Set by the team. Default false. */
     read_aloud: z.boolean().optional(),
+    /**
+     * Child view in high contrast for cortical visual impairment (CVI):
+     * black background, white text, bright yellow outlines and buttons,
+     * thick borders. Set by the team. Default false.
+     */
+    high_contrast: z.boolean().optional(),
     /** Child view shows bigger pictures and fewer words (dyslexic readers, early readers). Set by the team. Default false. */
     picture_mode: z.boolean().optional(),
     /** Extra chips (reason 'routine') when a routine is finished in one go from its own row, without ticking the steps one by one. Null/absent: off. */

@@ -97,6 +97,35 @@ html[data-mode='child'] {
 }
 
 /* Motion off: system preference or the manual Settings toggle */
+/*
+ * High contrast for cortical visual impairment (CVI), profile setting
+ * high_contrast, child view only (ChildToday sets data-contrast): black
+ * everywhere, white text, one bright yellow for outlines, secondary text,
+ * buttons and focus, thick borders so each card stands out on the black.
+ * Yellow on black is about 14:1, white on black 21:1.
+ */
+html[data-mode='child'][data-contrast='cvi'] {
+  --color-bg: #000000;
+  --color-surface: #000000;
+  --color-surface-2: #000000;
+  --color-text: #ffffff;
+  --color-text-muted: #ffd400;
+  --color-border: #ffd400;
+  --color-primary: #ffd400;
+  --color-primary-ink: #000000;
+  --color-secondary: #ffd400;
+  --color-accent: #ffd400;
+  --color-success: #ffd400;
+  --color-danger: #ff6b6b;
+  --color-focus: #ffffff;
+  --shadow-sheet: none;
+}
+
+/* Every border that exists gets thick; elements with no border stay borderless. */
+html[data-mode='child'][data-contrast='cvi'] body * {
+  border-width: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-fast: 0ms;

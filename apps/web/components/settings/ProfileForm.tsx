@@ -42,6 +42,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const [childReorders, setChildReorders] = useState(false);
   const [pictureMode, setPictureMode] = useState(false);
   const [readAloud, setReadAloud] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -62,6 +63,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     setChildReorders(row.settings.child_reorders ?? false);
     setPictureMode(row.settings.picture_mode ?? false);
     setReadAloud(row.settings.read_aloud ?? false);
+    setHighContrast(row.settings.high_contrast ?? false);
     setLoadedFor(row.id);
   }
 
@@ -88,6 +90,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
         child_reorders: childReorders,
         picture_mode: pictureMode,
         read_aloud: readAloud,
+        high_contrast: highContrast,
       },
     });
     setSaving(false);
@@ -173,6 +176,10 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           <div className={styles.toggleRow}>
             <span className={styles.settingLabel}>Read tasks aloud</span>
             <Switch label="Read tasks aloud" checked={readAloud} onChange={setReadAloud} />
+          </div>
+          <div className={styles.toggleRow}>
+            <span className={styles.settingLabel}>High contrast (CVI)</span>
+            <Switch label="High contrast (CVI)" checked={highContrast} onChange={setHighContrast} />
           </div>
           <div className={styles.setting}>
             <div className={styles.toggleRow}>

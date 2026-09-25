@@ -98,6 +98,17 @@ export function ChildToday() {
   const rewardPhotoUrl = useMediaUrl(workingFor.reward?.photo_id);
 
   useMaterializedDay(profileId, isoDate);
+
+  // High contrast (CVI) is marked on <html>, not this screen, so the sheets, visual schedule,
+  // stories and timer the child opens (portalled to <body>) turn high contrast too. tokens.css.
+  const highContrast = profile?.settings.high_contrast === true;
+  useEffect(() => {
+    if (!highContrast) return undefined;
+    document.documentElement.dataset.contrast = 'cvi';
+    return () => {
+      delete document.documentElement.dataset.contrast;
+    };
+  }, [highContrast]);
   // The Chipper Chart button shows today's face, so it changes as the chart does.
   const moodLevel = useMoodLevel(profileId, isoDate);
 
