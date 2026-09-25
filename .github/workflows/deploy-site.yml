@@ -1,0 +1,47 @@
+name: Deploy site
+
+# chipperlyapp.com (apps/site) to Cloudflare: migrates the live D1, builds
+# with OpenNext on Linux, deploys the Worker. Run it from the Actions tab.
+# Also deploys the chipperly-mail Email Worker.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_ACCOUNT_ID: e576a82e9534f6dcf627eeaf15adf6d7
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET }}
+      NEXT_PUBLIC_SITE_URL: https://chipperlyapp.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile --filter @chipperly/site...
+
+      - name: Migrate the live D1, build and deploy the site Worker
+        run: pnpm -F @chipperly/site run deploy
+
+      - name: Deploy the mail Worker
+        working-directory: apps/site
+        run: pnpm exec wrangler deploy --config mail-worker/wrangler.jsonc
+
+      - name: Smoke test
+        run: |
+          for u in / /features /about /blog /sitemap.xml; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://chipperlyapp.com$u")
+            echo "$u $code"
+            [ "$code" = 200 ] || exit 1
+          done
