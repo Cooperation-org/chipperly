@@ -72,6 +72,7 @@ export interface Config {
     pages: Page;
     media: Media;
     waitlist: Waitlist;
+    'email-addresses': EmailAddress;
     users: User;
     redirects: Redirect;
     exports: Export;
@@ -89,6 +90,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     waitlist: WaitlistSelect<false> | WaitlistSelect<true>;
+    'email-addresses': EmailAddressesSelect<false> | EmailAddressesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
@@ -361,6 +363,33 @@ export interface Waitlist {
   createdAt: string;
 }
 /**
+ * Forwarding addresses at @chipperlyapp.com. Mail sent to the address arrives in the destination inbox. A new destination gets a verification email from Cloudflare and must click it once. Use * as the name for the catch-all (any other address).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-addresses".
+ */
+export interface EmailAddress {
+  id: number;
+  /**
+   * e.g. info, support, taymar. * = every other address.
+   */
+  localPart: string;
+  destination: string;
+  enabled?: boolean | null;
+  /**
+   * Who or what this address is for.
+   */
+  note?: string | null;
+  address?: string | null;
+  /**
+   * Pending until the destination clicks the verification email from Cloudflare.
+   */
+  status?: ('active' | 'pending' | 'disabled' | 'not-synced') | null;
+  ruleId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects".
  */
@@ -595,6 +624,10 @@ export interface PayloadLockedDocument {
         value: number | Waitlist;
       } | null)
     | ({
+        relationTo: 'email-addresses';
+        value: number | EmailAddress;
+      } | null)
+    | ({
         relationTo: 'users';
         value: number | User;
       } | null)
@@ -747,6 +780,21 @@ export interface WaitlistSelect<T extends boolean = true> {
   name?: T;
   role?: T;
   source?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-addresses_select".
+ */
+export interface EmailAddressesSelect<T extends boolean = true> {
+  localPart?: T;
+  destination?: T;
+  enabled?: T;
+  note?: T;
+  address?: T;
+  status?: T;
+  ruleId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1033,7 +1081,16 @@ export interface TaskCreateCollectionExport {
     name: string;
     batchSize?: number | null;
     collectionSlug:
-      'posts' | 'categories' | 'pages' | 'media' | 'waitlist' | 'users' | 'redirects' | 'exports' | 'imports';
+      | 'posts'
+      | 'categories'
+      | 'pages'
+      | 'media'
+      | 'waitlist'
+      | 'email-addresses'
+      | 'users'
+      | 'redirects'
+      | 'exports'
+      | 'imports';
     drafts?: ('yes' | 'no') | null;
     exportCollection: string;
     fields?: string[] | null;

@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import type { GetPlatformProxyOptions } from 'wrangler';
 
 import { Categories } from './collections/Categories';
+import { EmailAddresses } from './collections/EmailAddresses';
 import { Media } from './collections/Media';
 import { Pages } from './collections/Pages';
 import { Posts } from './collections/Posts';
@@ -75,7 +76,7 @@ export default buildConfig({
       graphics: { Logo: '/components/admin/Logo#Logo', Icon: '/components/admin/Logo#Icon' },
     },
   },
-  collections: [Posts, Categories, Pages, Media, Waitlist, Users],
+  collections: [Posts, Categories, Pages, Media, Waitlist, EmailAddresses, Users],
   globals: [Settings],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',

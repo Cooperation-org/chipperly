@@ -45,8 +45,13 @@
     // Microsoft Clarity, live domain only (src/lib/clarity.ts).
     "CLARITY_ID": "ynqc1d26iw",
     "CACHE_PURGE_ZONE_ID": "9f961107ff719cdefb274757754dd8cc",
+    // Team email forwarding managed in /admin > Email addresses.
+    "EMAIL_ROUTING_ACCOUNT_ID": "e576a82e9534f6dcf627eeaf15adf6d7",
+    "EMAIL_ROUTING_ZONE_ID": "9f961107ff719cdefb274757754dd8cc",
+    "EMAIL_DOMAIN": "chipperlyapp.com",
   },
-  // Secrets (wrangler secret put): PAYLOAD_SECRET, CACHE_PURGE_API_TOKEN.
+  // Secrets (wrangler secret put): PAYLOAD_SECRET, CACHE_PURGE_API_TOKEN,
+  // CLOUDFLARE_EMAIL_API_TOKEN.
 
   // The same D1/R2 marked remote, used only by commands that must read or
   // write the live data from a machine (deploy:database, the deploy build,
