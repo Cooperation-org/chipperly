@@ -2,6 +2,7 @@
 import EmbeddedPostgres from 'embedded-postgres';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
+import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,6 +16,16 @@ export const DATA_DIR = path.join(__dirname, '..', '.pgdata');
 
 let server;
 let started;
+/** True when the cluster was already running (another dev server or test run started it): use it, never stop it. */
+let adopted = false;
+
+function portOpen() {
+  return new Promise((resolve) => {
+    const socket = net.connect(PORT, HOST);
+    socket.once('connect', () => { socket.end(); resolve(true); });
+    socket.once('error', () => resolve(false));
+  });
+}
 
 function getServer() {
   if (!server) {
@@ -51,7 +62,10 @@ export async function ensureServer() {
       await instance.initialise();
     }
     ensureMmapDynamicShm();
-    started = instance.start();
+    started = portOpen().then((open) => {
+      adopted = open;
+      return open ? undefined : instance.start();
+    });
   }
   await started;
   return instance;
@@ -62,6 +76,7 @@ export async function stopServer() {
   if (!started) return;
   await started;
   started = undefined;
+  if (adopted) return;
   await server.stop();
   // On Windows, EmbeddedPostgres#stop() force-kills via `taskkill /f`, which
   // doesn't give postgres a chance to remove its own postmaster.pid (same as
