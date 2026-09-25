@@ -32,6 +32,10 @@
   // next/image resizing (Cloudflare Images binding).
   "images": { "binding": "IMAGES" },
 
+  // The revalidation queue calls this Worker back through a service binding
+  // to itself; without it every stale ISR page (older than 1h) returns 500.
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "chipperly-site" }],
+
   // Background ISR revalidation queue.
   "durable_objects": {
     "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }],
