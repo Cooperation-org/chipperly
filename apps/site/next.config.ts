@@ -18,6 +18,17 @@ const nextConfig: NextConfig = {
   // Packages with workerd-specific code (https://opennext.js.org/cloudflare/howtos/workerd).
   serverExternalPackages: ['jose', 'pg-cloudflare'],
   poweredByHeader: false,
+  // One canonical host: www.chipperlyapp.com -> chipperlyapp.com.
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.chipperlyapp.com' }],
+        destination: 'https://chipperlyapp.com/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
