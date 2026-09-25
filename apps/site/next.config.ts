@@ -20,13 +20,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // One canonical host: www.chipperlyapp.com -> chipperlyapp.com.
   async redirects() {
+    const www = [{ type: 'host' as const, value: 'www.chipperlyapp.com' }];
+    // Two rules: an empty :path* is not substituted, so "/" needs its own.
     return [
-      {
-        source: '/:path*',
-        has: [{ type: 'host', value: 'www.chipperlyapp.com' }],
-        destination: 'https://chipperlyapp.com/:path*',
-        permanent: true,
-      },
+      { source: '/', has: www, destination: 'https://chipperlyapp.com/', permanent: true },
+      { source: '/:path+', has: www, destination: 'https://chipperlyapp.com/:path+', permanent: true },
     ];
   },
   async headers() {
