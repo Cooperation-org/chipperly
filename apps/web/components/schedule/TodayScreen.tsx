@@ -42,6 +42,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { DateNav } from './DateNav';
 import { DayNote, DayNoteAddButton } from './DayNote';
+import { TeamCheckupSheet } from '@/components/feelings/FeelingSheets';
 import { ItemSheet } from './ItemSheet';
 import { allDone, groupByPartOfDay, moveItem, secondaryText, weekdayName } from './todayModel';
 import styles from './TodayScreen.module.css';
@@ -410,6 +411,16 @@ export function TodayScreen() {
             </section>
           ))}
           {isAllDone ? <p className={styles.allDone}>All done for today</p> : null}
+          <div className={styles.checkupRow}>
+            <Button
+              variant={isAllDone ? 'primary' : 'secondary'}
+              onClick={() =>
+                open(<TeamCheckupSheet profileId={profileId} isoDate={isoDate} childName={profile.name} />, { title: 'Day check-up' })
+              }
+            >
+              Day check-up
+            </Button>
+          </div>
         </div>
       )}
 

@@ -1,0 +1,41 @@
+.faces {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.face {
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  cursor: pointer;
+}
+
+.lg .face {
+  width: var(--tap-child);
+  height: var(--tap-child);
+  font-size: var(--text-2xl);
+}
+
+.md .face {
+  width: var(--tap);
+  height: var(--tap);
+  font-size: var(--text-xl);
+}
+
+.face:hover {
+  background: var(--color-surface);
+}
+
+.face:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.face[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}

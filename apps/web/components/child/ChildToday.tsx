@@ -47,6 +47,8 @@ import { groupByPartOfDay } from '@/components/schedule/todayModel';
 import { ChipperChartSheet } from '@/components/chipperChart/ChipperChartSheet';
 import { VisualSchedule } from '@/components/schedule/VisualSchedule';
 import { AttitudePrompt } from './AttitudePrompt';
+import { ChildCheckupSheet, MomentSheet } from '@/components/feelings/FeelingSheets';
+import { ChildOrderSheet } from './ChildOrderSheet';
 import { DayBand } from './DayBand';
 import { ReadStoryButton } from './ReadStoryButton';
 import { TomorrowBand } from './TomorrowBand';
@@ -83,7 +85,12 @@ export function ChildToday() {
   // Same order as the caregiver's Today (groupByPartOfDay): untimed first, then morning/afternoon/evening.
   // Raw position order dropped anything added later, like a new routine, to the bottom of the child's day.
   const rawDayItems = useDayItems(profileId, isoDate);
-  const dayItems = useMemo(() => groupByPartOfDay(rawDayItems).flatMap((group) => group.items), [rawDayItems]);
+  // A child who may set their own order sees exactly that order (position), not the part-of-day grouping.
+  const ownOrder = profile?.settings.child_reorders === true;
+  const dayItems = useMemo(
+    () => (ownOrder ? rawDayItems : groupByPartOfDay(rawDayItems).flatMap((group) => group.items)),
+    [rawDayItems, ownOrder],
+  );
   const { location: activeLocation, setActiveLocationId } = useActiveLocation(profileId);
   const locations = useLocations(profileId);
   const workingFor = useWorkingFor(profileId, activeLocation?.id ?? null);
@@ -293,6 +300,18 @@ export function ChildToday() {
     sheet.replace(<PinPad title="Caregiver PIN" onComplete={handlePinComplete} />, { title: 'Confirm location change' });
   }
 
+  function openMoment(): void {
+    sheet.open(<MomentSheet profileId={profileId} />, { title: 'How do I feel?' });
+  }
+
+  function openOrder(): void {
+    sheet.open(<ChildOrderSheet profileId={profileId} isoDate={isoDate} dayItems={dayItems} />, { title: 'My order' });
+  }
+
+  function openCheckup(): void {
+    sheet.open(<ChildCheckupSheet profileId={profileId} dayItems={dayItems} />, { title: 'Check-up' });
+  }
+
   function openLocationPicker(): void {
     sheet.open(
       <ul className={styles.locationList}>
@@ -432,6 +451,9 @@ export function ChildToday() {
     );
   }
 
+  // Big pictures, fewer words (profile setting, the team's choice): see .pictureMode in the CSS.
+  const screenClass = [styles.screen, profile.settings.picture_mode ? styles.pictureMode : ''].filter(Boolean).join(' ');
+
   const header = (
     <header className={styles.header}>
       <div className={styles.identity}>
@@ -443,29 +465,31 @@ export function ChildToday() {
           {activeLocation?.name ?? 'Location'}
         </button>
       ) : null}
-      {showChipStrip || options.show_chipper_chart ? (
-        <div className={styles.chipRow}>
-          {showChipStrip ? (
-            <ChipStrip
-              size="lg"
-              filled={workingFor.filled}
-              total={workingFor.goal}
-              reward={
-                workingFor.reward
-                  ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, photoUrl: rewardPhotoUrl, name: workingFor.reward.name }
-                  : undefined
-              }
-              onTap={canPickReward ? openPickReward : openWorkingFor}
-            />
-          ) : null}
-          {/* Up here with the chips, like the caregiver's Today, not in the bottom bar. */}
-          {options.show_chipper_chart ? (
-            <button type="button" className={styles.chipperChartButton} aria-label="Chipper Chart" onClick={openChipperChart}>
-              <span aria-hidden="true">{levelEmoji(moodLevel)}</span>
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      {/* Always shown: the "How do I feel?" face lives here with the chips. */}
+      <div className={styles.chipRow}>
+        {showChipStrip ? (
+          <ChipStrip
+            size="lg"
+            filled={workingFor.filled}
+            total={workingFor.goal}
+            reward={
+              workingFor.reward
+                ? { emoji: workingFor.reward.emoji ?? undefined, photo_id: workingFor.reward.photo_id, photoUrl: rewardPhotoUrl, name: workingFor.reward.name }
+                : undefined
+            }
+            onTap={canPickReward ? openPickReward : openWorkingFor}
+          />
+        ) : null}
+        {/* Up here with the chips, like the caregiver's Today, not in the bottom bar. */}
+        {options.show_chipper_chart ? (
+          <button type="button" className={styles.chipperChartButton} aria-label="Chipper Chart" onClick={openChipperChart}>
+            <span aria-hidden="true">{levelEmoji(moodLevel)}</span>
+          </button>
+        ) : null}
+        <button type="button" className={styles.chipperChartButton} aria-label="How do I feel?" onClick={openMoment}>
+          <span aria-hidden="true">💭</span>
+        </button>
+      </div>
       <IconButton
         icon="lock"
         aria-label="Caregiver unlock"
@@ -482,7 +506,7 @@ export function ChildToday() {
   if (profile.settings.child_layout === 'tiles' && !showDay) {
     const chipsTile = workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation);
     return (
-      <div className={styles.screen}>
+      <div className={screenClass}>
         {header}
         <p className={styles.greeting}>Hi {profile.name}! What do you want to do?</p>
         <div className={styles.tiles}>
@@ -500,7 +524,7 @@ export function ChildToday() {
   }
 
   return (
-    <div className={styles.screen}>
+    <div className={screenClass}>
       {header}
       {profile.settings.child_layout === 'tiles' ? (
         <BigButton variant="secondary" icon="arrowLeft" onClick={() => setShowDay(false)}>
@@ -557,10 +581,15 @@ export function ChildToday() {
                     size="lg"
                     // Each finished step lights its share of the 12-ray star (6 steps: 2 rays each).
                     progress={hasSteps ? stepsDone / topSteps.length : undefined}
-                    // A stepped task's chip only comes from finishing every step
-                    // (setStepCompleted's cascade), never a direct tap here --
-                    // tapping it just opens the steps, same as tapping the bar.
-                    onChange={hasSteps ? () => toggleExpanded(day.item.id) : (next) => void handleToggle(day, next)}
+                    // A stepped task's chip normally comes from finishing every step
+                    // (setStepCompleted's cascade), so tapping here opens the steps.
+                    // With the whole-routine bonus on and no step ticked yet, the
+                    // child may finish it in one go instead (setCompleted awards the bonus).
+                    onChange={
+                      !hasSteps || (profile.settings.routine_bonus_chips && stepsDone === 0 && !dimmed)
+                        ? (next) => void handleToggle(day, next)
+                        : () => toggleExpanded(day.item.id)
+                    }
                   />
                 </div>
 
@@ -590,6 +619,20 @@ export function ChildToday() {
               <p className={styles.allDoneText}>All done!</p>
             </div>
           ) : null}
+
+          {profile.settings.child_reorders && dayItems.length > 1 ? (
+            <BigButton variant="secondary" icon="split" onClick={openOrder}>
+              Change my order
+            </BigButton>
+          ) : null}
+
+          {/* The day's last thing, but not a task: nothing to tick, nothing earned. */}
+          <BigButton variant={isAllDone ? 'primary' : 'secondary'} onClick={openCheckup}>
+            <span className={styles.emojiGlyph} aria-hidden="true">
+              🌙
+            </span>
+            Check-up
+          </BigButton>
         </div>
       )}
 

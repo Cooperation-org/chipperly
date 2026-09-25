@@ -219,8 +219,11 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
       const [stored] = await tx`select * from schedule_items where id = ${mutation.id} limit 1`;
       if (!stored) return false;
       const storedRow = normalizeRow(stored);
+      // The child putting today's tasks in their own order, when the team allows it.
+      const movesOnly = (parsed.data as SyncRow).position !== storedRow.position;
+      const mayMove = movesOnly && (await lockedProfileSettings(tx, parsed.data.profile_id)).child_reorders === true;
       const contentKeys = ['date', 'position', 'activity_id', 'start_time', 'part_of_day', 'source', 'deleted_at'] as const;
-      return contentKeys.every((key) => (parsed.data as SyncRow)[key] === storedRow[key]);
+      return contentKeys.every((key) => (mayMove && key === 'position') || (parsed.data as SyncRow)[key] === storedRow[key]);
     }
     // step_completions is un-completed by soft-delete (schemas/schedule.ts
     // StepCompletionSchema docstring), so a locked device must be able to

@@ -8,8 +8,13 @@ export type AttitudeValue = z.infer<typeof AttitudeValue>;
 export const FeelingSchema = z.number().int().min(1).max(5);
 export type Feeling = z.infer<typeof FeelingSchema>;
 
-/** After a task, any moment of the day ("How do I feel?"), or the end-of-day check-up (child or team). */
-export const AttitudeKind = z.enum(['task', 'moment', 'checkup']);
+/**
+ * After a task, any moment of the day ("How do I feel?"), the child's
+ * end-of-day check-up, or a team member's review of the day. Kind, not
+ * `created_by`, tells the last two apart: a child device records under the
+ * signed-in team member's id.
+ */
+export const AttitudeKind = z.enum(['task', 'moment', 'checkup', 'review']);
 export type AttitudeKind = z.infer<typeof AttitudeKind>;
 
 /** 3 and up reads as the old 'good', so rows from older clients and the new ones share one `value`. */

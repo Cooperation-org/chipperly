@@ -46,9 +46,9 @@ const LOCK_KEY = 'lock';
 export const DEFAULT_LOCK_OPTIONS: LockOptions = {
   show_free_time: true,
   show_first_then: true,
-  // The Chipper Chart meter replaces the per-task prompt by default; the
-  // prompt itself stays available as a toggle.
-  attitude_prompt: false,
+  // Five faces after each task (owner, 25 Sept 2026: how the child feels in each task),
+  // alongside the Chipper Chart meter for the day as a whole.
+  attitude_prompt: true,
   expand_steps: true,
   show_chipper_chart: true,
   allow_child_location: false,

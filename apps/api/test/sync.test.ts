@@ -627,6 +627,27 @@ describe('sync', () => {
     expect(body.applied.sort()).toEqual([ledgerId, locationId].sort());
   });
 
+  it('a locked child may reorder today only when child_reorders is on', async () => {
+    const { admin, profileId } = await setupProfile();
+    const activityId = uuidv7();
+    const itemId = uuidv7();
+    const t0 = Date.now();
+    await pushRequest(app, admin.token, profileId, [
+      { table: 'activities', id: activityId, op: 'upsert', row: activityRow(activityId, profileId, admin.id, t0), client_updated_at: t0 },
+      { table: 'schedule_items', id: itemId, op: 'upsert', row: scheduleItemRow(itemId, profileId, activityId, admin.id, t0), client_updated_at: t0 },
+    ]);
+    const move = (t: number, position: number) => [
+      { table: 'schedule_items' as const, id: itemId, op: 'upsert' as const, row: scheduleItemRow(itemId, profileId, activityId, admin.id, t, { position }), client_updated_at: t },
+    ];
+
+    const off = expectShape(await pushRequest(app, admin.token, profileId, move(t0 + 1000, 5), true), SyncPushResponseSchema);
+    expect(off.rejected).toMatchObject([{ id: itemId, reason: 'locked' }]);
+
+    await db.update(profiles).set({ settings: { child_reorders: true } }).where(eq(profiles.id, profileId));
+    const on = expectShape(await pushRequest(app, admin.token, profileId, move(t0 + 2000, 5), true), SyncPushResponseSchema);
+    expect(on.applied).toEqual([itemId]);
+  });
+
   it('a locked child can push a check-up feeling with a note, and pull returns it', async () => {
     const { admin, profileId } = await setupProfile();
     const t0 = Date.now();

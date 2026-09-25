@@ -1,17 +1,17 @@
 import type { Metadata } from 'next';
-import { AttitudeHistory } from '@/components/settings/AttitudeHistory';
+import { FeelingsHistory } from '@/components/settings/FeelingsHistory';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
-  title: 'Attitude history',
+  title: 'Feelings',
   robots: { index: false, follow: false },
 };
 
-export default function AttitudeHistoryPage() {
+export default function FeelingsPage() {
   return (
     <>
-      <PageHeader title="Attitude history" backHref="/settings/" />
-      <AttitudeHistory />
+      <PageHeader title="Feelings" backHref="/settings/" />
+      <FeelingsHistory />
     </>
   );
 }

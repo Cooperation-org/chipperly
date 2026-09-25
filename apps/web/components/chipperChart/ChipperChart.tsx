@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatDayLabel, todayIso } from '@chipperly/shared/helpers/date';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -85,14 +86,14 @@ export function ChipperChart() {
               <span className={styles.historyDate}>{formatDayLabel(day.date)}</span>
               <span aria-hidden="true">{day.emoji}</span>
               <span className={styles.historyLevel}>{formatLevel(day.level)}</span>
-              <span className={styles.historyCounts} aria-label={`${day.plus} plus, ${day.minus} minus`}>
-                +{day.plus} {'−'}
-                {day.minus}
-              </span>
             </li>
           ))}
         </ul>
       )}
+      {/* Tap-by-tap detail, with the per-task faces, lives in one timeline. */}
+      <Link href="/settings/attitude/" className={styles.feelingsLink}>
+        See the day-by-day feelings
+      </Link>
     </div>
   );
 }

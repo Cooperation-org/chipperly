@@ -39,6 +39,8 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const [childUsesApp, setChildUsesApp] = useState(true);
   const [childLayout, setChildLayout] = useState<'list' | 'tiles'>('list');
   const [routineBonus, setRoutineBonus] = useState(0);
+  const [childReorders, setChildReorders] = useState(false);
+  const [pictureMode, setPictureMode] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -56,6 +58,8 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     setChildUsesApp(row.settings.child_uses_app ?? true);
     setChildLayout(row.settings.child_layout ?? 'list');
     setRoutineBonus(row.settings.routine_bonus_chips ?? 0);
+    setChildReorders(row.settings.child_reorders ?? false);
+    setPictureMode(row.settings.picture_mode ?? false);
     setLoadedFor(row.id);
   }
 
@@ -79,6 +83,8 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
         child_uses_app: childUsesApp,
         child_layout: childLayout,
         routine_bonus_chips: routineBonus || null,
+        child_reorders: childReorders,
+        picture_mode: pictureMode,
       },
     });
     setSaving(false);
@@ -152,6 +158,14 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           <div className={styles.toggleRow}>
             <span className={styles.settingLabel}>Child can redeem rewards</span>
             <Switch label="Child can redeem rewards" checked={childRedeems} onChange={setChildRedeems} />
+          </div>
+          <div className={styles.toggleRow}>
+            <span className={styles.settingLabel}>Child can change the order of the day</span>
+            <Switch label="Child can change the order of the day" checked={childReorders} onChange={setChildReorders} />
+          </div>
+          <div className={styles.toggleRow}>
+            <span className={styles.settingLabel}>Big pictures, fewer words</span>
+            <Switch label="Big pictures, fewer words" checked={pictureMode} onChange={setPictureMode} />
           </div>
           <div className={styles.setting}>
             <div className={styles.toggleRow}>

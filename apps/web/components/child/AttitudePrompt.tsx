@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import type { AttitudeValue } from '@chipperly/shared/schemas/attitude';
-import { recordAttitude } from '@/lib/data/attitude';
+import type { Feeling } from '@chipperly/shared/schemas/attitude';
+import { recordFeeling } from '@/lib/data/feelings';
+import { FeelingFaces } from '@/components/feelings/FeelingFaces';
 import styles from './AttitudePrompt.module.css';
 
 export interface AttitudePromptProps {
@@ -14,8 +15,8 @@ export interface AttitudePromptProps {
 const FADE_MS = 10_000;
 
 /**
- * S32's inline "How did it go?" prompt: two large tiles, no text beyond the
- * labels. Records an `attitude_checks` row on a tap; fades after ten
+ * S32's inline "How did it feel?" prompt after a task: five faces, no text
+ * beyond the question. Records a `task` feeling on a tap; fades after ten
  * seconds either way (`onDone` just removes it from the parent's set, so
  * under reduced motion it disappears instantly with no separate case to code).
  */
@@ -25,22 +26,15 @@ export function AttitudePrompt({ profileId, itemId, onDone }: AttitudePromptProp
     return () => clearTimeout(timer);
   }, [onDone]);
 
-  function handlePick(value: AttitudeValue): void {
-    void recordAttitude(profileId, itemId, value);
+  function handlePick(feeling: Feeling): void {
+    void recordFeeling(profileId, { feeling, kind: 'task', itemId });
     onDone();
   }
 
   return (
     <div className={styles.prompt}>
-      <p className={styles.question}>How did it go?</p>
-      <div className={styles.tiles}>
-        <button type="button" className={styles.tile} onClick={() => handlePick('good')} aria-label="Good">
-          <span aria-hidden="true">🙂</span>
-        </button>
-        <button type="button" className={styles.tile} onClick={() => handlePick('grumpy')} aria-label="Grumpy">
-          <span aria-hidden="true">😠</span>
-        </button>
-      </div>
+      <p className={styles.question}>How did it feel?</p>
+      <FeelingFaces onPick={handlePick} />
     </div>
   );
 }

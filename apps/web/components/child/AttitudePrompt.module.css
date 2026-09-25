@@ -15,27 +15,6 @@
   color: var(--color-text-muted);
 }
 
-.tiles {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.tile {
-  width: 96px;
-  height: 96px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-2);
-  font-size: var(--text-2xl);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.tile:hover {
-  background: var(--color-surface);
-}
 
 @keyframes fadeIn {
   from {

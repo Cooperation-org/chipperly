@@ -325,3 +325,27 @@
   font-size: var(--text-lg);
   color: var(--color-text-muted);
 }
+
+/*
+ * Big pictures, fewer words (profile setting picture_mode), for dyslexic and
+ * early readers: pictures grow, and text that only repeats what a picture or
+ * the check star already shows is hidden. Task names stay, for read-aloud.
+ */
+.pictureMode {
+  --tile-child: clamp(64px, 26vw, 112px);
+}
+
+@media (min-width: 768px) {
+  .pictureMode {
+    --tile-child: 160px;
+  }
+}
+
+.pictureMode .stepProgress,
+.pictureMode .greeting {
+  display: none;
+}
+
+.pictureMode .rowName {
+  font-size: var(--text-md);
+}

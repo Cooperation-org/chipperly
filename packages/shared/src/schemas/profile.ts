@@ -64,6 +64,10 @@ export const ProfileSettingsSchema = z
     reward_alerts: z.boolean().optional(),
     /** How the child view opens: today's list (default) or a home of big picture tiles, like the owner's beta dashboard. Set by the caregiver. */
     child_layout: z.enum(['list', 'tiles']).optional(),
+    /** Child view may put today's tasks in their own order (owner, 25 Sept 2026: giving the child a feeling of control). Default false. */
+    child_reorders: z.boolean().optional(),
+    /** Child view shows bigger pictures and fewer words (dyslexic readers, early readers). Set by the team. Default false. */
+    picture_mode: z.boolean().optional(),
     /** Extra chips (reason 'routine') when a routine is finished in one go from its own row, without ticking the steps one by one. Null/absent: off. */
     routine_bonus_chips: z.number().int().positive().max(10).nullable().optional(),
     /**
