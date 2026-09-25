@@ -21,6 +21,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(KioskPlugin.class);
         registerPlugin(AppBlockerPlugin.class);
         registerPlugin(DeviceLocatorPlugin.class);
+        registerPlugin(SpeechPlugin.class);
         super.onCreate(savedInstanceState);
         maybeApplyLockFromIntent(getIntent());
     }

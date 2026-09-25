@@ -49,6 +49,7 @@ import { VisualSchedule } from '@/components/schedule/VisualSchedule';
 import { AttitudePrompt } from './AttitudePrompt';
 import { ChildCheckupSheet, MomentSheet } from '@/components/feelings/FeelingSheets';
 import { ChildOrderSheet } from './ChildOrderSheet';
+import { canSpeak, speak } from '@/lib/speech';
 import { DayBand } from './DayBand';
 import { ReadStoryButton } from './ReadStoryButton';
 import { TomorrowBand } from './TomorrowBand';
@@ -238,9 +239,13 @@ export function ChildToday() {
     if (dayReward) void sendRewardRequest(profileId, locationId, dayReward.name, 'day_goal');
   }
 
+  // Read tasks aloud (profile setting read_aloud): speaker buttons, and "<name>, done!" on a tick.
+  const readAloud = profile?.settings.read_aloud === true && canSpeak();
+
   async function handleToggle(day: DayItem, next: boolean): Promise<void> {
     await setCompleted(day.item.id, next, userId);
     if (!next) return;
+    if (readAloud) speak(`${day.activity.name}, done!`);
     void alertRewardsFor(day);
     if (day.activity.chip_value > 0) playChip();
     showPromptFor(day.item.id);
@@ -256,6 +261,10 @@ export function ChildToday() {
   async function handleStepToggle(day: DayItem, stepId: string, next: boolean): Promise<void> {
     const completesParent = stepCompletesParent(day, stepId, next);
     await setStepCompleted(day.item.id, stepId, next, userId);
+    if (readAloud && next) {
+      const stepName = day.steps.find((s) => s.step.id === stepId)?.step.name ?? '';
+      speak(completesParent ? `${stepName}, done! ${day.activity.name}, all done!` : `${stepName}, done!`);
+    }
     if (!completesParent) return;
     void alertRewardsFor(day);
     if (day.activity.chip_value > 0) playChip();
@@ -356,6 +365,7 @@ export function ChildToday() {
           hasChildren={hasChildren}
           expanded={open}
           onToggle={hasChildren ? () => toggleStepOpen(step.id) : undefined}
+          onSpeak={readAloud ? () => speak(step.name) : undefined}
           tile={<Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="list" />}
           name={step.name}
           checked={node.done}
@@ -591,6 +601,9 @@ export function ChildToday() {
                       {nameLabel}
                     </>
                   )}
+                  {readAloud ? (
+                    <IconButton icon="speaker" aria-label={`Say ${day.activity.name}`} onClick={() => speak(day.activity.name)} />
+                  ) : null}
                   <CheckCircle
                     checked={dimmed}
                     name={day.activity.name}
@@ -708,6 +721,7 @@ export function ChildToday() {
           nodes={stepTree(scheduleDay.steps)}
           onToggle={(stepId, next) => void handleStepToggle(scheduleDay, stepId, next)}
           onClose={() => setScheduleItemId(null)}
+          readAloud={readAloud}
         />
       ) : null}
     </div>

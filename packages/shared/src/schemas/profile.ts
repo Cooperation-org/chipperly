@@ -66,6 +66,8 @@ export const ProfileSettingsSchema = z
     child_layout: z.enum(['list', 'tiles']).optional(),
     /** Child view may put today's tasks in their own order (owner, 25 Sept 2026: giving the child a feeling of control). Default false. */
     child_reorders: z.boolean().optional(),
+    /** Child view reads tasks and steps aloud: a speaker button on each, and "<name>, done!" when ticked. Set by the team. Default false. */
+    read_aloud: z.boolean().optional(),
     /** Child view shows bigger pictures and fewer words (dyslexic readers, early readers). Set by the team. Default false. */
     picture_mode: z.boolean().optional(),
     /** Extra chips (reason 'routine') when a routine is finished in one go from its own row, without ticking the steps one by one. Null/absent: off. */

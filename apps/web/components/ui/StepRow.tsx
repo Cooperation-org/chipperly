@@ -23,6 +23,8 @@ export interface StepRowProps {
   onToggle?: () => void;
   /** Present only when a step with sub-steps should offer opening them as a full-screen visual schedule. */
   onOpenVisualSchedule?: () => void;
+  /** Present only when read-aloud is on: a speaker button that says the step's name. */
+  onSpeak?: () => void;
 }
 
 /** A step inside an expanded activity: an indented ListRow with no handle, its own CheckCircle. */
@@ -38,6 +40,7 @@ export function StepRow({
   expanded,
   onToggle,
   onOpenVisualSchedule,
+  onSpeak,
 }: StepRowProps) {
   const timed = durationMinutes != null && durationMinutes > 0;
   return (
@@ -50,6 +53,7 @@ export function StepRow({
         onTap={hasChildren && onToggle ? onToggle : () => onChange(!checked)}
         trailing={
           <span className={styles.trailing}>
+            {onSpeak ? <IconButton icon="speaker" aria-label={`Say ${name}`} onClick={onSpeak} /> : null}
             {hasChildren && onToggle ? (
               <IconButton
                 icon="chevron"

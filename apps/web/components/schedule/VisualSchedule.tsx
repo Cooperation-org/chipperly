@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import type { StepNode } from '@/lib/data/schedule';
 import { Picture } from '@/components/media/Picture';
 import { CheckCircle } from '@/components/ui/CheckCircle';
+import { speak } from '@/lib/speech';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import styles from './VisualSchedule.module.css';
@@ -19,6 +20,8 @@ export interface VisualScheduleProps {
   readOnly?: boolean;
   /** Shows the Print button; caregiver screens only, the child's view never prints. */
   printable?: boolean;
+  /** Read-aloud (profile setting read_aloud): a speaker button per step. Saying "done" on a tick is the caller's `onToggle`. */
+  readAloud?: boolean;
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
@@ -30,7 +33,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [ta
  * can hide every other `body` child (the whole app shell) while this is the
  * one thing left showing, per docs/ux-plan.md section 12.
  */
-export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readOnly, printable }: VisualScheduleProps) {
+export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readOnly, printable, readAloud }: VisualScheduleProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   // Steps with sub-steps start closed and open on a tap; the print preview shows everything.
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set());
@@ -115,6 +118,9 @@ export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readO
               {body}
             </button>
           )}
+          {readAloud && !readOnly ? (
+            <IconButton icon="speaker" aria-label={`Say ${step.name}`} className={styles.check} onClick={() => speak(step.name)} />
+          ) : null}
           <CheckCircle
             checked={node.done}
             onChange={readOnly ? undefined : (next) => onToggle(step.id, next)}

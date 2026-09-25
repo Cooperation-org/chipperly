@@ -7,6 +7,7 @@ import { useMediaUrl } from '@/lib/data/media';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import styles from './StoryViewer.module.css';
+import { canSpeak, speak, stopSpeaking } from '@/lib/speech';
 
 export interface StoryViewerProps {
   story: SocialStory;
@@ -26,20 +27,16 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
   const page = pages[index];
   const hasPage = page !== undefined;
   const photoUrl = useMediaUrl(page?.photo_id ?? null);
-  const canReadAloud = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const canReadAloud = canSpeak();
 
   const goNext = useCallback(() => setIndex((i) => Math.min(pages.length - 1, i + 1)), [pages.length]);
   const goPrev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    stopSpeaking();
   }, [index]);
 
-  useEffect(() => {
-    return () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
-    };
-  }, []);
+  useEffect(() => stopSpeaking, []);
 
   // Guarded on `page` (not just called after the `if (!page) return null`
   // below): hooks always run regardless of that early return, so without
@@ -91,9 +88,7 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
   }, [onClose, goNext, goPrev, hasPage]);
 
   function readAloud(): void {
-    if (!page || !canReadAloud) return;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(page.text));
+    if (page) speak(page.text);
   }
 
   if (!page) return null;
