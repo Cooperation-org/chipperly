@@ -11,8 +11,9 @@ SRC="${SRC:-/src}"
 WORK=/work
 mkdir -p "$WORK"
 # Copy the repo without Windows-built artefacts.
-tar -C "$SRC" --exclude=.git --exclude=node_modules --exclude=.next --exclude=.open-next --exclude=out \
-  --exclude=apps/web/android --exclude=apps/web/ios --exclude=e2e/screenshots -cf - . | tar -C "$WORK" -xf -
+# Other work may be writing to the repo meanwhile (test runs), so skip test
+# output and accept tar's exit 1 ("file changed as we read it").
+tar -C "$SRC" --exclude=.git --exclude=node_modules --exclude=.next --exclude=.open-next --exclude=out   --exclude=test-results --exclude=playwright-report --exclude=e2e/report --exclude=e2e/test-results   --exclude=apps/web/android --exclude=apps/web/ios --exclude=e2e/screenshots   --warning=no-file-changed --warning=no-file-removed -cf - . | tar -C "$WORK" -xf - || [ "${PIPESTATUS[0]}" -eq 1 ]
 cd "$WORK"
 corepack enable >/dev/null 2>&1
 CI=1 pnpm install --frozen-lockfile --filter @chipperly/site... >/dev/null
