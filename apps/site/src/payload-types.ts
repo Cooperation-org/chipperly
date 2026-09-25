@@ -1032,7 +1032,7 @@ export interface Setting {
     | ('facebook' | 'x' | 'pinterest' | 'threads' | 'bluesky' | 'whatsapp' | 'reddit' | 'linkedin' | 'email' | 'copy')[]
     | null;
   /**
-   * From clarity.microsoft.com > Settings > Overview, e.g. "abcd1234ef". Empty turns Clarity off. Loads on the public site only, never in the admin.
+   * From clarity.microsoft.com > Settings > Overview. Empty falls back to the CLARITY_ID env var (ynqc1d26iw). Records on the live domain only: never on localhost, previews or in the admin.
    */
   clarityId?: string | null;
   /**
