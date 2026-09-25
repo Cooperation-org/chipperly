@@ -627,6 +627,35 @@ describe('sync', () => {
     expect(body.applied.sort()).toEqual([ledgerId, locationId].sort());
   });
 
+  it('a locked child can push a check-up feeling with a note, and pull returns it', async () => {
+    const { admin, profileId } = await setupProfile();
+    const t0 = Date.now();
+    const id = uuidv7();
+    const row = {
+      id,
+      profile_id: profileId,
+      version: 0,
+      client_updated_at: t0,
+      updated_by: admin.id,
+      deleted_at: null,
+      schedule_item_id: null,
+      value: 'grumpy',
+      feeling: 2,
+      kind: 'checkup',
+      note: 'Hard: Homework',
+      created_at: t0,
+      created_by: admin.id,
+    };
+    const pushed = expectShape(
+      await pushRequest(app, admin.token, profileId, [{ table: 'attitude_checks', id, op: 'upsert', row, client_updated_at: t0 }], true),
+      SyncPushResponseSchema,
+    );
+    expect(pushed.applied).toEqual([id]);
+
+    const pulled = expectShape(await pullRequest(app, admin.token, profileId), SyncPullResponseSchema);
+    expect(pulled.changes.attitude_checks?.find((r) => r.id === id)).toMatchObject({ feeling: 2, kind: 'checkup', note: 'Hard: Homework' });
+  });
+
   it('a locked child can push a whole-routine bonus chip, but not a manual one', async () => {
     const { admin, profileId } = await setupProfile();
     const t0 = Date.now();
