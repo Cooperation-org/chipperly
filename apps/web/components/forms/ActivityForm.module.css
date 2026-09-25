@@ -257,3 +257,21 @@
   hyphens: auto;
   max-width: 100%;
 }
+
+/* The step's picture is its own button: tap to take a photo or pick one. */
+.stepPictureButton {
+  display: grid;
+  place-items: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.stepPictureButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

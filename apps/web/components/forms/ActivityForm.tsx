@@ -27,6 +27,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FormRow } from './FormRow';
+import { StepPictureSheet } from './StepPictureSheet';
 import styles from './ActivityForm.module.css';
 
 const REPEAT_ITEMS = [
@@ -170,6 +171,10 @@ export function ActivityForm() {
   const [openField, setOpenField] = useState<FieldKey | null>(editingId ? null : routineParam ? 'steps' : 'name');
   const [saving, setSaving] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  // The step a keyboard "add next" just created, so its field takes focus as it mounts.
+  const [focusStepId, setFocusStepId] = useState<string | null>(null);
+  // Steps whose minutes field was opened with "Add a timer" (time is optional; steps with minutes show it anyway).
+  const [timerOpen, setTimerOpen] = useState<ReadonlySet<string>>(new Set());
 
   const seededRef = useRef(false);
   const rawSteps = useLiveQuery<ActivityStep[]>(
@@ -216,6 +221,33 @@ export function ActivityForm() {
 
   function addStep(): void {
     setSteps((prev) => [...prev, newDraftStep(null)]);
+  }
+
+  /** Enter in a step's name: a new sibling right after it (after its sub-steps), focused. */
+  function addStepAfter(index: number): void {
+    const current = steps[index];
+    if (!current) return;
+    const [, end] = subtreeRange(steps, index);
+    const next = newDraftStep(current.parent_step_id ?? null);
+    setSteps((prev) => [...prev.slice(0, end), next, ...prev.slice(end)]);
+    setFocusStepId(next.id);
+  }
+
+  function openStepPicture(index: number): void {
+    const step = steps[index];
+    if (!step) return;
+    open(
+      <StepPictureSheet
+        initial={{ emoji: step.emoji, photo_id: step.photo_id }}
+        name={step.name || 'Step'}
+        onDone={(value) => {
+          updateStep(index, { emoji: value.emoji ?? null, photo_id: value.photo_id ?? null });
+          close();
+        }}
+        onFromActivity={() => openFromActivity(index)}
+      />,
+      { title: step.name ? `Picture for ${step.name}` : 'Step picture' },
+    );
   }
 
   /** Inserts a new sub-step as the last child of `steps[index]` (S36 "Break down"). */
@@ -497,40 +529,65 @@ export function ActivityForm() {
                 className={styles.stepRow}
                 style={depth > 0 ? ({ '--depth': depth } as CSSProperties) : undefined}
               >
-                <Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name || 'Step'} size="list" />
+                <button
+                  type="button"
+                  className={styles.stepPictureButton}
+                  aria-label={`Picture for step ${i + 1}${step.name ? `, ${step.name}` : ''}`}
+                  onClick={() => openStepPicture(i)}
+                >
+                  <Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name || 'Step'} size="list" />
+                </button>
                 <div className={styles.stepMain}>
                   <TextField
                     label={`Step ${i + 1}`}
                     value={step.name}
                     onChange={(e) => updateStep(i, { name: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                      e.preventDefault();
+                      addStepAfter(i);
+                    }}
+                    enterKeyHint="next"
                     className={styles.stepInput}
-                    autoFocus={routineParam && !editingId && i === 0}
+                    autoFocus={step.id === focusStepId || (routineParam && !editingId && i === 0)}
                   />
                   <div className={styles.stepRow2}>
-                    <button type="button" className={styles.fromActivityButton} onClick={() => openFromActivity(i)}>
-                      Change picture
+                    <button type="button" className={styles.fromActivityButton} onClick={() => openStepPicture(i)}>
+                      {step.emoji || step.photo_id ? 'Change picture' : 'Add a picture'}
                     </button>
                     {depth < 2 ? (
                       <button type="button" className={styles.fromActivityButton} onClick={() => breakDown(i)}>
                         Add sub-steps
                       </button>
                     ) : null}
-                    <TextField
-                      label={`Minutes for step ${i + 1}`}
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={120}
-                      className={styles.durationInput}
-                      value={step.duration_minutes ?? ''}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        updateStep(i, { duration_minutes: raw === '' ? null : Math.max(1, Math.min(120, Number(raw))) });
-                      }}
-                    />
-                    <span className={styles.durationUnit} aria-hidden="true">
-                      min
-                    </span>
+                    {step.duration_minutes === null && !timerOpen.has(step.id) ? (
+                      <button
+                        type="button"
+                        className={styles.fromActivityButton}
+                        onClick={() => setTimerOpen((prev) => new Set(prev).add(step.id))}
+                      >
+                        Add a timer
+                      </button>
+                    ) : (
+                      <>
+                      <TextField
+                        label={`Minutes for step ${i + 1}`}
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={120}
+                        className={styles.durationInput}
+                        value={step.duration_minutes ?? ''}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          updateStep(i, { duration_minutes: raw === '' ? null : Math.max(1, Math.min(120, Number(raw))) });
+                        }}
+                      />
+                      <span className={styles.durationUnit} aria-hidden="true">
+                        min
+                      </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className={styles.stepActions}>

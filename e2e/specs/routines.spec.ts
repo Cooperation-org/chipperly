@@ -52,8 +52,15 @@ test.describe('routines', () => {
     await expect(page.getByLabel('Step 1', { exact: true })).toBeFocused();
     await page.getByLabel('Step 1', { exact: true }).fill('Wash hands');
 
-    await page.getByRole('button', { name: 'Type a new step', exact: true }).click();
-    await page.getByRole('button', { name: 'Change picture', exact: true }).nth(1).click();
+    // Enter adds the next step and moves the cursor there.
+    await page.getByLabel('Step 1', { exact: true }).press('Enter');
+    await expect(page.getByLabel('Step 2', { exact: true })).toBeFocused();
+    await page.getByRole('button', { name: 'Add a picture', exact: true }).nth(1).click();
+
+    // A step's own picture: camera, photo, paste or emoji, or copy an activity's.
+    const pictureSheet = page.getByRole('dialog', { name: 'Step picture' });
+    await expect(pictureSheet.getByRole('button', { name: 'Camera' })).toBeVisible();
+    await pictureSheet.getByRole('button', { name: "Use an activity's picture", exact: true }).click();
 
     const fromActivitySheet = page.getByRole('dialog', { name: 'Choose an activity' });
     await expect(fromActivitySheet).toBeVisible();
@@ -129,6 +136,9 @@ test.describe('routines', () => {
 
     await page.getByRole('button', { name: 'Type a new step', exact: true }).click();
     await page.getByLabel('Step 3', { exact: true }).fill('Get dressed');
+    // Time is optional: the minutes field only shows after "Add a timer".
+    await expect(page.getByLabel('Minutes for step 3', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Add a timer', exact: true }).last().click();
     await page.getByLabel('Minutes for step 3', { exact: true }).fill('5');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/library/routines/**');
