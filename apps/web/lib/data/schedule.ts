@@ -261,6 +261,8 @@ export async function setCompleted(itemId: string, done: boolean, userId: string
   const completedIds = new Set(
     completions.filter((completion) => completion.deleted_at === null).map((completion) => completion.activity_step_id),
   );
+  // Done in one go: no step was ticked on its own first. Undo nets this out with the task chips (ref_id is the item).
+  if (completedIds.size === 0) await awardRoutineBonus(item, userId);
   for (const step of steps) {
     if (completedIds.has(step.id)) continue;
     await upsert('step_completions', {
@@ -276,6 +278,16 @@ export async function setCompleted(itemId: string, done: boolean, userId: string
       completed_by: userId,
     } satisfies StepCompletion);
   }
+}
+
+/** Owner's ask: extra chips for a routine finished without breaking it into steps, when the profile turns it on. */
+async function awardRoutineBonus(item: ScheduleItem, userId: string): Promise<void> {
+  const profile = await db.profiles.get(item.profile_id);
+  const bonus = profile?.settings.routine_bonus_chips;
+  if (!bonus) return;
+  const activity = await db.activities.get(item.activity_id);
+  const locationId = activity?.location_id ?? (await getActiveLocationId(item.profile_id));
+  await appendLedgerRow(item.profile_id, locationId, 'routine', item.id, bonus, userId);
 }
 
 async function markItemCompletion(item: ScheduleItem, done: boolean, userId: string): Promise<void> {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { msTimestampSchema, SyncColumnsSchema, uuidSchema } from './common.js';
 
-export const ChipReason = z.enum(['task', 'step', 'manual', 'redeem', 'adjust']);
+export const ChipReason = z.enum(['task', 'step', 'manual', 'redeem', 'adjust', 'routine']);
 export type ChipReason = z.infer<typeof ChipReason>;
 
 /** Append-only. Balance is always derived: see helpers/chips.ts `balanceFor`. */

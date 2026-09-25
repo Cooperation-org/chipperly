@@ -64,6 +64,8 @@ export const ProfileSettingsSchema = z
     reward_alerts: z.boolean().optional(),
     /** How the child view opens: today's list (default) or a home of big picture tiles, like the owner's beta dashboard. Set by the caregiver. */
     child_layout: z.enum(['list', 'tiles']).optional(),
+    /** Extra chips (reason 'routine') when a routine is finished in one go from its own row, without ticking the steps one by one. Null/absent: off. */
+    routine_bonus_chips: z.number().int().positive().max(10).nullable().optional(),
     /**
      * "Phone is resting": every app blocked, Chipperly shows only a resting
      * screen, and the notification bar stays usable (Wi-Fi, data). Mirrored

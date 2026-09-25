@@ -38,6 +38,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const [rewardAlerts, setRewardAlerts] = useState(true);
   const [childUsesApp, setChildUsesApp] = useState(true);
   const [childLayout, setChildLayout] = useState<'list' | 'tiles'>('list');
+  const [routineBonus, setRoutineBonus] = useState(0);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -54,6 +55,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     setRewardAlerts(row.settings.reward_alerts ?? true);
     setChildUsesApp(row.settings.child_uses_app ?? true);
     setChildLayout(row.settings.child_layout ?? 'list');
+    setRoutineBonus(row.settings.routine_bonus_chips ?? 0);
     setLoadedFor(row.id);
   }
 
@@ -76,6 +78,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
         reward_alerts: rewardAlerts,
         child_uses_app: childUsesApp,
         child_layout: childLayout,
+        routine_bonus_chips: routineBonus || null,
       },
     });
     setSaving(false);
@@ -124,6 +127,21 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
       <div className={styles.toggleRow}>
         <span className={styles.settingLabel}>Colour chips by attitude</span>
         <Switch label="Colour chips by attitude" checked={chipsByAttitude} onChange={setChipsByAttitude} />
+      </div>
+      <div className={styles.setting}>
+        <span className={styles.settingLabel}>Bonus for a whole routine done in one go, without the steps</span>
+        <Segmented
+          label="Whole-routine bonus"
+          items={[
+            { value: '0', label: 'Off' },
+            { value: '1', label: '+1' },
+            { value: '2', label: '+2' },
+            { value: '3', label: '+3' },
+            { value: '5', label: '+5' },
+          ]}
+          value={String(routineBonus)}
+          onChange={(v) => setRoutineBonus(Number(v))}
+        />
       </div>
       {childUsesApp ? (
         <>

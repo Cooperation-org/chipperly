@@ -627,6 +627,26 @@ describe('sync', () => {
     expect(body.applied.sort()).toEqual([ledgerId, locationId].sort());
   });
 
+  it('a locked child can push a whole-routine bonus chip, but not a manual one', async () => {
+    const { admin, profileId } = await setupProfile();
+    const t0 = Date.now();
+    const bonusId = uuidv7();
+    const manualId = uuidv7();
+    const locked = await pushRequest(
+      app,
+      admin.token,
+      profileId,
+      [
+        { table: 'chip_ledger', id: bonusId, op: 'upsert', row: chipLedgerRow(bonusId, profileId, admin.id, t0, { delta: 2, reason: 'routine' }), client_updated_at: t0 },
+        { table: 'chip_ledger', id: manualId, op: 'upsert', row: chipLedgerRow(manualId, profileId, admin.id, t0, { delta: 2, reason: 'manual' }), client_updated_at: t0 },
+      ],
+      true,
+    );
+    const body = expectShape(locked, SyncPushResponseSchema);
+    expect(body.applied).toEqual([bonusId]);
+    expect(body.rejected).toMatchObject([{ id: manualId, reason: 'locked' }]);
+  });
+
   it('redeeming a screen-time reward grants its apps time, once per redeem, stacking onto time left', async () => {
     const { admin, profileId } = await setupProfile();
     const rewardId = uuidv7();

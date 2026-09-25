@@ -232,7 +232,7 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
       return mutation.op === 'upsert' && Boolean(mutation.row);
     case 'chip_ledger': {
       if (mutation.op !== 'upsert' || !mutation.row) return false;
-      if (mutation.row.reason === 'task' || mutation.row.reason === 'step') return true;
+      if (mutation.row.reason === 'task' || mutation.row.reason === 'step' || mutation.row.reason === 'routine') return true;
       // The child redeeming from the free-time sheet, unless the caregiver turned that off.
       if (mutation.row.reason !== 'redeem') return false;
       const settings = await lockedProfileSettings(tx, mutation.row.profile_id);
