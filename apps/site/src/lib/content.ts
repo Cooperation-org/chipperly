@@ -41,15 +41,6 @@ export const TOOLS: {
     alt: 'A visual timer counting down from five minutes, with preset buttons from one to thirty minutes.',
   },
   {
-    id: 'social-stories',
-    icon: 'stories',
-    title: 'Social Stories',
-    short: 'Prepare for new or stressful situations with simple visual narratives created in minutes.',
-    long: 'Prepare for upcoming events (doctor visits, haircuts, new schools) with simple visual narratives you create in minutes. Practicing situations mentally before experiencing them builds confidence and reduces fear of the unknown.',
-    screen: screens.stories,
-    alt: 'The social stories library with two stories, "A Big Day" and "Fall Break!".',
-  },
-  {
     id: 'first-then',
     icon: 'firstThen',
     title: 'First – Then',
@@ -57,6 +48,15 @@ export const TOOLS: {
     long: 'A simple but powerful visual prompt: do the less-preferred task first, then get the reward. Removes negotiation from the equation and makes the link between effort and reward clear.',
     screen: screens.firstThen,
     alt: 'A First-Then board: first Bath Time, then Free Choice.',
+  },
+  {
+    id: 'social-stories',
+    icon: 'stories',
+    title: 'Social Stories',
+    short: 'Prepare for new or stressful situations with simple visual narratives created in minutes.',
+    long: 'Prepare for upcoming events (doctor visits, haircuts, new schools) with simple visual narratives you create in minutes. Practicing situations mentally before experiencing them builds confidence and reduces fear of the unknown.',
+    screen: screens.stories,
+    alt: 'The social stories library with two stories, "A Big Day" and "Fall Break!".',
   },
 ];
 
