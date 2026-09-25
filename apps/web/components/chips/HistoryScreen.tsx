@@ -16,11 +16,11 @@ import styles from './HistoryScreen.module.css';
 
 const ALL = 'all';
 
-function itemNameFor(row: ChipLedger, activityNames: Map<string, string>, rewardNames: Map<string, string>): string {
+/** Task, step and routine rows point at the day's schedule item; redeem and adjust rows at a reward (an undone task's adjust row at its item). */
+function itemNameFor(row: ChipLedger, itemNames: Map<string, string>, rewardNames: Map<string, string>): string {
   if (!row.ref_id) return '';
-  if (row.reason === 'task' || row.reason === 'step') return activityNames.get(row.ref_id) ?? '';
-  if (row.reason === 'redeem' || row.reason === 'adjust') return rewardNames.get(row.ref_id) ?? '';
-  return '';
+  const name = itemNames.get(row.ref_id) ?? rewardNames.get(row.ref_id) ?? '';
+  return row.reason === 'routine' && name ? `${name}: whole-routine bonus` : name;
 }
 
 function formatTime(ms: number): string {
@@ -41,7 +41,14 @@ export function HistoryScreen() {
   const rewards = useLiveQuery(() => db.rewards.where('profile_id').equals(profileId).toArray(), [profileId], []);
   const users = useLiveQuery(() => db.users.toArray(), [], []);
 
-  const activityNames = useMemo(() => new Map(activities.map((a) => [a.id, a.name])), [activities]);
+  const refIds = useMemo(() => [...new Set(ledger.map((row) => row.ref_id).filter((id): id is string => id !== null))], [ledger]);
+  const refItems = useLiveQuery(() => db.schedule_items.bulkGet(refIds), [refIds], []);
+  const itemNames = useMemo(() => {
+    const activityNames = new Map(activities.map((a) => [a.id, a.name]));
+    return new Map(
+      refItems.flatMap((item) => (item ? [[item.id, activityNames.get(item.activity_id) ?? ''] as [string, string]] : [])),
+    );
+  }, [activities, refItems]);
   const rewardNames = useMemo(() => new Map(rewards.map((r) => [r.id, r.name])), [rewards]);
   const userNames = useMemo(() => new Map(users.map((u) => [u.id, u.display_name])), [users]);
 
@@ -77,7 +84,7 @@ export function HistoryScreen() {
           <section key={dayIso} className={styles.day}>
             <h2 className={styles.dayLabel}>{formatDayLabel(dayIso)}</h2>
             {rows.map((row) => {
-              const name = itemNameFor(row, activityNames, rewardNames);
+              const name = itemNameFor(row, itemNames, rewardNames);
               const person = userNames.get(row.created_by);
               return (
                 <ListRow
