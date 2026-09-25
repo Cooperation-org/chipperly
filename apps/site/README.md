@@ -39,7 +39,7 @@ npx wrangler secret put CACHE_PURGE_API_TOKEN         # API token with Zone > Ca
 
 Then enable Images for next/image resizing (dashboard > Images; the binding is already in `wrangler.jsonc`).
 
-Deploy (Linux or WSL, or `scripts/cf-linux.sh deploy` in Docker on Windows). Set `NEXT_PUBLIC_SITE_URL=https://chipperlyapp.com` for the build, plus `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Use the dedicated "chipperly-site deploy" API token (Workers Scripts, D1, R2 edit, Account Settings read on the owner's account; Workers Routes on the zone), not a copied `wrangler login`: OAuth refresh tokens rotate and a shared copy gets the session revoked. The live values sit in the git-ignored `apps/site/.env.live`.
+**Deploy: GitHub > Actions > "Deploy site" > Run workflow.** It migrates the live D1, builds on Linux, deploys the site and mail Workers, and smoke-tests the live pages (repo secrets `CLOUDFLARE_API_TOKEN` and `PAYLOAD_SECRET`). To deploy by hand instead: Linux or WSL, or `scripts/cf-linux.sh deploy` in Docker on Windows. Set `NEXT_PUBLIC_SITE_URL=https://chipperlyapp.com` for the build, plus `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Use the dedicated "chipperly-site deploy" API token (Workers Scripts, D1, R2 edit, Account Settings read on the owner's account; Workers Routes on the zone), not a copied `wrangler login`: OAuth refresh tokens rotate and a shared copy gets the session revoked. The live values sit in the git-ignored `apps/site/.env.live`.
 
 ```bash
 pnpm -F @chipperly/site deploy     # migrates the live D1, builds with live data, deploys the Worker
@@ -54,7 +54,7 @@ Payload 3.90 hashes passwords with PBKDF2 at 600,000 iterations; production Work
 
 ### Team email
 
-`/admin` > Email addresses manages forwarding addresses at @chipperlyapp.com through Cloudflare Email Routing (`src/lib/emailRouting.ts`). Needs the `CLOUDFLARE_EMAIL_API_TOKEN` Worker secret (Email Routing Addresses edit on the account, Email Routing Rules edit on the zone). A new destination receives a Cloudflare verification email and must click it once; until then its address shows "Waiting for destination to verify".
+`/admin` > Email addresses manages forwarding addresses at @chipperlyapp.com through Cloudflare Email Routing (`src/lib/emailRouting.ts`). Needs the `CLOUDFLARE_EMAIL_API_TOKEN` Worker secret (Email Routing Addresses edit on the account, Email Routing Rules edit on the zone). A new destination receives a Cloudflare verification email and must click it once; until then its address shows "Waiting for destination to verify" (open it and press Save after the click). "Also forward to" sends a copy to several people: the rule then hands mail to the `chipperly-mail` Email Worker (`mail-worker/`), which reads the recipients from D1.
 
 ### How caching works
 
