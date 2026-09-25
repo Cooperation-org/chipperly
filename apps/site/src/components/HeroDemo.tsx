@@ -56,11 +56,16 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
   const [tab, setTab] = useState<Tab>('today');
   const [done, setDone] = useState<Set<string>>(new Set()); // task ids and step ids
   const [open, setOpen] = useState(false); // Get dressed steps expanded
-  const [chips, setChips] = useState(0);
+  // The board follows the list: one chip per finished task, taken off again
+  // if the task is unchecked. A chip counts once its star has landed.
+  const [landed, setLanded] = useState<Set<string>>(new Set());
   const [redeemed, setRedeemed] = useState(false);
   const [announce, setAnnounce] = useState('');
-  const earned = useRef(new Set<string>());
-  const pending = useRef(0); // chips in flight, so fast taps target the right slot
+  const flying = useRef(new Set<string>()); // stars in the air, so fast taps target the right slot
+  const doneNow = useRef(done); // read by a star when it lands, after the tap's render
+  useEffect(() => {
+    doneNow.current = done;
+  }, [done]);
   const slots = useRef<(HTMLSpanElement | null)[]>([]);
 
   // Timer
@@ -80,26 +85,37 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
     else apply();
   };
 
-  const landChip = useCallback((slot: number) => {
-    setChips((c) => Math.max(c, slot + 1));
+  const landChip = useCallback((taskId: string, slot: number) => {
+    if (!doneNow.current.has(taskId)) return; // unchecked while the star was flying
+    setLanded((prev) => new Set(prev).add(taskId));
     const el = slots.current[slot];
     if (el && !reducedMotion()) {
       el.animate([{ transform: 'scale(0.4) rotate(-40deg)' }, { transform: 'scale(1) rotate(0deg)' }], { duration: SPRING.duration, easing: SPRING.easing });
     }
-    setAnnounce(`Chip earned. ${slot + 1} of ${GOAL}.`);
+    setAnnounce('Chip earned.');
   }, []);
+
+  const removeChip = (taskId: string) => {
+    if (!landed.has(taskId)) return;
+    const next = new Set(landed);
+    next.delete(taskId);
+    setLanded(next);
+    setAnnounce(`Chip taken off. ${next.size} of ${GOAL}.`);
+  };
 
   // A task was just finished: fly a Chipperly star from its check to the next slot.
   const earnChip = (taskId: string, from: HTMLElement | null) => {
-    if (earned.current.has(taskId) || redeemed) return;
-    earned.current.add(taskId);
-    const slot = chips + pending.current;
+    if (landed.has(taskId) || flying.current.has(taskId) || redeemed) return;
+    const slot = landed.size + flying.current.size;
     if (slot >= GOAL) return;
     const target = slots.current[slot];
     const source = from?.querySelector('[data-chipstar]');
-    if (!target || !from || !source || reducedMotion()) return landChip(slot);
+    if (!target || !from || !source || reducedMotion()) {
+      doneNow.current = new Set(doneNow.current).add(taskId);
+      return landChip(taskId, slot);
+    }
 
-    pending.current += 1;
+    flying.current.add(taskId);
     const a = from.getBoundingClientRect();
     const b = target.getBoundingClientRect();
     const star = document.createElement('span');
@@ -128,16 +144,19 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
       )
       .finished.finally(() => {
         star.remove();
-        pending.current -= 1;
-        landChip(slot);
+        flying.current.delete(taskId);
+        landChip(taskId, slot);
       });
   };
 
   const toggleTask = (task: Task, row: HTMLElement) => {
     const next = new Set(done);
     if (next.has(task.id)) {
-      next.delete(task.id); // a chip once earned stays: rewards are never taken away
+      // Unchecking a routine clears its steps too, and the chip comes off.
+      next.delete(task.id);
+      task.steps?.forEach((st) => next.delete(st.id));
       setDone(next);
+      removeChip(task.id);
       return;
     }
     next.add(task.id);
@@ -157,6 +176,7 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
     setDone(next);
     setAnnounce(all ? `${task.label} done.` : `${count} of ${task.steps!.length} steps done.`);
     if (all) earnChip(task.id, taskRow?.querySelector(`.${s.check}`) ?? null);
+    else removeChip(task.id);
   };
 
   const redeem = () => {
@@ -167,7 +187,7 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
   const ask = () => {
     setAsked(true);
     setNotice(true);
-    setAnnounce('Asked for play time. A grown-up was notified.');
+    setAnnounce('Asked for play time. Team notified.');
   };
 
   // The notification banner leaves on its own after a few seconds.
@@ -178,10 +198,10 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
   }, [notice]);
 
   const reset = () => {
-    earned.current.clear();
+    flying.current.clear();
     setDone(new Set());
     setOpen(false);
-    setChips(0);
+    setLanded(new Set());
     setRedeemed(false);
     setRunning(false);
     setRemaining(TIMER_S);
@@ -218,7 +238,13 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
     setRunning(true);
   };
 
+  const chips = landed.size;
   const full = chips >= GOAL;
+  // A routine with some steps done shows a part-built star in the next slot.
+  const inProgress = MORNING.find((m) => m.steps && !done.has(m.id) && m.steps.some((st) => done.has(st.id)));
+  const partialRays = inProgress?.steps
+    ? Math.min(11, Math.max(1, Math.round((inProgress.steps.filter((st) => done.has(st.id)).length / inProgress.steps.length) * 12)))
+    : 0;
   const secs = Math.ceil(remaining);
   const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   const R = 54;
@@ -238,7 +264,7 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
               </span>
               <span className={s.noticeText}>
                 <strong>Benny is asking for Play time</strong>
-                <span>Chipperly · caregiver notified</span>
+                <span>Chipperly · team notified</span>
               </span>
               <span aria-hidden="true">🔔</span>
             </div>
@@ -258,7 +284,15 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
             <div className={s.slots} aria-hidden="true">
               {Array.from({ length: GOAL }, (_, i) => (
                 <span key={i} ref={(el) => void (slots.current[i] = el)} className={s.slot}>
-                  <ChipStar size="100%" muted={!(i < chips && !redeemed)} />
+                  {redeemed ? (
+                    <ChipStar size="100%" muted />
+                  ) : i < chips ? (
+                    <ChipStar size="100%" />
+                  ) : i === chips && partialRays ? (
+                    <ChipStar size="100%" rays={partialRays} />
+                  ) : (
+                    <ChipStar size="100%" muted />
+                  )}
                 </span>
               ))}
             </div>
