@@ -152,6 +152,7 @@ export function TodayScreen() {
       <Picker
         kind="activity"
         profileId={profileId}
+        locationId={location?.id ?? null}
         title={title}
         onPick={(picked) => {
           // Picker's onPick type covers both kinds; kind="activity" here means it's always an Activity.

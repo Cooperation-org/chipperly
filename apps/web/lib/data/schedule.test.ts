@@ -110,6 +110,21 @@ describe('joinDayItems', () => {
     expect(result).toHaveLength(0);
   });
 
+  it('keeps untagged activities and the active location ones, drops other locations', () => {
+    const items = [
+      item({ id: 'any', activity_id: 'act-any' }),
+      item({ id: 'home', activity_id: 'act-home' }),
+      item({ id: 'school', activity_id: 'act-school' }),
+    ];
+    const activities = [
+      activity({ id: 'act-any', location_id: null }),
+      activity({ id: 'act-home', location_id: 'loc-home' }),
+      activity({ id: 'act-school', location_id: 'loc-school' }),
+    ];
+    expect(joinDayItems(items, activities, [], [], 'loc-home').map((row) => row.item.id).sort()).toEqual(['any', 'home']);
+    expect(joinDayItems(items, activities, [], []).map((row) => row.item.id)).toHaveLength(3);
+  });
+
   it('attaches ordered, non-deleted steps with their completion state', () => {
     const items = [item()];
     const activities = [activity()];

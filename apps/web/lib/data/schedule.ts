@@ -13,7 +13,7 @@ import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert, softDelete } from '../sync/mutate';
 import { pullProfile } from '../sync/engine';
-import { getActiveLocationId } from './locations';
+import { getActiveLocationId, useActiveLocation } from './locations';
 import { getMoodLevel } from './mood';
 
 export interface DayStep {
@@ -115,6 +115,8 @@ export function joinDayItems(
   activities: readonly Activity[],
   steps: readonly ActivityStep[],
   completions: readonly StepCompletion[],
+  /** Active location: an activity tagged to another location is left out; untagged ones show everywhere. */
+  locationId?: string,
 ): DayItem[] {
   const activityById = new Map(activities.map((activity) => [activity.id, activity]));
 
@@ -138,6 +140,7 @@ export function joinDayItems(
     if (item.deleted_at !== null) continue;
     const activity = activityById.get(item.activity_id);
     if (!activity) continue;
+    if (locationId && activity.location_id && activity.location_id !== locationId) continue;
 
     const activitySteps = stepsByActivity.get(item.activity_id) ?? [];
     const completionByStep = new Map(
@@ -201,7 +204,11 @@ export function useDayItems(profileId: string, isoDate: string): DayItem[] {
     [],
   );
 
-  return useMemo(() => joinDayItems(items, activities, steps, completions), [items, activities, steps, completions]);
+  const locationId = useActiveLocation(profileId).location?.id;
+  return useMemo(
+    () => joinDayItems(items, activities, steps, completions, locationId),
+    [items, activities, steps, completions, locationId],
+  );
 }
 
 export async function addToDay(profileId: string, isoDate: string, activityId: string): Promise<string> {

@@ -34,8 +34,10 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
   const [query, setQuery] = useState('');
   const showRoutines = kind === 'activity' && routines;
 
-  const activities = useActivities(profileId);
-  const recentActivities = useRecentActivities(profileId, RECENT_COUNT);
+  // With a location, activities tagged to another location are hidden: Today would hide them anyway.
+  const hereOrAnywhere = (a: Activity) => !locationId || !a.location_id || a.location_id === locationId;
+  const activities = useActivities(profileId).filter(hereOrAnywhere);
+  const recentActivities = useRecentActivities(profileId, RECENT_COUNT).filter(hereOrAnywhere);
   const rewards = useRewards(profileId, { location_id: locationId });
 
   const steps = useLiveQuery(() => db.activity_steps.where('profile_id').equals(profileId).toArray(), [profileId], []);
