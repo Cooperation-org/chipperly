@@ -15,8 +15,8 @@ type Seo = {
 
 export function ogImageUrl(image: Media | number | null | undefined, title?: string) {
   if (image && typeof image === 'object') {
-    const url = image.sizes?.og?.url || image.url;
-    if (url) return abs(url);
+    // Resized to share-card width by next/image (Cloudflare Images binding).
+    if (image.url) return abs(`/_next/image?url=${encodeURIComponent(image.url)}&w=1200&q=80`);
   }
   return abs(`/og${title ? `?title=${encodeURIComponent(title)}` : ''}`);
 }

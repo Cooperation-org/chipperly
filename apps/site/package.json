@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev -p 3100",
-    "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
-    "start": "cross-env NODE_OPTIONS=--no-deprecation next start -p 3100",
+    "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=8000\" next build --webpack",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview --port 3100",
+    "deploy": "pnpm run deploy:database && pnpm run deploy:app",
+    "deploy:database": "cross-env NODE_ENV=production CLOUDFLARE_ENV=remote CLOUDFLARE_REMOTE_BINDINGS=1 PAYLOAD_SECRET=ignore payload migrate && wrangler d1 execute D1 --remote --command \"PRAGMA optimize\"",
+    "deploy:app": "cross-env CLOUDFLARE_ENV=remote CLOUDFLARE_REMOTE_BINDINGS=1 opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "migrate": "cross-env NODE_OPTIONS=--no-deprecation payload migrate",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
-    "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
+    "generate:types": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts && cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "seed": "cross-env NODE_OPTIONS=--no-deprecation tsx --env-file=.env src/seed/index.ts",
     "typecheck": "tsc --noEmit",
@@ -17,12 +20,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@payloadcms/db-postgres": "3.90.2",
+    "@opennextjs/cloudflare": "1.20.1",
+    "@payloadcms/db-d1-sqlite": "3.90.2",
     "@payloadcms/next": "3.90.2",
     "@payloadcms/plugin-import-export": "3.90.2",
     "@payloadcms/plugin-redirects": "3.90.2",
     "@payloadcms/plugin-seo": "3.90.2",
     "@payloadcms/richtext-lexical": "3.90.2",
+    "@payloadcms/storage-r2": "3.90.2",
     "@payloadcms/ui": "3.90.2",
     "cross-env": "^7.0.3",
     "graphql": "^16.8.1",
@@ -40,6 +45,7 @@
     "eslint-config-next": "^16.3.5",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "wrangler": "^4.116.0"
   }
 }

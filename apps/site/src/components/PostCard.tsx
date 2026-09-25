@@ -7,12 +7,12 @@ import { formatDate } from '../lib/format';
 export function PostCard({ post }: { post: Post }) {
   const img = typeof post.heroImage === 'object' ? post.heroImage : null;
   const cat = post.categories?.find((c) => typeof c === 'object');
-  const src = img?.sizes?.card?.url || img?.url;
+  const src = img?.url;
   return (
     <Link href={`/blog/${post.slug}`} className="post-card">
       <div className="post-card-img">
         {src ? (
-          <Image src={src} alt={img?.alt ?? ''} width={img?.sizes?.card?.width ?? 768} height={img?.sizes?.card?.height ?? 432} sizes="(max-width: 700px) 100vw, 380px" />
+          <Image src={src} alt={img?.alt ?? ''} width={img?.width ?? 1600} height={img?.height ?? 900} sizes="(max-width: 700px) 100vw, 380px" />
         ) : (
           <img className="placeholder" src="/brand/mark.svg" alt="" />
         )}

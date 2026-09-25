@@ -9,6 +9,8 @@ allowBuilds:
   '@embedded-postgres/darwin-arm64': true
   '@embedded-postgres/darwin-x64': true
   esbuild: true
+  # apps/site: Cloudflare's local runtime; its install script fetches the binary.
+  workerd: true
   unrs-resolver: true
   # Neither package's build script is needed: firebase-admin loads and
   # works fine without it (protobufjs's is an optional perf-codegen step;
@@ -18,6 +20,7 @@ allowBuilds:
 
 onlyBuiltDependencies:
   - esbuild
+  - workerd
   - sharp
   - embedded-postgres
   - unrs-resolver

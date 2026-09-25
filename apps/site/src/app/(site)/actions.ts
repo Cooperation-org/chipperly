@@ -1,16 +1,24 @@
 'use server';
 
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { headers } from 'next/headers';
 import { payload } from '../../lib/payload';
 import { checkWaitlist, type WaitlistState } from '../../lib/waitlist';
 
-// ponytail: in-memory per-IP limit, per process. Move to Postgres or the
-// proxy if the site ever runs on more than one instance.
+// Per-IP limit. On Cloudflare the WAITLIST_LIMITER binding (wrangler.jsonc)
+// counts across every Worker instance; the in-memory map is only the
+// fallback when the binding is missing (plain Node).
 const hits = new Map<string, number[]>();
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_HITS = 5;
 
-function limited(ip: string) {
+async function limited(ip: string) {
+  try {
+    const limiter = (await getCloudflareContext({ async: true })).env.WAITLIST_LIMITER;
+    if (limiter) return !(await limiter.limit({ key: ip })).success;
+  } catch {
+    // not on Cloudflare
+  }
   const now = Date.now();
   const recent = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
   recent.push(now);
@@ -24,8 +32,8 @@ export async function joinWaitlist(_prev: WaitlistState, form: FormData): Promis
   if (checked.bot) return { status: 'ok' }; // honeypot filled: look successful, store nothing
 
   const h = await headers();
-  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'unknown';
-  if (limited(ip)) return { status: 'error', message: 'Too many tries. Please wait a few minutes.' };
+  const ip = h.get('cf-connecting-ip') || h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'unknown';
+  if (await limited(ip)) return { status: 'error', message: 'Too many tries. Please wait a few minutes.' };
 
   try {
     const p = await payload();

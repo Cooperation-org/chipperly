@@ -1,5 +1,9 @@
 import type { CollectionConfig } from 'payload';
 
+// Uploads live in R2. Workers have no sharp, so Payload does not resize on
+// upload; next/image resizes on request through the Cloudflare Images
+// binding (wrangler.jsonc "images") and serves webp/avif to browsers that
+// take it. Upload images at least 1600px wide.
 export const Media: CollectionConfig = {
   slug: 'media',
   access: { read: () => true },
@@ -15,12 +19,7 @@ export const Media: CollectionConfig = {
   ],
   upload: {
     mimeTypes: ['image/*'],
-    focalPoint: true,
-    formatOptions: { format: 'webp', options: { quality: 82 } },
-    imageSizes: [
-      { name: 'card', width: 768, formatOptions: { format: 'webp', options: { quality: 80 } } },
-      { name: 'wide', width: 1600, formatOptions: { format: 'webp', options: { quality: 80 } } },
-      { name: 'og', width: 1200, height: 630, formatOptions: { format: 'jpeg', options: { quality: 85 } } },
-    ],
+    crop: false,
+    focalPoint: false,
   },
 };

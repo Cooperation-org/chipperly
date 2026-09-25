@@ -5,7 +5,7 @@ import nextTypescript from 'eslint-config-next/typescript';
 const eslintConfig = [
   ...coreWebVitals,
   ...nextTypescript,
-  { ignores: ['.next/**', 'src/payload-types.ts', 'src/app/(payload)/**', 'src/migrations/**'] },
+  { ignores: ['.next/**', '.open-next/**', '.wrangler/**', 'cloudflare-env.d.ts', 'src/payload-types.ts', 'src/app/(payload)/**', 'src/migrations/**'] },
 ];
 
 export default eslintConfig;

@@ -1,5 +1,7 @@
 .next/
+.open-next/
+.wrangler/
 next-env.d.ts
 .env
-media/
+.dev.vars
 *.tsbuildinfo

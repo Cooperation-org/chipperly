@@ -26,8 +26,8 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/chipperly_test
       DATABASE_URL_OWNER: postgres://postgres:postgres@localhost:5432/chipperly_test
       JWT_SECRET: ci-test-secret-please-change-me-32chars
-      # apps/site (marketing site + CMS) reads its own database at build time.
-      DATABASE_URI: postgres://postgres:postgres@localhost:5432/chipperly_site
+      # apps/site (marketing site + CMS on Cloudflare D1) builds against a
+      # local D1 created by wrangler; no Cloudflare credentials in CI.
       PAYLOAD_SECRET: ci-site-secret-please-change-me-32chars
       GIT_SHA: ${{ github.sha }}
     steps:
@@ -51,10 +51,8 @@ jobs:
 
       - run: pnpm test
 
-      - name: Create and migrate the site database
-        run: |
-          psql postgres://postgres:postgres@localhost:5432/postgres -c 'CREATE DATABASE chipperly_site'
-          pnpm -F @chipperly/site migrate
+      - name: Migrate the site's local D1
+        run: pnpm -F @chipperly/site migrate
 
       - run: pnpm build
 

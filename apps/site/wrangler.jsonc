@@ -1,0 +1,67 @@
+// chipperlyapp.com marketing site + CMS: one Worker, built by OpenNext.
+// Fully separate from the app (app.chipperlyapp.com, deploy/cloudflare):
+// crawlers and visitors are served from Cloudflare's edge and never reach
+// the app's container or database.
+//
+// One-time setup and deploys: see apps/site/README.md "Deploy to Cloudflare".
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chipperly-site",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "observability": { "enabled": true },
+
+  // Static files (JS, CSS, fonts, screenshots) served straight from the edge.
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+
+  // Payload data. The OpenNext tag cache uses the same database (its own
+  // "revalidations" table).
+  "d1_databases": [
+    { "binding": "D1", "database_name": "chipperly-site", "database_id": "REPLACE_WITH_D1_ID" },
+    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "chipperly-site", "database_id": "REPLACE_WITH_D1_ID" },
+  ],
+
+  "r2_buckets": [
+    // Media uploaded in the admin.
+    { "binding": "R2", "bucket_name": "chipperly-site-media" },
+    // OpenNext page cache.
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "chipperly-site-cache" },
+  ],
+
+  // next/image resizing (Cloudflare Images binding).
+  "images": { "binding": "IMAGES" },
+
+  // Background ISR revalidation queue.
+  "durable_objects": {
+    "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
+
+  // Waitlist form: 5 sign-ups per IP per minute (app/(site)/actions.ts).
+  "ratelimits": [{ "name": "WAITLIST_LIMITER", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } }],
+
+  "vars": {
+    // Microsoft Clarity, live domain only (src/lib/clarity.ts).
+    "CLARITY_ID": "ynqc1d26iw",
+    "CACHE_PURGE_ZONE_ID": "9f961107ff719cdefb274757754dd8cc",
+  },
+  // Secrets (wrangler secret put): PAYLOAD_SECRET, CACHE_PURGE_API_TOKEN.
+
+  // The same D1/R2 marked remote, used only by commands that must read or
+  // write the live data from a machine (deploy:database, the deploy build,
+  // a live seed): they set CLOUDFLARE_ENV=remote. Everything else stays local.
+  "env": {
+    "remote": {
+      "d1_databases": [{ "binding": "D1", "database_name": "chipperly-site", "database_id": "REPLACE_WITH_D1_ID", "remote": true }],
+      "r2_buckets": [{ "binding": "R2", "bucket_name": "chipperly-site-media", "remote": true }],
+    },
+  },
+
+  // Uncomment when the owner is ready to move chipperlyapp.com off the old
+  // site. Custom domains create the DNS records themselves.
+  // "routes": [
+  //   { "pattern": "chipperlyapp.com", "custom_domain": true },
+  //   { "pattern": "www.chipperlyapp.com", "custom_domain": true },
+  // ],
+}

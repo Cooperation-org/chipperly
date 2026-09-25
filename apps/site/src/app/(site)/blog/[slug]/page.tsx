@@ -85,10 +85,10 @@ export default async function PostPage({ params }: Props) {
       {hero?.url && (
         <figure className="wrap article-hero" style={{ maxWidth: 1000 }}>
           <Image
-            src={hero.sizes?.wide?.url || hero.url}
+            src={hero.url}
             alt={hero.alt}
-            width={hero.sizes?.wide?.width || hero.width || 1600}
-            height={hero.sizes?.wide?.height || hero.height || 900}
+            width={hero.width || 1600}
+            height={hero.height || 900}
             sizes="(max-width: 1000px) 100vw, 1000px"
             priority
           />
@@ -106,7 +106,7 @@ export default async function PostPage({ params }: Props) {
           const avatar = typeof a.avatar === 'object' ? a.avatar : null;
           return (
             <aside key={a.id} className="author-box" aria-label="About the author">
-              {avatar?.url ? <img src={avatar.sizes?.card?.url || avatar.url} alt="" /> : <img src="/brand/mark.svg" alt="" />}
+              {avatar?.url ? <img src={avatar.url} alt="" /> : <img src="/brand/mark.svg" alt="" />}
               <div>
                 <strong>{a.name}</strong>
                 {a.role ? <span className="muted">, {a.role}</span> : null}
