@@ -4,16 +4,30 @@ import localFont from 'next/font/local';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { springEasing } from '../lib/spring';
+import { ChipStar } from './ChipStar';
 import s from './HeroDemo.module.css';
 
 // Same emoji font as the app (Twemoji subset, CC-BY 4.0), so the demo
 // matches the screenshots on every OS.
 const twemoji = localFont({ src: '../app/fonts/twemoji-chipperly.woff2', variable: '--emoji', display: 'swap', adjustFontFallback: false });
 
-const MORNING = [
+type Step = { id: string; emoji: string; label: string };
+type Task = { id: string; emoji: string; label: string; time: string; steps?: Step[] };
+
+const MORNING: Task[] = [
   { id: 'wake', emoji: '🛏', label: 'Wake up', time: '7:00' },
   { id: 'teeth', emoji: '🪥', label: 'Brush teeth', time: '7:10' },
-  { id: 'dress', emoji: '👕', label: 'Get dressed', time: '7:20' },
+  {
+    id: 'dress',
+    emoji: '👕',
+    label: 'Get dressed',
+    time: '7:20',
+    steps: [
+      { id: 'shirt', emoji: '👕', label: 'Put on shirt' },
+      { id: 'pants', emoji: '👖', label: 'Put on pants' },
+      { id: 'socks', emoji: '🧦', label: 'Put on socks' },
+    ],
+  },
   { id: 'eat', emoji: '🍎', label: 'Breakfast', time: '7:30' },
   { id: 'shoes', emoji: '👟', label: 'Shoes on', time: '7:50' },
 ];
@@ -25,9 +39,23 @@ type Tab = 'today' | 'timer' | 'ft';
 
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** The app's check: an empty circle that becomes the Chipperly star with a tick; steps light its rays first. */
+function Check({ checked, progress = 0, small }: { checked: boolean; progress?: number; small?: boolean }) {
+  const rays = !checked && progress > 0 ? Math.min(11, Math.round(progress * 12)) : undefined;
+  return (
+    <span className={`${s.check} ${small ? s.checkSm : ''} ${checked ? s.checked : ''} ${rays ? s.partial : ''}`} aria-hidden="true">
+      <ChipStar size="100%" rays={rays} className={s.checkStar} />
+      <svg viewBox="0 0 24 24" className={s.tick}>
+        <path d="M5 13l5 5 9-11" />
+      </svg>
+    </span>
+  );
+}
+
 export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: string }) {
   const [tab, setTab] = useState<Tab>('today');
-  const [done, setDone] = useState<Set<string>>(new Set());
+  const [done, setDone] = useState<Set<string>>(new Set()); // task ids and step ids
+  const [open, setOpen] = useState(false); // Get dressed steps expanded
   const [chips, setChips] = useState(0);
   const [redeemed, setRedeemed] = useState(false);
   const [announce, setAnnounce] = useState('');
@@ -42,6 +70,8 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
 
   // First, then
   const [firstDone, setFirstDone] = useState(false);
+  const [asked, setAsked] = useState(false);
+  const [notice, setNotice] = useState(false);
 
   const switchTab = (next: Tab) => {
     if (next === tab) return;
@@ -54,34 +84,33 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
     setChips((c) => Math.max(c, slot + 1));
     const el = slots.current[slot];
     if (el && !reducedMotion()) {
-      el.animate([{ transform: 'scale(0.4)' }, { transform: 'scale(1)' }], { duration: SPRING.duration, easing: SPRING.easing });
+      el.animate([{ transform: 'scale(0.4) rotate(-40deg)' }, { transform: 'scale(1) rotate(0deg)' }], { duration: SPRING.duration, easing: SPRING.easing });
     }
     setAnnounce(`Chip earned. ${slot + 1} of ${GOAL}.`);
   }, []);
 
-  const toggle = (id: string, from: HTMLElement) => {
-    const next = new Set(done);
-    if (next.has(id)) {
-      next.delete(id); // a chip once earned stays: rewards are never taken away
-      setDone(next);
-      return;
-    }
-    next.add(id);
-    setDone(next);
-    if (earned.current.has(id) || redeemed) return;
-    earned.current.add(id);
+  // A task was just finished: fly a Chipperly star from its check to the next slot.
+  const earnChip = (taskId: string, from: HTMLElement | null) => {
+    if (earned.current.has(taskId) || redeemed) return;
+    earned.current.add(taskId);
     const slot = chips + pending.current;
     if (slot >= GOAL) return;
     const target = slots.current[slot];
-    if (!target || reducedMotion()) return landChip(slot);
+    const source = from?.querySelector('[data-chipstar]');
+    if (!target || !from || !source || reducedMotion()) return landChip(slot);
 
-    // Fly a star from the check mark to its slot on the board.
     pending.current += 1;
     const a = from.getBoundingClientRect();
     const b = target.getBoundingClientRect();
     const star = document.createElement('span');
     star.className = s.flyer;
-    star.textContent = '★';
+    const svg = source.cloneNode(true) as SVGElement;
+    svg.querySelectorAll('path').forEach((p, i) => {
+      p.setAttribute('fill', ['#df5a20', '#f89c10', '#df5a20', '#b5d222', '#fddf1e', '#f89c10', '#df5a20', '#f89c10', '#fddf1e', '#b5d222', '#24a6e1', '#815e98'][i]);
+      p.setAttribute('opacity', '1');
+    });
+    svg.querySelector('circle')?.setAttribute('fill', '#13b6a5');
+    star.appendChild(svg);
     star.style.left = `${a.left + a.width / 2}px`;
     star.style.top = `${a.top + a.height / 2}px`;
     document.body.appendChild(star);
@@ -91,11 +120,11 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
     star
       .animate(
         [
-          { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0.4 },
-          { transform: `translate(calc(-50% + ${dx * 0.45}px), calc(-50% + ${dy * 0.45 - lift}px)) scale(1.35)`, opacity: 1, offset: 0.5 },
-          { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)`, opacity: 1 },
+          { transform: 'translate(-50%, -50%) scale(1) rotate(0deg)' },
+          { transform: `translate(calc(-50% + ${dx * 0.45}px), calc(-50% + ${dy * 0.45 - lift}px)) scale(1.2) rotate(120deg)`, offset: 0.5 },
+          { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.8) rotate(180deg)` },
         ],
-        { duration: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+        { duration: 600, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
       )
       .finished.finally(() => {
         star.remove();
@@ -104,19 +133,61 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
       });
   };
 
+  const toggleTask = (task: Task, row: HTMLElement) => {
+    const next = new Set(done);
+    if (next.has(task.id)) {
+      next.delete(task.id); // a chip once earned stays: rewards are never taken away
+      setDone(next);
+      return;
+    }
+    next.add(task.id);
+    task.steps?.forEach((st) => next.add(st.id));
+    setDone(next);
+    earnChip(task.id, row.querySelector(`.${s.check}`));
+  };
+
+  const toggleStep = (task: Task, step: Step, taskRow: HTMLElement | null) => {
+    const next = new Set(done);
+    if (next.has(step.id)) next.delete(step.id);
+    else next.add(step.id);
+    const all = task.steps!.every((st) => next.has(st.id));
+    const count = task.steps!.filter((st) => next.has(st.id)).length;
+    if (all) next.add(task.id);
+    else next.delete(task.id);
+    setDone(next);
+    setAnnounce(all ? `${task.label} done.` : `${count} of ${task.steps!.length} steps done.`);
+    if (all) earnChip(task.id, taskRow?.querySelector(`.${s.check}`) ?? null);
+  };
+
   const redeem = () => {
     setRedeemed(true);
     setAnnounce('Screen time redeemed. All done!');
   };
 
+  const ask = () => {
+    setAsked(true);
+    setNotice(true);
+    setAnnounce('Asked for play time. A grown-up was notified.');
+  };
+
+  // The notification banner leaves on its own after a few seconds.
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(false), 3600);
+    return () => clearTimeout(t);
+  }, [notice]);
+
   const reset = () => {
     earned.current.clear();
     setDone(new Set());
+    setOpen(false);
     setChips(0);
     setRedeemed(false);
     setRunning(false);
     setRemaining(TIMER_S);
     setFirstDone(false);
+    setAsked(false);
+    setNotice(false);
     setAnnounce('Demo reset.');
   };
 
@@ -160,6 +231,19 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
       </p>
       <div className={s.phone} role="group" aria-label="Interactive Chipperly demo. Nothing is saved.">
         <div className={s.screen}>
+          {notice && (
+            <div className={s.notice} role="presentation">
+              <span className={s.noticeIcon} aria-hidden="true">
+                <ChipStar size={22} />
+              </span>
+              <span className={s.noticeText}>
+                <strong>Benny is asking for Play time</strong>
+                <span>Chipperly · caregiver notified</span>
+              </span>
+              <span aria-hidden="true">🔔</span>
+            </div>
+          )}
+
           <header className={s.top}>
             <span className={s.avatar} aria-hidden="true">
               🦁
@@ -173,8 +257,8 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
           <div className={s.board} aria-label={`${chips} of ${GOAL} chips, working for Screen time`}>
             <div className={s.slots} aria-hidden="true">
               {Array.from({ length: GOAL }, (_, i) => (
-                <span key={i} ref={(el) => void (slots.current[i] = el)} className={`${s.slot} ${i < chips && !redeemed ? s.slotOn : ''}`}>
-                  ★
+                <span key={i} ref={(el) => void (slots.current[i] = el)} className={s.slot}>
+                  <ChipStar size="100%" muted={!(i < chips && !redeemed)} />
                 </span>
               ))}
             </div>
@@ -196,9 +280,7 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
             {tab === 'today' &&
               (redeemed ? (
                 <div className={s.celebrate}>
-                  <span className={s.bigEmoji} aria-hidden="true">
-                    📱
-                  </span>
+                  <ChipStar size={72} className={s.celebrateStar} />
                   <p className={s.allDone}>All done!</p>
                   <p className={s.small}>Benny earned his screen time.</p>
                   <a className={s.cta} href={ctaHref}>
@@ -214,22 +296,74 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
                   <ul className={s.list}>
                     {MORNING.map((m) => {
                       const on = done.has(m.id);
+                      if (!m.steps) {
+                        return (
+                          <li key={m.id}>
+                            <button type="button" className={`${s.item} ${on ? s.itemDone : ''}`} aria-pressed={on} onClick={(e) => toggleTask(m, e.currentTarget)}>
+                              <span className={s.tile} aria-hidden="true">
+                                {m.emoji}
+                              </span>
+                              <span className={s.label}>
+                                {m.label}
+                                <span className={s.time}>{m.time} AM</span>
+                              </span>
+                              <Check checked={on} />
+                            </button>
+                          </li>
+                        );
+                      }
+                      const stepsDone = m.steps.filter((st) => done.has(st.id)).length;
                       return (
-                        <li key={m.id}>
-                          <button type="button" className={`${s.item} ${on ? s.itemDone : ''}`} aria-pressed={on} onClick={(e) => toggle(m.id, e.currentTarget.querySelector(`.${s.check}`) as HTMLElement)}>
-                            <span className={s.tile} aria-hidden="true">
-                              {m.emoji}
-                            </span>
-                            <span className={s.label}>
-                              {m.label}
-                              <span className={s.time}>{m.time} AM</span>
-                            </span>
-                            <span className={s.check} aria-hidden="true">
-                              <svg viewBox="0 0 24 24">
-                                <path d="M6 12.5l4 4 8-9" />
-                              </svg>
-                            </span>
-                          </button>
+                        <li key={m.id} className={`${s.routine} ${on ? s.itemDone : ''}`} id="demo-dress">
+                          <div className={s.routineRow}>
+                            <button type="button" className={s.expand} aria-expanded={open} aria-controls="demo-steps" onClick={() => setOpen((v) => !v)}>
+                              <span className={s.tile} aria-hidden="true">
+                                {m.emoji}
+                              </span>
+                              <span className={s.label}>
+                                {m.label}
+                                <span className={s.time}>
+                                  {stepsDone}/{m.steps.length} steps done
+                                  <svg viewBox="0 0 24 24" className={`${s.chev} ${open ? s.chevOpen : ''}`} aria-hidden="true">
+                                    <path d="M6 9l6 6 6-6" />
+                                  </svg>
+                                </span>
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className={s.checkBtn}
+                              aria-pressed={on}
+                              aria-label={`${m.label}, ${on ? 'done' : 'not done'}`}
+                              onClick={(e) => toggleTask(m, e.currentTarget)}
+                            >
+                              <Check checked={on} progress={stepsDone / m.steps.length} />
+                            </button>
+                          </div>
+                          <div className={`${s.steps} ${open ? s.stepsOpen : ''}`} id="demo-steps">
+                            <ul>
+                              {m.steps.map((st) => {
+                                const stOn = done.has(st.id);
+                                return (
+                                  <li key={st.id}>
+                                    <button
+                                      type="button"
+                                      className={`${s.step} ${stOn ? s.itemDone : ''}`}
+                                      aria-pressed={stOn}
+                                      tabIndex={open ? 0 : -1}
+                                      onClick={() => toggleStep(m, st, document.getElementById('demo-dress'))}
+                                    >
+                                      <span className={s.tileSm} aria-hidden="true">
+                                        {st.emoji}
+                                      </span>
+                                      <span className={s.label}>{st.label}</span>
+                                      <Check checked={stOn} small />
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
                         </li>
                       );
                     })}
@@ -261,25 +395,33 @@ export function HeroDemo({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: str
 
             {tab === 'ft' && (
               <div className={s.ft}>
-                <button type="button" className={`${s.ftCard} ${firstDone ? s.ftDone : ''}`} aria-pressed={firstDone} onClick={() => { setFirstDone((v) => !v); setAnnounce(firstDone ? 'Bath time not done.' : 'Bath time done. Then: play time.'); }}>
+                <button
+                  type="button"
+                  className={`${s.ftCard} ${firstDone ? s.ftDone : ''}`}
+                  aria-pressed={firstDone}
+                  onClick={() => {
+                    setFirstDone((v) => !v);
+                    if (firstDone) setAsked(false);
+                    setAnnounce(firstDone ? 'Bath time not done.' : 'Bath time done. Tap Play time to ask for it.');
+                  }}
+                >
                   <span className={s.small}>First</span>
                   <span className={s.bigEmoji} aria-hidden="true">
                     🛁
                   </span>
                   <span>Bath time</span>
-                  <span className={s.ftCheck} aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M6 12.5l4 4 8-9" />
-                    </svg>
+                  <span className={s.ftCheck}>
+                    <Check checked={firstDone} />
                   </span>
                 </button>
-                <div className={`${s.ftCard} ${s.ftThen} ${firstDone ? s.ftNow : ''}`}>
-                  <span className={s.small}>{firstDone ? 'Now' : 'Then'}</span>
+                <button type="button" className={`${s.ftCard} ${firstDone ? s.ftNow : ''}`} disabled={!firstDone || asked} onClick={ask} aria-label={firstDone && !asked ? 'Then: Play time. Tap to ask for it.' : undefined}>
+                  <span className={s.small}>Then</span>
                   <span className={s.bigEmoji} aria-hidden="true">
                     🧸
                   </span>
                   <span>Play time</span>
-                </div>
+                  {firstDone && <span className={s.ftHint}>{asked ? 'Asked. A grown-up is on the way.' : 'Tap to ask for it'}</span>}
+                </button>
               </div>
             )}
           </div>
