@@ -1,6 +1,6 @@
 import type { GlobalConfig } from 'payload';
 import { signedIn } from '../lib/access';
-import { revalidate } from '../lib/revalidate';
+import { revalidateAll } from '../lib/revalidate';
 import { SOCIAL, SOCIAL_PLATFORMS } from '../lib/social';
 
 const platformOptions = SOCIAL_PLATFORMS.map((p) => ({ label: SOCIAL[p].label, value: p }));
@@ -101,5 +101,6 @@ export const Settings: GlobalConfig = {
       ],
     },
   ],
-  hooks: { afterChange: [() => revalidate('/', '/features', '/about', '/blog')] },
+  // Settings show in the header, footer and head of every page.
+  hooks: { afterChange: [() => revalidateAll()] },
 };
