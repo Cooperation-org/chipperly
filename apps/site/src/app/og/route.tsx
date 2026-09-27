@@ -7,7 +7,7 @@ const MARK = `data:image/svg+xml;base64,${btoa(MARK_SVG)}`;
 // Default 1200x630 share image: the star mark, a title and the tagline.
 // Used by any page or post without its own SEO image (lib/seo ogImageUrl).
 export async function GET(req: Request) {
-  const title = (new URL(req.url).searchParams.get('title') || 'Visual supports made simple for everyone').slice(0, 110);
+  const title = (new URL(req.url).searchParams.get('title') || 'Neurodivergent life made easier').slice(0, 110);
 
   return new ImageResponse(
     (
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
         </div>
         <div style={{ fontSize: title.length > 60 ? 60 : 76, fontWeight: 700, lineHeight: 1.1, maxWidth: 1000, display: 'flex' }}>{title}</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 30, color: '#1f6f78' }}>
-          <span>{TAGLINE}</span>
+          <span>{title.startsWith(TAGLINE.replace(/\.$/, '')) ? 'Visual supports for neurodivergent families' : TAGLINE}</span>
           <span style={{ color: '#56615f' }}>chipperlyapp.com</span>
         </div>
       </div>

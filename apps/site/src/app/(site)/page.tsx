@@ -30,11 +30,11 @@ export default async function Home() {
           <div>
             <p className="eyebrow">Visual supports app</p>
             <h1>
-              Visual supports made <span className="accent">simple</span> for everyone
+              Neurodivergent life made <span className="accent">easier</span>
             </h1>
             <p className="lede">
-              The all-in-one app for neurodivergent individuals and their families: visual schedules, timers, chip boards
-              and more, in one easy dashboard the whole care team can share.
+              Visual schedules, chip boards, timers and social stories that give neurodivergent people of all abilities
+              more control over their day, with the whole care team working from the same plan.
             </p>
             <div className="hero-actions">
               {launched ? (
