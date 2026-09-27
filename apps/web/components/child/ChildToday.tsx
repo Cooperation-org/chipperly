@@ -643,14 +643,15 @@ export function ChildToday() {
 
                 {day.item.story_id ? <ReadStoryButton storyId={day.item.story_id} /> : null}
 
-                {expanded ? <ul className={styles.steps}>{topSteps.map((node) => renderStepNode(day, node))}</ul> : null}
-
-                {/* After the steps, not between the task and them, so an open routine reads as one block. */}
+                {/* Right under the task, above its steps, so it is seen without scrolling
+                    past a long routine (Benny's dad, 26 Sept). */}
                 {hasSteps && options.show_visual_schedule ? (
                   <BigButton variant="secondary" icon="expand" onClick={() => setScheduleItemId(day.item.id)}>
                     Steps
                   </BigButton>
                 ) : null}
+
+                {expanded ? <ul className={styles.steps}>{topSteps.map((node) => renderStepNode(day, node))}</ul> : null}
 
                 {promptIds.has(day.item.id) ? (
                   <AttitudePrompt profileId={profileId} itemId={day.item.id} onDone={() => hidePromptFor(day.item.id)} />
