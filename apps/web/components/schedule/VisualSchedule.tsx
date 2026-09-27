@@ -38,14 +38,28 @@ export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readO
   // Steps with sub-steps start closed and open on a tap; the print preview shows everything.
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set());
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  // Callers pass onClose inline, so it is a new function on every render.
+  // Keeping it in a ref lets the setup below run once, on open: re-running it
+  // on each tick moved focus to the first button and scrolled the panel back
+  // to the top (Benny's dad, 26 Sept: "it shouldn't refresh and move you up").
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = title;
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [title]);
 
   useEffect(() => {
     returnFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
-    const previousTitle = document.title;
     document.body.style.overflow = 'hidden';
     document.documentElement.setAttribute('data-printing', 'true');
-    document.title = title;
 
     const panel = panelRef.current;
     const focusable = panel?.querySelectorAll<HTMLElement>(FOCUSABLE);
@@ -54,7 +68,7 @@ export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readO
     function onKeyDown(e: KeyboardEvent): void {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab' || !panel) return;
@@ -76,10 +90,9 @@ export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readO
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
       document.documentElement.removeAttribute('data-printing');
-      document.title = previousTitle;
       returnFocusRef.current?.focus();
     };
-  }, [onClose, title]);
+  }, []);
 
   function toggleOpen(id: string): void {
     setOpenIds((prev) => {
