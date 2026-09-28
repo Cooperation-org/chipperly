@@ -8,13 +8,14 @@ test.use({
   launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] },
   permissions: ['microphone'],
 });
+// Skipped before any browser starts: WebKit refuses to launch with the flags above.
+test.skip(({ browserName }) => browserName !== 'chromium', 'only Chromium has a fake microphone');
 
 /** Record a story page in your own voice; the viewer then plays it instead of the device's voice. */
 test.describe('story page in your own voice', () => {
   let page: Page;
 
-  test.beforeAll(async ({ browser, browserName }) => {
-    test.skip(browserName !== 'chromium', 'only Chromium has a fake microphone');
+  test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
     await signUp(page, { name: 'Voice Tester' });
   });
