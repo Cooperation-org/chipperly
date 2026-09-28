@@ -9,7 +9,7 @@ export function PostCard({ post }: { post: Post }) {
   const cat = post.categories?.find((c) => typeof c === 'object');
   const src = img?.url;
   return (
-    <Link href={`/blog/${post.slug}`} className="post-card">
+    <Link prefetch={false} href={`/blog/${post.slug}`} className="post-card">
       <div className="post-card-img">
         {src ? (
           <Image src={src} alt={img?.alt ?? ''} width={img?.width ?? 1600} height={img?.height ?? 900} sizes="(max-width: 700px) 100vw, 380px" />

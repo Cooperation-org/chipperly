@@ -48,7 +48,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         </a>
         {bar?.enabled && bar.text ? (
           <div className="announce">
-            {bar.link ? <Link href={bar.link}>{bar.text}</Link> : bar.text}
+            {bar.link ? <Link prefetch={false} href={bar.link}>{bar.text}</Link> : bar.text}
           </div>
         ) : null}
         <Header launched={Boolean(settings.launched)} appUrl={APP_URL} />

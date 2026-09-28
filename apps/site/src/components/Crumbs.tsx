@@ -7,10 +7,10 @@ export function Crumbs({ items }: { items: [name: string, path?: string][] }) {
     <nav aria-label="Breadcrumb">
       <ol className="crumbs">
         <li>
-          <Link href="/">Home</Link>
+          <Link prefetch={false} href="/">Home</Link>
         </li>
         {items.map(([name, path]) => (
-          <li key={name}>{path ? <Link href={path}>{name}</Link> : <span aria-current="page">{name}</span>}</li>
+          <li key={name}>{path ? <Link prefetch={false} href={path}>{name}</Link> : <span aria-current="page">{name}</span>}</li>
         ))}
       </ol>
     </nav>

@@ -25,11 +25,11 @@ export function BlogList({ title, intro, posts, categories, activeCategory, page
           <p className="lede">{intro}</p>
           {categories.length > 0 && (
             <nav aria-label="Categories" className="chips-row">
-              <Link className="pill" href="/blog" aria-current={!activeCategory ? 'page' : undefined}>
+              <Link prefetch={false} className="pill" href="/blog" aria-current={!activeCategory ? 'page' : undefined}>
                 All
               </Link>
               {categories.map((c) => (
-                <Link key={c.id} className="pill" href={`/blog/category/${c.slug}`} aria-current={activeCategory === c.slug ? 'page' : undefined}>
+                <Link prefetch={false} key={c.id} className="pill" href={`/blog/category/${c.slug}`} aria-current={activeCategory === c.slug ? 'page' : undefined}>
                   {c.title}
                 </Link>
               ))}
@@ -51,14 +51,14 @@ export function BlogList({ title, intro, posts, categories, activeCategory, page
           {totalPages > 1 && (
             <nav className="pager" aria-label="Pagination">
               {page > 1 ? (
-                <Link className="btn btn-ghost" href={page === 2 ? '/blog' : `/blog/page/${page - 1}`} rel="prev">
+                <Link prefetch={false} className="btn btn-ghost" href={page === 2 ? '/blog' : `/blog/page/${page - 1}`} rel="prev">
                   Newer posts
                 </Link>
               ) : (
                 <span />
               )}
               {page < totalPages ? (
-                <Link className="btn btn-ghost" href={`/blog/page/${page + 1}`} rel="next">
+                <Link prefetch={false} className="btn btn-ghost" href={`/blog/page/${page + 1}`} rel="next">
                   Older posts
                 </Link>
               ) : null}

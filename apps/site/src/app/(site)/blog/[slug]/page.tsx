@@ -69,7 +69,7 @@ export default async function PostPage({ params }: Props) {
       <header className="narrow article-head">
         <Crumbs items={[['Blog', '/blog'], [post.title]]} />
         {cats.map((c) => (
-          <Link key={c.id} className="tag" href={`/blog/category/${c.slug}`} style={{ marginRight: 12 }}>
+          <Link prefetch={false} key={c.id} className="tag" href={`/blog/category/${c.slug}`} style={{ marginRight: 12 }}>
             {c.title}
           </Link>
         ))}

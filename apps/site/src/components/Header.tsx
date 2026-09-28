@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { Icon } from './Icon';
 
+// Every <Link> on the site has prefetch={false}: on 27-28 Sept open tabs
+// re-prefetched /features and /about in a loop (~190k requests in a day) and
+// used up the Workers free plan's daily limit. These pages are small; a
+// normal click loads them fast enough.
 const NAV = [
   ['Features', '/features'],
   ['About', '/about'],
@@ -12,14 +16,14 @@ export function Header({ launched, appUrl }: { launched: boolean; appUrl: string
   return (
     <header className="site-header">
       <div className="wrap header-row">
-        <Link href="/" className="brand" aria-label="Chipperly home">
+        <Link prefetch={false} href="/" className="brand" aria-label="Chipperly home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/mark.svg" alt="" width={36} height={36} />
           <span>Chipperly</span>
         </Link>
         <nav aria-label="Main" className="nav-desktop">
           {NAV.map(([label, href]) => (
-            <Link key={href} href={href}>
+            <Link prefetch={false} key={href} href={href}>
               {label}
             </Link>
           ))}
@@ -35,7 +39,7 @@ export function Header({ launched, appUrl }: { launched: boolean; appUrl: string
           </summary>
           <nav aria-label="Main">
             {NAV.map(([label, href]) => (
-              <Link key={href} href={href}>
+              <Link prefetch={false} key={href} href={href}>
                 {label}
               </Link>
             ))}

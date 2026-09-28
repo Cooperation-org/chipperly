@@ -46,7 +46,7 @@ export default async function Home() {
                   Join the waitlist <Icon name="arrow" size={20} />
                 </a>
               )}
-              <Link className="btn btn-ghost" href="/features">
+              <Link prefetch={false} className="btn btn-ghost" href="/features">
                 See how it works
               </Link>
             </div>
@@ -78,7 +78,7 @@ export default async function Home() {
               Chipperly was created by a mom who couldn&rsquo;t find a single app that brought all the visual support
               tools her son needed into one place. So she built it.
             </p>
-            <Link className="link-arrow" href="/about">
+            <Link prefetch={false} className="link-arrow" href="/about">
               Read our story <Icon name="arrow" size={20} />
             </Link>
           </div>
@@ -94,7 +94,7 @@ export default async function Home() {
           </div>
           <div className="tools-grid">
             {TOOLS.map((t) => (
-              <Link key={t.id} href={`/features#${t.id}`} className="tool-card">
+              <Link prefetch={false} key={t.id} href={`/features#${t.id}`} className="tool-card">
                 <span className="icon-chip">
                   <Icon name={t.icon} />
                 </span>
@@ -113,7 +113,7 @@ export default async function Home() {
           ))}
         </div>
         <div className="wrap" style={{ textAlign: 'center' }}>
-          <Link className="link-arrow" href="/features">
+          <Link prefetch={false} className="link-arrow" href="/features">
             Explore all features <Icon name="arrow" size={20} />
           </Link>
         </div>
@@ -132,7 +132,7 @@ export default async function Home() {
               ))}
             </div>
             <p style={{ marginTop: 32 }}>
-              <Link className="link-arrow" href="/blog">
+              <Link prefetch={false} className="link-arrow" href="/blog">
                 All posts <Icon name="arrow" size={20} />
               </Link>
             </p>

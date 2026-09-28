@@ -11,10 +11,10 @@ export default function NotFound() {
         It may have moved, or the link has a typo.
       </p>
       <div className="hero-actions">
-        <Link className="btn btn-primary" href="/">
+        <Link prefetch={false} className="btn btn-primary" href="/">
           Go to the home page
         </Link>
-        <Link className="btn btn-ghost" href="/blog">
+        <Link prefetch={false} className="btn btn-ghost" href="/blog">
           Read the blog
         </Link>
       </div>
