@@ -8,7 +8,7 @@ import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
-const APP = (process.env.APP_URL || 'https://demos.linkedtrust.us/chipperly-next').replace(/\/$/, '');
+const APP = (process.env.APP_URL || 'https://app.chipperlyapp.com').replace(/\/$/, '');
 const EMAIL = process.env.DEMO_EMAIL || 'demo@chipperlyapp.com';
 const PASSWORD = process.env.DEMO_PASSWORD || 'Chipperly-Demo-2026';
 const OUT = fileURLToPath(new URL('../public/screens/', import.meta.url));

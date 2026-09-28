@@ -3,7 +3,7 @@
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3100').replace(/\/$/, '');
 
 // The web app. "Try the app" and "Sign in" link here.
-export const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://demos.linkedtrust.us/chipperly-next').replace(/\/$/, '');
+export const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://app.chipperlyapp.com').replace(/\/$/, '');
 
 export const SITE_NAME = 'Chipperly';
 export const TAGLINE = 'Neurodivergent life made easier.';
