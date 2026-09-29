@@ -18,6 +18,22 @@ export const metadata: Metadata = {
     ],
     apple: `${basePath}/icons/apple-touch-icon-180.png`,
   },
+  // metadataBase resolves these against NEXT_PUBLIC_SITE_ORIGIN, so scrapers get absolute URLs.
+  openGraph: {
+    type: 'website',
+    siteName: 'Chipperly',
+    title: 'Chipperly',
+    description: 'Neurodivergent life made easier.',
+    images: [
+      { url: `${basePath}/og/og-image.png`, width: 1200, height: 630, alt: 'Chipperly. Neurodivergent life made easier.' },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Chipperly',
+    description: 'Neurodivergent life made easier.',
+    images: [`${basePath}/og/og-image.png`],
+  },
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
