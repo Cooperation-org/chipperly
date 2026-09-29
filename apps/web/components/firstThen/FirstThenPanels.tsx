@@ -24,6 +24,8 @@ import { CheckCircle } from '@/components/ui/CheckCircle';
 import { Celebration } from '@/components/ui/Celebration';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { firstThenReadiness } from './firstThenReadiness';
 import { useSheet } from '@/components/ui/Sheet';
 import styles from './FirstThenPanels.module.css';
 
@@ -153,6 +155,27 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
         <div className={styles.toolbar}>
           <IconButton icon="more" aria-label="More" onClick={openMenu} />
         </div>
+      ) : null}
+
+      {!bothSet ? (
+        <EmptyState
+          sentence={
+            caregiver
+              ? firstThenReadiness({
+                  first_then_activity_id: first?.id ?? null,
+                  first_then_reward_id: then?.id ?? null,
+                }).message
+              : 'First-Then is not ready yet. Ask a grown-up to set it up.'
+          }
+          actions={
+            caregiver
+              ? [
+                  ...(first ? [] : [<Button key="first" onClick={openFirstPicker}>Pick what comes first</Button>]),
+                  ...(then ? [] : [<Button key="then" onClick={openThenPicker}>Pick the reward that comes after</Button>]),
+                ]
+              : undefined
+          }
+        />
       ) : null}
 
       <div className={styles.panels}>
