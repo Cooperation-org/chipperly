@@ -85,6 +85,13 @@ test.describe('auth', () => {
     // here — clicking the "Emoji" button would instead *close* it.
     await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+    // S4b, the setup interview; this spec takes the skip path (the fixed
+    // default lists). onboarding-setup.spec.ts walks the questions.
+    await expect(page.getByRole('heading', { name: 'How old is Benny?' })).toBeVisible();
+    await expectNoOverflow(page, 'S4b setup interview');
+    await snap(page, 's4b-setup-questions');
+    await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
     await page.waitForURL('**/onboarding/ready/');
   });
 
@@ -160,6 +167,7 @@ test.describe('auth', () => {
     await page.getByLabel('Name', { exact: true }).fill('Mia');
     await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
     await page.getByRole('button', { name: 'Go to Today', exact: true }).click();
     await page.waitForURL('**/today/');
 

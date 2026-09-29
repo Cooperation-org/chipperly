@@ -37,6 +37,23 @@ export const TimedAppAllowanceSchema = z.object({
 });
 export type TimedAppAllowance = z.infer<typeof TimedAppAllowanceSchema>;
 
+export const AgeBandSchema = z.enum(['2-7', '8-12', '13-17', '18+']);
+export type AgeBand = z.infer<typeof AgeBandSchema>;
+
+/**
+ * The setup interview's answers (onboarding S4b): they drive the seed
+ * (constants/setup.ts buildSeed) and are kept on the profile for later
+ * reruns, reminders and the planned AI setup.
+ */
+export const SetupAnswersSchema = z.object({
+  age_band: AgeBandSchema,
+  week: z.array(z.enum(['school', 'work', 'therapy', 'day_program'])).max(4),
+  routines: z.array(z.enum(['morning', 'dressed', 'teeth', 'meals', 'homework', 'chores', 'bedtime', 'leaving'])).max(8),
+  places: z.array(z.enum(['school', 'work', 'therapy', 'other_home'])).max(4),
+  loves: z.array(z.object({ name: z.string().min(1).max(60), emoji: z.string().min(1).max(8) })).max(20),
+});
+export type SetupAnswers = z.infer<typeof SetupAnswersSchema>;
+
 /**
  * Per-profile settings (technical-plan.md section 5). Existing rows still
  * hold `{}`; every field here is optional so old rows keep parsing.
@@ -101,6 +118,10 @@ export const ProfileSettingsSchema = z
     allowed_app_packages: z.array(z.string()).optional(),
     /** Apps allowed for a caregiver-granted window (e.g. "YouTube for 1 hour"), see TimedAppAllowanceSchema. */
     timed_app_allowances: z.array(TimedAppAllowanceSchema).optional(),
+    /** From the setup interview; picks seed packs now, copy tone later. Absent on profiles made before it existed or with setup skipped. */
+    age_band: AgeBandSchema.optional(),
+    /** The full setup interview answers, kept for reruns and the planned AI setup. */
+    setup: SetupAnswersSchema.optional(),
   })
   .partial();
 export type ProfileSettings = z.infer<typeof ProfileSettingsSchema>;

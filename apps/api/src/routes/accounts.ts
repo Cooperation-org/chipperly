@@ -162,13 +162,16 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
           share_token: null,
           first_then_activity_id: null,
           first_then_reward_id: null,
-          settings: body.child_uses_app === false ? { child_uses_app: false } : {},
+          settings: {
+            ...(body.child_uses_app === false ? { child_uses_app: false } : {}),
+            ...(body.setup ? { age_band: body.setup.age_band, setup: body.setup } : {}),
+          },
           client_updated_at: now,
           updated_by: userId,
           deleted_at: null,
         })
         .returning();
-      await seedProfile(tx, profileId, userId);
+      await seedProfile(tx, profileId, userId, body.setup);
       return row!;
     });
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AccountSchema, Role, UserPublicSchema } from './account.js';
 import { uuidSchema } from './common.js';
 import { MediaKind } from './media.js';
-import { ProfileSchema } from './profile.js';
+import { ProfileSchema, SetupAnswersSchema } from './profile.js';
 
 const passwordSchema = z.string().min(8);
 
@@ -133,6 +133,8 @@ export const CreateProfileBodySchema = z.object({
   photo_id: uuidSchema.nullable().optional(),
   /** Onboarding's "Will they use Chipperly themselves?"; stored as settings.child_uses_app. Omitted: yes. */
   child_uses_app: z.boolean().optional(),
+  /** The setup interview's answers: the seed then fits the person (constants/setup.ts). Omitted: the fixed default lists. */
+  setup: SetupAnswersSchema.optional(),
 });
 export type CreateProfileBody = z.infer<typeof CreateProfileBodySchema>;
 

@@ -234,7 +234,7 @@ Dark mode is out of scope. `prefers-reduced-motion: reduce` and `[data-reduce-mo
 ```text
 lib/db/db.ts             export const db: ChipperlyDB (Dexie). Tables: every SYNCED_TABLE + profiles, accounts, users(me cache) +
                          outbox {id, table, op, row, client_updated_at, attempts, created_at}
-                         kv {key, value}  (device settings, active_profile_id, active_account_id, tokens, lock state, cursors)
+                         kv {key, value}  (device settings, active_profile_id, active_account_id, onboarding_setup, tokens, lock state, cursors)
                          media_blobs {media_id, blob, uploaded: 0|1}
 lib/db/kv.ts             getKv<T>(key), setKv(key, value), useKv<T>(key, fallback)
 lib/ids.ts               newId(): uuid v7 ; materializedId (re-export from shared)

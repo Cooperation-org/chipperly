@@ -1,12 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import type { SetupAnswers } from '@chipperly/shared/schemas/profile';
+import { buildSeed } from '@chipperly/shared/constants/setup';
 import { useActiveProfile } from '@/lib/profile/active';
+import { useKv } from '@/lib/db/kv';
 import { startSync } from '@/lib/sync/engine';
 import { enterParentMode } from '@/lib/device/settings';
 import { asksDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
 import { BigButton } from '@/components/ui/BigButton';
 import { Picture } from '@/components/media/Picture';
+import { SETUP_ANSWERS_KEY } from './FirstProfileForm';
 import styles from './Ready.module.css';
 
 /** S5: ready. */
@@ -14,6 +18,10 @@ export function Ready() {
   const router = useRouter();
   const { profile } = useActiveProfile();
   const name = profile?.name ?? 'them';
+  const answers = useKv<SetupAnswers | null>(SETUP_ANSWERS_KEY, null);
+  const plan = answers ? buildSeed(answers) : null;
+  const routines = plan?.activities.filter((a) => a.steps && a.steps.length > 0) ?? [];
+  const repeating = plan?.activities.filter((a) => a.recurrence).length ?? 0;
 
   // The caregiver just finished setting this profile up and is almost
   // certainly about to keep editing (more routines, rewards) -- land them
@@ -38,7 +46,26 @@ export function Ready() {
         <Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="grid" />
       ) : null}
       <h1 className={styles.title}>{profile ? `${profile.name} is ready.` : 'Ready.'}</h1>
-      <p className={styles.text}>We added starter activities, rewards and a daily plan for {name}. Change anything later.</p>
+      {plan ? (
+        <>
+          <ul className={styles.summary}>
+            {routines.map((routine) => (
+              <li key={routine.name}>
+                <span aria-hidden="true">{routine.emoji}</span> {routine.name} · {routine.steps!.length} steps
+              </li>
+            ))}
+            <li>
+              <span aria-hidden="true">📅</span> {repeating} repeating activities fill each day
+            </li>
+            <li>
+              <span aria-hidden="true">⭐</span> {plan.rewards.length} rewards · {plan.locations.map((l) => l.name).join(', ')}
+            </li>
+          </ul>
+          <p className={styles.text}>Change anything later.</p>
+        </>
+      ) : (
+        <p className={styles.text}>We added starter activities, rewards and a daily plan for {name}. Change anything later.</p>
+      )}
       <BigButton fullWidth onClick={() => void goToToday()}>
         Go to Today
       </BigButton>

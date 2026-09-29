@@ -67,6 +67,11 @@ export async function signUp(page: Page, opts: { name: string; email?: string })
     .click();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
+  // The setup interview (S4b): the suite's fixtures assume the fixed default
+  // lists, so sign-up always takes the skip path. onboarding-setup.spec.ts
+  // covers the questions themselves.
+  await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
+
   await page.waitForURL('**/onboarding/ready/');
   await page.getByRole('button', { name: 'Go to Today', exact: true }).click();
   await page.waitForURL('**/today/');

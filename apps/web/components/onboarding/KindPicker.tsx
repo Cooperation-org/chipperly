@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Account, AccountKind, Role } from '@chipperly/shared/schemas/account';
-import type { Profile } from '@chipperly/shared/schemas/profile';
 import { api } from '@/lib/api/client';
 import { refreshMe, useSession } from '@/lib/auth/session';
-import { useActiveAccount, useActiveProfile } from '@/lib/profile/active';
+import { useActiveAccount } from '@/lib/profile/active';
 import { PictureTile } from '@/components/ui/PictureTile';
 import styles from './KindPicker.module.css';
 
@@ -33,7 +32,6 @@ export function KindPicker() {
   const router = useRouter();
   const { status, user, profiles } = useSession();
   const { setActiveAccountId } = useActiveAccount();
-  const { setActiveProfileId } = useActiveProfile();
   const [busy, setBusy] = useState<AccountKind | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,17 +56,9 @@ export function KindPicker() {
       await refreshMe();
       setActiveAccountId(account.id);
 
-      if (kind === 'individual') {
-        const profile = await api.post<Profile>(`/accounts/${account.id}/profiles`, {
-          name: user.display_name,
-          emoji: '🙂',
-        });
-        await refreshMe();
-        setActiveProfileId(profile.id);
-        router.push('/onboarding/ready/');
-      } else {
-        router.push('/onboarding/profile/');
-      }
+      // Every kind continues to S4: "Myself" skips the name form there and
+      // goes straight to the setup interview, which creates the profile.
+      router.push('/onboarding/profile/');
     } catch {
       setError("Couldn't set that up. Try again.");
       setBusy(null);

@@ -65,7 +65,7 @@ export function useLockLoaded(): boolean {
   return useKvLoaded(LOCK_KEY);
 }
 
-/** The child-view options saved for a profile on this device (Settings > Child view options). */
+/** The child-view options saved for a profile on this device (Settings > "{name}'s view"). */
 function lockOptionsKey(profileId: string): string {
   return `lock_options:${profileId}`;
 }
