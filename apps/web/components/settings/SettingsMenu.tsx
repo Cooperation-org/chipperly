@@ -16,6 +16,7 @@ import { Switch } from '@/components/ui/Switch';
 import { usesApp, useDeviceRole } from '@/lib/device/role';
 import { DeviceRolePicker } from '@/components/onboarding/DeviceRolePicker';
 import { LockSheet } from './LockSheet';
+import { isSelfManaged, settingsCopy } from './settingsCopy';
 import { ShareSheet } from './ShareSheet';
 import { SyncSheet } from '@/components/shell/SyncSheet';
 import styles from './SettingsMenu.module.css';
@@ -58,6 +59,7 @@ export function SettingsMenu() {
 
   const role = accounts.find((a) => a.account.id === profile?.account_id)?.role;
   const isAdmin = role === 'admin';
+  const viewTitle = settingsCopy(isSelfManaged(accounts.find((a) => a.account.id === profile?.account_id)?.account), profile?.name ?? '').viewTitle;
 
   // Also drops the service worker and its caches: without that, a "cleared"
   // device kept serving the old cached build.
@@ -96,9 +98,9 @@ export function SettingsMenu() {
               <>
                 <ListRow
                   tile={<Icon name="gear" size={20} />}
-                  name={`${profile.name}'s view`}
+                  name={viewTitle}
                   trailing={<Icon name="chevron" size={20} />}
-                  onTap={() => open(<LockSheet profileId={profile.id} />, { title: `${profile.name}'s view` })}
+                  onTap={() => open(<LockSheet profileId={profile.id} />, { title: viewTitle })}
                 />
                 <ListRow
                   tile={<Icon name="lock" size={20} />}

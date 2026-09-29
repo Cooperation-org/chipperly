@@ -6,6 +6,7 @@ import { api } from '@/lib/api/client';
 import { toast } from '@/lib/toast';
 import { Segmented } from '@/components/ui/Segmented';
 import { Stepper } from '@/components/ui/Stepper';
+import { settingsCopy } from './settingsCopy';
 import styles from './ReviewReminderSetting.module.css';
 
 /** The times most people pick, one tap each; the stepper reaches any hour. */
@@ -22,7 +23,8 @@ function oftenOf(days: number): Often {
 }
 
 /** "Remind me to check X's routines": this caregiver's own choice for this child, saved straight away (not with the form). */
-export function ReviewReminderSetting({ profileId, name }: { profileId: string; name: string }) {
+export function ReviewReminderSetting({ profileId, name, selfManaged = false }: { profileId: string; name: string; selfManaged?: boolean }) {
+  const copy = settingsCopy(selfManaged, name);
   const [value, setValue] = useState<ReviewReminder | null>(null);
   // Custom stays picked while its stepper passes through 3 or 7.
   const [customPicked, setCustomPicked] = useState(false);
@@ -57,7 +59,7 @@ export function ReviewReminderSetting({ profileId, name }: { profileId: string; 
 
   return (
     <div className={styles.wrap}>
-      <span className={styles.title}>Remind me to check {name}&rsquo;s routines</span>
+      <span className={styles.title}>{copy.reviewTitle}</span>
       <Segmented
         label="How often"
         items={[
@@ -101,7 +103,7 @@ export function ReviewReminderSetting({ profileId, name }: { profileId: string; 
               </button>
             ))}
           </div>
-          <p className={styles.hint}>Just for you; others supporting {name} choose their own.</p>
+          {copy.reviewHint ? <p className={styles.hint}>{copy.reviewHint}</p> : null}
         </>
       ) : null}
     </div>

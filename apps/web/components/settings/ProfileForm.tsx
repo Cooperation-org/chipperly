@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/Switch';
 import { NotificationCheck } from './NotificationCheck';
 import { UsesAppSwitch } from './UsesAppSwitch';
 import { ReviewReminderSetting } from './ReviewReminderSetting';
+import { isSelfManaged, settingsCopy } from './settingsCopy';
 import { db } from '@/lib/db/db';
 import { upsert, softDelete } from '@/lib/sync/mutate';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -28,6 +29,11 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const { open, close } = useSheet();
   const { profiles, setActiveProfileId } = useActiveProfile();
   const row = useLiveQuery(() => db.profiles.get(profileId), [profileId]);
+  const account = useLiveQuery(async () => {
+    const p = await db.profiles.get(profileId);
+    return p ? db.accounts.get(p.account_id) : undefined;
+  }, [profileId]);
+  const selfManaged = isSelfManaged(account);
 
   const [name, setName] = useState('');
   const [picture, setPicture] = useState<PicturePickerValue>({});
@@ -55,7 +61,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
 
   if (!row) return null;
 
-  const who = name.trim() || row.name;
+  const copy = settingsCopy(selfManaged, name.trim() || row.name);
 
   async function save(): Promise<void> {
     if (!row || !name.trim()) return;
@@ -90,7 +96,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     <div className={styles.form}>
       <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
       <PicturePicker value={picture} onChange={setPicture} name={name || row.name} />
-      <UsesAppSwitch name={name || row.name} checked={childUsesApp} onChange={setChildUsesApp} />
+      {selfManaged ? null : <UsesAppSwitch name={name || row.name} checked={childUsesApp} onChange={setChildUsesApp} />}
       <div className={styles.setting}>
         <span className={styles.settingLabel}>After a reward</span>
         <Segmented
@@ -125,13 +131,13 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
       {childUsesApp ? (
         <div className={styles.setting}>
           <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>Alert me when {who} wants a reward</span>
-            <Switch label="Reward alerts" checked={rewardAlerts} onChange={setRewardAlerts} />
+            <span className={styles.settingLabel}>{copy.rewardToggle}</span>
+            <Switch label={copy.rewardToggleLabel} checked={rewardAlerts} onChange={setRewardAlerts} />
           </div>
           {rewardAlerts ? <NotificationCheck /> : null}
         </div>
       ) : null}
-      <ReviewReminderSetting profileId={row.id} name={name || row.name} />
+      <ReviewReminderSetting profileId={row.id} name={name || row.name} selfManaged={selfManaged} />
       <Button variant="primary" size="lg" fullWidth onClick={() => void save()} loading={saving}>
         Save
       </Button>
