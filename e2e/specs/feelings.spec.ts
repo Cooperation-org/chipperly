@@ -51,24 +51,24 @@ test.describe('feelings, check-ups and the whole-routine bonus', () => {
     await page.close();
   });
 
-  test('turn on a +2 whole-routine bonus, child ordering and big pictures in the profile', async () => {
+  test('turn on a +2 whole-routine bonus in the profile', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await page.waitForURL('**/settings/profile/edit/**');
     await page.getByRole('combobox', { name: 'Whole-routine bonus' }).selectOption({ label: '+2' });
-    await page.getByRole('switch', { name: /can change the order of the day$/ }).click();
-    await page.getByRole('switch', { name: 'Big pictures, fewer words' }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
   });
 
-  test('lock to the child view', async () => {
+  test('turn on child ordering and big pictures, lock to the child view', async () => {
     await page.getByRole('button', { name: /'s view$/ }).click();
     const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
+    await sheet.getByRole('switch', { name: /can change the order of the day$/ }).click();
+    await sheet.getByRole('switch', { name: 'Big pictures, fewer words' }).click();
     await sheet.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');

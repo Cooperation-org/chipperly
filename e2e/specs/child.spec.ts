@@ -186,7 +186,7 @@ test.describe('child mode', () => {
     const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await expect(sheet).toBeVisible();
 
-    const locationToggle = sheet.getByRole('switch', { name: 'Let Benny switch location' });
+    const locationToggle = sheet.getByRole('switch', { name: 'Benny can switch location' });
     await expect(locationToggle).toHaveAttribute('aria-checked', 'false');
     await locationToggle.click();
     await expect(locationToggle).toHaveAttribute('aria-checked', 'true');

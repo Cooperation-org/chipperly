@@ -76,17 +76,12 @@ test.describe('child picks and redeems a reward', () => {
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: 'Edit profile' }).click();
-    await page.waitForURL('**/settings/profile/edit/**');
-    const pickToggle = page.getByRole('switch', { name: /can choose the reward$/ });
-    await expect(pickToggle).toHaveAttribute('aria-checked', 'true');
-    await pickToggle.click();
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.waitForURL('**/settings/');
-
     await page.getByRole('button', { name: /'s view$/ }).click();
     const lockSheet = page.getByRole('dialog', { name: /'s view$/ });
     await expect(lockSheet).toBeVisible();
+    const pickToggle = lockSheet.getByRole('switch', { name: /can choose the reward$/ });
+    await expect(pickToggle).toHaveAttribute('aria-checked', 'true');
+    await pickToggle.click();
     await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
@@ -124,15 +119,10 @@ test.describe('child picks and redeems a reward', () => {
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: 'Edit profile' }).click();
-    await page.waitForURL('**/settings/profile/edit/**');
-    await page.getByRole('switch', { name: /can choose the reward$/ }).click();
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.waitForURL('**/settings/');
-
     await page.getByRole('button', { name: /'s view$/ }).click();
     const lockSheetAgain = page.getByRole('dialog', { name: /'s view$/ });
     await expect(lockSheetAgain).toBeVisible();
+    await lockSheetAgain.getByRole('switch', { name: /can choose the reward$/ }).click();
     await lockSheetAgain.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
@@ -178,23 +168,18 @@ test.describe('child picks and redeems a reward', () => {
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: 'Edit profile' }).click();
-    await page.waitForURL('**/settings/profile/edit/**');
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: /'s view$/ });
+    await expect(lockSheet).toBeVisible();
 
-    const pickToggle = page.getByRole('switch', { name: /can choose the reward$/ });
-    const redeemToggle = page.getByRole('switch', { name: /can redeem rewards$/ });
+    const pickToggle = lockSheet.getByRole('switch', { name: /can choose the reward$/ });
+    const redeemToggle = lockSheet.getByRole('switch', { name: /can redeem rewards$/ });
     await expect(pickToggle).toHaveAttribute('aria-checked', 'true');
     await expect(redeemToggle).toHaveAttribute('aria-checked', 'true');
     await pickToggle.click();
     await redeemToggle.click();
     await expect(pickToggle).toHaveAttribute('aria-checked', 'false');
     await expect(redeemToggle).toHaveAttribute('aria-checked', 'false');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.waitForURL('**/settings/');
-
-    await page.getByRole('button', { name: /'s view$/ }).click();
-    const lockSheet = page.getByRole('dialog', { name: /'s view$/ });
-    await expect(lockSheet).toBeVisible();
     await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');

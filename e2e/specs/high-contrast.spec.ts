@@ -90,16 +90,16 @@ test.describe('high contrast (CVI) child view', () => {
     await unlock();
   });
 
-  test('turn on "High contrast (CVI)" in the profile', async () => {
+  test('turn on "High contrast (CVI)" in the view options', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: 'Edit profile' }).click();
-    await page.waitForURL('**/settings/profile/edit/**');
-    const toggle = page.getByRole('switch', { name: 'High contrast (CVI)' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const sheet = page.getByRole('dialog', { name: /'s view$/ });
+    const toggle = sheet.getByRole('switch', { name: 'High contrast (CVI)' });
     await expect(toggle).toHaveAttribute('aria-checked', 'false');
     await toggle.click();
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.waitForURL('**/settings/');
+    await sheet.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(sheet).toBeHidden();
   });
 
   test('child view: black background, white text, thick yellow outlines', async () => {
@@ -174,8 +174,8 @@ test.describe('high contrast (CVI) child view', () => {
   test('the setting survived locking right after saving it (lock waits for the save to sync)', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: 'Edit profile' }).click();
-    await page.waitForURL('**/settings/profile/edit/**');
-    await expect(page.getByRole('switch', { name: 'High contrast (CVI)' })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const sheet = page.getByRole('dialog', { name: /'s view$/ });
+    await expect(sheet.getByRole('switch', { name: 'High contrast (CVI)' })).toHaveAttribute('aria-checked', 'true');
   });
 });

@@ -158,7 +158,7 @@ async function enterPinDigits(page: Page, pin: string): Promise<void> {
 }
 
 /**
- * Sets the account's caregiver PIN (Settings > Account > Set device PIN) via
+ * Sets the account's caregiver PIN (Settings > Account > Set Team PIN) via
  * client-side navigation only, so it doesn't trip parent_mode's
  * full-navigation reset -- call it right after signUp(), while still
  * unlocked. A cached PIN lets gotoCaregiverPin()/reloadCaregiverPin() below
@@ -172,7 +172,7 @@ export async function setCaregiverPin(page: Page, pin: string): Promise<void> {
   // inside the same button, so its accessible name is "Account <email>".
   await page.getByRole('button', { name: /^Account/ }).click();
   await page.waitForURL('**/settings/account/');
-  await page.getByRole('button', { name: 'Set device PIN', exact: true }).click();
+  await page.getByRole('button', { name: 'Set Team PIN', exact: true }).click();
   await enterPinDigits(page, pin);
   await expect(toast(page)).toContainText('PIN updated');
   await gotoTab(page, 'today');

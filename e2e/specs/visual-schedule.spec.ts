@@ -120,7 +120,7 @@ test.describe('visual schedule', () => {
     await enterPin(page, '1234');
 
     // On by default (lib/device/settings.ts DEFAULT_LOCK_OPTIONS).
-    await expect(lockSheet.getByRole('switch', { name: 'Let Benny open a step list' })).toHaveAttribute('aria-checked', 'true');
+    await expect(lockSheet.getByRole('switch', { name: 'Benny can open a step list' })).toHaveAttribute('aria-checked', 'true');
 
     await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
 

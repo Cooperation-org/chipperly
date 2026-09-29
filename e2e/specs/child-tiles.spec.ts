@@ -27,19 +27,14 @@ test.describe('child view: picture tiles', () => {
   test('caregiver picks "Picture tiles" for the profile, then locks the device', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: 'Edit profile' }).click();
-    await page.waitForURL('**/settings/profile/edit/**');
-    const layout = page.getByRole('radiogroup', { name: /'s view$/ });
-    await expect(layout.getByRole('radio', { name: 'Today list' })).toHaveAttribute('aria-checked', 'true');
-    await layout.getByRole('radio', { name: 'Picture tiles' }).click();
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.waitForURL('**/settings/');
-
     await page.getByRole('button', { name: /'s view$/ }).click();
     const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
+    const layout = sheet.getByRole('radiogroup', { name: 'Home screen' });
+    await expect(layout.getByRole('radio', { name: 'Today list' })).toHaveAttribute('aria-checked', 'true');
+    await layout.getByRole('radio', { name: 'Picture tiles' }).click();
     await sheet.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');

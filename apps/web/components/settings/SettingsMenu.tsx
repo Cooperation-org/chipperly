@@ -84,6 +84,7 @@ export function SettingsMenu() {
 
       {profile ? (
         <div className={styles.section}>
+          <span className={styles.sectionTitle}>{profile.name}</span>
           <div className={styles.card}>
             <ListRow
               tile={<Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="list" />}
@@ -141,6 +142,7 @@ export function SettingsMenu() {
 
       {isAdmin ? (
         <div className={styles.section}>
+          <span className={styles.sectionTitle}>Team</span>
           <div className={styles.card}>
             <ListRow tile={<Icon name="users" size={20} />} name="Team" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/team/')} />
           </div>
@@ -175,6 +177,7 @@ export function SettingsMenu() {
       </div>
 
       <div className={styles.section}>
+        <span className={styles.sectionTitle}>Account</span>
         <div className={styles.card}>
           <ListRow tile={<Icon name="gear" size={20} />} name="Account" secondary={user?.email} trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/account/')} />
           {user?.is_super_admin ? (

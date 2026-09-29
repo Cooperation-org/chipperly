@@ -49,17 +49,12 @@ test.describe('read aloud', () => {
   test('turn on "Read tasks aloud" and lock to the child view', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: 'Edit profile' }).click();
-    await page.waitForURL('**/settings/profile/edit/**');
-    await page.getByRole('switch', { name: 'Read tasks aloud' }).click();
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.waitForURL('**/settings/');
-
     await page.getByRole('button', { name: /'s view$/ }).click();
     const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
+    await sheet.getByRole('switch', { name: 'Read tasks aloud' }).click();
     await sheet.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');

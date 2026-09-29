@@ -33,16 +33,9 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const [picture, setPicture] = useState<PicturePickerValue>({});
   const [redeemMode, setRedeemMode] = useState<RedeemMode>('subtract');
   const [chipsByAttitude, setChipsByAttitude] = useState(false);
-  const [childPicksReward, setChildPicksReward] = useState(true);
-  const [childRedeems, setChildRedeems] = useState(true);
   const [rewardAlerts, setRewardAlerts] = useState(true);
   const [childUsesApp, setChildUsesApp] = useState(true);
-  const [childLayout, setChildLayout] = useState<'list' | 'tiles'>('list');
   const [routineBonus, setRoutineBonus] = useState(0);
-  const [childReorders, setChildReorders] = useState(false);
-  const [pictureMode, setPictureMode] = useState(false);
-  const [readAloud, setReadAloud] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -54,16 +47,9 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
     setPicture({ emoji: row.avatar_emoji, photo_id: row.avatar_photo_id });
     setRedeemMode(row.settings.redeem_mode ?? 'subtract');
     setChipsByAttitude(row.settings.chips_by_attitude ?? false);
-    setChildPicksReward(row.settings.child_picks_reward ?? true);
-    setChildRedeems(row.settings.child_redeems ?? true);
     setRewardAlerts(row.settings.reward_alerts ?? true);
     setChildUsesApp(row.settings.child_uses_app ?? true);
-    setChildLayout(row.settings.child_layout ?? 'list');
     setRoutineBonus(row.settings.routine_bonus_chips ?? 0);
-    setChildReorders(row.settings.child_reorders ?? false);
-    setPictureMode(row.settings.picture_mode ?? false);
-    setReadAloud(row.settings.read_aloud ?? false);
-    setHighContrast(row.settings.high_contrast ?? false);
     setLoadedFor(row.id);
   }
 
@@ -83,16 +69,9 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
         ...row.settings,
         redeem_mode: redeemMode,
         chips_by_attitude: chipsByAttitude,
-        child_picks_reward: childPicksReward,
-        child_redeems: childRedeems,
         reward_alerts: rewardAlerts,
         child_uses_app: childUsesApp,
-        child_layout: childLayout,
         routine_bonus_chips: routineBonus || null,
-        child_reorders: childReorders,
-        picture_mode: pictureMode,
-        read_aloud: readAloud,
-        high_contrast: highContrast,
       },
     });
     setSaving(false);
@@ -124,20 +103,6 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           onChange={(v) => setRedeemMode(v as RedeemMode)}
         />
       </div>
-      {childUsesApp ? (
-        <div className={styles.setting}>
-          <span className={styles.settingLabel}>{who}&apos;s view</span>
-          <Segmented
-            label={`${who}'s view`}
-            items={[
-              { value: 'list', label: 'Today list' },
-              { value: 'tiles', label: 'Picture tiles' },
-            ]}
-            value={childLayout}
-            onChange={(v) => setChildLayout(v as 'list' | 'tiles')}
-          />
-        </div>
-      ) : null}
       <div className={styles.toggleRow}>
         <span className={styles.settingLabel}>Color chips by attitude</span>
         <Switch label="Color chips by attitude" checked={chipsByAttitude} onChange={setChipsByAttitude} />
@@ -158,39 +123,13 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
         />
       </div>
       {childUsesApp ? (
-        <>
+        <div className={styles.setting}>
           <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>{who} can choose the reward</span>
-            <Switch label={`${who} can choose the reward`} checked={childPicksReward} onChange={setChildPicksReward} />
+            <span className={styles.settingLabel}>Alert me when {who} wants a reward</span>
+            <Switch label="Reward alerts" checked={rewardAlerts} onChange={setRewardAlerts} />
           </div>
-          <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>{who} can redeem rewards</span>
-            <Switch label={`${who} can redeem rewards`} checked={childRedeems} onChange={setChildRedeems} />
-          </div>
-          <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>{who} can change the order of the day</span>
-            <Switch label={`${who} can change the order of the day`} checked={childReorders} onChange={setChildReorders} />
-          </div>
-          <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>Big pictures, fewer words</span>
-            <Switch label="Big pictures, fewer words" checked={pictureMode} onChange={setPictureMode} />
-          </div>
-          <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>Read tasks aloud</span>
-            <Switch label="Read tasks aloud" checked={readAloud} onChange={setReadAloud} />
-          </div>
-          <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>High contrast (CVI)</span>
-            <Switch label="High contrast (CVI)" checked={highContrast} onChange={setHighContrast} />
-          </div>
-          <div className={styles.setting}>
-            <div className={styles.toggleRow}>
-              <span className={styles.settingLabel}>Alert me when {name || row.name} wants a reward</span>
-              <Switch label="Reward alerts" checked={rewardAlerts} onChange={setRewardAlerts} />
-            </div>
-            {rewardAlerts ? <NotificationCheck /> : null}
-          </div>
-        </>
+          {rewardAlerts ? <NotificationCheck /> : null}
+        </div>
       ) : null}
       <ReviewReminderSetting profileId={row.id} name={name || row.name} />
       <Button variant="primary" size="lg" fullWidth onClick={() => void save()} loading={saving}>
