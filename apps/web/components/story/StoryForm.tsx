@@ -29,6 +29,7 @@ interface DraftPage {
   audio_id: string | null;
 }
 
+
 /** S18: title, cover, an ordered list of pages, preview, and a sticky save. Handles both create
  * (no `?id=`, blank draft) and edit (loads the existing story once and edits a local draft). */
 export function StoryForm() {
@@ -100,6 +101,7 @@ export function StoryForm() {
           sheet.close();
         }}
         name={label}
+        defaultEmojiOpen={false}
       />,
       { title: label },
     );
@@ -164,7 +166,7 @@ export function StoryForm() {
       <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
 
       <Field label="Cover">
-        <PicturePicker value={cover} onChange={setCover} name={title || 'Cover'} />
+        <PicturePicker value={cover} onChange={setCover} name={title || 'Cover'} defaultEmojiOpen={false} />
       </Field>
 
       <section className={styles.pages}>

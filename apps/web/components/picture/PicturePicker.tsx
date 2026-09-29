@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
 import { pickAndStoreImage } from '@/lib/data/media';
@@ -19,16 +19,38 @@ export interface PicturePickerProps {
   name?: string;
   /** Restricts the emoji grid, e.g. AVATAR_EMOJI for profile pictures. Defaults to the full set. */
   choices?: readonly string[];
+  /** Start collapsed, showing only the trigger. Defaults to open (the global picture pattern). */
+  defaultEmojiOpen?: boolean;
 }
 
 /** Emoji / photo / camera / paste, in that order, per the global picture pattern. */
-export function PicturePicker({ value, onChange, name, choices }: PicturePickerProps) {
+export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen = true }: PicturePickerProps) {
   // Emoji grid is open by default: it's the default picture choice (never fails
   // offline, no permission prompt), per ux-plan.md's global picture pattern.
-  const [emojiOpen, setEmojiOpen] = useState(true);
+  // Long forms (the story editor) pass false so the 96-cell grid doesn't bury the rest.
+  const [emojiOpen, setEmojiOpen] = useState(defaultEmojiOpen);
   const [pasteMessage, setPasteMessage] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const gridId = useId();
+  // Only move focus once the person has actually used the trigger, so a picker
+  // that renders open doesn't steal focus from the top of the form on mount.
+  const opened = useRef(false);
+
+  useEffect(() => {
+    if (!opened.current) return;
+    if (!emojiOpen) {
+      emojiButtonRef.current?.focus();
+      return;
+    }
+    const grid = gridRef.current;
+    const cell =
+      grid?.querySelector<HTMLButtonElement>('[role="radio"][aria-checked="true"]') ??
+      grid?.querySelector<HTMLButtonElement>('[role="radio"]');
+    cell?.focus();
+  }, [emojiOpen]);
 
   async function storeFile(file: File | Blob) {
     try {
@@ -70,7 +92,17 @@ export function PicturePicker({ value, onChange, name, choices }: PicturePickerP
     <div className={styles.picker}>
       <Picture emoji={value.emoji} photo_id={value.photo_id} name={name ?? 'Picture'} size="grid" />
       <div className={styles.row}>
-        <button type="button" className={styles.choice} onClick={() => setEmojiOpen((open) => !open)} aria-expanded={emojiOpen}>
+        <button
+          ref={emojiButtonRef}
+          type="button"
+          className={styles.choice}
+          onClick={() => {
+            opened.current = true;
+            setEmojiOpen((open) => !open);
+          }}
+          aria-expanded={emojiOpen}
+          aria-controls={emojiOpen ? gridId : undefined}
+        >
           <Icon name="image" size={20} />
           Emoji
         </button>
@@ -105,14 +137,17 @@ export function PicturePicker({ value, onChange, name, choices }: PicturePickerP
         onChange={onFileChange}
       />
       {emojiOpen ? (
-        <EmojiGrid
-          value={value.emoji}
-          choices={choices}
-          onChange={(emoji) => {
-            onChange({ emoji, photo_id: null });
-            setEmojiOpen(false);
-          }}
-        />
+        <div id={gridId} ref={gridRef}>
+          <EmojiGrid
+            value={value.emoji}
+            choices={choices}
+            onChange={(emoji) => {
+              opened.current = true;
+              onChange({ emoji, photo_id: null });
+              setEmojiOpen(false);
+            }}
+          />
+        </div>
       ) : null}
       {pasteMessage ? <p className={styles.message}>{pasteMessage}</p> : null}
       {value.photo_id ? (

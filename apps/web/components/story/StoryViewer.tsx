@@ -7,7 +7,8 @@ import { useMediaUrl } from '@/lib/data/media';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import styles from './StoryViewer.module.css';
-import { canSpeak, speak, stopSpeaking } from '@/lib/speech';
+import { canSpeak } from '@/lib/speech';
+import { useReadAloud } from './useReadAloud';
 
 export interface StoryViewerProps {
   story: SocialStory;
@@ -29,18 +30,17 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
   const photoUrl = useMediaUrl(page?.photo_id ?? null);
   // A page read in a team member's own voice plays that; otherwise the device's voice reads the text.
   const voiceUrl = useMediaUrl(page?.audio_id ?? null);
-  const voiceRef = useRef<HTMLAudioElement>(null);
+  const { playing, play, stop, voiceRef, audioEvents } = useReadAloud();
   const canReadAloud = Boolean(page?.audio_id) || canSpeak();
 
   const goNext = useCallback(() => setIndex((i) => Math.min(pages.length - 1, i + 1)), [pages.length]);
   const goPrev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), []);
 
   useEffect(() => {
-    stopSpeaking();
-    voiceRef.current?.pause();
-  }, [index]);
+    stop();
+  }, [index, stop]);
 
-  useEffect(() => stopSpeaking, []);
+  useEffect(() => stop, [stop]);
 
   // Guarded on `page` (not just called after the `if (!page) return null`
   // below): hooks always run regardless of that early return, so without
@@ -92,15 +92,7 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
   }, [onClose, goNext, goPrev, hasPage]);
 
   function readAloud(): void {
-    if (!page) return;
-    const voice = voiceRef.current;
-    if (page.audio_id && voice) {
-      stopSpeaking();
-      voice.currentTime = 0;
-      void voice.play().catch(() => speak(page.text));
-      return;
-    }
-    speak(page.text);
+    if (page) play(page.text, Boolean(page.audio_id));
   }
 
   if (!page) return null;
@@ -151,11 +143,22 @@ export function StoryViewer({ story, pages, onClose }: StoryViewerProps) {
       </div>
 
       {canReadAloud ? (
-        <Button variant="secondary" onClick={readAloud} className={styles.readAloud}>
-          {page.audio_id ? 'Listen' : 'Read aloud'}
+        <Button
+          variant="secondary"
+          onClick={readAloud}
+          className={[styles.readAloud, playing ? styles.readAloudPlaying : ''].filter(Boolean).join(' ')}
+        >
+          {playing ? (
+            <span className={styles.bars} aria-hidden="true">
+              <span className={styles.bar} />
+              <span className={styles.bar} />
+              <span className={styles.bar} />
+            </span>
+          ) : null}
+          {playing ? 'Playing' : page.audio_id ? 'Listen' : 'Read aloud'}
         </Button>
       ) : null}
-      {page.audio_id && voiceUrl ? <audio ref={voiceRef} src={voiceUrl} preload="auto" /> : null}
+      {page.audio_id && voiceUrl ? <audio ref={voiceRef} src={voiceUrl} preload="auto" {...audioEvents} /> : null}
     </div>
   );
 
