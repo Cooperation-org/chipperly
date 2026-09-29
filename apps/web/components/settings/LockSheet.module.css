@@ -49,3 +49,37 @@
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--color-border);
 }
+
+.bothAsk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.bothText {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--color-text);
+}
+
+.bothActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.noteLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.noteLink:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}

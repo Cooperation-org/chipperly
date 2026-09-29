@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { BigButton } from '@/components/ui/BigButton';
@@ -15,6 +16,10 @@ import { upsert } from '@/lib/sync/mutate';
 import { toast } from '@/lib/toast';
 import styles from './LockSheet.module.css';
 import { Switch } from '@/components/ui/Switch';
+import { Button } from '@/components/ui/Button';
+import { firstThenReadiness, FIRST_THEN_SETUP_PATH } from '@/components/firstThen/firstThenReadiness';
+import { needsBothConfirm, setExclusive, type ExclusiveKey } from './lockOptionRules';
+import { isSelfManaged, settingsCopy } from './settingsCopy';
 
 export interface LockSheetProps {
   profileId: string;
@@ -37,8 +42,10 @@ type Step = 'set' | 'confirm' | 'ready';
 export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
   const router = useRouter();
   const { close } = useSheet();
-  const { user, profiles } = useSession();
-  const profileName = profiles.find((p) => p.id === profileId)?.name ?? 'this profile';
+  const { user, profiles, accounts } = useSession();
+  const profile = profiles.find((p) => p.id === profileId);
+  const profileName = profile?.name ?? 'this profile';
+  const copy = settingsCopy(isSelfManaged(accounts.find((a) => a.account.id === profile?.account_id)?.account), profileName);
   const saved = useSavedLockOptions(profileId);
   const row = useLiveQuery(() => db.profiles.get(profileId), [profileId]);
 
@@ -73,6 +80,31 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
   }
 
   const [saving, setSaving] = useState(false);
+  // Turning on the Chipper Chart or the feelings check while the other is on asks first.
+  const [askBoth, setAskBoth] = useState<ExclusiveKey | null>(null);
+  const [firstThenNote, setFirstThenNote] = useState('');
+
+  const exclusiveLabel: Record<ExclusiveKey, string> = { show_chipper_chart: 'Chipper Chart', attitude_prompt: 'How do you feel' };
+
+  function toggleExclusive(key: ExclusiveKey, on: boolean): void {
+    if (on && needsBothConfirm(options, key)) {
+      setAskBoth(key);
+      return;
+    }
+    setAskBoth(null);
+    setOptions((o) => setExclusive(o, key, on));
+  }
+
+  // First-Then can only be switched on once a First and a Then are picked (firstThenReadiness).
+  function toggleFirstThen(key: 'show_first_then' | 'first_then_only', on: boolean): void {
+    const readiness = firstThenReadiness(row);
+    if (on && !readiness.ready) {
+      setFirstThenNote(readiness.message);
+      return;
+    }
+    setFirstThenNote('');
+    setOptions((o) => ({ ...o, [key]: on }));
+  }
 
   async function handleFirstPin(pin: string): Promise<boolean> {
     setFirstPin(pin);
@@ -120,14 +152,14 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
     }
     setSaving(false);
     close();
-    toast(`Saved ${profileName}'s view`);
+    toast(copy.viewSaved);
   }
 
   if (step !== 'ready') {
     return (
       <div className={styles.sheet}>
         <p className={styles.intro}>
-          Set a PIN first. You&apos;ll need it to get back from {profileName}&apos;s view.
+          {copy.pinIntro}
         </p>
         <PinPad
           key={step}
@@ -146,10 +178,10 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
   return (
     <div className={styles.sheet}>
       <p className={styles.intro}>
-        What {profileName} sees and can do. Lock with the lock button at the top.
+        {copy.viewIntro}
       </p>
       <div className={styles.toggles}>
-        <p className={styles.sectionTitle}>What {profileName} sees</p>
+        <p className={styles.sectionTitle}>{copy.seesTitle}</p>
         <div className={styles.settingRow}>
           <span className={styles.toggleLabel}>Home screen</span>
           <Segmented
@@ -167,9 +199,17 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
           <Switch
             label="Only show First-Then, full page"
             checked={options.first_then_only}
-            onChange={(v) => setOptions((o) => ({ ...o, first_then_only: v }))}
+            onChange={(v) => toggleFirstThen('first_then_only', v)}
           />
         </div>
+        {firstThenNote ? (
+          <p className={styles.bothText} role="status">
+            {firstThenNote}{' '}
+            <Link href={FIRST_THEN_SETUP_PATH} onClick={close} className={styles.noteLink}>
+              Set up First-Then
+            </Link>
+          </p>
+        ) : null}
         {!options.first_then_only ? (
           <>
             <div className={styles.toggleRow}>
@@ -178,20 +218,47 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
             </div>
             <div className={styles.toggleRow}>
               <span className={styles.toggleLabel}>Show First-Then</span>
-              <Switch label="Show First-Then" checked={options.show_first_then} onChange={(v) => setOptions((o) => ({ ...o, show_first_then: v }))} />
+              <Switch label="Show First-Then" checked={options.show_first_then} onChange={(v) => toggleFirstThen('show_first_then', v)} />
             </div>
             <div className={styles.toggleRow}>
               <span className={styles.toggleLabel}>Show Chipper Chart</span>
-              <Switch label="Show Chipper Chart" checked={options.show_chipper_chart} onChange={(v) => setOptions((o) => ({ ...o, show_chipper_chart: v }))} />
+              <Switch label="Show Chipper Chart" checked={options.show_chipper_chart} onChange={(v) => toggleExclusive('show_chipper_chart', v)} />
             </div>
             <div className={styles.toggleRow}>
               <span className={styles.toggleLabel}>Show steps expanded</span>
               <Switch label="Show steps expanded" checked={options.expand_steps} onChange={(v) => setOptions((o) => ({ ...o, expand_steps: v }))} />
             </div>
             <div className={styles.toggleRow}>
-              <span className={styles.toggleLabel}>Ask how it went after each task</span>
-              <Switch label="Ask how it went after each task" checked={options.attitude_prompt} onChange={(v) => setOptions((o) => ({ ...o, attitude_prompt: v }))} />
+              <span className={styles.toggleLabel}>Ask how it went after each task (How do you feel)</span>
+              <Switch label="Ask how it went after each task" checked={options.attitude_prompt} onChange={(v) => toggleExclusive('attitude_prompt', v)} />
             </div>
+            {askBoth ? (
+              <div className={styles.bothAsk} role="group" aria-label="Show both?">
+                <p className={styles.bothText}>
+                  The Chipper Chart and How do you feel show two similar things. Most people pick one.
+                </p>
+                <div className={styles.bothActions}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setOptions((o) => setExclusive(o, askBoth, true));
+                      setAskBoth(null);
+                    }}
+                  >
+                    Only {exclusiveLabel[askBoth]}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      setOptions((o) => setExclusive(o, askBoth, true, true));
+                      setAskBoth(null);
+                    }}
+                  >
+                    Show both
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </>
         ) : null}
         <div className={styles.toggleRow}>
@@ -199,41 +266,41 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
           <Switch label="Big pictures, fewer words" checked={pictureMode} onChange={setPictureMode} />
         </div>
 
-        <p className={styles.sectionTitle}>What {profileName} can do</p>
+        <p className={styles.sectionTitle}>{copy.canTitle}</p>
         <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>{profileName} can choose the reward</span>
-          <Switch label={`${profileName} can choose the reward`} checked={childPicksReward} onChange={setChildPicksReward} />
+          <span className={styles.toggleLabel}>{copy.can('choose the reward')}</span>
+          <Switch label={copy.can('choose the reward')} checked={childPicksReward} onChange={setChildPicksReward} />
         </div>
         <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>{profileName} can redeem rewards</span>
-          <Switch label={`${profileName} can redeem rewards`} checked={childRedeems} onChange={setChildRedeems} />
+          <span className={styles.toggleLabel}>{copy.can('redeem rewards')}</span>
+          <Switch label={copy.can('redeem rewards')} checked={childRedeems} onChange={setChildRedeems} />
         </div>
         <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>{profileName} can change the order of the day</span>
-          <Switch label={`${profileName} can change the order of the day`} checked={childReorders} onChange={setChildReorders} />
+          <span className={styles.toggleLabel}>{copy.can('change the order of the day')}</span>
+          <Switch label={copy.can('change the order of the day')} checked={childReorders} onChange={setChildReorders} />
         </div>
         {!options.first_then_only ? (
           <>
             <div className={styles.toggleRow}>
-              <span className={styles.toggleLabel}>{profileName} can switch location</span>
+              <span className={styles.toggleLabel}>{copy.can('switch location')}</span>
               <Switch
-                label={`${profileName} can switch location`}
+                label={copy.can('switch location')}
                 checked={options.allow_child_location}
                 onChange={(v) => setOptions((o) => ({ ...o, allow_child_location: v }))}
               />
             </div>
             <div className={styles.toggleRow}>
-              <span className={styles.toggleLabel}>{profileName} can start step timers</span>
+              <span className={styles.toggleLabel}>{copy.can('start step timers')}</span>
               <Switch
-                label={`${profileName} can start step timers`}
+                label={copy.can('start step timers')}
                 checked={options.show_step_timers}
                 onChange={(v) => setOptions((o) => ({ ...o, show_step_timers: v }))}
               />
             </div>
             <div className={styles.toggleRow}>
-              <span className={styles.toggleLabel}>{profileName} can open a step list</span>
+              <span className={styles.toggleLabel}>{copy.can('open a step list')}</span>
               <Switch
-                label={`${profileName} can open a step list`}
+                label={copy.can('open a step list')}
                 checked={options.show_visual_schedule}
                 onChange={(v) => setOptions((o) => ({ ...o, show_visual_schedule: v }))}
               />

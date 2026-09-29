@@ -45,9 +45,10 @@ const LOCK_KEY = 'lock';
 export const DEFAULT_LOCK_OPTIONS: LockOptions = {
   show_free_time: true,
   show_first_then: true,
-  // Five faces after each task (owner, 25 Sept 2026: how the child feels in each task),
-  // alongside the Chipper Chart meter for the day as a whole.
-  attitude_prompt: true,
+  // Off by default (owner, 30 Sept 2026): the five faces and the Chipper Chart ask the same
+  // question, so the chart is the default and the faces are opt-in. LockSheet keeps them
+  // mutually exclusive from here on; profiles that already saved both keep both.
+  attitude_prompt: false,
   expand_steps: true,
   show_chipper_chart: true,
   allow_child_location: false,
