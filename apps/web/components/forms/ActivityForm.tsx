@@ -482,7 +482,20 @@ export function ActivityForm() {
           </>
         ) : null}
         {repeat !== 'none' ? (
-          <TextField label="Time" type="time" value={recurrenceTime ?? ''} onChange={(e) => setRecurrenceTime(e.target.value || null)} />
+          <>
+            <TextField
+              label="Time (optional)"
+              hint="Leave empty and it repeats without a set time."
+              type="time"
+              value={recurrenceTime ?? ''}
+              onChange={(e) => setRecurrenceTime(e.target.value || null)}
+            />
+            {recurrenceTime ? (
+              <Button variant="ghost" onClick={() => setRecurrenceTime(null)}>
+                Remove the time
+              </Button>
+            ) : null}
+          </>
         ) : null}
       </FormRow>
 
@@ -506,7 +519,7 @@ export function ActivityForm() {
                 <span>{goalReward.name}</span>
               </button>
               <Button variant="ghost" onClick={() => setGoalRewardId(null)}>
-                Clear
+                Remove reward
               </Button>
             </div>
           ) : (
