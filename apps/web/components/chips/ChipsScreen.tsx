@@ -16,6 +16,7 @@ import { Picture } from '@/components/media/Picture';
 import { Picker } from '@/components/picker/Picker';
 import { Segmented } from '@/components/ui/Segmented';
 import { ChipBoard } from '@/components/ui/ChipBoard';
+import { ChipStrip } from '@/components/ui/ChipStrip';
 import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { Stepper } from '@/components/ui/Stepper';
@@ -169,29 +170,24 @@ export function ChipsScreen() {
             />
           ) : null}
 
-          <button type="button" className={styles.workingFor} onClick={openRewardPicker}>
-            <span className={styles.workingForLabel}>Working for</span>
-            {working.reward ? (
-              <span className={styles.workingForRow}>
-                <Picture emoji={working.reward.emoji} photo_id={working.reward.photo_id} name={working.reward.name} size="grid" />
-                <span className={styles.workingForText}>
+          {/* Two tap targets, one action: the reward and the chips beneath it both open the picker. */}
+          <div className={styles.workingFor}>
+            <button type="button" className={styles.workingForButton} onClick={openRewardPicker}>
+              <span className={styles.workingForLabel}>Working for</span>
+              {working.reward ? (
+                <span className={styles.workingForRow}>
+                  <Picture emoji={working.reward.emoji} photo_id={working.reward.photo_id} name={working.reward.name} size="grid" />
                   <span className={styles.workingForName}>{working.reward.name}</span>
-                  <span className={styles.workingForCount}>
-                    {working.filled} of {working.goal} chips
-                  </span>
                 </span>
-              </span>
-            ) : (
-              <span className={styles.choose}>Choose a reward</span>
-            )}
-          </button>
+              ) : (
+                <span className={styles.choose}>Choose a reward</span>
+              )}
+            </button>
+            {working.reward ? <ChipStrip filled={working.filled} total={working.goal} onTap={openRewardPicker} size="lg" /> : null}
+          </div>
 
-          {/* The card only picks or creates a reward; editing the chosen one used to mean Settings > Library > Rewards. */}
           {working.reward ? (
             <div className={styles.links}>
-              <Button variant="secondary" onClick={openRewardPicker}>
-                Change reward
-              </Button>
               <Button variant="secondary" onClick={() => router.push(`/reward/edit/?id=${working.reward!.id}`)}>
                 Edit {working.reward.name}
               </Button>

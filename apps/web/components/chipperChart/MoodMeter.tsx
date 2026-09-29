@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { levelEmoji, MOOD_MAX, MOOD_MIN } from '@/lib/data/mood';
+import { playChipperUp } from '@/lib/sound';
+import { Celebration } from '@/components/ui/Celebration';
 import { Icon } from '@/components/ui/Icon';
 import styles from './MoodMeter.module.css';
 
@@ -44,7 +46,15 @@ export function MoodMeter({ level, onChange }: MoodMeterProps) {
     requestedRef.current = level;
   }, [level]);
 
+  const [celebrating, setCelebrating] = useState(false);
+
   function request(next: number): void {
+    // Already at the top and asking for more: nothing to persist, so cheer instead.
+    if (next > MOOD_MAX) {
+      setCelebrating(true);
+      playChipperUp();
+      return;
+    }
     const clamped = Math.max(MOOD_MIN, Math.min(MOOD_MAX, next));
     requestedRef.current = clamped;
     onChange(clamped);
@@ -113,11 +123,15 @@ export function MoodMeter({ level, onChange }: MoodMeterProps) {
         type="button"
         className={styles.plus}
         aria-label="Increase mood"
-        disabled={level >= MOOD_MAX}
         onClick={() => request(requestedRef.current + 1)}
       >
         <Icon name="plus" size={24} />
       </button>
+      {celebrating ? (
+        <div className={styles.celebration}>
+          <Celebration kind="all_done" onDone={() => setCelebrating(false)} />
+        </div>
+      ) : null}
     </div>
   );
 }

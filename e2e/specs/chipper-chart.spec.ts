@@ -90,11 +90,14 @@ test.describe('chipper chart', () => {
 
     const sheetBar = sheet.getByRole('slider', { name: 'Mood level' });
     const before = Number(await sheetBar.getAttribute('aria-valuenow'));
-    // The earlier S35 test can leave the level at MOOD_MAX (disabling Increase), so pick
-    // whichever control is actually enabled rather than assuming Increase always is.
-    const increase = sheet.getByRole('button', { name: 'Increase mood', exact: true });
-    const useIncrease = await increase.isEnabled();
-    const control = useIncrease ? increase : sheet.getByRole('button', { name: 'Decrease mood', exact: true });
+    // The earlier S35 test can leave the level at its maximum, where Increase stays enabled
+    // but celebrates instead of moving the level, so step away from the max rather than into it.
+    const max = Number(await sheetBar.getAttribute('aria-valuemax'));
+    const useIncrease = before < max;
+    const control = sheet.getByRole('button', {
+      name: useIncrease ? 'Increase mood' : 'Decrease mood',
+      exact: true,
+    });
     await control.click();
     await expect(sheetBar).toHaveAttribute('aria-valuenow', String(before + (useIncrease ? 1 : -1)));
     await sheet.getByRole('button', { name: 'Close', exact: true }).click();
