@@ -33,9 +33,11 @@ export async function seedProfile(tx: Tx, profileId: string, updatedBy: string, 
         })),
       };
 
+  // Home is first and is the only place that gets starter activities; the rest start empty.
+  const homeId = uuidv7();
   await tx.insert(locations).values(
     plan.locations.map((location, position) => ({
-      id: uuidv7(),
+      id: position === 0 ? homeId : uuidv7(),
       ...sync,
       name: location.name,
       emoji: location.emoji,
@@ -55,7 +57,7 @@ export async function seedProfile(tx: Tx, profileId: string, updatedBy: string, 
       emoji: activity.emoji,
       photo_id: null,
       chip_value: 1,
-      location_id: null,
+      location_id: homeId,
       recurrence: activity.recurrence ?? null,
       recurrence_weekdays: null,
       recurrence_time: activity.recurrence_time ?? null,

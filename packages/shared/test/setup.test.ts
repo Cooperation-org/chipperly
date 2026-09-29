@@ -40,4 +40,47 @@ describe('setup interview seed', () => {
     const freeChoice = plan.rewards.find((r) => r.name === 'Free Choice');
     expect(freeChoice?.always_available).toBe(true);
   });
+
+  it('keeps the other locations, and the after school tile seeds After School', () => {
+    const plan = buildSeed({ ...defaultAnswers('8-12'), week: ['school', 'day_program'], places: ['school', 'therapy'] });
+    expect(plan.locations.map((l) => l.name)).toEqual(['Home', 'School', 'Therapy']);
+    expect(plan.activities.length).toBeGreaterThan(0);
+    expect(plan.activities.some((a) => a.name === 'After School')).toBe(true);
+  });
+
+  it('brush teeth and get dressed are morning routine steps, not top-level activities', () => {
+    for (const routines of [['morning'], ['dressed', 'teeth'], ['morning', 'dressed', 'teeth', 'bedtime']] as const) {
+      const plan = buildSeed({ ...defaultAnswers('2-7'), routines: [...routines] });
+      const names = plan.activities.map((a) => a.name);
+      expect(names).not.toContain('Brush Teeth');
+      expect(names).not.toContain('Getting Dressed');
+      expect(names).not.toContain('Get Dressed');
+      expect(names).not.toContain('Wake Up');
+      expect(names).not.toContain('Breakfast');
+      const morning = plan.activities.filter((a) => a.name === 'Morning Routine');
+      expect(morning).toHaveLength(1);
+      const steps = morning[0]?.steps?.map((s) => s.name) ?? [];
+      expect(steps).toEqual(['Wake Up', 'Bathroom', 'Brush Teeth', 'Get Dressed', 'Breakfast', 'Put Shoes On']);
+    }
+  });
+
+  it('without any morning tile, wake up and breakfast stay as plain activities', () => {
+    const names = buildSeed({ ...defaultAnswers('2-7'), routines: ['bedtime'] }).activities.map((a) => a.name);
+    expect(names).toContain('Wake Up');
+    expect(names).not.toContain('Morning Routine');
+  });
+
+  it('spreads repeating activities across morning, afternoon and evening', () => {
+    for (const band of ['2-7', '8-12', '13-17', '18+'] as const) {
+      const parts = new Set(
+        buildSeed(defaultAnswers(band))
+          .activities.filter((a) => a.recurrence_time)
+          .map((a) => {
+            const hour = Number(a.recurrence_time?.slice(0, 2));
+            return hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+          }),
+      );
+      expect([...parts].sort()).toEqual(['afternoon', 'evening', 'morning']);
+    }
+  });
 });

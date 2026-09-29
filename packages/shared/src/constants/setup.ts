@@ -32,6 +32,7 @@ export interface SeedReward {
 
 export interface SeedPlan {
   readonly locations: readonly { name: string; emoji: string }[];
+  /** All for Home (the first location); the other locations get none. */
   readonly activities: readonly SeedActivity[];
   readonly rewards: readonly SeedReward[];
 }
@@ -53,7 +54,7 @@ export const WEEK_TILES: readonly Tile<SetupAnswers['week'][number]>[] = [
   { key: 'school', name: 'School', emoji: '🏫' },
   { key: 'work', name: 'Work', emoji: '💼' },
   { key: 'therapy', name: 'Therapy sessions', emoji: '🧩' },
-  { key: 'day_program', name: 'Day program', emoji: '🏢' },
+  { key: 'day_program', name: 'After school', emoji: '🎒' },
 ];
 
 export const ROUTINE_TILES: readonly Tile<SetupAnswers['routines'][number]>[] = [
@@ -122,6 +123,8 @@ export function defaultAnswers(age_band: AgeBand): SetupAnswers {
   };
 }
 
+const MORNING_KEYS = ['morning', 'dressed', 'teeth'] as const;
+
 const SLEEP_TIME: Record<AgeBand, string> = { '2-7': '19:30', '8-12': '20:30', '13-17': '22:00', '18+': '22:30' };
 const BEDTIME_TIME: Record<AgeBand, string> = { '2-7': '19:00', '8-12': '20:00', '13-17': '21:30', '18+': '22:00' };
 
@@ -134,7 +137,7 @@ interface RoutinePack {
   readonly older: readonly SeedStep[];
 }
 
-const ROUTINE_PACKS: Record<SetupAnswers['routines'][number], RoutinePack> = {
+const ROUTINE_PACKS: Record<Exclude<SetupAnswers['routines'][number], 'dressed' | 'teeth'>, RoutinePack> = {
   morning: {
     name: 'Morning Routine',
     emoji: '☀️',
@@ -155,37 +158,6 @@ const ROUTINE_PACKS: Record<SetupAnswers['routines'][number], RoutinePack> = {
       { name: 'Get Dressed', emoji: '👕' },
       { name: 'Breakfast', emoji: '🍳' },
       { name: 'Pack Bag', emoji: '🎒' },
-    ],
-  },
-  dressed: {
-    name: 'Getting Dressed',
-    emoji: '👕',
-    young: [
-      { name: 'Pick Clothes', emoji: '👕' },
-      { name: 'Top', emoji: '👕' },
-      { name: 'Bottoms', emoji: '👖' },
-      { name: 'Socks', emoji: '🧦' },
-      { name: 'Shoes', emoji: '👟' },
-    ],
-    older: [
-      { name: 'Pick Clothes', emoji: '👕' },
-      { name: 'Get Dressed', emoji: '👖' },
-      { name: 'Socks and Shoes', emoji: '👟' },
-    ],
-  },
-  teeth: {
-    name: 'Brush Teeth',
-    emoji: '🪥',
-    young: [
-      { name: 'Wet the Brush', emoji: '🚰' },
-      { name: 'Toothpaste On', emoji: '🧴' },
-      { name: 'Brush', emoji: '🪥', duration_minutes: 2 },
-      { name: 'Rinse', emoji: '💧' },
-    ],
-    older: [
-      { name: 'Toothpaste On', emoji: '🧴' },
-      { name: 'Brush', emoji: '🪥', duration_minutes: 2 },
-      { name: 'Rinse', emoji: '💧' },
     ],
   },
   meals: {
@@ -289,9 +261,18 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
     ...PLACE_TILES.filter((place) => answers.places.includes(place.key)).map(({ name, emoji }) => ({ name, emoji })),
   ];
 
+  // Brushing teeth and getting dressed are steps of the morning routine, so
+  // picking either tile (or the routine itself) builds that one routine.
+  const hasMorning = MORNING_KEYS.some((key) => answers.routines.includes(key));
+
+  // Every activity here is for Home; the other places start empty.
   const activities: SeedActivity[] = [
-    { name: 'Wake Up', emoji: '🛏️', recurrence: 'daily', recurrence_time: '07:00' },
-    { name: 'Breakfast', emoji: '🍳', recurrence: 'daily', recurrence_time: '07:30' },
+    ...(hasMorning
+      ? []
+      : [
+          { name: 'Wake Up', emoji: '🛏️', recurrence: 'daily' as const, recurrence_time: '07:00' },
+          { name: 'Breakfast', emoji: '🍳', recurrence: 'daily' as const, recurrence_time: '07:30' },
+        ]),
     { name: 'Lunch', emoji: '🍱', recurrence: 'daily', recurrence_time: '12:00' },
     { name: 'Dinner', emoji: '🍽️', recurrence: 'daily', recurrence_time: '18:00' },
     { name: 'Sleep', emoji: '😴', recurrence: 'daily', recurrence_time: SLEEP_TIME[age_band] },
@@ -309,7 +290,7 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
     );
   }
   if (answers.week.includes('day_program')) {
-    activities.push({ name: 'Day Program', emoji: '🏢', recurrence: 'weekdays', recurrence_time: '09:00' });
+    activities.push({ name: 'After School', emoji: '🎒', recurrence: 'weekdays', recurrence_time: '15:30' });
   }
   if (answers.week.includes('therapy')) {
     activities.push({ name: 'Therapy', emoji: '🧩' });
@@ -330,7 +311,12 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
         ]),
   );
 
+  const routineKeys: (keyof typeof ROUTINE_PACKS)[] = [];
+  if (hasMorning) routineKeys.push('morning');
   for (const key of answers.routines) {
+    if (key !== 'dressed' && key !== 'teeth' && key !== 'morning') routineKeys.push(key);
+  }
+  for (const key of routineKeys) {
     const pack = ROUTINE_PACKS[key];
     activities.push({
       name: pack.name,
