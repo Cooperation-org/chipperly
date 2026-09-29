@@ -16,16 +16,18 @@ import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { Stepper } from '@/components/ui/Stepper';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { useSheet } from '@/components/ui/Sheet';
+import { useSheet, Confirm } from '@/components/ui/Sheet';
+import { CheckCircle } from '@/components/ui/CheckCircle';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { db } from '@/lib/db/db';
-import { restore } from '@/lib/sync/mutate';
+import { restore, upsert } from '@/lib/sync/mutate';
 import { useActivities, useRoutines, deleteActivity } from '@/lib/data/activities';
 import { useRewards, deleteReward } from '@/lib/data/rewards';
 import { useLocations, saveLocation, deleteLocation } from '@/lib/data/locations';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import { withBase } from '@/lib/api/base';
+import { toggleId, toggleAll, allSelected, pruneSelection } from './selection';
 import styles from './LibraryList.module.css';
 
 import 'leaflet/dist/leaflet.css';
@@ -240,10 +242,26 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
   );
 }
 
+function LocationPick({ locations, onPick }: { locations: Location[]; onPick: (locationId: string | null) => void }) {
+  return (
+    <div className={styles.pickList}>
+      <p className={styles.pickNote}>Each one shows in a single place, or in every place.</p>
+      <Button variant="secondary" onClick={() => onPick(null)}>
+        Every place
+      </Button>
+      {locations.map((l) => (
+        <Button key={l.id} variant="secondary" onClick={() => onPick(l.id)}>
+          {l.name}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 /** S25: activities, rewards and locations, three simple lists sharing one shape. */
 export function LibraryList({ kind }: LibraryListProps) {
   const router = useRouter();
-  const { open } = useSheet();
+  const { open, close } = useSheet();
   const { profile } = useActiveProfile();
   const profileId = profile?.id;
 
@@ -264,8 +282,92 @@ export function LibraryList({ kind }: LibraryListProps) {
   const routineIds = useMemo(() => new Set(routines.map((r) => r.id)), [routines]);
   const plainActivities = useMemo(() => activities.filter((a) => !routineIds.has(a.id)), [activities, routineIds]);
 
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const bulkable = kind === 'activity' || kind === 'reward';
+  const bulkIds = useMemo(
+    () => (kind === 'activity' ? plainActivities.map((a) => a.id) : kind === 'reward' ? rewards.map((r) => r.id) : []),
+    [kind, plainActivities, rewards],
+  );
+  const liveSelected = useMemo(() => pruneSelection(selected, bulkIds), [selected, bulkIds]);
+
   if (!profileId) return null;
   const pid = profileId;
+
+  function endSelect(): void {
+    setSelecting(false);
+    setSelected(new Set());
+  }
+
+  async function setLocationFor(locationId: string | null): Promise<void> {
+    const ids = [...liveSelected];
+    const table = kind === 'reward' ? 'rewards' : 'activities';
+    const previous: Array<{ id: string; location_id: string | null }> = [];
+    for (const id of ids) {
+      if (table === 'rewards') {
+        const row = await db.rewards.get(id);
+        if (!row) continue;
+        previous.push({ id, location_id: row.location_id });
+        await upsert('rewards', { ...row, location_id: locationId });
+      } else {
+        const row = await db.activities.get(id);
+        if (!row) continue;
+        previous.push({ id, location_id: row.location_id });
+        await upsert('activities', { ...row, location_id: locationId });
+      }
+    }
+    const placeName = locationId === null ? 'every place' : (locations.find((l) => l.id === locationId)?.name ?? 'that place');
+    toast(`${previous.length} now in ${placeName}`, {
+      undo: () => {
+        void (async () => {
+          for (const prev of previous) {
+            if (table === 'rewards') {
+              const row = await db.rewards.get(prev.id);
+              if (row) await upsert('rewards', { ...row, location_id: prev.location_id });
+            } else {
+              const row = await db.activities.get(prev.id);
+              if (row) await upsert('activities', { ...row, location_id: prev.location_id });
+            }
+          }
+        })();
+      },
+    });
+    endSelect();
+  }
+
+  function pickLocation(): void {
+    open(
+      <LocationPick
+        locations={locations}
+        onPick={(locationId) => {
+          close();
+          void setLocationFor(locationId);
+        }}
+      />,
+      { title: `Set place for ${liveSelected.size}` },
+    );
+  }
+
+  function confirmDelete(): void {
+    const ids = [...liveSelected];
+    const table = kind === 'reward' ? 'rewards' : 'activities';
+    open(
+      <Confirm
+        title={`Delete ${ids.length} ${ids.length === 1 ? 'item' : 'items'}?`}
+        body="They disappear from every place. You can undo right after."
+        confirmLabel="Delete"
+        danger
+        onCancel={close}
+        onConfirm={() => {
+          close();
+          for (const id of ids) void (table === 'rewards' ? deleteReward(id) : deleteActivity(id));
+          toast(`Deleted ${ids.length}`, { undo: () => ids.forEach((id) => void restore(table, id)) });
+          endSelect();
+        }}
+      />,
+      { title: 'Delete selected' },
+    );
+  }
 
   function addNew(): void {
     if (kind === 'activity') router.push('/activity/edit/');
@@ -339,6 +441,33 @@ export function LibraryList({ kind }: LibraryListProps) {
       <BigButton fullWidth icon="plus" onClick={addNew}>
         {addLabel}
       </BigButton>
+      {bulkable && rows.length > 0 ? (
+        <div className={styles.bulkBar}>
+          {selecting ? (
+            <>
+              <span className={styles.bulkCount} aria-live="polite">
+                {liveSelected.size} selected
+              </span>
+              <Button variant="secondary" onClick={() => setSelected(toggleAll(liveSelected, bulkIds))}>
+                {allSelected(liveSelected, bulkIds) ? 'Select none' : 'Select all'}
+              </Button>
+              <Button variant="secondary" disabled={liveSelected.size === 0} onClick={pickLocation}>
+                Set place
+              </Button>
+              <Button variant="danger" disabled={liveSelected.size === 0} onClick={confirmDelete}>
+                Delete
+              </Button>
+              <Button variant="ghost" onClick={endSelect}>
+                Done
+              </Button>
+            </>
+          ) : (
+            <Button variant="secondary" onClick={() => setSelecting(true)}>
+              Select
+            </Button>
+          )}
+        </div>
+      ) : null}
       {rows.length === 0 ? (
         <EmptyState sentence={emptySentence} />
       ) : (
@@ -349,13 +478,17 @@ export function LibraryList({ kind }: LibraryListProps) {
               tile={row.tile}
               name={row.name}
               secondary={row.secondary}
-              onTap={row.onTap}
+              onTap={selecting && bulkable ? () => setSelected(toggleId(liveSelected, row.id)) : row.onTap}
               trailing={
-                <IconButton
-                  icon="trash"
-                  aria-label={`Delete ${row.name}`}
-                  onClick={row.onDelete}
-                />
+                selecting && bulkable ? (
+                  <CheckCircle
+                    name={row.name}
+                    checked={liveSelected.has(row.id)}
+                    onChange={() => setSelected(toggleId(liveSelected, row.id))}
+                  />
+                ) : (
+                  <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />
+                )
               }
             />
           ))}
