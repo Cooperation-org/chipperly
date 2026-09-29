@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SignUpForm } from '@/components/auth/SignUpForm';
+import { OG_IMAGES } from '@/app/ogImage';
 
 const description = 'Create a Chipperly account to build visual schedules, chip boards and social stories for your family or team.';
 
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
     description,
     url: '/sign-up/',
     type: 'website',
+    images: OG_IMAGES,
   },
 };
 

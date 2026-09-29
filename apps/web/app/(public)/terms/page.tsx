@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import styles from '../legal.module.css';
+import { OG_IMAGES } from '@/app/ogImage';
 
 const description = 'The plain-language terms for using Chipperly.';
 
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
     description,
     url: '/terms/',
     type: 'website',
+    images: OG_IMAGES,
   },
 };
 

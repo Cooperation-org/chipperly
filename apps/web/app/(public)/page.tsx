@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SignInForm } from '@/components/auth/SignInForm';
+import { OG_IMAGES } from '@/app/ogImage';
 
 const description = 'Neurodivergent life made easier: visual schedules, chips, timers, first-then boards and social stories for the whole team.';
 
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
     description,
     url: '/',
     type: 'website',
+    images: OG_IMAGES,
   },
 };
 

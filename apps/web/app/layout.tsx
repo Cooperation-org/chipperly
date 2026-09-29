@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { heading, body, twemoji } from './fonts';
 import { Providers } from '@/components/providers/Providers';
+import { OG_IMAGES } from './ogImage';
 import './styles/globals.css';
 
 const siteOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN ?? 'http://localhost:3000';
@@ -24,9 +25,7 @@ export const metadata: Metadata = {
     siteName: 'Chipperly',
     title: 'Chipperly',
     description: 'Neurodivergent life made easier.',
-    images: [
-      { url: `${basePath}/og/og-image.png`, width: 1200, height: 630, alt: 'Chipperly. Neurodivergent life made easier.' },
-    ],
+    images: OG_IMAGES,
   },
   twitter: {
     card: 'summary_large_image',

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import styles from '../legal.module.css';
+import { OG_IMAGES } from '@/app/ogImage';
 
 const description = 'What Chipperly stores about you and the people you support, where it lives, and who can see it.';
 
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
     description,
     url: '/privacy/',
     type: 'website',
+    images: OG_IMAGES,
   },
 };
 
