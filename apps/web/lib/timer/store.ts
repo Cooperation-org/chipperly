@@ -7,6 +7,8 @@
 import { useSyncExternalStore } from 'react';
 import { getKv, setKv } from '../db/kv';
 import { DEFAULT_TIMER_SOUND, playTimerDone } from '../sound';
+import { intervalMs, newFocus, nextInterval, sanitizeSettings } from './focus';
+import type { FocusSettings, FocusState } from './focus';
 
 const KV_KEY = 'timer_state';
 
@@ -27,6 +29,10 @@ export interface TimerState {
   ended_at: number | null;
   /** True only for a child's step timer started while the device is locked: pausing/stopping needs the caregiver PIN, and the OS-level kiosk lock stays engaged for as long as this is true. */
   locked: boolean;
+  /** Pomodoro ("Focus") mode when set; null is the normal timer. */
+  focus: FocusState | null;
+  /** The normal timer's duration, parked while Focus mode borrows total_ms. */
+  normal_ms: number;
 }
 
 const DEFAULT_STATE: TimerState = {
@@ -39,6 +45,8 @@ const DEFAULT_STATE: TimerState = {
   sound_name: DEFAULT_TIMER_SOUND,
   ended_at: null,
   locked: false,
+  focus: null,
+  normal_ms: 0,
 };
 
 let state: TimerState = { ...DEFAULT_STATE };
@@ -83,6 +91,18 @@ function tick(): void {
   if (remaining <= 0) {
     const shouldPlay = state.sound;
     const soundName = state.sound_name;
+    if (state.focus) {
+      // Focus mode: play the sound, then wait on the next interval for a tap
+      // (manual start; no "Time's up" overlay to acknowledge).
+      const focus = nextInterval(state.focus);
+      const ms = intervalMs(focus);
+      state = { ...state, focus, total_ms: ms, remaining_ms: ms, running: false, started_at: null, ended_at: null };
+      notify();
+      persist();
+      if (shouldPlay) playTimerDone(soundName);
+      rafHandle = null;
+      return;
+    }
     state = { ...state, remaining_ms: 0, running: false, started_at: null, ended_at: Date.now() };
     notify();
     persist();
@@ -195,4 +215,32 @@ export function setSoundName(sound_name: string): void {
 /** S13's own "Sound at the end" toggle, separate from the device-wide sounds setting (lib/device/settings.ts). */
 export function setSound(sound: boolean): void {
   setState({ sound });
+}
+
+/** Switch between the normal timer (null) and Focus mode. Keeps the normal duration for the way back. */
+export function setFocusMode(on: boolean, settings?: FocusSettings): void {
+  if (on === (state.focus !== null)) return;
+  if (on) {
+    const focus = newFocus(settings ? sanitizeSettings(settings) : undefined);
+    const ms = intervalMs(focus);
+    setState({ focus, normal_ms: state.total_ms, total_ms: ms, remaining_ms: ms, running: false, started_at: null, ended_at: null, locked: false });
+  } else {
+    setState({ focus: null, total_ms: state.normal_ms, remaining_ms: state.normal_ms, running: false, started_at: null, ended_at: null, locked: false });
+  }
+}
+
+/** Edit the Focus lengths; restarts the current round's interval at its new length. */
+export function setFocusSettings(settings: FocusSettings): void {
+  if (!state.focus) return;
+  const focus = { ...state.focus, settings: sanitizeSettings(settings) };
+  const ms = intervalMs(focus);
+  setState({ focus, total_ms: ms, remaining_ms: ms, running: false, started_at: null, ended_at: null });
+}
+
+/** Skip to the next interval (e.g. end a break early). */
+export function skipInterval(): void {
+  if (!state.focus) return;
+  const focus = nextInterval(state.focus);
+  const ms = intervalMs(focus);
+  setState({ focus, total_ms: ms, remaining_ms: ms, running: false, started_at: null, ended_at: null });
 }

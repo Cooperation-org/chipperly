@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveProfile } from '@/lib/profile/active';
-import { useTimer, isEnded, acknowledgeEnd, setDuration, start, pause, reset, setReveal, setSound, setSoundName } from '@/lib/timer/store';
+import { useTimer, isEnded, acknowledgeEnd, setDuration, start, pause, reset, setReveal, setSound, setSoundName, setFocusMode, setFocusSettings, skipInterval } from '@/lib/timer/store';
+import { focusLabel } from '@/lib/timer/focus';
+import type { FocusSettings } from '@/lib/timer/focus';
 import { TIMER_SOUNDS, previewTimerSound } from '@/lib/sound';
 import type { TimerReveal } from '@/lib/timer/store';
 import { useSheet } from '@/components/ui/Sheet';
@@ -13,6 +15,7 @@ import { TextField } from '@/components/ui/TextField';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
+import { Segmented } from '@/components/ui/Segmented';
 import { Switch } from '@/components/ui/Switch';
 import { Picker } from '@/components/picker/Picker';
 import { PicturePicker } from '@/components/picture/PicturePicker';
@@ -55,6 +58,51 @@ function DurationSheetContent({ initialMs, onSet }: { initialMs: number; onSet: 
       </div>
       <Button variant="primary" fullWidth onClick={submit}>
         Set
+      </Button>
+    </div>
+  );
+}
+
+/** Focus lengths in minutes; saving restarts the current interval at its new length. */
+function FocusSheetContent({ initial, onSet }: { initial: FocusSettings; onSet: (s: FocusSettings) => void }) {
+  const [v, setV] = useState({
+    focus_min: String(initial.focus_min),
+    short_min: String(initial.short_min),
+    long_min: String(initial.long_min),
+    long_every: String(initial.long_every),
+  });
+  const field = (key: keyof typeof v, label: string) => (
+    <TextField
+      label={label}
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={v[key]}
+      onChange={(e) => setV({ ...v, [key]: e.target.value.replace(/\D/g, '') })}
+    />
+  );
+  return (
+    <div className={styles.durationSheet}>
+      <div className={styles.durationRow}>
+        {field('focus_min', 'Focus (min)')}
+        {field('short_min', 'Break (min)')}
+      </div>
+      <div className={styles.durationRow}>
+        {field('long_min', 'Long break (min)')}
+        {field('long_every', 'Long break every (rounds)')}
+      </div>
+      <Button
+        variant="primary"
+        fullWidth
+        onClick={() =>
+          onSet({
+            focus_min: parseInt(v.focus_min, 10) || 0,
+            short_min: parseInt(v.short_min, 10) || 0,
+            long_min: parseInt(v.long_min, 10) || 0,
+            long_every: parseInt(v.long_every, 10) || 0,
+          })
+        }
+      >
+        Save
       </Button>
     </div>
   );
@@ -182,9 +230,25 @@ export function TimerScreen() {
     sheet.open(<SoundSheetContent />, { title: 'Sound at the end' });
   }
 
+  function openFocusSheet(): void {
+    if (!timer.focus) return;
+    sheet.open(
+      <FocusSheetContent
+        initial={timer.focus.settings}
+        onSet={(settings) => {
+          setFocusSettings(settings);
+          sheet.close();
+        }}
+      />,
+      { title: 'Focus lengths' },
+    );
+  }
+
   function onTimeTap(): void {
     if (timer.running) {
       setFullScreenOpen(true);
+    } else if (timer.focus) {
+      openFocusSheet();
     } else {
       openDurationSheet();
     }
@@ -196,6 +260,20 @@ export function TimerScreen() {
   return (
     <div className={styles.screen}>
       <div className={styles.card}>
+        <Segmented
+          label="Timer mode"
+          items={[
+            { value: 'timer', label: 'Timer' },
+            { value: 'focus', label: 'Focus' },
+          ]}
+          value={timer.focus ? 'focus' : 'timer'}
+          onChange={(v) => setFocusMode(v === 'focus')}
+        />
+        {timer.focus ? (
+          <p className={styles.focusLabel} role="status">
+            {focusLabel(timer.focus)}
+          </p>
+        ) : null}
         {timer.reveal ? (
           <div ref={ringBoxRef} className={styles.ringBox}>
             <TimerRing remaining_ms={timer.remaining_ms} total_ms={timer.total_ms} reveal={timer.reveal} size={ringSize} />
@@ -208,10 +286,20 @@ export function TimerScreen() {
           large={!timer.reveal}
         />
         <p className={styles.hint}>
-          {timer.running ? 'Tap the time for the full screen' : 'Tap the time to type a duration'}
+          {timer.running
+            ? 'Tap the time for the full screen'
+            : timer.focus
+              ? 'Tap the time to edit the lengths. Each interval waits for you to press Start.'
+              : 'Tap the time to type a duration'}
         </p>
 
-        <div className={styles.presets}>
+        {timer.focus ? (
+          <Button variant="ghost" onClick={skipInterval}>
+            {timer.focus.phase === 'focus' ? 'Skip to break' : 'Skip to focus'}
+          </Button>
+        ) : null}
+
+        <div className={styles.presets} hidden={timer.focus !== null}>
           {PRESET_MINUTES.map((minutes) => {
             const ms = minutes * 60000;
             const active = timer.total_ms === ms;
