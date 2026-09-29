@@ -9,6 +9,7 @@ import type { ChipLedger } from '@chipperly/shared/schemas/chips';
 import { occursOn, materializedId } from '@chipperly/shared/helpers/recurrence';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { db } from '../db/db';
+import { getKv, setKv } from '../db/kv';
 import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert, softDelete } from '../sync/mutate';
@@ -250,7 +251,6 @@ export async function setCompleted(itemId: string, done: boolean, userId: string
   const item = await db.schedule_items.get(itemId);
   if (!item) return;
   await markItemCompletion(item, done, userId);
-  if (!done) return;
 
   const steps = (await db.activity_steps.where('activity_id').equals(item.activity_id).toArray()).filter(
     (step) => step.deleted_at === null,
@@ -258,26 +258,84 @@ export async function setCompleted(itemId: string, done: boolean, userId: string
   if (steps.length === 0) return;
 
   const completions = await db.step_completions.where('schedule_item_id').equals(itemId).toArray();
-  const completedIds = new Set(
-    completions.filter((completion) => completion.deleted_at === null).map((completion) => completion.activity_step_id),
-  );
+  const live = completions.filter((completion) => completion.deleted_at === null);
+  const completedIds = new Set(live.map((completion) => completion.activity_step_id));
+
+  if (!done) {
+    // Uncheck: return every step to what it was before the check-all, or clear them when there is nothing to return to.
+    const snapshot = await getKv<CheckAllSnapshot | null>(checkAllKey(itemId));
+    await setKv(checkAllKey(itemId), null);
+    const target = restoredStepIds(steps, snapshot?.scope === null ? snapshot.ids : null);
+    for (const completion of live) {
+      if (!target.has(completion.activity_step_id)) await softDelete('step_completions', completion.id);
+    }
+    for (const step of steps) {
+      if (target.has(step.id) && !completedIds.has(step.id)) await upsert('step_completions', completionRow(item.id, item.profile_id, step.id, userId));
+    }
+    return;
+  }
+
+  await setKv<CheckAllSnapshot>(checkAllKey(itemId), { scope: null, ids: [...completedIds] });
   // Done in one go: no step was ticked on its own first. Undo nets this out with the task chips (ref_id is the item).
   if (completedIds.size === 0) await awardRoutineBonus(item, userId);
   for (const step of steps) {
-    if (completedIds.has(step.id)) continue;
-    await upsert('step_completions', {
-      id: newId(),
-      profile_id: item.profile_id,
-      version: 0,
-      client_updated_at: now(),
-      updated_by: userId,
-      deleted_at: null,
-      schedule_item_id: itemId,
-      activity_step_id: step.id,
-      completed_at: now(),
-      completed_by: userId,
-    } satisfies StepCompletion);
+    if (!completedIds.has(step.id)) await upsert('step_completions', completionRow(item.id, item.profile_id, step.id, userId));
   }
+}
+
+/**
+ * Device-local memory of the per-step state just before a cascade to
+ * "all complete" (the item's check-all when `scope` is null, else a parent
+ * step's). One per item: any other toggle replaces or clears it, so it is
+ * only ever replayed while the cascaded state is still intact.
+ */
+interface CheckAllSnapshot {
+  scope: string | null;
+  ids: string[];
+}
+
+function checkAllKey(itemId: string): string {
+  return `checkall:${itemId}`;
+}
+
+function completionRow(itemId: string, profileId: string, stepId: string, userId: string): StepCompletion {
+  return {
+    id: newId(),
+    profile_id: profileId,
+    version: 0,
+    client_updated_at: now(),
+    updated_by: userId,
+    deleted_at: null,
+    schedule_item_id: itemId,
+    activity_step_id: stepId,
+    completed_at: now(),
+    completed_by: userId,
+  };
+}
+
+/**
+ * Pure: which of `steps` (a whole tree, or a step's descendants) are complete
+ * after restoring `snapshot`, the ids complete before the check-all. Leaves
+ * take their snapshot state and every parent is recomputed from its children.
+ * With no snapshot, or when every leaf was already complete, nothing is.
+ */
+export function restoredStepIds(
+  steps: readonly Pick<ActivityStep, 'id' | 'parent_step_id'>[],
+  snapshot: readonly string[] | null,
+): Set<string> {
+  if (!snapshot) return new Set();
+  const before = new Set(snapshot);
+  const childrenOf = new Map<string, string[]>();
+  for (const step of steps) {
+    if (step.parent_step_id === null) continue;
+    childrenOf.set(step.parent_step_id, [...(childrenOf.get(step.parent_step_id) ?? []), step.id]);
+  }
+  if (steps.every((step) => childrenOf.has(step.id) || before.has(step.id))) return new Set();
+  const isDone = (id: string): boolean => {
+    const children = childrenOf.get(id);
+    return children ? children.every(isDone) : before.has(id);
+  };
+  return new Set(steps.filter((step) => isDone(step.id)).map((step) => step.id));
 }
 
 /** Owner's ask: extra chips for a routine finished without breaking it into steps, when the profile turns it on. */
@@ -372,18 +430,7 @@ export async function setStepCompleted(itemId: string, stepId: string, done: boo
   async function set(id: string, isDone: boolean): Promise<void> {
     const existing = liveByStep.get(id);
     if (isDone && !existing) {
-      const row: StepCompletion = {
-        id: newId(),
-        profile_id: profileId,
-        version: 0,
-        client_updated_at: now(),
-        updated_by: userId,
-        deleted_at: null,
-        schedule_item_id: itemId,
-        activity_step_id: id,
-        completed_at: now(),
-        completed_by: userId,
-      };
+      const row = completionRow(itemId, profileId, id, userId);
       await upsert('step_completions', row);
       liveByStep.set(id, row);
     } else if (!isDone && existing) {
@@ -392,8 +439,21 @@ export async function setStepCompleted(itemId: string, stepId: string, done: boo
     }
   }
 
+  const descendantIds = descendantsOf(steps, stepId);
+  const snapshot = await getKv<CheckAllSnapshot | null>(checkAllKey(itemId));
+  let restored: Set<string> | null = null;
+  if (done && descendantIds.length > 0) {
+    await setKv<CheckAllSnapshot>(checkAllKey(itemId), { scope: stepId, ids: descendantIds.filter((id) => liveByStep.has(id)) });
+  } else {
+    if (!done && snapshot?.scope === stepId) {
+      const descendantSet = new Set(descendantIds);
+      restored = restoredStepIds(steps.filter((step) => descendantSet.has(step.id)), snapshot.ids);
+    }
+    if (snapshot) await setKv(checkAllKey(itemId), null);
+  }
+
   await set(stepId, done);
-  for (const descendantId of descendantsOf(steps, stepId)) await set(descendantId, done);
+  for (const descendantId of descendantIds) await set(descendantId, done || (restored?.has(descendantId) ?? false));
 
   for (let current = stepById.get(stepId); current?.parent_step_id; current = stepById.get(current.parent_step_id)) {
     const parentId = current.parent_step_id;

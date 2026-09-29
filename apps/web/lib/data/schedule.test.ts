@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Activity, ActivityStep, RecurrenceSkip } from '@chipperly/shared/schemas/activity';
 import type { ScheduleItem, StepCompletion } from '@chipperly/shared/schemas/schedule';
 import { materializedId } from '@chipperly/shared/helpers/recurrence';
-import { allStepsComplete, descendantsOf, joinDayItems, previewDay, stepTree, type DayStep } from './schedule';
+import { allStepsComplete, descendantsOf, joinDayItems, previewDay, restoredStepIds, stepTree, type DayStep } from './schedule';
 
 function activity(overrides: Partial<Activity> = {}): Activity {
   return {
@@ -286,6 +286,43 @@ describe('cascade rules (pure, via stepTree + descendantsOf)', () => {
     const [root] = stepTree(daySteps(steps, []));
     expect(root?.done).toBe(false);
     expect(root?.children[0]?.done).toBe(false);
+  });
+});
+
+describe('restoredStepIds', () => {
+  const flat = [step({ id: 'a' }), step({ id: 'b' }), step({ id: 'c' })];
+
+  it('partial state -> check all -> uncheck restores the partial state', () => {
+    expect([...restoredStepIds(flat, ['a'])]).toEqual(['a']);
+  });
+
+  it('all complete before -> uncheck clears everything', () => {
+    expect(restoredStepIds(flat, ['a', 'b', 'c']).size).toBe(0);
+  });
+
+  it('nothing complete before, or no snapshot, clears everything', () => {
+    expect(restoredStepIds(flat, []).size).toBe(0);
+    expect(restoredStepIds(flat, null).size).toBe(0);
+  });
+
+  it('restores nested sub-steps and recomputes parents from their children', () => {
+    const tree = [
+      step({ id: 'r1' }),
+      step({ id: 'c1', parent_step_id: 'r1' }),
+      step({ id: 'g1', parent_step_id: 'c1' }),
+      step({ id: 'g2', parent_step_id: 'c1' }),
+      step({ id: 'c2', parent_step_id: 'r1' }),
+      step({ id: 'r2' }),
+    ];
+    // Before: g1 and c2 done, g2 and r2 not. c1 and r1 must stay open.
+    expect([...restoredStepIds(tree, ['g1', 'c2'])].sort()).toEqual(['c2', 'g1']);
+    // Before: c1's whole branch done, c2 not. c1 comes back done, r1 does not.
+    expect([...restoredStepIds(tree, ['g1', 'g2', 'r2'])].sort()).toEqual(['c1', 'g1', 'g2', 'r2']);
+  });
+
+  it('a parent step scope (descendants only) restores its sub-steps', () => {
+    const subs = [step({ id: 'c1', parent_step_id: 'r1' }), step({ id: 'c2', parent_step_id: 'r1' })];
+    expect([...restoredStepIds(subs, ['c2'])]).toEqual(['c2']);
   });
 });
 
