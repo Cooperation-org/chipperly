@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useMediaUrl } from '@/lib/data/media';
 import type { TimerReveal } from '@/lib/timer/store';
-import { formatTimerTime } from './time';
 import styles from './TimerRing.module.css';
 
 export interface TimerRingProps {
@@ -11,7 +10,6 @@ export interface TimerRingProps {
   total_ms: number;
   reveal?: TimerReveal | null;
   size: number;
-  onTap?: () => void;
 }
 
 const STROKE_RATIO = 0.06;
@@ -28,10 +26,11 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
-/** SVG countdown ring: the primary-colored arc is the remaining fraction, shrinking to nothing at zero.
+/** SVG countdown ring around a reveal picture. Callers render it only when there is a picture, and
+ * show the time outside it (TimerTime). The ring: the primary-colored arc is the remaining fraction, shrinking to nothing at zero.
  * An optional reveal (emoji or photo) sits behind it and fades in as time passes; under reduced motion
  * it steps at 25/50/75/100% elapsed instead of animating continuously. */
-export function TimerRing({ remaining_ms, total_ms, reveal, size, onTap }: TimerRingProps) {
+export function TimerRing({ remaining_ms, total_ms, reveal, size }: TimerRingProps) {
   const reduceMotion = useReducedMotion();
   const photoUrl = useMediaUrl(reveal?.photo_id ?? null);
 
@@ -45,24 +44,7 @@ export function TimerRing({ remaining_ms, total_ms, reveal, size, onTap }: Timer
   const dashoffset = circumference * (1 - progress);
 
   return (
-    <div
-      className={[styles.wrap, onTap ? styles.tappable : ''].filter(Boolean).join(' ')}
-      style={{ width: size, height: size }}
-      onClick={onTap}
-      role={onTap ? 'button' : undefined}
-      tabIndex={onTap ? 0 : undefined}
-      onKeyDown={
-        onTap
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onTap();
-              }
-            }
-          : undefined
-      }
-      aria-label={onTap ? `Timer, ${formatTimerTime(remaining_ms)} remaining` : undefined}
-    >
+    <div className={styles.wrap} style={{ width: size, height: size }}>
       {reveal ? (
         <div className={styles.reveal} style={{ opacity: revealOpacity }}>
           {photoUrl ? (
@@ -91,9 +73,6 @@ export function TimerRing({ remaining_ms, total_ms, reveal, size, onTap }: Timer
           className={styles.progress}
         />
       </svg>
-      <span className={styles.time} aria-hidden={onTap ? 'true' : undefined}>
-        {formatTimerTime(remaining_ms)}
-      </span>
     </div>
   );
 }

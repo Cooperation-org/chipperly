@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useTimer, start, pause, reset } from '@/lib/timer/store';
+import { useTimer, isEnded, acknowledgeEnd, start, pause, reset } from '@/lib/timer/store';
 import { useSession } from '@/lib/auth/session';
 import { verifyPin } from '@/lib/auth/pin';
 import { PinPad } from '@/components/pin/PinPad';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Celebration } from '@/components/ui/Celebration';
 import { VisuallyHidden } from '@/components/ui/VisuallyHidden';
 import { TimerRing } from './TimerRing';
+import { TimerTime } from './TimerTime';
 import { useSquareSize } from './useSquareSize';
 import styles from './TimerFullScreen.module.css';
 
@@ -35,14 +36,14 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
   const [pinPrompt, setPinPrompt] = useState<PinPrompt>(null);
   const [pinError, setPinError] = useState<string | undefined>();
 
-  const justEnded = timer.ended_at !== null && timer.remaining_ms === 0;
-  const [boxRef, ringSize] = useSquareSize(!justEnded && !pinPrompt, 280);
+  const justEnded = isEnded(timer);
+  const [boxRef, ringSize] = useSquareSize(!justEnded && !pinPrompt && timer.reveal !== null, 280);
 
   // Closing an ended timer must actually clear it -- otherwise `justEnded`
   // stays true and the "0:00" pill (TimerPill) never goes away, even though
   // this screen closed.
   function handleClose(): void {
-    if (justEnded) reset();
+    acknowledgeEnd();
     onClose();
   }
 
@@ -87,7 +88,7 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
       if (e.key === 'Escape') {
         e.preventDefault();
         if (justEnded || !timer.locked) {
-          if (justEnded) reset();
+          acknowledgeEnd();
           onClose();
         } else {
           setPinError(undefined);
@@ -189,8 +190,13 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
           onClick={toggle}
           aria-label={timer.running ? 'Pause timer' : 'Resume timer'}
         >
-          <div ref={boxRef} className={styles.ringBox}>
-            <TimerRing remaining_ms={timer.remaining_ms} total_ms={timer.total_ms} reveal={timer.reveal} size={ringSize} />
+          <div className={styles.face}>
+            {timer.reveal ? (
+              <div ref={boxRef} className={styles.ringBox}>
+                <TimerRing remaining_ms={timer.remaining_ms} total_ms={timer.total_ms} reveal={timer.reveal} size={ringSize} />
+              </div>
+            ) : null}
+            <TimerTime remaining_ms={timer.remaining_ms} large={!timer.reveal} />
           </div>
         </button>
       )}

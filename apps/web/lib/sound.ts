@@ -13,6 +13,26 @@ let chipperUpAudio: HTMLAudioElement | null = null;
 let chipperDownAudio: HTMLAudioElement | null = null;
 let unlocked = false;
 
+/** Sounds the timer can end with: every file in public/sounds/. `id` is the file name without extension. */
+export const TIMER_SOUNDS = [
+  { id: 'timer-done', label: 'Chime' },
+  { id: 'chip', label: 'Chip' },
+  { id: 'chipper-up', label: 'Rising' },
+  { id: 'chipper-down', label: 'Falling' },
+] as const;
+export const DEFAULT_TIMER_SOUND = 'timer-done';
+
+const namedAudio = new Map<string, HTMLAudioElement>();
+function audioFor(name: string): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  let audio = namedAudio.get(name);
+  if (!audio) {
+    audio = createAudio(name);
+    namedAudio.set(name, audio);
+  }
+  return audio;
+}
+
 function createAudio(name: string): HTMLAudioElement {
   const audio = new Audio();
   const ext = audio.canPlayType('audio/ogg; codecs="vorbis"') !== '' ? 'ogg' : 'mp3';
@@ -24,7 +44,7 @@ function createAudio(name: string): HTMLAudioElement {
 function unlockOnce(): void {
   if (unlocked) return;
   unlocked = true;
-  for (const audio of [chipAudio, timerDoneAudio, chipperUpAudio, chipperDownAudio]) {
+  for (const audio of [chipAudio, timerDoneAudio, chipperUpAudio, chipperDownAudio, ...namedAudio.values()]) {
     if (!audio) continue;
     // A play-then-pause on the first real gesture satisfies the mobile
     // autoplay policy for every later programmatic play() call.
@@ -65,8 +85,13 @@ export function playChip(): void {
   void play(chipAudio);
 }
 
-export function playTimerDone(): void {
-  void play(timerDoneAudio);
+export function playTimerDone(name: string = DEFAULT_TIMER_SOUND): void {
+  void play(name === DEFAULT_TIMER_SOUND ? timerDoneAudio : audioFor(name));
+}
+
+/** Preview button next to each timer sound choice. */
+export function previewTimerSound(name: string): void {
+  playTimerDone(name);
 }
 
 /** Chipper Chart level goes up. */

@@ -7,10 +7,6 @@
   flex-shrink: 0;
 }
 
-.tappable {
-  cursor: pointer;
-}
-
 .reveal {
   position: absolute;
   inset: 0;
@@ -41,13 +37,4 @@
 
 .progress {
   transition: stroke-dashoffset var(--motion) linear;
-}
-
-.time {
-  position: absolute;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: var(--text-2xl);
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
 }

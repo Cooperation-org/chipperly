@@ -15,19 +15,20 @@ test.describe('timer and stories', () => {
     await page.close();
   });
 
-  test('S13 timer: preset, start, pause, ring', async () => {
+  test('S13 timer: preset, start, pause, full screen', async () => {
     await gotoTab(page, 'timer');
     await expectNoOverflow(page, 'S13 timer');
     await snap(page, 's13-timer');
 
     await page.getByRole('button', { name: '1 min', exact: true }).click();
-    const ring = page.getByRole('button', { name: /^Timer, 1:00 remaining$/ });
-    await expect(ring).toBeVisible();
+    // A fresh timer has no reveal picture, so no ring is drawn: the time itself is the control.
+    const time = page.getByRole('button', { name: 'Timer, 1:00 remaining. Change duration' });
+    await expect(time).toBeVisible();
 
     await page.getByRole('button', { name: 'Start', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: /^Timer, .* remaining$/ }).click();
+    await page.getByRole('button', { name: /^Timer, .* remaining\. Open the full screen$/ }).click();
     const overlay = page.getByRole('dialog', { name: 'Timer' });
     await expect(overlay).toBeVisible();
     await expectNoOverflow(page, 'S14 timer full screen');

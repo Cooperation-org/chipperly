@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveProfile } from '@/lib/profile/active';
-import { useTimer, setDuration, start, pause, reset, setReveal, setSound } from '@/lib/timer/store';
+import { useTimer, isEnded, acknowledgeEnd, setDuration, start, pause, reset, setReveal, setSound, setSoundName } from '@/lib/timer/store';
+import { TIMER_SOUNDS, previewTimerSound } from '@/lib/sound';
 import type { TimerReveal } from '@/lib/timer/store';
 import { useSheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
@@ -11,11 +12,13 @@ import { BigButton } from '@/components/ui/BigButton';
 import { TextField } from '@/components/ui/TextField';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import { Switch } from '@/components/ui/Switch';
 import { Picker } from '@/components/picker/Picker';
 import { PicturePicker } from '@/components/picture/PicturePicker';
 import type { PicturePickerValue } from '@/components/picture/PicturePicker';
 import { TimerRing } from './TimerRing';
+import { TimerTime } from './TimerTime';
 import { TimerFullScreen } from './TimerFullScreen';
 import { useSquareSize } from './useSquareSize';
 import styles from './TimerScreen.module.css';
@@ -115,13 +118,38 @@ function RevealSheetContent({
   );
 }
 
+/** Pick which sound ends the timer; the play button previews it. */
+function SoundSheetContent() {
+  const current = useTimer().sound_name;
+  return (
+    <ul className={styles.soundList}>
+      {TIMER_SOUNDS.map((s) => (
+        <li key={s.id} className={styles.soundRow}>
+          <button type="button" className={styles.soundPick} aria-pressed={s.id === current} onClick={() => setSoundName(s.id)}>
+            <span className={styles.optionLabel}>{s.label}</span>
+            {s.id === current ? <Icon name="check" size={20} /> : null}
+          </button>
+          <IconButton icon="play" variant="muted" aria-label={`Play ${s.label} sound`} onClick={() => previewTimerSound(s.id)} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** S13: the timer tab. Ring, duration presets, start/pause/reset, reveal picture and end sound. */
 export function TimerScreen() {
   const { profile } = useActiveProfile();
   const timer = useTimer();
   const sheet = useSheet();
   const [fullScreenOpen, setFullScreenOpen] = useState(false);
-  const [ringBoxRef, ringSize] = useSquareSize(true, 240);
+  const [ringBoxRef, ringSize] = useSquareSize(timer.reveal !== null, 240);
+  const ended = isEnded(timer);
+
+  // Looking at the Timer tab is seeing the end; TimerPill hides here, so
+  // without this it would be waiting with a stale 0:00 when you leave.
+  useEffect(() => {
+    if (ended) acknowledgeEnd();
+  }, [ended]);
 
   if (!profile) return null;
   const profileId = profile.id;
@@ -150,7 +178,11 @@ export function TimerScreen() {
     );
   }
 
-  function onRingTap(): void {
+  function openSoundSheet(): void {
+    sheet.open(<SoundSheetContent />, { title: 'Sound at the end' });
+  }
+
+  function onTimeTap(): void {
     if (timer.running) {
       setFullScreenOpen(true);
     } else {
@@ -164,10 +196,20 @@ export function TimerScreen() {
   return (
     <div className={styles.screen}>
       <div className={styles.card}>
-        <div ref={ringBoxRef} className={styles.ringBox}>
-          <TimerRing remaining_ms={timer.remaining_ms} total_ms={timer.total_ms} reveal={timer.reveal} size={ringSize} onTap={onRingTap} />
-        </div>
-        <p className={styles.hint}>Tap the time to type a duration</p>
+        {timer.reveal ? (
+          <div ref={ringBoxRef} className={styles.ringBox}>
+            <TimerRing remaining_ms={timer.remaining_ms} total_ms={timer.total_ms} reveal={timer.reveal} size={ringSize} />
+          </div>
+        ) : null}
+        <TimerTime
+          remaining_ms={timer.remaining_ms}
+          onEdit={onTimeTap}
+          editLabel={timer.running ? 'Open the full screen' : 'Change duration'}
+          large={!timer.reveal}
+        />
+        <p className={styles.hint}>
+          {timer.running ? 'Tap the time for the full screen' : 'Tap the time to type a duration'}
+        </p>
 
         <div className={styles.presets}>
           {PRESET_MINUTES.map((minutes) => {
@@ -222,6 +264,12 @@ export function TimerScreen() {
             <span className={styles.optionLabel}>Sound at the end</span>
             <Switch label="Sound at the end" checked={timer.sound} onChange={setSound} />
           </div>
+
+          <button type="button" className={styles.optionRow} onClick={openSoundSheet}>
+            <span className={styles.optionLabel}>Choose the sound</span>
+            <span className={styles.soundName}>{TIMER_SOUNDS.find((s) => s.id === timer.sound_name)?.label ?? TIMER_SOUNDS[0].label}</span>
+            <Icon name="chevron" size={20} />
+          </button>
         </div>
       </div>
 

@@ -1,0 +1,28 @@
+.time {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: var(--text-2xl);
+  line-height: 1.2;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.large {
+  font-size: calc(var(--text-2xl) * 2);
+}
+
+.edit {
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: var(--space-1) var(--space-3);
+  background: none;
+  border: none;
+  border-bottom: 2px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.edit:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}

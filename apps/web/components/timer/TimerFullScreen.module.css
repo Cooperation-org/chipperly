@@ -27,9 +27,16 @@
   padding: 0;
 }
 
+.face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .ringBox {
-  width: min(90vw, 70vh);
-  height: min(90vw, 70vh);
+  width: min(80vw, 60vh);
+  height: min(80vw, 60vh);
 }
 
 .ended {
