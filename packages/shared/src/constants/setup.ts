@@ -44,6 +44,7 @@ interface Tile<K extends string = string> {
 }
 
 export const AGE_BAND_TILES: readonly Tile<AgeBand>[] = [
+  { key: '0-2', name: 'Under 2', emoji: '👶' },
   { key: '2-7', name: '2 to 7', emoji: '🧒' },
   { key: '8-12', name: '8 to 12', emoji: '🚲' },
   { key: '13-17', name: '13 to 17', emoji: '🎧' },
@@ -66,6 +67,7 @@ export const ROUTINE_TILES: readonly Tile<SetupAnswers['routines'][number]>[] = 
   { key: 'chores', name: 'Chores', emoji: '🧹' },
   { key: 'bedtime', name: 'Bedtime', emoji: '🌙' },
   { key: 'leaving', name: 'Leaving the house', emoji: '🎒' },
+  { key: 'toilet', name: 'Toilet training', emoji: '🚽' },
 ];
 
 export const PLACE_TILES: readonly Tile<SetupAnswers['places'][number]>[] = [
@@ -77,6 +79,13 @@ export const PLACE_TILES: readonly Tile<SetupAnswers['places'][number]>[] = [
 
 /** Reward tiles per age band; "Screen time" expands into the three timed rewards below. */
 export const LOVE_TILES: Readonly<Record<AgeBand, readonly { name: string; emoji: string }[]>> = {
+  '0-2': [
+    { name: 'Cuddles', emoji: '🤗' },
+    { name: 'A song', emoji: '🎵' },
+    { name: 'Bubbles', emoji: '🫧' },
+    { name: 'Toys', emoji: '🧸' },
+    { name: 'A story', emoji: '📖' },
+  ],
   '2-7': [
     { name: 'Screen time', emoji: '📱' },
     { name: 'Snack', emoji: '🍎' },
@@ -114,19 +123,35 @@ export const LOVE_TILES: Readonly<Record<AgeBand, readonly { name: string; emoji
 /** Which tiles start pre-checked per band; every step can still be changed or skipped. */
 export function defaultAnswers(age_band: AgeBand): SetupAnswers {
   const young = age_band === '2-7' || age_band === '8-12';
+  const baby = age_band === '0-2';
   return {
     age_band,
-    week: age_band === '18+' ? [] : ['school'],
-    routines: young ? ['morning', 'bedtime'] : ['morning'],
-    places: age_band === '18+' ? [] : ['school'],
+    week: age_band === '18+' || baby ? [] : ['school'],
+    routines: baby ? [] : young ? ['morning', 'bedtime'] : ['morning'],
+    places: age_band === '18+' || baby ? [] : ['school'],
     loves: [...LOVE_TILES[age_band]],
   };
 }
 
 const MORNING_KEYS = ['morning', 'dressed', 'teeth'] as const;
 
-const SLEEP_TIME: Record<AgeBand, string> = { '2-7': '19:30', '8-12': '20:30', '13-17': '22:00', '18+': '22:30' };
-const BEDTIME_TIME: Record<AgeBand, string> = { '2-7': '19:00', '8-12': '20:00', '13-17': '21:30', '18+': '22:00' };
+const SLEEP_TIME: Record<AgeBand, string> = { '0-2': '19:00', '2-7': '19:30', '8-12': '20:30', '13-17': '22:00', '18+': '22:30' };
+const BEDTIME_TIME: Record<AgeBand, string> = { '0-2': '18:30', '2-7': '19:00', '8-12': '20:00', '13-17': '21:30', '18+': '22:00' };
+
+/**
+ * The 0-2 day: caregiver-led, picture first. A baby cannot tap, so these are
+ * plain repeating activities (no steps to tick off) for the grown-up to follow.
+ */
+const BABY_DAY: readonly SeedActivity[] = [
+  { name: 'Morning Feed', emoji: '🍼', recurrence: 'daily', recurrence_time: '07:00' },
+  { name: 'Nappy Change', emoji: '👶', recurrence: 'daily', recurrence_time: '10:00' },
+  { name: 'Lunch', emoji: '🥣', recurrence: 'daily', recurrence_time: '12:00' },
+  { name: 'Nap', emoji: '😴', recurrence: 'daily', recurrence_time: '13:00' },
+  { name: 'Play Time', emoji: '🧸', recurrence: 'daily', recurrence_time: '15:30' },
+  { name: 'Bath', emoji: '🛁', recurrence: 'daily', recurrence_time: '18:00' },
+  { name: 'Bedtime Feed', emoji: '🍼', recurrence: 'daily', recurrence_time: '18:30' },
+  { name: 'Sleep', emoji: '🌙', recurrence: 'daily', recurrence_time: SLEEP_TIME['0-2'] },
+];
 
 interface RoutinePack {
   readonly name: string;
@@ -243,6 +268,28 @@ const ROUTINE_PACKS: Record<Exclude<SetupAnswers['routines'][number], 'dressed' 
       { name: 'Out the Door', emoji: '🚪' },
     ],
   },
+  toilet: {
+    name: 'Using the Toilet',
+    emoji: '🚽',
+    young: [
+      { name: 'Go to the Bathroom', emoji: '🚪' },
+      { name: 'Pull Down', emoji: '👖' },
+      { name: 'Sit and Try', emoji: '🚽' },
+      { name: 'Wipe', emoji: '🧻' },
+      { name: 'Flush', emoji: '🚿' },
+      { name: 'Pull Up', emoji: '👖' },
+      { name: 'Wash Hands', emoji: '🧼' },
+    ],
+    older: [
+      { name: 'Go to the Bathroom', emoji: '🚪' },
+      { name: 'Pull Down', emoji: '👖' },
+      { name: 'Sit and Try', emoji: '🚽' },
+      { name: 'Wipe', emoji: '🧻' },
+      { name: 'Flush', emoji: '🚿' },
+      { name: 'Pull Up', emoji: '👖' },
+      { name: 'Wash Hands', emoji: '🧼' },
+    ],
+  },
 };
 
 const SCREEN_TIME_REWARDS: readonly SeedReward[] = [
@@ -254,7 +301,8 @@ const SCREEN_TIME_REWARDS: readonly SeedReward[] = [
 /** Turns the interview answers into the profile's starter content. Pure and deterministic. */
 export function buildSeed(answers: SetupAnswers): SeedPlan {
   const { age_band } = answers;
-  const young = age_band === '2-7' || age_band === '8-12';
+  const baby = age_band === '0-2';
+  const young = baby || age_band === '2-7' || age_band === '8-12';
 
   const locations = [
     { name: 'Home', emoji: '🏠' },
@@ -266,17 +314,19 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
   const hasMorning = MORNING_KEYS.some((key) => answers.routines.includes(key));
 
   // Every activity here is for Home; the other places start empty.
-  const activities: SeedActivity[] = [
-    ...(hasMorning
-      ? []
-      : [
-          { name: 'Wake Up', emoji: '🛏️', recurrence: 'daily' as const, recurrence_time: '07:00' },
-          { name: 'Breakfast', emoji: '🍳', recurrence: 'daily' as const, recurrence_time: '07:30' },
-        ]),
-    { name: 'Lunch', emoji: '🍱', recurrence: 'daily', recurrence_time: '12:00' },
-    { name: 'Dinner', emoji: '🍽️', recurrence: 'daily', recurrence_time: '18:00' },
-    { name: 'Sleep', emoji: '😴', recurrence: 'daily', recurrence_time: SLEEP_TIME[age_band] },
-  ];
+  const activities: SeedActivity[] = baby
+    ? [...BABY_DAY]
+    : [
+        ...(hasMorning
+          ? []
+          : [
+              { name: 'Wake Up', emoji: '🛏️', recurrence: 'daily' as const, recurrence_time: '07:00' },
+              { name: 'Breakfast', emoji: '🍳', recurrence: 'daily' as const, recurrence_time: '07:30' },
+            ]),
+        { name: 'Lunch', emoji: '🍱', recurrence: 'daily', recurrence_time: '12:00' },
+        { name: 'Dinner', emoji: '🍽️', recurrence: 'daily', recurrence_time: '18:00' },
+        { name: 'Sleep', emoji: '😴', recurrence: 'daily', recurrence_time: SLEEP_TIME[age_band] },
+      ];
   if (answers.week.includes('school')) {
     activities.push(
       { name: 'Go to School', emoji: '🚌', recurrence: 'weekdays', recurrence_time: '08:30' },
@@ -296,9 +346,12 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
     activities.push({ name: 'Therapy', emoji: '🧩' });
   }
   // A small no-repeat library so the picker isn't empty of one-off things.
-  activities.push({ name: 'Doctor Visit', emoji: '💊' }, { name: 'Dentist', emoji: '🦷' });
+  activities.push({ name: 'Doctor Visit', emoji: '💊' });
+  if (!baby) activities.push({ name: 'Dentist', emoji: '🦷' });
   activities.push(
-    ...(young
+    ...(baby
+      ? [{ name: 'Park', emoji: '🌳' }]
+      : young
       ? [
           { name: 'Park', emoji: '🌳' },
           { name: 'Play Time', emoji: '⚽' },

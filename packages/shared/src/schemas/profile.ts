@@ -37,7 +37,7 @@ export const TimedAppAllowanceSchema = z.object({
 });
 export type TimedAppAllowance = z.infer<typeof TimedAppAllowanceSchema>;
 
-export const AgeBandSchema = z.enum(['2-7', '8-12', '13-17', '18+']);
+export const AgeBandSchema = z.enum(['0-2', '2-7', '8-12', '13-17', '18+']);
 export type AgeBand = z.infer<typeof AgeBandSchema>;
 
 /**
@@ -48,7 +48,7 @@ export type AgeBand = z.infer<typeof AgeBandSchema>;
 export const SetupAnswersSchema = z.object({
   age_band: AgeBandSchema,
   week: z.array(z.enum(['school', 'work', 'therapy', 'day_program'])).max(4),
-  routines: z.array(z.enum(['morning', 'dressed', 'teeth', 'meals', 'homework', 'chores', 'bedtime', 'leaving'])).max(8),
+  routines: z.array(z.enum(['morning', 'dressed', 'teeth', 'meals', 'homework', 'chores', 'bedtime', 'leaving', 'toilet'])).max(9),
   places: z.array(z.enum(['school', 'work', 'therapy', 'other_home'])).max(4),
   loves: z.array(z.object({ name: z.string().min(1).max(60), emoji: z.string().min(1).max(8) })).max(20),
 });

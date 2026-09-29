@@ -4,11 +4,11 @@ import { SetupAnswersSchema } from '../src/schemas/profile.js';
 
 describe('setup interview seed', () => {
   it('defaultAnswers parse for every band and stay age-appropriate', () => {
-    for (const band of ['2-7', '8-12', '13-17', '18+'] as const) {
+    for (const band of ['0-2', '2-7', '8-12', '13-17', '18+'] as const) {
       const answers = SetupAnswersSchema.parse(defaultAnswers(band));
       const plan = buildSeed(answers);
       const names = plan.activities.map((a) => a.name);
-      if (band === '18+') {
+      if (band === '18+' || band === '0-2') {
         expect(names).not.toContain('Go to School');
         expect(plan.locations.map((l) => l.name)).toEqual(['Home']);
       } else {
@@ -70,8 +70,35 @@ describe('setup interview seed', () => {
     expect(names).not.toContain('Morning Routine');
   });
 
+  it('the 0-2 band seeds a caregiver-led day with no school and no steps', () => {
+    const answers = SetupAnswersSchema.parse(defaultAnswers('0-2'));
+    const plan = buildSeed(answers);
+    const names = plan.activities.map((a) => a.name);
+    expect(names).toEqual(expect.arrayContaining(['Morning Feed', 'Nappy Change', 'Nap', 'Bath', 'Sleep']));
+    expect(names).not.toContain('Go to School');
+    expect(plan.activities.some((a) => a.steps)).toBe(false);
+    expect(plan.locations.map((l) => l.name)).toEqual(['Home']);
+    expect(plan.rewards.length).toBeGreaterThan(1);
+  });
+
+  it('the toilet training pack is available to any band', () => {
+    for (const band of ['0-2', '2-7', '13-17', '18+'] as const) {
+      const plan = buildSeed({ ...defaultAnswers(band), routines: ['toilet'] });
+      const pack = plan.activities.find((a) => a.name === 'Using the Toilet');
+      expect(pack?.steps?.map((s) => s.name)).toEqual([
+        'Go to the Bathroom',
+        'Pull Down',
+        'Sit and Try',
+        'Wipe',
+        'Flush',
+        'Pull Up',
+        'Wash Hands',
+      ]);
+    }
+  });
+
   it('spreads repeating activities across morning, afternoon and evening', () => {
-    for (const band of ['2-7', '8-12', '13-17', '18+'] as const) {
+    for (const band of ['0-2', '2-7', '8-12', '13-17', '18+'] as const) {
       const parts = new Set(
         buildSeed(defaultAnswers(band))
           .activities.filter((a) => a.recurrence_time)
