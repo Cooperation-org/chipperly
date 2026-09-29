@@ -56,8 +56,16 @@ test.describe('child mode', () => {
     await enterPin(page, '1234');
 
     await expect(sheet.getByRole('switch', { name: 'Show free-time choices' })).toHaveAttribute('aria-checked', 'true');
-    // On by default: five faces after each task (lib/device/settings.ts).
+    // Off by default since 30 Sept: the five faces and the Chipper Chart ask the same
+    // question, so the chart is the default (lib/device/settings.ts). The attitude-prompt
+    // test below needs the faces, so turn them on here and keep both.
     const attitudeToggle = sheet.getByRole('switch', { name: 'Ask how it went after each task' });
+    await expect(attitudeToggle).toHaveAttribute('aria-checked', 'false');
+    await attitudeToggle.click();
+    await sheet
+      .getByRole('group', { name: 'Show both?' })
+      .getByRole('button', { name: 'Show both', exact: true })
+      .click();
     await expect(attitudeToggle).toHaveAttribute('aria-checked', 'true');
     await expectNoOverflow(page, 'S23 lock this device (toggles)');
     await snap(page, 's23-lock-toggles');
