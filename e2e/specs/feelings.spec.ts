@@ -61,12 +61,19 @@ test.describe('feelings, check-ups and the whole-routine bonus', () => {
     await page.waitForURL('**/settings/');
   });
 
-  test('turn on child ordering and big pictures, lock to the child view', async () => {
+  test('turn on the five faces, child ordering and big pictures, lock to the child view', async () => {
     await page.getByRole('button', { name: /'s view$/ }).click();
     const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
+    // The faces default off since 30 Sept (the Chipper Chart asks the same thing), so this
+    // whole suite has to switch them on, and keep the chart too.
+    await sheet.getByRole('switch', { name: 'Ask how it went after each task' }).click();
+    await sheet
+      .getByRole('group', { name: 'Show both?' })
+      .getByRole('button', { name: 'Show both', exact: true })
+      .click();
     await sheet.getByRole('switch', { name: /can change the order of the day$/ }).click();
     await sheet.getByRole('switch', { name: 'Big pictures, fewer words' }).click();
     await sheet.getByRole('button', { name: 'Save', exact: true }).click();
