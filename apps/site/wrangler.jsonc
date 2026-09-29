@@ -7,10 +7,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "chipperly-site",
-  "main": ".open-next/worker.js",
+  // worker.js wraps the OpenNext build to add the cron handler below.
+  "main": "worker.js",
   "compatibility_date": "2026-09-15",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "observability": { "enabled": true },
+
+  // Daily at 16:00 UTC (09:00 in Tucson, no DST there): runs Payload's job
+  // queue so posts scheduled in /admin actually publish. Daily on purpose --
+  // a post goes live the next morning, which is all the blog needs.
+  "triggers": { "crons": ["0 16 * * *"] },
 
   // Static files (JS, CSS, fonts, screenshots) served straight from the edge.
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
@@ -55,7 +61,7 @@
     "EMAIL_DOMAIN": "chipperlyapp.com",
   },
   // Secrets (wrangler secret put): PAYLOAD_SECRET, CACHE_PURGE_API_TOKEN,
-  // CLOUDFLARE_EMAIL_API_TOKEN.
+  // CLOUDFLARE_EMAIL_API_TOKEN, CRON_SECRET (the cron's job-queue auth).
 
   // The same D1/R2 marked remote, used only by commands that must read or
   // write the live data from a machine (deploy:database, the deploy build,

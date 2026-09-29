@@ -87,6 +87,14 @@ export default buildConfig({
   // @ts-expect-error Payload does not export its logger type yet
   logger: inWorker ? workersLogger : undefined,
   graphQL: { disable: true },
+  // Scheduled publishes (Posts' schedulePublish) queue into payload-jobs;
+  // the Worker's daily cron (worker.js) runs the queue through
+  // GET /api/payload-jobs/run, allowed only with the CRON_SECRET.
+  jobs: {
+    access: {
+      run: ({ req }) => req.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`,
+    },
+  },
   plugins: [
     r2Storage({ bucket: cloudflare.env.R2, collections: { media: true } }),
     seoPlugin({
