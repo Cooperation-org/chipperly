@@ -101,7 +101,7 @@ export function ReviewReminderSetting({ profileId, name }: { profileId: string; 
               </button>
             ))}
           </div>
-          <p className={styles.hint}>Just for you; others caring for {name} choose their own.</p>
+          <p className={styles.hint}>Just for you; others supporting {name} choose their own.</p>
         </>
       ) : null}
     </div>

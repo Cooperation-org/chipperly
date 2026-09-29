@@ -301,7 +301,7 @@ export function AppBlockingScreen() {
       </div>
 
       {devices.length === 0 ? (
-        <EmptyState sentence="No Android device has signed in yet. Open Chipperly on the child's device once, then come back here." />
+        <EmptyState sentence="No Android device has signed in yet. Open Chipperly on their device once, then come back here." />
       ) : apps.length === 0 ? (
         <EmptyState sentence={`Waiting for ${selectedDevice?.name ?? 'that device'} to report its apps. Open Chipperly there once, then come back here.`} />
       ) : (

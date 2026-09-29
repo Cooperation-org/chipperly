@@ -116,11 +116,11 @@ export function ProfilesScreen() {
                   close();
                 }}
               />,
-              { title: 'Add child' },
+              { title: 'Add person' },
             )
           }
         >
-          Add child
+          Add person
         </BigButton>
       )}
     </div>

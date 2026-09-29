@@ -19,7 +19,7 @@ export function UsesAppSwitch({ name, checked, onChange }: UsesAppSwitchProps) {
       <p className={styles.hint}>
         {checked
           ? 'Their own picture schedule, chips and rewards, on your device or theirs.'
-          : 'Chipperly is only for the adults with them: no child view, lock or rewards they redeem.'}
+          : 'Chipperly is only for the team around them: no locked view, lock or rewards they redeem.'}
       </p>
     </div>
   );

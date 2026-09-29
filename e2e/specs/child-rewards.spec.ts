@@ -37,8 +37,8 @@ test.describe('child picks and redeems a reward', () => {
   test('lock into the child view (child.spec.ts)', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');
@@ -78,14 +78,14 @@ test.describe('child picks and redeems a reward', () => {
     await page.waitForURL('**/settings/');
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await page.waitForURL('**/settings/profile/edit/**');
-    const pickToggle = page.getByRole('switch', { name: 'Child can choose the reward' });
+    const pickToggle = page.getByRole('switch', { name: /can choose the reward$/ });
     await expect(pickToggle).toHaveAttribute('aria-checked', 'true');
     await pickToggle.click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
 
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const lockSheet = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: /'s view$/ });
     await expect(lockSheet).toBeVisible();
     await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();
@@ -126,12 +126,12 @@ test.describe('child picks and redeems a reward', () => {
     await page.waitForURL('**/settings/');
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await page.waitForURL('**/settings/profile/edit/**');
-    await page.getByRole('switch', { name: 'Child can choose the reward' }).click();
+    await page.getByRole('switch', { name: /can choose the reward$/ }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
 
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const lockSheetAgain = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const lockSheetAgain = page.getByRole('dialog', { name: /'s view$/ });
     await expect(lockSheetAgain).toBeVisible();
     await lockSheetAgain.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();
@@ -181,8 +181,8 @@ test.describe('child picks and redeems a reward', () => {
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await page.waitForURL('**/settings/profile/edit/**');
 
-    const pickToggle = page.getByRole('switch', { name: 'Child can choose the reward' });
-    const redeemToggle = page.getByRole('switch', { name: 'Child can redeem rewards' });
+    const pickToggle = page.getByRole('switch', { name: /can choose the reward$/ });
+    const redeemToggle = page.getByRole('switch', { name: /can redeem rewards$/ });
     await expect(pickToggle).toHaveAttribute('aria-checked', 'true');
     await expect(redeemToggle).toHaveAttribute('aria-checked', 'true');
     await pickToggle.click();
@@ -192,8 +192,8 @@ test.describe('child picks and redeems a reward', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
 
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const lockSheet = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: /'s view$/ });
     await expect(lockSheet).toBeVisible();
     await lockSheet.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: /^Lock to / }).click();

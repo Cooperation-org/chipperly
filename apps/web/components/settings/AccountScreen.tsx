@@ -44,7 +44,7 @@ function DevicePinSheet({ onDone }: { onDone: () => void }) {
       return false;
     }
   }
-  return <PinPad title="Set a new device PIN" error={error} onComplete={handleComplete} />;
+  return <PinPad title="Set a new Team PIN" error={error} onComplete={handleComplete} />;
 }
 
 /** S30: account details, sign-in, PIN, switch account, sign out, delete. */
@@ -138,9 +138,9 @@ export function AccountScreen() {
         />
         <ListRow
           tile={<Icon name="lock" size={20} />}
-          name={user.pin_hash ? 'Change device PIN' : 'Set device PIN'}
+          name={user.pin_hash ? 'Change Team PIN' : 'Set Team PIN'}
           trailing={<Icon name="chevron" size={20} />}
-          onTap={() => open(<DevicePinSheet onDone={close} />, { title: 'Device PIN' })}
+          onTap={() => open(<DevicePinSheet onDone={close} />, { title: 'Team PIN' })}
         />
         {accounts.length > 1 ? (
           <ListRow

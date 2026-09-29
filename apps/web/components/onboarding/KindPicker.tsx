@@ -19,7 +19,7 @@ interface KindOption {
 
 const OPTIONS: KindOption[] = [
   { kind: 'individual', emoji: '🙂', label: 'Myself', description: "I'll use the tools for my own day." },
-  { kind: 'household', emoji: '👪', label: 'My family', description: 'One or more children at home.' },
+  { kind: 'household', emoji: '👪', label: 'My family', description: 'One or more people at home.' },
   { kind: 'agency', emoji: '🏢', label: 'My organization', description: 'Clients and staff.' },
 ];
 

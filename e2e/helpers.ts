@@ -44,7 +44,7 @@ export async function signUp(page: Page, opts: { name: string; email?: string })
     const inviteCodeField = page.getByLabel('Beta invite code', { exact: true });
     if (await inviteCodeField.isVisible()) await inviteCodeField.fill(BETA_INVITE_CODE);
     // S2's required consent checkbox (SOW Q21 / COPPA): Create account stays disabled without it.
-    await page.getByRole('checkbox', { name: /parent, guardian, or another adult authorised to support the child/i }).check();
+    await page.getByRole('checkbox', { name: /setting Chipperly up for myself/i }).check();
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
     landed = await page

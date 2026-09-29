@@ -21,7 +21,7 @@ test.describe('settings', () => {
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     for (const name of [
       'Edit profile',
-      /Child view options for/,
+      /'s view$/,
       'Feelings',
       'Share link',
       'Activities',
@@ -144,8 +144,8 @@ test.describe('settings', () => {
     await expectNoOverflow(page, 'S21 profiles');
     await snap(page, 's21-profiles');
 
-    await page.getByRole('button', { name: 'Add child', exact: true }).click();
-    const sheet = page.getByRole('dialog', { name: 'Add child' });
+    await page.getByRole('button', { name: 'Add person', exact: true }).click();
+    const sheet = page.getByRole('dialog', { name: 'Add person' });
     await expect(sheet).toBeVisible();
     await sheet.getByLabel('Name', { exact: true }).fill('Ada');
     await sheet.getByRole('button', { name: 'Create', exact: true }).click();
@@ -230,7 +230,7 @@ test.describe('settings', () => {
         await inviteePage.getByLabel('Email', { exact: true }).fill(inviteEmail);
         await inviteePage.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple');
         // S2's required consent checkbox (SOW Q21 / COPPA): Create account stays disabled without it.
-        await inviteePage.getByRole('checkbox', { name: /parent, guardian, or another adult authorised to support the child/i }).check();
+        await inviteePage.getByRole('checkbox', { name: /setting Chipperly up for myself/i }).check();
         await inviteePage.getByRole('button', { name: 'Create account', exact: true }).click();
 
         await inviteePage.waitForURL('**/invite/?token=**');

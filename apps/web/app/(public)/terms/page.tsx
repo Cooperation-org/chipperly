@@ -34,9 +34,9 @@ export default function TermsPage() {
 
       <h2>Who can use Chipperly</h2>
       <p>
-        You must be a parent, guardian, or another adult authorised to support the child, and 18 or older, to create an
-        account. You&apos;re responsible for what you and anyone you invite to your team enter
-        about a child you support.
+        You must be 18 or older, and either using Chipperly for your own day or authorized to
+        support the person it&apos;s for, to create an account. You&apos;re responsible for what you
+        and anyone you invite to your team enter about a person you support.
       </p>
 
       <h2>Your account</h2>
@@ -47,8 +47,8 @@ export default function TermsPage() {
 
       <h2>What you can&apos;t do</h2>
       <p>
-        Don&apos;t use Chipperly to store data about a child you don&apos;t have the right to care
-        for, upload anything illegal or harmful, or try to break into another account or our
+        Don&apos;t use Chipperly to store data about a person you don&apos;t have the right to
+        support, upload anything illegal or harmful, or try to break into another account or our
         systems.
       </p>
 

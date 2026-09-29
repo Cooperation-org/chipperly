@@ -198,18 +198,18 @@ export function RewardForm() {
         ) : null}
         {screenMinutes > 0 && screenWholePhone ? (
           <p className={styles.hint}>
-            Redeeming this turns app blocking off entirely for {minutesLabel(screenMinutes)} on the child&rsquo;s Android device, on
+            Redeeming this turns app blocking off entirely for {minutesLabel(screenMinutes)} on their Android device, on
             top of any free time still left. Blocking and the lock come back on when time is up.
           </p>
         ) : null}
         {screenMinutes > 0 && !screenWholePhone ? (
           <>
             <p className={styles.hint}>
-              Redeeming this unlocks the apps below for {minutesLabel(screenMinutes)} on the child&rsquo;s Android device, on top
+              Redeeming this unlocks the apps below for {minutesLabel(screenMinutes)} on their Android device, on top
               of any time still left. App blocking locks them again when time is up.
             </p>
             {deviceApps === null ? null : deviceApps.length === 0 ? (
-              <p className={styles.hint}>No Android device has reported its apps yet. Open Chipperly on the child&rsquo;s device once, then come back.</p>
+              <p className={styles.hint}>No Android device has reported its apps yet. Open Chipperly on their device once, then come back.</p>
             ) : (
               <ul className={styles.appList}>
                 {deviceApps.map((app) => (

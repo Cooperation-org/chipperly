@@ -69,6 +69,8 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
 
   if (!row) return null;
 
+  const who = name.trim() || row.name;
+
   async function save(): Promise<void> {
     if (!row || !name.trim()) return;
     setSaving(true);
@@ -124,9 +126,9 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
       </div>
       {childUsesApp ? (
         <div className={styles.setting}>
-          <span className={styles.settingLabel}>Child view</span>
+          <span className={styles.settingLabel}>{who}&apos;s view</span>
           <Segmented
-            label="Child view"
+            label={`${who}'s view`}
             items={[
               { value: 'list', label: 'Today list' },
               { value: 'tiles', label: 'Picture tiles' },
@@ -137,8 +139,8 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
         </div>
       ) : null}
       <div className={styles.toggleRow}>
-        <span className={styles.settingLabel}>Colour chips by attitude</span>
-        <Switch label="Colour chips by attitude" checked={chipsByAttitude} onChange={setChipsByAttitude} />
+        <span className={styles.settingLabel}>Color chips by attitude</span>
+        <Switch label="Color chips by attitude" checked={chipsByAttitude} onChange={setChipsByAttitude} />
       </div>
       <div className={styles.setting}>
         <span className={styles.settingLabel}>Bonus for a whole routine done in one go, without the steps</span>
@@ -158,16 +160,16 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
       {childUsesApp ? (
         <>
           <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>Child can choose the reward</span>
-            <Switch label="Child can choose the reward" checked={childPicksReward} onChange={setChildPicksReward} />
+            <span className={styles.settingLabel}>{who} can choose the reward</span>
+            <Switch label={`${who} can choose the reward`} checked={childPicksReward} onChange={setChildPicksReward} />
           </div>
           <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>Child can redeem rewards</span>
-            <Switch label="Child can redeem rewards" checked={childRedeems} onChange={setChildRedeems} />
+            <span className={styles.settingLabel}>{who} can redeem rewards</span>
+            <Switch label={`${who} can redeem rewards`} checked={childRedeems} onChange={setChildRedeems} />
           </div>
           <div className={styles.toggleRow}>
-            <span className={styles.settingLabel}>Child can change the order of the day</span>
-            <Switch label="Child can change the order of the day" checked={childReorders} onChange={setChildReorders} />
+            <span className={styles.settingLabel}>{who} can change the order of the day</span>
+            <Switch label={`${who} can change the order of the day`} checked={childReorders} onChange={setChildReorders} />
           </div>
           <div className={styles.toggleRow}>
             <span className={styles.settingLabel}>Big pictures, fewer words</span>

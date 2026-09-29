@@ -77,7 +77,7 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
     await saveLockOptions(profileId, options);
     setSaving(false);
     close();
-    toast(`Saved ${profileName}'s child view`);
+    toast(`Saved ${profileName}'s view`);
   }
 
   if (step !== 'ready') {
@@ -99,7 +99,7 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
   return (
     <div className={styles.sheet}>
       <p className={styles.intro}>
-        What {profileName} sees in the child view on this device. Lock with the lock button at the top.
+        What {profileName} sees on this device. Lock with the lock button at the top.
       </p>
       <div className={styles.toggles}>
         <div className={styles.toggleRow}>
@@ -141,9 +141,9 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
               />
             </div>
             <div className={styles.toggleRow}>
-              <span className={styles.toggleLabel}>Let the child start step timers</span>
+              <span className={styles.toggleLabel}>Let {profileName} start step timers</span>
               <Switch
-                label="Let the child start step timers"
+                label={`Let ${profileName} start step timers`}
                 checked={options.show_step_timers}
                 onChange={(v) => setOptions((o) => ({ ...o, show_step_timers: v }))}
               />

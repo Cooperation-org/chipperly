@@ -55,8 +55,8 @@ test.describe('read aloud', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
 
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');

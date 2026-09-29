@@ -280,7 +280,7 @@ function DeviceEditSheet({
             <span className={[styles.badge, locked ? styles.on : styles.off].join(' ')}>{locked ? 'Locked' : 'Unlocked'}</span>
           </div>
           <p className={styles.locateStatus}>
-            Locks this device to Chipperly and whatever apps are already allowed for {usedByName ?? 'its assigned child'}
+            Locks this device to Chipperly and whatever apps are already allowed for {usedByName ?? 'the person it belongs to'}
             , the same as tapping &ldquo;Lock this device&rdquo; there in person -- and turns app blocking off again on
             unlock, so every app opens normally.
           </p>

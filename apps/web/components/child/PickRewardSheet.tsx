@@ -39,7 +39,7 @@ export function PickRewardSheet({ profileId, locationId, currentRewardId }: Pick
             🎁
           </span>
         }
-        sentence="No rewards here yet. Ask a grown-up to add one."
+        sentence="No rewards here yet. Ask your team to add one."
       />
     );
   }

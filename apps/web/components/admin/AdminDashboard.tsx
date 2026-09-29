@@ -103,7 +103,7 @@ export function AdminDashboard() {
             <Stat label="Signed up, 7 days" value={overview.signups_7d} />
             <Stat label="Signed up, 30 days" value={overview.signups_30d} />
             <Stat label="Active, 7 days" value={overview.active_7d} />
-            <Stat label="Children" value={overview.children} />
+            <Stat label="Profiles" value={overview.children} />
             <Stat label="On trial" value={overview.trials_active} />
             <Stat label="Trial ended" value={overview.trials_ended} />
             <Stat label="Early access codes given" value={overview.promo_claims} />
@@ -158,7 +158,7 @@ export function AdminDashboard() {
                 <span className={styles.name}>{p.display_name}</span>
                 <span className={styles.muted}>{p.email}</span>
                 <span className={styles.muted}>
-                  Joined {day(p.created_at)} · {p.children} child{p.children === 1 ? '' : 'ren'} · {p.devices} device{p.devices === 1 ? '' : 's'} · seen{' '}
+                  Joined {day(p.created_at)} · {p.children} profile{p.children === 1 ? '' : 's'} · {p.devices} device{p.devices === 1 ? '' : 's'} · seen{' '}
                   {ago(p.last_seen_at)}
                   {p.email_verified ? '' : ' · email not verified'}
                 </span>

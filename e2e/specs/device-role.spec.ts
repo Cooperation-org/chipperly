@@ -33,10 +33,10 @@ test.describe('device role and children who use the app', () => {
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await page.waitForURL('**/settings/profile/edit/**');
     await page.getByRole('switch', { name: 'Uses Chipperly themselves' }).click();
-    await expect(page.getByRole('radiogroup', { name: 'Child view' })).toHaveCount(0);
+    await expect(page.getByRole('radiogroup', { name: /'s view$/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await expect(page.getByRole('button', { name: /Child view options for/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /'s view$/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Lock to / })).toHaveCount(0);
   });
 

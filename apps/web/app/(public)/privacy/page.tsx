@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import styles from '../legal.module.css';
 
-const description = 'What Chipperly stores about you and your children, where it lives, and who can see it.';
+const description = 'What Chipperly stores about you and the people you support, where it lives, and who can see it.';
 
 export const metadata: Metadata = {
   title: 'Privacy policy',
@@ -26,15 +26,15 @@ export default function PrivacyPage() {
       <p className={styles.updated}>Last updated 18 September 2026.</p>
 
       <p>
-        Chipperly helps a parent, guardian, or support team build visual schedules, chip boards, and
-        social stories for a child. This page explains what we store, where it lives, and who can
-        see it.
+        Chipperly helps a family or support team build visual schedules, chip boards, and social
+        stories for the person they support, or for their own day. This page explains what we
+        store, where it lives, and who can see it.
       </p>
 
       <h2>What we store</h2>
       <p>
         For you: your name, email, and password (stored as a hash, never in plain text). For each
-        child profile a parent or team member sets up: a name, a picture, daily schedules and
+        profile a parent or team member sets up: a name, a picture, daily schedules and
         routines, rewards and chip totals, social stories, and mood check-ins entered by an adult.
         We don&apos;t collect anything directly from a child; every entry comes from the parent or
         team member who set up the profile.
@@ -49,10 +49,10 @@ export default function PrivacyPage() {
 
       <h2>Who can see it</h2>
       <p>
-        The parent or admin who creates a child&apos;s profile, and any team member that
-        parent invites by email (a therapist, teacher, or co-parent, for example). A parent can
+        The parent or admin who creates a profile, and any team member that
+        admin invites by email (a therapist, teacher, or co-parent, for example). An admin can
         also turn on a read-only link to share today&apos;s schedule with someone outside the app;
-        that link shows nothing else. Nobody else can see a child&apos;s data.
+        that link shows nothing else. Nobody else can see a profile&apos;s data.
       </p>
 
       <h2>Analytics and ads</h2>
@@ -73,9 +73,10 @@ export default function PrivacyPage() {
 
       <h2>Children under 13</h2>
       <p>
-        Chipperly is built for use by an adult on a child&apos;s behalf, not for a child to sign up
-        directly. Creating an account requires confirming you&apos;re a parent, guardian, or
-        another adult authorised to support the child, and 18 or older.
+        Accounts are held by adults, for their own day or on behalf of someone they support; a
+        child under 13 never signs up directly. Creating an account requires confirming
+        you&apos;re 18 or older and setting Chipperly up for yourself or for someone you&apos;re
+        authorized to support.
       </p>
 
       <h2>Questions</h2>

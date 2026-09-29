@@ -23,7 +23,7 @@ export function ConsentCheckbox({ id = 'consent', checked, onChange, required }:
         onChange={(e) => onChange(e.target.checked)}
       />
       <span>
-        I&apos;m a parent, guardian, or another adult authorised to support the child, and I&apos;m 18 or older. I agree to the{' '}
+        I&apos;m 18 or older, and I&apos;m setting Chipperly up for myself or for someone I&apos;m authorized to support. I agree to the{' '}
         <Link href="/terms/" className={styles.link}>
           Terms
         </Link>{' '}

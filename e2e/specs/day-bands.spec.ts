@@ -59,8 +59,8 @@ test.describe('day bands', () => {
   test('lock into the child view', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await expect(sheet).toBeVisible();
 
     await enterPin(page, '1234');

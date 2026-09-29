@@ -113,8 +113,8 @@ test.describe('visual schedule', () => {
   test('S32 child today: Steps button opens the overlay, checking a step works locked', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const lockSheet = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const lockSheet = page.getByRole('dialog', { name: /'s view$/ });
     await enterPin(page, '1234');
     await expect(lockSheet.getByText('Enter it again')).toBeVisible();
     await enterPin(page, '1234');

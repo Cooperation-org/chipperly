@@ -95,9 +95,9 @@ export function SettingsMenu() {
               <>
                 <ListRow
                   tile={<Icon name="gear" size={20} />}
-                  name={`Child view options for ${profile.name}`}
+                  name={`${profile.name}'s view`}
                   trailing={<Icon name="chevron" size={20} />}
-                  onTap={() => open(<LockSheet profileId={profile.id} />, { title: 'Child view options' })}
+                  onTap={() => open(<LockSheet profileId={profile.id} />, { title: `${profile.name}'s view` })}
                 />
                 <ListRow
                   tile={<Icon name="lock" size={20} />}
@@ -206,8 +206,8 @@ export function SettingsMenu() {
               deviceRole?.kind === 'caregiver'
                 ? 'Me, a team member'
                 : deviceRole?.kind === 'child'
-                  ? `${profiles.find((p) => p.id === deviceRole.profile_id)?.name ?? 'A child'}'s device`
-                  : 'Not chosen yet (child view first)'
+                  ? `${profiles.find((p) => p.id === deviceRole.profile_id)?.name ?? 'Someone'}'s device`
+                  : 'Not chosen yet (locked view first)'
             }
             trailing={<Icon name="chevron" size={20} />}
             onTap={() =>

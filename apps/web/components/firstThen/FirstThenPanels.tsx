@@ -101,7 +101,7 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
         >
           Clear both
         </Button>
-        <p className={styles.menuLabel}>Timer when the child asks for the reward</p>
+        <p className={styles.menuLabel}>Timer when they ask for the reward</p>
         <div className={styles.timerChoices}>
           {[null, ...TIMER_CHOICES].map((minutes) => (
             <Button
@@ -180,7 +180,7 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
             <EmptyPanel sentence="Choose a reward" onTap={caregiver ? openThenPicker : undefined} />
           )}
           {canAsk ? <span className={styles.hint}>Tap to ask for it</span> : null}
-          {!caregiver && asked ? <span className={styles.hint}>Asked. A grown-up is on the way.</span> : null}
+          {!caregiver && asked ? <span className={styles.hint}>Asked. Someone&apos;s on the way.</span> : null}
         </div>
 
         {celebrating ? (

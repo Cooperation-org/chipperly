@@ -67,8 +67,8 @@ test.describe('story attached to a schedule item', () => {
   test('lock into the child view (S23/S24)', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const sheet = page.getByRole('dialog', { name: /'s view$/ });
     await expect(sheet).toBeVisible();
     await enterPin(page, '1234');
     await expect(sheet.getByText('Enter it again')).toBeVisible();

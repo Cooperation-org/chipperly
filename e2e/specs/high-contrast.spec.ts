@@ -61,8 +61,8 @@ test.describe('high contrast (CVI) child view', () => {
   async function lock(): Promise<void> {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
-    await page.getByRole('button', { name: /Child view options for/ }).click();
-    const sheet = page.getByRole('dialog', { name: 'Child view options' });
+    await page.getByRole('button', { name: /'s view$/ }).click();
+    const sheet = page.getByRole('dialog', { name: /'s view$/ });
     const save = sheet.getByRole('button', { name: 'Save', exact: true });
     const keypad = sheet.getByRole('button', { name: '1', exact: true });
     // First time: set a PIN (twice). Once one exists, the sheet opens straight to the options.
