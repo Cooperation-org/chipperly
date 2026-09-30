@@ -197,6 +197,20 @@
       "when": 1790260000000,
       "tag": "0028_reward_free_choice",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790270000000,
+      "tag": "0029_community_selling",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790280000000,
+      "tag": "0031_event_reminder_sent",
+      "breakpoints": true
     }
   ]
 }

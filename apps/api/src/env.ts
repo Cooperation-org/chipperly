@@ -38,6 +38,10 @@ const EnvSchema = z.object({
   STRIPE_PRICE_HOUSEHOLD: z.string().min(1).optional(),
   STRIPE_PRICE_AGENCY: z.string().min(1).optional(),
   STRIPE_PRICE_SUPPORTED: z.string().min(1).optional(),
+  /** Signing secret of the SEPARATE "connected accounts" webhook endpoint; Stripe signs Connect events with their own secret. Unset = account.updated is not accepted. */
+  STRIPE_CONNECT_WEBHOOK_SECRET: z.string().min(1).optional(),
+  /** Chipperly's cut of a community sale, 0-100. Unset = nothing can be priced or bought; there is deliberately no default. */
+  COMMUNITY_PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(100).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(1).default('Chipperly <no-reply@chipperlyapp.com>'),
   /** The Firebase service account key JSON, as a single-line string (a deploy sets this, not a file path). Unset = push logs to the console instead of sending. */
