@@ -31,12 +31,17 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
   const [custom, setCustom] = useState('');
 
   const firstStep = selfMode ? 1 : 0;
-  const stepLabel = `Step ${step - firstStep + 1} of ${5 - firstStep}`;
+  // Under 2: no school/week and no routines steps (a newborn has neither; the plan is a fixed caregiver day).
+  const order = (answers.age_band === '0-2' ? [0, 3, 4] : [0, 1, 2, 3, 4]).filter((s) => s >= firstStep);
+  const pos = order.indexOf(step);
+  const nextStep = order[pos + 1] ?? step;
+  const prevStep = order[pos - 1] ?? step;
+  const stepLabel = `Step ${pos + 1} of ${order.length}`;
 
   function pickBand(band: AgeBand): void {
     // A fresh band resets the pre-checks, so what is on always matches the age.
     setAnswers(defaultAnswers(band));
-    setStep(1);
+    setStep(band === '0-2' ? 3 : 1);
   }
 
   function toggle(key: MultiKey, value: string): void {
@@ -159,12 +164,12 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
             Create {name}&apos;s plan
           </Button>
         ) : step > 0 ? (
-          <Button fullWidth onClick={() => setStep(step + 1)}>
+          <Button fullWidth onClick={() => setStep(nextStep)}>
             Continue
           </Button>
         ) : null}
         {step > firstStep ? (
-          <button type="button" className={styles.quietButton} onClick={() => setStep(step - 1)}>
+          <button type="button" className={styles.quietButton} onClick={() => setStep(prevStep)}>
             Back
           </button>
         ) : onBack ? (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
+import { collectUnreferencedUploaded, type BlobRef } from './mediaCleanup';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { newId } from '../ids';
@@ -48,6 +49,7 @@ export async function storeAudio(blob: Blob): Promise<string> {
 
 /** Object URL from the local bytes if we have them (revoked on unmount/change), else the API route. */
 export function useMediaUrl(mediaId: string | null | undefined): string | null {
+  useEffect(scheduleCleanupOnce, []);
   const row = useLiveQuery(() => (mediaId ? db.media_blobs.get(mediaId) : undefined), [mediaId]);
   const objectUrl = useMemo(() => {
     const blob = localMediaBlob(row);
@@ -66,4 +68,42 @@ export function useMediaUrl(mediaId: string | null | undefined): string | null {
   // turned into a blob -- never gets stuck showing nothing for a row that
   // exists but is unusable.
   return objectUrl ?? withBase(`/api/media/${mediaId}`);
+}
+
+/**
+ * Drops local blobs nothing points at any more (a replaced or removed picture
+ * or voice clip). Deletes a blob only if it is uploaded (uploaded === 1) AND
+ * its id appears nowhere in ANY other local table, including the outbox (a
+ * queued write may still reference it) and kv. Runs in one rw transaction so a
+ * concurrent save cannot slip between the scan and the delete.
+ */
+export async function cleanupOrphanedMedia(): Promise<number> {
+  const others = db.tables.filter((t) => t.name !== 'media_blobs');
+  return db.transaction('rw', [db.media_blobs, ...others], async () => {
+    const blobs: BlobRef[] = [];
+    await db.media_blobs.each((row) => {
+      if (row.uploaded === 1) blobs.push({ media_id: row.media_id, uploaded: row.uploaded });
+    });
+    if (blobs.length === 0) return 0;
+    const rows: unknown[] = [];
+    for (const table of others) rows.push(...(await table.toArray()));
+    const doomed = collectUnreferencedUploaded(blobs, rows);
+    await db.media_blobs.bulkDelete(doomed);
+    return doomed.length;
+  });
+}
+
+let cleanupScheduled = false;
+
+/** Once per page load, well after startup and off the UI path; failures are ignored (worst case: a blob stays). */
+function scheduleCleanupOnce(): void {
+  if (cleanupScheduled || typeof window === 'undefined') return;
+  cleanupScheduled = true;
+  window.setTimeout(() => {
+    const run = (): void => {
+      cleanupOrphanedMedia().catch(() => undefined);
+    };
+    if ('requestIdleCallback' in window) window.requestIdleCallback(run);
+    else run();
+  }, 60_000);
 }
