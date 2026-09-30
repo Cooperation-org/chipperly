@@ -33,11 +33,14 @@ export async function getDeviceRole(): Promise<DeviceRole | null> {
 /** Saves the role here and marks the device as that child's (or nobody's) on the server, so reward alerts skip a child's device. */
 export async function setDeviceRole(role: DeviceRole): Promise<void> {
   await setKv<DeviceRole>(DEVICE_ROLE_KEY, role);
-  try {
-    await api.patch(`/me/devices/${await getDeviceId()}`, { profile_id: role.kind === 'child' ? role.profile_id : null });
-  } catch {
-    // ponytail: a device not registered yet just isn't marked; the local role still applies.
-  }
+  // Not awaited: fetch has no timeout, so a stalled request on a weak connection froze "Go to Today" on the spot.
+  void (async () => {
+    try {
+      await api.patch(`/me/devices/${await getDeviceId()}`, { profile_id: role.kind === 'child' ? role.profile_id : null });
+    } catch {
+      // ponytail: a device not registered yet just isn't marked; the local role still applies.
+    }
+  })();
 }
 
 /** A browser starts as a caregiver device; the app on a phone or tablet asks. */
