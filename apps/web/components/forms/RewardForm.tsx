@@ -45,6 +45,9 @@ export function RewardForm() {
   const editingId = searchParams.get('id');
   const workingForLocationId = searchParams.get('location_id');
   const setAsWorkingFor = searchParams.get('working_for') === '1';
+  // Free time choices sends ?always=1 (FreeTimeSheet). Without honouring it, "create a
+  // free-time choice" produced a chip-costed reward that landed in the earned list instead.
+  const startsAlwaysAvailable = searchParams.get('always') === '1';
   const { profile } = useActiveProfile();
   const profileId = profile?.id ?? '';
   const locations = useLocations(profileId);
@@ -56,7 +59,7 @@ export function RewardForm() {
   const [name, setName] = useState('');
   const [picture, setPicture] = useState<PicturePickerValue>({ emoji: null, photo_id: null });
   const [cost, setCost] = useState(1);
-  const [earn, setEarn] = useState<Earn>('chips');
+  const [earn, setEarn] = useState<Earn>(startsAlwaysAvailable ? 'always' : 'chips');
   const [requiresActivityId, setRequiresActivityId] = useState('');
   const activities = useActivities(profileId);
   const [everyPlace, setEveryPlace] = useState(true);

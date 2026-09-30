@@ -84,3 +84,43 @@ test.describe('community, read without an account', () => {
     }
   });
 });
+
+test.describe('community profile, read without an account', () => {
+  test('a signed-out visitor follows a nickname to that person\'s profile', async ({ browser }) => {
+    const anon = await browser.newPage();
+    try {
+      await anon.goto('/community/');
+      const nick = anon.getByRole('link', { name: /^sharer\d+$/ }).first();
+      await nick.click();
+      await anon.waitForURL('**/community/u/**');
+      // Take the nickname from the URL, not the link's text: the avatar renders inside
+      // the link, so textContent picks up its fallback initial too ("Ssharer123").
+      const nickname = new URL(anon.url()).searchParams.get('name') ?? '';
+      expect(nickname).toMatch(/^sharer\d+$/);
+
+      await expect(anon.getByRole('heading', { name: nickname })).toBeVisible();
+      await expect(anon.getByText(/Joined .* 1 post/)).toBeVisible();
+      await expect(anon.getByText(/Nappy changes go better with a song/)).toBeVisible();
+
+      // A way in, never an edit control.
+      await expect(anon.getByText('Sign in to share your own')).toBeVisible();
+      await expect(anon.getByRole('link', { name: 'Edit your profile' })).toHaveCount(0);
+      await expect(anon.getByRole('link', { name: 'Sign in to report' }).first()).toBeVisible();
+
+      await expectNoOverflow(anon, 'community profile, signed out');
+      await snap(anon, 'community-public-profile');
+    } finally {
+      await anon.close();
+    }
+  });
+
+  test('an unknown nickname shows a not-found state', async ({ browser }) => {
+    const anon = await browser.newPage();
+    try {
+      await anon.goto('/community/u/?name=nobody-here-xyz');
+      await expect(anon.getByText(/That person isn't here/)).toBeVisible();
+    } finally {
+      await anon.close();
+    }
+  });
+});
