@@ -54,7 +54,7 @@ test.describe('onboarding setup interview', () => {
 
     // Guided rewards setup: one place (Home), three anytime choices, then rewards earned with chips.
     await expect(page.getByRole('heading', { name: 'Where will Riley use Chipperly?' })).toBeVisible();
-    await expect(page.getByLabel('Main place', { exact: true })).toHaveValue('Home');
+    await expect(page.getByRole('textbox', { name: 'Main place' })).toHaveValue('Home');
     await expectNoOverflow(page, 'setup: places');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
 

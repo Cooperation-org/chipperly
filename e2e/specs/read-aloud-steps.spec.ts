@@ -8,10 +8,19 @@ test('a step speaker on Today says the step name', async ({ browser }) => {
     const said: string[] = [];
     (window as unknown as { __spoken: string[] }).__spoken = said;
     const w = window as unknown as Record<string, unknown>;
-    w.SpeechSynthesisUtterance = class {
-      constructor(public text: string) {}
-    };
-    w.speechSynthesis = { speak: (u: { text: string }) => said.push(u.text), cancel: () => {} };
+    if (typeof w.SpeechSynthesis === 'function') {
+      // Patched on the prototype: window.speechSynthesis itself can't be reassigned.
+      SpeechSynthesis.prototype.speak = function (u: SpeechSynthesisUtterance) {
+        said.push(u.text);
+      };
+      SpeechSynthesis.prototype.cancel = () => {};
+    } else {
+      // Playwright's Windows WebKit has no speech API at all: stand one in.
+      w.SpeechSynthesisUtterance = class {
+        constructor(public text: string) {}
+      };
+      w.speechSynthesis = { speak: (u: { text: string }) => said.push(u.text), cancel: () => {} };
+    }
   });
   await signUp(page, { name: 'Step Speaker Tester' });
   await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
