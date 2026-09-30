@@ -40,6 +40,8 @@ export const users = pgTable(
     personal_code: text('personal_code').unique(),
     /** IANA zone the app last reported (e.g. "Africa/Cairo"), so routine reminders arrive at their local hour. */
     time_zone: text('time_zone'),
+    /** Works the community moderation queue without being a full super admin (migration 0026). */
+    is_support: boolean('is_support').notNull().default(false),
   },
   // Belt-and-suspenders: callers should already lowercase before insert.
   (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`)],

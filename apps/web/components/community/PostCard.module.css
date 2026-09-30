@@ -1,0 +1,100 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  min-height: var(--tap);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.link:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
+}
+
+.kind {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
+}
+
+.excerpt {
+  margin: 0;
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
+.audio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.byline {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.nickname {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.badge {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-primary-ink);
+  font-size: var(--text-sm);
+}
+
+.imageBox {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--space-2) var(--space-2);
+}
+
+.skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

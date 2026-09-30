@@ -1,0 +1,118 @@
+.queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.reason {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.urgent {
+  color: var(--color-danger);
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.content {
+  margin: 0;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-md);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.author {
+  font-weight: 600;
+}
+
+.state {
+  color: var(--color-text-muted);
+}
+
+.title {
+  font-weight: 600;
+}
+
+.body {
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.noteLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.noteInput {
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.noteInput:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.done {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--color-danger);
+}

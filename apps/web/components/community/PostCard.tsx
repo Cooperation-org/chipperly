@@ -1,0 +1,107 @@
+'use client';
+
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { useMediaUrl } from '@/lib/data/media';
+import { toCard, type CommunityPost, type LoadStatus } from '@/lib/data/community';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useSheet } from '@/components/ui/Sheet';
+import { ReportSheet } from './ReportSheet';
+import styles from './PostCard.module.css';
+
+export const KIND_LABEL = { post: 'Post', story: 'Social story', routine: 'Routine' } as const;
+
+export function formatWhen(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+export function Byline({ nickname, isSupport, when }: { nickname: string; isSupport: boolean; when: number }) {
+  return (
+    <p className={styles.byline}>
+      <span className={styles.nickname}>{nickname}</span>
+      {isSupport ? <span className={styles.badge}>Support</span> : null}
+      <span>{formatWhen(when)}</span>
+    </p>
+  );
+}
+
+export function PostImage({ mediaId, alt }: { mediaId: string; alt: string }) {
+  const url = useMediaUrl(mediaId);
+  return (
+    <div className={styles.imageBox}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- static export, blob or API URL */}
+      {url ? <img className={styles.image} src={url} alt={alt} loading="lazy" /> : null}
+    </div>
+  );
+}
+
+/** Opens the ReportSheet for one post or comment. */
+export function ReportButton({ targetType, targetId }: { targetType: 'post' | 'comment'; targetId: string }) {
+  const sheet = useSheet();
+  return (
+    <Button
+      variant="ghost"
+      icon="more"
+      onClick={() => sheet.open(<ReportSheet target_type={targetType} target_id={targetId} />, { title: 'Report' })}
+    >
+      Report
+    </Button>
+  );
+}
+
+/** Loading, offline and error views shared by the feed and the post page. */
+export function LoadState({ status, onRetry, children }: { status: LoadStatus; onRetry: () => void; children: ReactNode }) {
+  if (status === 'offline') {
+    return <EmptyState picture={<Icon name="sync" size={48} />} sentence="You're offline. Community needs a connection." />;
+  }
+  if (status === 'error') {
+    return (
+      <EmptyState
+        picture={<Icon name="sync" size={48} />}
+        sentence="Couldn't load that. Check your connection and try again."
+        actions={[
+          <Button key="retry" onClick={onRetry}>
+            Try again
+          </Button>,
+        ]}
+      />
+    );
+  }
+  if (status === 'loading') {
+    return (
+      <div className={styles.skeletons} role="status" aria-label="Loading">
+        <Skeleton height={120} radius="lg" />
+        <Skeleton height={120} radius="lg" />
+        <Skeleton height={120} radius="lg" />
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
+export function PostCard({ post }: { post: CommunityPost }) {
+  const card = toCard(post);
+  const firstImage = card.image_ids[0];
+  return (
+    <article className={styles.card}>
+      <Link href={`/community/post/?id=${card.id}`} className={styles.link}>
+        <span className={styles.kind}>{KIND_LABEL[card.kind]}</span>
+        {card.title ? <h2 className={styles.title}>{card.title}</h2> : null}
+        {card.excerpt ? <p className={styles.excerpt}>{card.excerpt}</p> : null}
+        {firstImage ? <PostImage mediaId={firstImage} alt="" /> : null}
+        {card.has_audio && post.include_audio ? (
+          <span className={styles.audio}>
+            <Icon name="speaker" size={20} /> Has a recording
+          </span>
+        ) : null}
+        <Byline nickname={card.nickname} isSupport={card.is_support} when={card.created_at} />
+      </Link>
+      <div className={styles.actions}>
+        <ReportButton targetType="post" targetId={card.id} />
+      </div>
+    </article>
+  );
+}
