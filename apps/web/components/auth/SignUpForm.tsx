@@ -8,6 +8,7 @@ import { signUp, useSession } from '@/lib/auth/session';
 import { api, ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import { GuestEntry } from './GuestEntry';
 import { GoogleButton } from './GoogleButton';
 import { AppleButton } from './AppleButton';
 import { ConsentCheckbox } from './ConsentCheckbox';
@@ -134,6 +135,7 @@ export function SignUpForm() {
           Create account
         </Button>
       </form>
+      <GuestEntry />
       <p className={styles.footer}>
         Already have an account?{' '}
         <Link href="/" className={styles.link}>

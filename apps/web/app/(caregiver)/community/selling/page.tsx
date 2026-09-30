@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SellerSetup } from '@/components/community/SellerSetup';
+import { GuestGate } from '@/components/auth/GuestGate';
 
 export const metadata: Metadata = {
   title: 'Selling in the community',
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function SellingPage() {
-  return <SellerSetup />;
+  return <GuestGate><SellerSetup /></GuestGate>;
 }

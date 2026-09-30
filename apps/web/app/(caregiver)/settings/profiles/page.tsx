@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ProfilesScreen } from '@/components/settings/ProfilesScreen';
+import { GuestGate } from '@/components/auth/GuestGate';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export default function ProfilesPage() {
   return (
     <>
       <PageHeader title="Profiles" backHref="/settings/" />
-      <ProfilesScreen />
+      <GuestGate><ProfilesScreen /></GuestGate>
     </>
   );
 }

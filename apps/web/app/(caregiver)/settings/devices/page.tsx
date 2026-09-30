@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DevicesScreen } from '@/components/settings/DevicesScreen';
+import { GuestGate } from '@/components/auth/GuestGate';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export default function DevicesPage() {
   return (
     <>
       <PageHeader title="Devices" backHref="/settings/" />
-      <DevicesScreen />
+      <GuestGate><DevicesScreen /></GuestGate>
     </>
   );
 }

@@ -1,14 +1,19 @@
 'use client';
 
 import { createElement, Fragment, useEffect, useSyncExternalStore, type ReactElement, type ReactNode } from 'react';
-import type { UserPublic } from '@chipperly/shared/schemas/account';
+import { defaultAnswers } from '@chipperly/shared/constants/setup';
+import type { Account, UserPublic } from '@chipperly/shared/schemas/account';
 import { MeResponseSchema, TokensResponseSchema, type MeAccount, type MeResponse, type TokensResponse } from '@chipperly/shared/schemas/auth';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { api, ApiError, getTokens, setTokens } from '../api/client';
 import { getKv, setKv } from '../db/kv';
 import { db } from '../db/db';
 import { applySnapshotRow } from '../sync/applyPulledRow';
-import { exitParentMode } from '../device/settings';
+import { enterParentMode, exitParentMode } from '../device/settings';
+import { newId } from '../ids';
+import { seedProfileLocally } from '../profile/seedLocal';
+import { GUEST_IDS_KEY, GUEST_STARTED_AT_KEY, isGuestMode, setGuestMode, wipeLocalData, type GuestIds } from './guest';
+import { isGuestExpired } from './guestExpiry';
 
 export type SessionStatus = 'loading' | 'signed_out' | 'signed_in';
 
@@ -17,6 +22,8 @@ export interface SessionState {
   user: UserPublic | null;
   accounts: MeAccount[];
   profiles: Profile[];
+  /** A local-only trial: same 'signed_in' status for the route guards, but no tokens and nothing leaves the device. */
+  guest: boolean;
 }
 
 const ME_KEY = 'me_cache';
@@ -24,7 +31,7 @@ const ACTIVE_ACCOUNT_KEY = 'active_account_id';
 const ACTIVE_PROFILE_KEY = 'active_profile_id';
 const CURRENT_USER_KEY = 'current_user_id';
 
-let state: SessionState = { status: 'loading', user: null, accounts: [], profiles: [] };
+let state: SessionState = { status: 'loading', user: null, accounts: [], profiles: [], guest: false };
 const listeners = new Set<() => void>();
 
 function setState(patch: Partial<SessionState>): void {
@@ -79,19 +86,21 @@ const PER_USER_KV_KEYS = [
  */
 async function resetLocalDataIfNewUser(me: MeResponse): Promise<void> {
   const owner = await getKv<string>(DATA_OWNER_KEY);
+  const wasGuest = (await getKv<number>(GUEST_STARTED_AT_KEY)) !== undefined;
   // Devices from before this key existed: an active account the user isn't in means someone else's data.
   const activeAccount = owner ? null : await getKv<string>(ACTIVE_ACCOUNT_KEY);
-  const foreign = owner
-    ? owner !== me.user.id
-    : activeAccount != null && !me.accounts.some((a) => a.account.id === activeAccount);
+  // A guest's sample data belongs to nobody who can sign in.
+  const foreign =
+    wasGuest || (owner ? owner !== me.user.id : activeAccount != null && !me.accounts.some((a) => a.account.id === activeAccount));
   if (foreign) {
     await db.transaction('rw', db.tables, async () => {
       // By name: inside a transaction db.tables can hand back different Table objects than db.kv,
       // and clearing kv would take the just-issued tokens with it.
       await Promise.all(db.tables.filter((table) => table.name !== 'kv').map((table) => table.clear()));
-      await db.kv.bulkDelete(PER_USER_KV_KEYS);
+      await db.kv.bulkDelete([...PER_USER_KV_KEYS, GUEST_STARTED_AT_KEY, GUEST_IDS_KEY]);
     });
   }
+  setGuestMode(false);
   await setKv(DATA_OWNER_KEY, me.user.id);
 }
 
@@ -117,7 +126,7 @@ async function applyMe(me: MeResponse): Promise<void> {
   const activeProfile = await getKv<string>(ACTIVE_PROFILE_KEY);
   if (!activeProfile && me.profiles[0]) await setKv(ACTIVE_PROFILE_KEY, me.profiles[0].id);
 
-  setState({ status: 'signed_in', user: me.user, accounts: me.accounts, profiles: me.profiles });
+  setState({ status: 'signed_in', user: me.user, accounts: me.accounts, profiles: me.profiles, guest: false });
 }
 
 /** Also called by lib/sync/engine.ts on an unrecoverable 401: session is invalid, drop back to signed-out. */
@@ -125,7 +134,7 @@ export async function clearSession(): Promise<void> {
   await setTokens(null);
   await setKv<MeResponse | null>(ME_KEY, null);
   await setKv<string | null>(CURRENT_USER_KEY, null);
-  setState({ status: 'signed_out', user: null, accounts: [], profiles: [] });
+  setState({ status: 'signed_out', user: null, accounts: [], profiles: [], guest: false });
 }
 
 /** Re-fetches `/me` and re-caches it; the offline-first source is kv + Dexie, this refreshes both. */
@@ -195,19 +204,108 @@ export async function setPin(pin: string): Promise<void> {
   await refreshMe();
 }
 
+/** The guest's user/account/profile, read back from Dexie where startGuestSession put them. */
+async function loadGuest(): Promise<void> {
+  const ids = await getKv<GuestIds>(GUEST_IDS_KEY);
+  const user = ids ? await db.users.get(ids.user_id) : undefined;
+  const account = ids ? await db.accounts.get(ids.account_id) : undefined;
+  const profile = ids ? await db.profiles.get(ids.profile_id) : undefined;
+  if (!user || !account || !profile) {
+    await endGuestSession();
+    return;
+  }
+  setGuestMode(true);
+  setState({ status: 'signed_in', user, accounts: [{ account, role: 'admin' }], profiles: [profile], guest: true });
+}
+
+/** True when this device holds a guest session (started or, if it ran out, just erased). */
+async function bootstrapGuest(): Promise<boolean> {
+  const startedAt = await getKv<number>(GUEST_STARTED_AT_KEY);
+  if (startedAt === undefined) return false;
+  if (isGuestExpired(startedAt, Date.now())) await endGuestSession();
+  else await loadGuest();
+  return true;
+}
+
+/**
+ * Makes this device a guest: erases whatever is here, then writes a synthetic user, one account and
+ * a sample child, all in Dexie. No tokens and no request; lib/api/client.ts refuses while guestMode is on.
+ */
+export async function startGuestSession(): Promise<void> {
+  await wipeLocalData();
+  const now = Date.now();
+  const ids: GuestIds = { user_id: newId(), account_id: newId(), profile_id: newId() };
+  const setup = defaultAnswers('8-12');
+  const user: UserPublic = {
+    id: ids.user_id,
+    email: 'guest@chipperly.invalid',
+    display_name: 'Guest',
+    pin_hash: null,
+    // Marked verified so the verify-your-email banner stays away.
+    email_verified_at: now,
+    created_at: now,
+    auth_provider: null,
+  };
+  const account: Account = { id: ids.account_id, kind: 'household', name: 'Guest', created_at: now };
+  const profile: Profile = {
+    id: ids.profile_id,
+    account_id: ids.account_id,
+    name: 'Sample child',
+    avatar_emoji: '🧒',
+    avatar_photo_id: null,
+    share_token: null,
+    first_then_activity_id: null,
+    first_then_reward_id: null,
+    settings: { age_band: setup.age_band, setup },
+    version: 0,
+    client_updated_at: now,
+    updated_by: ids.user_id,
+    deleted_at: null,
+  };
+  await db.users.put(user);
+  await db.accounts.put(account);
+  await db.profiles.put(profile);
+  await seedProfileLocally(profile.id, user.id, setup);
+  await setKv(GUEST_IDS_KEY, ids);
+  await setKv(CURRENT_USER_KEY, user.id);
+  await setKv(ACTIVE_ACCOUNT_KEY, account.id);
+  await setKv(ACTIVE_PROFILE_KEY, profile.id);
+  await setKv('device_role', { kind: 'caregiver' });
+  await enterParentMode();
+  await setKv(GUEST_STARTED_AT_KEY, now);
+  setGuestMode(true);
+  setState({ status: 'signed_in', user, accounts: [{ account, role: 'admin' }], profiles: [profile], guest: true });
+}
+
+/** Erases the guest's data and drops back to signed-out (expiry, or "Create account" from the banner). */
+export async function endGuestSession(): Promise<void> {
+  setGuestMode(false);
+  await wipeLocalData();
+  setState({ status: 'signed_out', user: null, accounts: [], profiles: [], guest: false });
+}
+
+/** Run on a timer and when the tab becomes visible again: a guest left open past 48 hours is erased. */
+export async function expireGuestIfDue(): Promise<void> {
+  if (!isGuestMode()) return;
+  const startedAt = await getKv<number>(GUEST_STARTED_AT_KEY);
+  if (startedAt === undefined || isGuestExpired(startedAt, Date.now())) await endGuestSession();
+}
+
 async function bootstrap(): Promise<void> {
   // Every fresh app start defaults back to the child view (lib/device/settings.ts's
   // useParentMode doc): a caregiver who unlocked into Today yesterday shouldn't find
   // the app still sitting there, unlocked, next time anyone opens it.
   await exitParentMode();
 
+  if (await bootstrapGuest()) return;
+
   const tokens = await getTokens();
   const cachedMe = await getKv<MeResponse>(ME_KEY);
 
   if (tokens?.access_token && cachedMe) {
-    setState({ status: 'signed_in', user: cachedMe.user, accounts: cachedMe.accounts, profiles: cachedMe.profiles });
+    setState({ status: 'signed_in', user: cachedMe.user, accounts: cachedMe.accounts, profiles: cachedMe.profiles, guest: false });
   } else {
-    setState({ status: 'signed_out', user: null, accounts: [], profiles: [] });
+    setState({ status: 'signed_out', user: null, accounts: [], profiles: [], guest: false });
   }
 
   if (!tokens?.access_token) return;
@@ -224,6 +322,13 @@ async function bootstrap(): Promise<void> {
 export function SessionProvider({ children }: { children: ReactNode }): ReactElement {
   useEffect(() => {
     void bootstrap();
+    const check = (): void => void expireGuestIfDue();
+    const timer = setInterval(check, 60_000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+    };
   }, []);
   return createElement(Fragment, null, children);
 }

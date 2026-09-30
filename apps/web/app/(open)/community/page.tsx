@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
+import { GuestGate } from '@/components/auth/GuestGate';
 import { OG_IMAGES } from '@/app/ogImage';
 
 export const metadata: Metadata = {
@@ -16,5 +17,5 @@ export const metadata: Metadata = {
 };
 
 export default function CommunityPage() {
-  return <CommunityFeed />;
+  return <GuestGate><CommunityFeed /></GuestGate>;
 }

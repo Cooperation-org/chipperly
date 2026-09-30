@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth/session';
 import { useLock, useLockLoaded } from '@/lib/device/settings';
 import { useCaregiverDevice } from '@/lib/device/role';
+import { GuestBanner } from './GuestBanner';
 import styles from './ChildShell.module.css';
 
 /**
@@ -47,5 +48,10 @@ export function ChildShell({ children }: { children: ReactNode }) {
 
   if (status !== 'signed_in' || profiles.length === 0 || toCaregiver) return null;
 
-  return <div className={styles.column}>{children}</div>;
+  return (
+    <div className={styles.column}>
+      <GuestBanner />
+      {children}
+    </div>
+  );
 }

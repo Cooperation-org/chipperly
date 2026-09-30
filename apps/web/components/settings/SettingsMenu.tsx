@@ -9,6 +9,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { db } from '@/lib/db/db';
 import { useSession } from '@/lib/auth/session';
+import { GUEST_MESSAGE } from '@/lib/auth/guest';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useDeviceSettings, setDeviceSettings } from '@/lib/device/settings';
 import { toast } from '@/lib/toast';
@@ -52,7 +53,7 @@ function ProfileSwitchSheet({
 export function SettingsMenu() {
   const router = useRouter();
   const { open, close } = useSheet();
-  const { user, accounts } = useSession();
+  const { user, accounts, guest } = useSession();
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
   const deviceRole = useDeviceRole();
   const deviceSettings = useDeviceSettings();
@@ -94,7 +95,7 @@ export function SettingsMenu() {
               trailing={<Icon name="chevron" size={20} />}
               onTap={() => router.push(`/settings/profile/edit/?id=${profile.id}`)}
             />
-            {usesApp(profile) ? (
+            {usesApp(profile) && !guest ? (
               <>
                 <ListRow
                   tile={<Icon name="gear" size={20} />}
@@ -122,12 +123,14 @@ export function SettingsMenu() {
               trailing={<Icon name="chevron" size={20} />}
               onTap={() => router.push('/chipper-chart/')}
             />
-            <ListRow
-              tile={<Icon name="share" size={20} />}
-              name="Share link"
-              trailing={<Icon name="chevron" size={20} />}
-              onTap={() => open(<ShareSheet profileId={profile.id} />, { title: 'Share link' })}
-            />
+            {guest ? null : (
+              <ListRow
+                tile={<Icon name="share" size={20} />}
+                name="Share link"
+                trailing={<Icon name="chevron" size={20} />}
+                onTap={() => open(<ShareSheet profileId={profile.id} />, { title: 'Share link' })}
+              />
+            )}
           </div>
         </div>
       ) : null}
@@ -142,7 +145,7 @@ export function SettingsMenu() {
         </div>
       </div>
 
-      {isAdmin ? (
+      {isAdmin && !guest ? (
         <div className={styles.section}>
           <span className={styles.sectionTitle}>Team</span>
           <div className={styles.card}>
@@ -174,86 +177,103 @@ export function SettingsMenu() {
               )
             }
           />
-          <ListRow tile={<Icon name="plus" size={20} />} name="Add profile" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/profiles/')} />
+          {guest ? null : (
+            <ListRow tile={<Icon name="plus" size={20} />} name="Add profile" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/profiles/')} />
+          )}
         </div>
       </div>
 
-      <div className={styles.section}>
-        <span className={styles.sectionTitle}>Community</span>
-        <div className={styles.card}>
-          <ListRow
-            tile={<Icon name="users" size={20} />}
-            name="Browse the community"
-            secondary="Stories and routines other families share"
-            trailing={<Icon name="chevron" size={20} />}
-            onTap={() => router.push('/community/')}
-          />
-          <ListRow
-            tile={<Icon name="users" size={20} />}
-            name="Your community name"
-            secondary="Chosen once, and public"
-            trailing={<Icon name="chevron" size={20} />}
-            onTap={() => router.push('/settings/community/')}
-          />
+      {guest ? (
+        <div className={styles.section}>
+          <span className={styles.sectionTitle}>Account</span>
+          <div className={styles.card}>
+            <ListRow tile={<Icon name="users" size={20} />} name="Team, community, plan and devices" secondary={GUEST_MESSAGE} />
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className={styles.section}>
+            <span className={styles.sectionTitle}>Community</span>
+            <div className={styles.card}>
+              <ListRow
+                tile={<Icon name="users" size={20} />}
+                name="Browse the community"
+                secondary="Stories and routines other families share"
+                trailing={<Icon name="chevron" size={20} />}
+                onTap={() => router.push('/community/')}
+              />
+              <ListRow
+                tile={<Icon name="users" size={20} />}
+                name="Your community name"
+                secondary="Chosen once, and public"
+                trailing={<Icon name="chevron" size={20} />}
+                onTap={() => router.push('/settings/community/')}
+              />
+            </div>
+          </div>
 
-      <div className={styles.section}>
-        <span className={styles.sectionTitle}>Account</span>
-        <div className={styles.card}>
-          <ListRow tile={<Icon name="gear" size={20} />} name="Account" secondary={user?.email} trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/account/')} />
-          <ListRow
-            tile={<Icon name="chips" size={20} />}
-            name="Plan"
-            trailing={<Icon name="chevron" size={20} />}
-            onTap={() => router.push('/settings/billing/')}
-          />
-          {user?.is_super_admin ? (
-            <ListRow
-              tile={<Icon name="gear" size={20} />}
-              name="Admin dashboard"
-              secondary="Sign-ups, trials, early access codes"
-              trailing={<Icon name="chevron" size={20} />}
-              onTap={() => router.push('/settings/admin/')}
-            />
-          ) : null}
-          <ListRow
-            tile={<span aria-hidden="true">📱</span>}
-            name="Devices"
-            secondary="See and name every device that's signed in"
-            trailing={<Icon name="chevron" size={20} />}
-            onTap={() => router.push('/settings/devices/')}
-          />
-        </div>
-      </div>
+          <div className={styles.section}>
+            <span className={styles.sectionTitle}>Account</span>
+            <div className={styles.card}>
+              <ListRow tile={<Icon name="gear" size={20} />} name="Account" secondary={user?.email} trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/account/')} />
+              <ListRow
+                tile={<Icon name="chips" size={20} />}
+                name="Plan"
+                trailing={<Icon name="chevron" size={20} />}
+                onTap={() => router.push('/settings/billing/')}
+              />
+              {user?.is_super_admin ? (
+                <ListRow
+                  tile={<Icon name="gear" size={20} />}
+                  name="Admin dashboard"
+                  secondary="Sign-ups, trials, early access codes"
+                  trailing={<Icon name="chevron" size={20} />}
+                  onTap={() => router.push('/settings/admin/')}
+                />
+              ) : null}
+              <ListRow
+                tile={<span aria-hidden="true">📱</span>}
+                name="Devices"
+                secondary="See and name every device that's signed in"
+                trailing={<Icon name="chevron" size={20} />}
+                onTap={() => router.push('/settings/devices/')}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       <div className={styles.section}>
         <span className={styles.sectionTitle}>This device</span>
         <div className={styles.card}>
-          <ListRow
-            tile={<span aria-hidden="true">📱</span>}
-            name="Who uses this device"
-            secondary={
-              deviceRole?.kind === 'caregiver'
-                ? 'Me, a team member'
-                : deviceRole?.kind === 'child'
-                  ? `${profiles.find((p) => p.id === deviceRole.profile_id)?.name ?? 'Someone'}'s device`
-                  : 'Not chosen yet (locked view first)'
-            }
-            trailing={<Icon name="chevron" size={20} />}
-            onTap={() =>
-              open(
-                <DeviceRolePicker
-                  onDone={(role) => {
-                    close();
-                    if (role.kind === 'child') router.push('/child/');
-                  }}
-                />,
-                { title: 'Who uses this device?' },
-              )
-            }
-          />
-          <ListRow tile={<Icon name="sync" size={20} />} name="Sync status" trailing={<Icon name="chevron" size={20} />} onTap={() => open(<SyncSheet />, { title: 'Sync' })} />
+          {guest ? null : (
+            <ListRow
+              tile={<span aria-hidden="true">📱</span>}
+              name="Who uses this device"
+              secondary={
+                deviceRole?.kind === 'caregiver'
+                  ? 'Me, a team member'
+                  : deviceRole?.kind === 'child'
+                    ? `${profiles.find((p) => p.id === deviceRole.profile_id)?.name ?? 'Someone'}'s device`
+                    : 'Not chosen yet (locked view first)'
+              }
+              trailing={<Icon name="chevron" size={20} />}
+              onTap={() =>
+                open(
+                  <DeviceRolePicker
+                    onDone={(role) => {
+                      close();
+                      if (role.kind === 'child') router.push('/child/');
+                    }}
+                  />,
+                  { title: 'Who uses this device?' },
+                )
+              }
+            />
+          )}
+          {guest ? null : (
+            <ListRow tile={<Icon name="sync" size={20} />} name="Sync status" trailing={<Icon name="chevron" size={20} />} onTap={() => open(<SyncSheet />, { title: 'Sync' })} />
+          )}
           <div className={styles.controlRow}>
             <span className={styles.controlLabel}>Sounds</span>
             <Switch label="Sounds" checked={deviceSettings.sounds} onChange={(v) => void setDeviceSettings({ sounds: v })} />
@@ -279,7 +299,11 @@ export function SettingsMenu() {
               open(
                 <Confirm
                   title="Clear local data"
-                  body="This device's saved data and the cached app will be cleared, then reloaded from the server. You'll need to sign in again."
+                  body={
+                    guest
+                      ? 'Everything in this trial and the cached app will be erased from this device.'
+                      : "This device's saved data and the cached app will be cleared, then reloaded from the server. You'll need to sign in again."
+                  }
                   confirmLabel="Clear local data"
                   danger
                   onConfirm={() => void clearLocalData()}

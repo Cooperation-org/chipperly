@@ -17,6 +17,7 @@ import { isSelfManaged, settingsCopy } from './settingsCopy';
 import { db } from '@/lib/db/db';
 import { upsert, softDelete } from '@/lib/sync/mutate';
 import { useActiveProfile } from '@/lib/profile/active';
+import { useSession } from '@/lib/auth/session';
 import styles from './ProfileForm.module.css';
 
 export interface ProfileFormProps {
@@ -28,6 +29,8 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
   const router = useRouter();
   const { open, close } = useSheet();
   const { profiles, setActiveProfileId } = useActiveProfile();
+  // A guest has no server for reward alerts or review reminders, and deleting the only child would leave nothing to try.
+  const { guest } = useSession();
   const row = useLiveQuery(() => db.profiles.get(profileId), [profileId]);
   const account = useLiveQuery(async () => {
     const p = await db.profiles.get(profileId);
@@ -128,7 +131,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           onChange={(v) => setRoutineBonus(Number(v))}
         />
       </div>
-      {childUsesApp ? (
+      {childUsesApp && !guest ? (
         <div className={styles.setting}>
           <div className={styles.toggleRow}>
             <span className={styles.settingLabel}>{copy.rewardToggle}</span>
@@ -137,30 +140,32 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
           {rewardAlerts ? <NotificationCheck /> : null}
         </div>
       ) : null}
-      <ReviewReminderSetting profileId={row.id} name={name || row.name} selfManaged={selfManaged} />
+      {guest ? null : <ReviewReminderSetting profileId={row.id} name={name || row.name} selfManaged={selfManaged} />}
       <Button variant="primary" size="lg" fullWidth onClick={() => void save()} loading={saving}>
         Save
       </Button>
-      <div className={styles.deleteRow}>
-        <Button
-          variant="danger"
-          fullWidth
-          onClick={() =>
-            open(
-              <Confirm
-                title={`Delete ${row.name}'s profile`}
-                body="This removes their schedule, chips and rewards. This can't be undone."
-                confirmLabel={`Delete ${row.name}'s profile`}
-                danger
-                onConfirm={() => void confirmDelete()}
-                onCancel={close}
-              />,
-            )
-          }
-        >
-          Delete profile
-        </Button>
-      </div>
+      {guest ? null : (
+        <div className={styles.deleteRow}>
+          <Button
+            variant="danger"
+            fullWidth
+            onClick={() =>
+              open(
+                <Confirm
+                  title={`Delete ${row.name}'s profile`}
+                  body="This removes their schedule, chips and rewards. This can't be undone."
+                  confirmLabel={`Delete ${row.name}'s profile`}
+                  danger
+                  onConfirm={() => void confirmDelete()}
+                  onCancel={close}
+                />,
+              )
+            }
+          >
+            Delete profile
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

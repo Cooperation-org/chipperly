@@ -1,3 +1,4 @@
+import { isGuestMode } from '@/lib/auth/guest';
 import { parseNominatim, type AddressHit } from './places';
 
 const ENDPOINT = 'https://nominatim.openstreetmap.org/search';
@@ -8,10 +9,12 @@ let lastRequestAt = 0;
 
 export type AddressSearchResult =
   | { ok: true; hits: AddressHit[] }
-  | { ok: false; reason: 'offline' | 'failed' };
+  | { ok: false; reason: 'offline' | 'failed' | 'guest' };
 
 /** Fails soft: never throws, so a dead network can't block saving a place. */
 export async function searchAddress(query: string): Promise<AddressSearchResult> {
+  // What's typed here goes to a third-party service, which a guest's device never does.
+  if (isGuestMode()) return { ok: false, reason: 'guest' };
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, reason: 'offline' };
   const wait = lastRequestAt + MIN_GAP_MS - Date.now();
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));

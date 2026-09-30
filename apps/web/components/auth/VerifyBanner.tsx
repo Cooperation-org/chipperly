@@ -40,12 +40,12 @@ function readDismissed(): boolean {
  * Today never stacks two banners.
  */
 export function VerifyBanner({ fallback = null }: { fallback?: ReactNode }) {
-  const { user } = useSession();
+  const { user, guest } = useSession();
   const [dismissed, setDismissed] = useState(readDismissed);
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  if (!user || user.email_verified_at !== null || dismissed) return <>{fallback}</>;
+  if (!user || guest || user.email_verified_at !== null || dismissed) return <>{fallback}</>;
 
   function dismiss(): void {
     setDismissed(true);

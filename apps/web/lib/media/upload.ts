@@ -2,6 +2,7 @@ import { db, type MediaBlobEntry } from '../db/db';
 import { apiBase } from '../api/base';
 import { getTokens } from '../api/client';
 import { getKv } from '../db/kv';
+import { isGuestMode } from '../auth/guest';
 
 /**
  * Posts every not-yet-uploaded local media blob to `/media` and marks it
@@ -9,6 +10,7 @@ import { getKv } from '../db/kv';
  * online. A failed upload is left `uploaded: 0` and retried next cycle.
  */
 export async function uploadPending(): Promise<void> {
+  if (isGuestMode()) return;
   const pending = await db.media_blobs.filter((row) => row.uploaded === 0).toArray();
   if (pending.length === 0) return;
 

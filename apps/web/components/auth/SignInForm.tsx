@@ -7,6 +7,7 @@ import { signInWithPassword, useSession } from '@/lib/auth/session';
 import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import { GuestEntry } from './GuestEntry';
 import { GoogleButton } from './GoogleButton';
 import { AppleButton } from './AppleButton';
 import { redirectAfterAuth } from './postAuthRedirect';
@@ -87,6 +88,7 @@ export function SignInForm() {
           Sign in
         </Button>
       </form>
+      <GuestEntry />
       <div className={styles.links}>
         <Link href="/sign-up/" className={styles.link}>
           Create account

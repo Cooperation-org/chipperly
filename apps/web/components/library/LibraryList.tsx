@@ -203,9 +203,11 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
     setSearching(false);
     if (!result.ok) {
       setSearchNote(
-        result.reason === 'offline'
-          ? "You're offline, so address search isn't available. Use your current location or drag the pin instead."
-          : "Couldn't search just now. Try again, or use your current location or drag the pin.",
+        result.reason === 'guest'
+          ? 'Create a free account to use this. For now, use your current location or drag the pin.'
+          : result.reason === 'offline'
+            ? "You're offline, so address search isn't available. Use your current location or drag the pin instead."
+            : "Couldn't search just now. Try again, or use your current location or drag the pin.",
       );
     } else if (result.hits.length === 0) {
       setSearchNote('No match. Try a street and town, or drag the pin.');

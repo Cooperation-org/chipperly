@@ -1,8 +1,14 @@
 import type { MutationTable } from '@chipperly/shared/constants/tables';
-import { db, tableForMutation, type MutationRow } from '../db/db';
+import { db, tableForMutation, type MutationRow, type OutboxEntry } from '../db/db';
 import { getCurrentUserId } from '../auth/session';
+import { isGuestMode } from '../auth/guest';
 import { now } from '../clock';
 import { nextClientUpdatedAt } from './nextClientUpdatedAt';
+
+/** A guest's writes stay in their table: there is no server to send them to. */
+async function queue(entry: OutboxEntry): Promise<void> {
+  if (!isGuestMode()) await db.outbox.add(entry);
+}
 
 /**
  * Writes the row to its Dexie table and appends the matching outbox entry
@@ -23,7 +29,7 @@ export async function upsert<T extends MutationTable>(table: T, row: MutationRow
     const client_updated_at = nextClientUpdatedAt(now(), existing?.client_updated_at);
     const nextRow = { ...row, client_updated_at, updated_by } as MutationRow<T>;
     await tbl.put(nextRow);
-    await db.outbox.add({
+    await queue({
       id: nextRow.id,
       table,
       op: 'upsert',
@@ -48,7 +54,7 @@ export async function softDelete(table: MutationTable, id: string): Promise<void
     // `row` is kept locally (dropped from the wire payload by the push loop,
     // which the server contract treats as optional for deletes) so the sync
     // engine can read `profile_id` off a delete entry without a table lookup.
-    await db.outbox.add({
+    await queue({
       id,
       table,
       op: 'delete',
@@ -70,7 +76,7 @@ export async function restore(table: MutationTable, id: string): Promise<void> {
     const client_updated_at = nextClientUpdatedAt(now(), existing.client_updated_at);
     const nextRow = { ...existing, deleted_at: null, client_updated_at, updated_by };
     await tbl.put(nextRow);
-    await db.outbox.add({
+    await queue({
       id,
       table,
       op: 'upsert',
