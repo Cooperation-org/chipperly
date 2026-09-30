@@ -250,8 +250,7 @@ export function TodayScreen() {
 
   return (
     <div className={styles.screen}>
-      <VerifyBanner />
-      <RewardAlertsBanner />
+      <VerifyBanner fallback={<RewardAlertsBanner />} />
       {/* First thing on Today, not only in Settings: switching place right before handing the device to the child. */}
       {locations.length > 1 ? (
         <Segmented
@@ -432,9 +431,9 @@ export function TodayScreen() {
         </div>
       ) : null}
 
-      <div className={styles.addButtonWrap}>
-        <IconButton icon="plus" aria-label="Add activity" variant="solid" size={28} className={styles.addButton} onClick={openPicker} />
-      </div>
+      <Button icon="plus" size="lg" aria-label="Add activity" className={styles.addButton} onClick={openPicker}>
+        Add
+      </Button>
     </div>
   );
 }

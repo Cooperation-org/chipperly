@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { api, ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
@@ -36,14 +36,16 @@ function readDismissed(): boolean {
  * Quiet, dismissible reminder for an unverified email, meant to be placed on
  * Today (S2: verification is never a blocking screen). Dismissal only lasts
  * the tab session; it reappears next visit until the address is verified.
+ * `fallback` shows instead once this banner is dismissed or not needed, so
+ * Today never stacks two banners.
  */
-export function VerifyBanner() {
+export function VerifyBanner({ fallback = null }: { fallback?: ReactNode }) {
   const { user } = useSession();
   const [dismissed, setDismissed] = useState(readDismissed);
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  if (!user || user.email_verified_at !== null || dismissed) return null;
+  if (!user || user.email_verified_at !== null || dismissed) return <>{fallback}</>;
 
   function dismiss(): void {
     setDismissed(true);

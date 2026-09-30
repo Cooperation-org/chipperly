@@ -86,7 +86,7 @@ test.describe('photo upload', () => {
     await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     const addSheet = page.getByRole('dialog');
-    await addSheet.getByRole('button', { name: 'Create new', exact: true }).click();
+    await addSheet.getByRole('button', { name: 'Create a new activity', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
 
     await page.getByLabel('Name', { exact: true }).fill('E2E Photo Activity');
@@ -123,7 +123,7 @@ test.describe('photo upload', () => {
     await page.getByRole('button', { name: /Working for/ }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
-    await sheet.getByRole('button', { name: 'Create new', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Create a new reward', exact: true }).click();
     await page.waitForURL('**/reward/edit/**');
 
     await page.getByLabel('Name', { exact: true }).fill('E2E Photo Reward');

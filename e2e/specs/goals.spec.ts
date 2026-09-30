@@ -26,7 +26,7 @@ test.describe('goals per routine and per day', () => {
     await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
     await page.locator('button[class*="ListRow_main"]', { hasText: 'Wake Up' }).click();
     const itemSheet = page.getByRole('dialog');
-    await itemSheet.getByRole('button', { name: 'Edit activity', exact: true }).click();
+    await itemSheet.getByRole('button', { name: 'Edit activity and repeat days', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
 
     await page.getByRole('button', { name: /^Goal/ }).click();

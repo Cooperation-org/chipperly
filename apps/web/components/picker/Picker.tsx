@@ -5,11 +5,12 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity } from '@chipperly/shared/schemas/activity';
 import type { Reward } from '@chipperly/shared/schemas/reward';
 import { db } from '@/lib/db/db';
-import { matchesLocation, useActivities, useRecentActivities } from '@/lib/data/activities';
+import { matchesLocation, useActivities } from '@/lib/data/activities';
 import { useRewards } from '@/lib/data/rewards';
 import { Picture } from '@/components/media/Picture';
 import { TextField } from '@/components/ui/TextField';
 import { Icon } from '@/components/ui/Icon';
+import { Button } from '@/components/ui/Button';
 import { filterAndSection } from './pickerModel';
 import styles from './Picker.module.css';
 
@@ -26,7 +27,6 @@ export interface PickerProps {
   onCreateRoutine?: () => void;
 }
 
-const RECENT_COUNT = 8;
 const SEARCH_THRESHOLD = 12;
 
 /** Sheet content for adding an activity to the day or picking a working-for reward. One component, two data sources. */
@@ -38,7 +38,6 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
   // matchesLocation reads location_ids, so an activity pinned to several places shows in each of them.
   const hereOrAnywhere = (a: Activity) => !locationId || matchesLocation(a, locationId);
   const activities = useActivities(profileId).filter(hereOrAnywhere);
-  const recentActivities = useRecentActivities(profileId, RECENT_COUNT).filter(hereOrAnywhere);
   const rewards = useRewards(profileId, { location_id: locationId });
 
   const steps = useLiveQuery(() => db.activity_steps.where('profile_id').equals(profileId).toArray(), [profileId], []);
@@ -54,7 +53,6 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
   const itemCount = kind === 'activity' ? activities.length : rewards.length;
   const showSearch = itemCount > SEARCH_THRESHOLD;
 
-  const recent = kind === 'activity' ? filterAndSection(recentActivities, query) : [];
   const filteredActivities = useMemo(
     () => filterAndSection(activities, query).slice().sort((a, b) => a.name.localeCompare(b.name)),
     [activities, query],
@@ -84,28 +82,9 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
         />
       ) : null}
 
-      <div className={styles.grid}>
-        <button type="button" className={styles.createNew} onClick={onCreateNew} aria-label="Create new">
-          <Icon name="plus" size={24} />
-          <span>Create new</span>
-        </button>
-      </div>
-
-      {recent.length > 0 ? (
-        <section>
-          <h3 className={styles.sectionLabel}>Recent</h3>
-          <div className={styles.grid}>
-            {recent.map((activity) => (
-              <ActivityTile
-                key={activity.id}
-                activity={activity}
-                stepCount={stepCountByActivity.get(activity.id) ?? 0}
-                onPick={onPick}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <Button fullWidth icon="plus" onClick={onCreateNew}>
+        {`Create a new ${kind}`}
+      </Button>
 
       {kind === 'activity' ? (
         <>
