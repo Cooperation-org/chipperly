@@ -101,7 +101,6 @@ export function StoryForm() {
           sheet.close();
         }}
         name={label}
-        defaultEmojiOpen={false}
       />,
       { title: label },
     );
@@ -166,7 +165,7 @@ export function StoryForm() {
       <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
 
       <Field label="Cover">
-        <PicturePicker value={cover} onChange={setCover} name={title || 'Cover'} defaultEmojiOpen={false} />
+        <PicturePicker value={cover} onChange={setCover} name={title || 'Cover'} />
       </Field>
 
       <section className={styles.pages}>

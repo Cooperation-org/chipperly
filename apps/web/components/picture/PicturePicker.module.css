@@ -66,3 +66,10 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+/* The grid's own width:100% resolves against THIS wrapper, and .picker centres its
+   flex items, so without a width here the wrapper shrinks to its content and the
+   grid collapses to a single scrolling column. */
+.gridWrap {
+  width: 100%;
+}

@@ -19,15 +19,15 @@ export interface PicturePickerProps {
   name?: string;
   /** Restricts the emoji grid, e.g. AVATAR_EMOJI for profile pictures. Defaults to the full set. */
   choices?: readonly string[];
-  /** Start collapsed, showing only the trigger. Defaults to open (the global picture pattern). */
+  /** Start with the emoji grid already open. Off by default: the grid is opened by tapping Emoji. */
   defaultEmojiOpen?: boolean;
 }
 
 /** Emoji / photo / camera / paste, in that order, per the global picture pattern. */
-export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen = true }: PicturePickerProps) {
-  // Emoji grid is open by default: it's the default picture choice (never fails
-  // offline, no permission prompt), per ux-plan.md's global picture pattern.
-  // Long forms (the story editor) pass false so the 96-cell grid doesn't bury the rest.
+export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen = false }: PicturePickerProps) {
+  // Collapsed everywhere (owner, 30 Sept): 96 cells buried whatever came after them,
+  // so the grid opens on tapping Emoji. Emoji is still the default picture choice —
+  // it never fails offline and asks for no permission — it just isn't shown unasked.
   const [emojiOpen, setEmojiOpen] = useState(defaultEmojiOpen);
   const [pasteMessage, setPasteMessage] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -137,7 +137,7 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
         onChange={onFileChange}
       />
       {emojiOpen ? (
-        <div id={gridId} ref={gridRef}>
+        <div id={gridId} ref={gridRef} className={styles.gridWrap}>
           <EmojiGrid
             value={value.emoji}
             choices={choices}

@@ -131,17 +131,31 @@ test.describe('story editor emoji picker, read-aloud state, team wording', () =>
     await expect(page.getByRole('button', { name: 'Getting a Haircut', exact: true })).toBeVisible();
   });
 
-  test('9: everywhere else the picture picker keeps its emoji grid open by default', async () => {
+  test('9: every other picture picker starts collapsed too, and opens as a real grid', async () => {
     await openSettings(page);
     // Not exact: the row's name is "<profile name> Edit profile" (photo-upload.spec.ts:168).
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await page.waitForURL('**/settings/profile/edit/**');
 
-    // ProfileForm.tsx:98 uses PicturePicker with no defaultEmojiOpen, so it stays true (PicturePicker.tsx:27).
-    await expect(page.getByRole('button', { name: 'Emoji', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    // Owner, 30 Sept: collapsed everywhere, not just in the story editor.
+    const trigger = page.getByRole('button', { name: 'Emoji', exact: true });
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(emojiGrid(page)).toHaveCount(0);
+
+    await trigger.click();
     await expect(emojiGrid(page)).toBeVisible();
-    await expectNoOverflow(page, 'edit profile emoji open by default');
-    await snap(page, 'edit-profile-emoji-open');
+
+    // It must open as a GRID, not one tall scrolling column: the wrapper that holds the
+    // grid sits in a centred flex column, so without its own width it shrinks to content
+    // and every cell stacks. Prove several cells share a row.
+    const cells = emojiGrid(page).getByRole('radio');
+    await expect(cells.first()).toBeVisible();
+    const topOfFirstRow = await cells.nth(0).evaluate((el) => el.getBoundingClientRect().top);
+    const sameRow = await cells.nth(3).evaluate((el) => el.getBoundingClientRect().top);
+    expect(Math.abs(sameRow - topOfFirstRow), 'the 1st and 4th cells should share a row').toBeLessThan(4);
+
+    await expectNoOverflow(page, 'edit profile emoji grid open');
+    await snap(page, 'edit-profile-emoji-grid');
   });
 
   test('11: read aloud never says "Playing" from a click, only from real playback events', async ({}, testInfo) => {

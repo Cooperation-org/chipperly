@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity, ActivityStep, Recurrence } from '@chipperly/shared/schemas/activity';
+import { todayIso } from '@chipperly/shared/helpers/date';
 import { CHIP_MAX } from '@chipperly/shared/constants/limits';
 import { db } from '@/lib/db/db';
 import { deleteActivity, effectiveLocationIds, saveActivity, useActivities, useActivity, type SaveActivityStepInput } from '@/lib/data/activities';
@@ -31,8 +32,12 @@ import { LocationMultiSelect, nothingPicked, whereSummary } from './LocationMult
 import { StepPictureSheet } from './StepPictureSheet';
 import styles from './ActivityForm.module.css';
 
+/** 'once' is not a recurrence: it saves with recurrence null and is added to one day. */
+type RepeatChoice = 'none' | 'once' | Recurrence;
+
 const REPEAT_ITEMS = [
   { value: 'none', label: 'None' },
+  { value: 'once', label: 'Just one day' },
   { value: 'daily', label: 'Every day' },
   { value: 'weekdays', label: 'Weekdays' },
   { value: 'weekends', label: 'Weekends' },
@@ -161,7 +166,9 @@ export function ActivityForm() {
   const [chips, setChips] = useState(1);
   const [everyPlace, setEveryPlace] = useState(true);
   const [placeIds, setPlaceIds] = useState<string[]>([]);
-  const [repeat, setRepeat] = useState<'none' | Recurrence>('none');
+  const [repeat, setRepeat] = useState<RepeatChoice>('none');
+  // A one-off lands on this date only; it never recurs (owner, 30 Sept).
+  const [onceDate, setOnceDate] = useState<string>(() => todayIso());
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [recurrenceTime, setRecurrenceTime] = useState<string | null>(null);
   // Routine goal ("get to camp on time") and its reward (owner's doc, My Day 9).
@@ -374,7 +381,7 @@ export function ActivityForm() {
         photo_id: picture.photo_id ?? null,
         chip_value: chips,
         location_ids: everyPlace ? [] : placeIds,
-        recurrence: repeat === 'none' ? null : repeat,
+        recurrence: repeat === 'none' || repeat === 'once' ? null : repeat,
         recurrence_weekdays: repeat === 'weekly' ? weekdays : null,
         recurrence_time: repeat === 'none' ? null : recurrenceTime,
         goal_text: goalText.trim() || null,
@@ -393,6 +400,13 @@ export function ActivityForm() {
             }));
         })(),
       });
+
+      // A one-off never recurs, so nothing would ever materialise it: put it on its day here.
+      if (repeat === 'once') {
+        await addToDay(profileId, onceDate, id);
+        router.push('/today/');
+        return;
+      }
 
       if (addTo) {
         await addToDay(profileId, addTo, id);
@@ -424,7 +438,12 @@ export function ActivityForm() {
   const noPlacePicked = nothingPicked(locations, everyPlace, placeIds);
   const locationLabel = whereSummary(locations, everyPlace, placeIds);
   const repeatLabel = REPEAT_ITEMS.find((i) => i.value === repeat)?.label ?? 'None';
-  const whenSummary = repeat !== 'none' && recurrenceTime ? `${repeatLabel}, ${recurrenceTime}` : repeatLabel;
+  const whenSummary =
+    repeat === 'once'
+      ? `${onceDate}${recurrenceTime ? `, ${recurrenceTime}` : ''}`
+      : repeat !== 'none' && recurrenceTime
+        ? `${repeatLabel}, ${recurrenceTime}`
+        : repeatLabel;
 
   const hasNamedSteps = steps.some((s) => s.name.trim().length > 0);
 
@@ -457,7 +476,7 @@ export function ActivityForm() {
           label="Repeat"
           items={REPEAT_ITEMS}
           value={repeat}
-          onChange={(v) => setRepeat(v as 'none' | Recurrence)}
+          onChange={(v) => setRepeat(v as RepeatChoice)}
         />
         {repeat === 'weekly' ? (
           <>
@@ -478,11 +497,19 @@ export function ActivityForm() {
             {weeklyNeedsDay ? <p className={styles.weekdayError}>Pick at least one day</p> : null}
           </>
         ) : null}
+        {repeat === 'once' ? (
+          <TextField
+            label="Day"
+            type="date"
+            value={onceDate}
+            onChange={(e) => setOnceDate(e.target.value || todayIso())}
+          />
+        ) : null}
         {repeat !== 'none' ? (
           <>
             <TextField
               label="Time (optional)"
-              hint="Leave empty and it repeats without a set time."
+              hint={repeat === 'once' ? 'Leave empty for no set time.' : 'Leave empty and it repeats without a set time.'}
               type="time"
               value={recurrenceTime ?? ''}
               onChange={(e) => setRecurrenceTime(e.target.value || null)}

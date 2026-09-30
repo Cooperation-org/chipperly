@@ -31,7 +31,9 @@
   display: block;
   max-width: 100%;
   max-height: min(180px, 25vh);
-  margin-top: var(--space-1);
+  /* Centred in the band: left-aligned, a portrait picture sat in the corner with a
+     wide empty gap beside it. */
+  margin: var(--space-1) auto 0;
   border-radius: var(--radius-md);
   object-fit: contain;
 }
