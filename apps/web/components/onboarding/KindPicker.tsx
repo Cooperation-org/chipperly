@@ -18,9 +18,9 @@ interface KindOption {
 
 const OPTIONS: KindOption[] = [
   { kind: 'individual', emoji: '🙂', label: 'Myself', description: "I'll use the tools for my own day." },
-  { kind: 'household', emoji: '👪', label: 'My family', description: 'One or more people at home.' },
-  { kind: 'supported', emoji: '🤝', label: 'Someone I support', description: 'One person, like a parent or a client.' },
-  { kind: 'agency', emoji: '🏢', label: 'My organization', description: 'Clients and staff.' },
+  { kind: 'household', emoji: '👪', label: 'My family', description: 'Your child or children at home, or everyone in the house.' },
+  { kind: 'supported', emoji: '🤝', label: 'Someone I support', description: 'One person you help, like a client or a relative.' },
+  { kind: 'agency', emoji: '🏢', label: 'My organization', description: 'A therapy practice, school or care team with clients and staff.' },
 ];
 
 interface CreateAccountResponse {
