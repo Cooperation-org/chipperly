@@ -35,7 +35,7 @@ test.describe('feelings, check-ups and the whole-routine bonus', () => {
 
     // A two-step routine for today.
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Create new', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Create a new activity', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
     await page.getByLabel('Name', { exact: true }).fill('Pack Bag');
     await page.getByRole('button', { name: /^Steps/ }).click();

@@ -66,9 +66,6 @@ test.describe('routines', () => {
     await expect(fromActivitySheet).toBeVisible();
     // This nested picker offers plain activities only, no routine section.
     await expect(fromActivitySheet.getByRole('heading', { name: 'Routines', level: 3 })).toHaveCount(0);
-    // Not a starter-plan activity (e.g. "Brush Teeth"): the picker's own
-    // "Recent" section also lists anything materialized onto today, so a
-    // starter item's tile would resolve twice here.
     await fromActivitySheet.getByRole('button', { name: 'Snack Time', exact: true }).click();
     await expect(fromActivitySheet).toBeHidden();
     await expect(page.getByLabel('Step 2', { exact: true })).toHaveValue('Snack Time');

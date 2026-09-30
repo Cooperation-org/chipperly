@@ -4,6 +4,8 @@
   gap: var(--space-4);
   position: relative;
   min-height: calc(100dvh - var(--tabbar-h) - var(--space-6));
+  /* Clears the floating Add button so it never sits on a row's check circle. */
+  padding-bottom: calc(56px + var(--space-6));
 }
 
 .list {
@@ -119,17 +121,11 @@
   justify-content: center;
 }
 
-/* IconButton sizes itself off --tap; redefining it here (rather than
-   fighting CSS Module specificity on width/height) gives the FAB its 56px
-   without touching IconButton's own rules. */
-.addButtonWrap {
-  --tap: 56px;
-}
-
 .addButton {
   position: fixed;
   right: var(--space-3);
   bottom: calc(var(--tabbar-h) + var(--space-3));
+  border-radius: var(--radius-full, 999px);
   box-shadow: var(--shadow-sheet);
   z-index: 30;
 }

@@ -71,7 +71,7 @@ test.describe('places', () => {
     await page.getByRole('button', { name: 'Add activity', exact: true }).first().click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
-    // Picker.tsx:127 h3 "Activities". Its section holds only the activity tiles (not "Create new", not Recent).
+    // Picker.tsx:127 h3 "Activities". Its section holds only the activity tiles.
     await expect(sheet.getByRole('heading', { name: 'Activities', level: 3 })).toBeVisible();
     return sheet;
   }

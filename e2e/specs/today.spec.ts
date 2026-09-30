@@ -152,7 +152,7 @@ test.describe('today', () => {
   test('S9 create a new activity and add it to today', async () => {
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     const sheet = page.getByRole('dialog');
-    await sheet.getByRole('button', { name: 'Create new', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Create a new activity', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
 
     await expect(page.getByRole('heading', { name: 'New activity' })).toBeVisible();
