@@ -33,7 +33,9 @@ export type IconName =
   | 'edit'
   | 'grid'
   | 'phoneLock'
-  | 'speaker';
+  | 'speaker'
+  | 'smiley'
+  | 'clipboard';
 
 const paths: Record<IconName, ReactNode> = {
   check: <polyline points="5 13 10 18 19 7" />,
@@ -60,6 +62,22 @@ const paths: Record<IconName, ReactNode> = {
   ),
   star: (
     <polygon points="12 2.5 15.1 9.3 22.5 10.2 17 15.2 18.5 22.5 12 18.8 5.5 22.5 7 15.2 1.5 10.2 8.9 9.3" />
+  ),
+  smiley: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="9" cy="10" r="0.8" />
+      <circle cx="15" cy="10" r="0.8" />
+      <path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" />
+    </>
+  ),
+  clipboard: (
+    <>
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <rect x="9" y="2.5" width="6" height="3.5" rx="1" />
+      <line x1="9" y1="11" x2="15" y2="11" />
+      <line x1="9" y1="15" x2="15" y2="15" />
+    </>
   ),
   speaker: (
     <>

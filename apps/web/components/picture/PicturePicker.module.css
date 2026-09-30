@@ -12,6 +12,29 @@
   justify-content: center;
 }
 
+.hint {
+  margin: 0;
+  max-width: 32ch;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.findLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+}
+
+.findLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .choice {
   display: inline-flex;
   flex-direction: column;
@@ -26,6 +49,11 @@
   color: var(--color-text);
   font-size: var(--text-sm);
   cursor: pointer;
+}
+
+.choice:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .choice:focus-visible {
@@ -48,6 +76,8 @@
 
 .message {
   margin: 0;
+  max-width: 36ch;
+  text-align: center;
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
