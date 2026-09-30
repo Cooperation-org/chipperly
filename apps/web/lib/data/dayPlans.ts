@@ -28,14 +28,29 @@ export function useDayNote(profileId: string, isoDate: string): DayPlan | null {
   return useMemo(() => newestDayPlan(rows) ?? null, [rows]);
 }
 
-/** Upserts the day's note, creating the row on first write. An empty (or whitespace-only) note soft-deletes it. */
-export async function setDayNote(profileId: string, isoDate: string, note: string): Promise<void> {
+/** Pure: a day note is worth keeping if it has text or a picture. */
+export function hasDayNoteContent(note: string, photoId: string | null): boolean {
+  return note.trim() !== '' || photoId !== null;
+}
+
+/** Pure: the picture's text alternative is the note text; a picture-only note gets a plain fallback. */
+export function dayNotePhotoAlt(note: string): string {
+  return note.trim() || 'Picture for the day';
+}
+
+/**
+ * Upserts the day's note, creating the row on first write. A note with no text
+ * and no picture soft-deletes it. `photoId` is a local media id: saving never
+ * waits on its upload (pickAndStoreImage already queued it).
+ */
+export async function setDayNote(profileId: string, isoDate: string, note: string, photoId: string | null = null): Promise<void> {
   const rows = await db.day_plans.where('[profile_id+date]').equals([profileId, isoDate]).toArray();
   const existing = newestDayPlan(rows);
   const trimmed = note.trim();
+  const keep = hasDayNoteContent(note, photoId);
 
   if (!existing) {
-    if (!trimmed) return;
+    if (!keep) return;
     await upsert('day_plans', {
       id: newId(),
       profile_id: profileId,
@@ -45,16 +60,17 @@ export async function setDayNote(profileId: string, isoDate: string, note: strin
       deleted_at: null,
       date: isoDate,
       note: trimmed,
+      photo_id: photoId,
     } satisfies DayPlan);
     return;
   }
 
-  if (!trimmed) {
+  if (!keep) {
     await softDelete('day_plans', existing.id);
     return;
   }
 
-  await upsert('day_plans', { ...existing, note: trimmed });
+  await upsert('day_plans', { ...existing, note: trimmed, photo_id: photoId });
 }
 
 const MONTH_NAMES = [

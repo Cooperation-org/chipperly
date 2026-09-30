@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DayPlan } from '@chipperly/shared/schemas/schedule';
-import { formatDayMonth, newestDayPlan } from './dayPlans';
+import { dayNotePhotoAlt, formatDayMonth, hasDayNoteContent, newestDayPlan } from './dayPlans';
 
 function dayPlan(overrides: Partial<DayPlan> = {}): DayPlan {
   return {
@@ -44,5 +44,28 @@ describe('formatDayMonth', () => {
   it('formats as "day month", no year, no leading zero', () => {
     expect(formatDayMonth('2026-09-19')).toBe('19 September');
     expect(formatDayMonth('2026-01-05')).toBe('5 January');
+  });
+});
+
+describe('hasDayNoteContent', () => {
+  it('keeps a note with text, a picture, or both', () => {
+    expect(hasDayNoteContent('Hi', null)).toBe(true);
+    expect(hasDayNoteContent('   ', 'media-1')).toBe(true);
+    expect(hasDayNoteContent('Hi', 'media-1')).toBe(true);
+  });
+
+  it('drops a note with neither', () => {
+    expect(hasDayNoteContent('', null)).toBe(false);
+    expect(hasDayNoteContent('  \n ', null)).toBe(false);
+  });
+});
+
+describe('dayNotePhotoAlt', () => {
+  it('uses the trimmed note text', () => {
+    expect(dayNotePhotoAlt('  Grandma is visiting  ')).toBe('Grandma is visiting');
+  });
+
+  it('falls back when the note is empty', () => {
+    expect(dayNotePhotoAlt('   ')).toBe('Picture for the day');
   });
 });

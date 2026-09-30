@@ -26,3 +26,12 @@
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
+
+.photo {
+  display: block;
+  max-width: 100%;
+  max-height: min(180px, 25vh);
+  margin-top: var(--space-1);
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}

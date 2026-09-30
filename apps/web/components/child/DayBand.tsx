@@ -2,6 +2,7 @@
 
 import { formatDayMonth, useDayNote } from '@/lib/data/dayPlans';
 import { weekdayName } from '@/components/schedule/todayModel';
+import { DayNotePhoto } from '@/components/schedule/DayNote';
 import styles from './DayBand.module.css';
 
 export interface DayBandProps {
@@ -25,6 +26,7 @@ export function DayBand({ profileId, isoDate, itemCount }: DayBandProps) {
         {weekdayName(isoDate)} {formatDayMonth(isoDate)}
       </p>
       {note?.note ? <p className={styles.note}>{note.note}</p> : null}
+      <DayNotePhoto photoId={note?.photo_id ?? null} text={note?.note ?? ''} />
       <p className={styles.summary}>
         {itemCount} thing{itemCount === 1 ? '' : 's'} today
       </p>

@@ -34,6 +34,7 @@ export const day_plans = pgTable(
     ...syncColumns(),
     date: date('date', { mode: 'string' }).notNull(),
     note: text('note').notNull().default(''),
+    photo_id: uuid('photo_id'),
   },
   (t) => [
     index('day_plans_profile_version_idx').on(t.profile_id, t.version),

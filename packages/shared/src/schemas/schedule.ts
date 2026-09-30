@@ -29,6 +29,8 @@ export type ScheduleItem = z.infer<typeof ScheduleItemSchema>;
 export const DayPlanSchema = SyncColumnsSchema.extend({
   date: isoDateSchema,
   note: z.string(),
+  /** One picture for the day (media id). Optional so older rows still parse. */
+  photo_id: uuidSchema.nullable().optional(),
 });
 export type DayPlan = z.infer<typeof DayPlanSchema>;
 

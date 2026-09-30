@@ -20,3 +20,9 @@
 .textarea::placeholder {
   color: var(--color-text-muted);
 }
+
+.photoRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
