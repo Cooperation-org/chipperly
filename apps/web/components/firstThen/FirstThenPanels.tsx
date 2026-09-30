@@ -25,6 +25,7 @@ import { Celebration } from '@/components/ui/Celebration';
 import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PanelVoice } from './PanelVoice';
 import { firstThenReadiness } from './firstThenReadiness';
 import { useSheet } from '@/components/ui/Sheet';
 import styles from './FirstThenPanels.module.css';
@@ -186,6 +187,7 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
           ) : (
             <EmptyPanel sentence="Choose an activity" onTap={caregiver ? openFirstPicker : undefined} />
           )}
+          {first ? <PanelVoice profileId={profileId} panel="first" mode={mode} label={`First, ${first.name}`} /> : null}
           {bothSet ? <CheckCircle checked={done} onChange={(next) => void handleToggleDone(next)} name="Done" size="lg" /> : null}
         </div>
 
@@ -202,6 +204,7 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
           ) : (
             <EmptyPanel sentence="Choose a reward" onTap={caregiver ? openThenPicker : undefined} />
           )}
+          {then ? <PanelVoice profileId={profileId} panel="then" mode={mode} label={`Then, ${then.name}`} /> : null}
           {canAsk ? <span className={styles.hint}>Tap to ask for it</span> : null}
           {!caregiver && asked ? <span className={styles.hint}>Asked. Someone&apos;s on the way.</span> : null}
         </div>

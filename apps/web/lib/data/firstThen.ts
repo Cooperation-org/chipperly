@@ -13,6 +13,7 @@ import { now } from '../clock';
 import { upsert } from '../sync/mutate';
 import { getCurrentUserId } from './_util';
 import { getActiveLocationId } from './locations';
+import { AUDIO_KEY, settingsAfterPick, settingsWithAudio, type Panel } from '../../components/firstThen/panelAudio';
 
 export interface FirstThen {
   first: Activity | undefined;
@@ -44,15 +45,33 @@ async function patchProfile(
 }
 
 export async function setFirst(profileId: string, activityId: string | null): Promise<void> {
-  await patchProfile(profileId, { first_then_activity_id: activityId });
+  const profile = await db.profiles.get(profileId);
+  const settings = settingsAfterPick(profile?.settings ?? {}, 'first', profile?.first_then_activity_id ?? null, activityId);
+  await patchProfile(profileId, { first_then_activity_id: activityId, settings });
 }
 
 export async function setThen(profileId: string, rewardId: string | null): Promise<void> {
-  await patchProfile(profileId, { first_then_reward_id: rewardId });
+  const profile = await db.profiles.get(profileId);
+  const settings = settingsAfterPick(profile?.settings ?? {}, 'then', profile?.first_then_reward_id ?? null, rewardId);
+  await patchProfile(profileId, { first_then_reward_id: rewardId, settings });
 }
 
 export async function clear(profileId: string): Promise<void> {
-  await patchProfile(profileId, { first_then_activity_id: null, first_then_reward_id: null });
+  const profile = await db.profiles.get(profileId);
+  const settings = settingsWithAudio(settingsWithAudio(profile?.settings ?? {}, 'first', null), 'then', null);
+  await patchProfile(profileId, { first_then_activity_id: null, first_then_reward_id: null, settings });
+}
+
+/** The recorded voice clip (media id) for a panel, or null. */
+export function useFirstThenAudio(profileId: string, panel: Panel): string | null {
+  return useLiveQuery(() => db.profiles.get(profileId), [profileId])?.settings[AUDIO_KEY[panel]] ?? null;
+}
+
+/** Caregiver-only: attach (or, with null, remove) a panel's recorded voice clip. */
+export async function setFirstThenAudio(profileId: string, panel: Panel, audioId: string | null): Promise<void> {
+  const profile = await db.profiles.get(profileId);
+  if (!profile) return;
+  await patchProfile(profileId, { settings: settingsWithAudio(profile.settings, panel, audioId) });
 }
 
 /** Caregiver-only: minutes of timer when the child asks for the reward, or null for none. */

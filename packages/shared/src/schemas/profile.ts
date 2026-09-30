@@ -66,6 +66,9 @@ export const ProfileSettingsSchema = z
     /** Minutes of timer that start when the child asks for the First-Then reward (a park visit, 30 min). Null/absent: no timer (default). */
     first_then_timer_minutes: z.number().int().positive().max(240).nullable().optional(),
     first_then_progress: FirstThenProgressSchema.nullable().optional(),
+    /** A caregiver's recorded voice clip (media kind 'audio') for the First / Then panel. Cleared when that panel's activity/reward changes. */
+    first_then_first_audio_id: uuidSchema.nullable().optional(),
+    first_then_then_audio_id: uuidSchema.nullable().optional(),
     /** Standing goal for the day ("stay on task") and its reward; owner's doc, My Day 9. Shown in the Chips tab's "by day" view. */
     day_goal_text: z.string().nullable().optional(),
     day_goal_reward_id: uuidSchema.nullable().optional(),

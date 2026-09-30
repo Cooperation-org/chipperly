@@ -1,0 +1,42 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.play {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:global([data-mode='child']) .play {
+  min-height: var(--tap-child);
+  min-width: var(--tap-child);
+}
+
+.play:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Filled state and the "Playing" label carry the meaning, so reduced motion (--motion: 0ms) loses nothing. */
+.play.playing {
+  background: var(--color-primary);
+  color: var(--color-primary-ink);
+  transition: background var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
+}
+
+.live {
+  color: var(--color-danger);
+  font-weight: 600;
+}
