@@ -59,6 +59,11 @@ RESEND_API_KEY             unset = mail is logged to stdout
 MAIL_FROM                  default "Chipperly <no-reply@chipperlyapp.com>"
 APP_ORIGIN                 public origin used in emails and share links, e.g. https://demos.linkedtrust.us
 LOG_LEVEL                  default info
+STRIPE_SECRET_KEY          unset = billing is OFF: every /billing/* route 404s and the web app hides
+STRIPE_WEBHOOK_SECRET      the upgrade path. BOTH must be set to enable it.
+STRIPE_PRICE_INDIVIDUAL STRIPE_PRICE_HOUSEHOLD STRIPE_PRICE_SUPPORTED STRIPE_PRICE_AGENCY
+                           One price id per account kind; a kind with none cannot check out
+                           (409 price_not_set). Amounts are read live from Stripe, never hardcoded.
 ```
 
 Web (`apps/web/.env.production` or shell, inlined at build):
@@ -93,7 +98,7 @@ schemas/auth.ts          RegisterBody, LoginBody, TokensResponse, ProvidersRespo
 schemas/sync.ts          SYNCED_TABLES, APPEND_ONLY_TABLES, SyncPullResponseSchema, SyncPushRequestSchema, SyncPushResponseSchema, MutationSchema
 schemas/share.ts         ShareViewSchema
 constants/emoji.ts       EMOJI_CHOICES (96 friendly emoji for the picker), AVATAR_EMOJI (24)
-constants/limits.ts      PROFILE_LIMITS { individual: 1, household: 8, agency: Infinity }, CHIP_MAX 10, COST_MAX 20
+constants/limits.ts      PROFILE_LIMITS { individual: 1, supported: 1, household: 8, agency: Infinity }, CHIP_MAX 10, COST_MAX 20
 constants/tables.ts      table name literal union `SyncedTable`
 helpers/recurrence.ts    occursOn(activity, isoDate, skips): boolean ; materializedId(activityId, isoDate): uuid (v5 namespace UUID fixed here)
 helpers/chips.ts         balanceFor(ledger, locationId | null): number
@@ -105,7 +110,8 @@ Field names are `snake_case` in every schema, every API payload, every Dexie row
 Sync columns (on every synced table): `id, profile_id, version, client_updated_at, updated_by, deleted_at`. `version` is `number` (server-assigned, 0 on unsynced local rows). `updated_by` is also server-assigned on every push, overwritten with the authenticated user's id regardless of what the client sends.
 
 SYNCED_TABLES, in dependency order (parents first):
-`locations, activities, activity_steps, recurrence_skips, rewards, schedule_items, step_completions, chip_ledger, social_stories, story_pages, attitude_checks, mood_events`.
+`locations, activities, activity_steps, recurrence_skips, rewards, schedule_items, step_completions, chip_ledger, social_stories, story_pages, attitude_checks, mood_events, day_plans, day_events`.
+The community tables are deliberately NOT here: community is online-only REST, never synced (see `docs/COMMUNITY.md`).
 Plus `profiles` is synced read-only through pull (profile row edits go through pull too; `first_then_activity_id`, `first_then_reward_id`, `name`, `avatar_*`, `settings` are pushed as an upsert on table `profiles`). APPEND_ONLY_TABLES: `recurrence_skips, step_completions, chip_ledger, attitude_checks, mood_events`.
 
 Child tables carry `profile_id` too (denormalized) so pull can filter by profile with one index: `activity_steps.profile_id`, `story_pages.profile_id`, `step_completions.profile_id`, `recurrence_skips.profile_id`.
@@ -139,6 +145,9 @@ routes/accounts.ts     /accounts/*, /invites/:token/accept (create/resend return
 routes/sync.ts         /sync/pull, /sync/push
 routes/media.ts        /media
 routes/share.ts        /share/:token
+routes/billing.ts      /billing, /billing/checkout, /billing/portal, /billing/webhook (all 404 unless Stripe is configured)
+routes/community.ts    /community/* (public feed + authenticated posting; see docs/COMMUNITY.md)
+lib/moderation.ts      canModerate(user): is_super_admin || is_support
 lib/tokens.ts          jose HS256 access JWT (15 min), refresh token random 32 bytes, sha256 stored
 lib/password.ts        scrypt hash/verify (Node crypto), pbkdf2 pin hash/verify
 lib/mailer.ts          sendMail({to, subject, text, html}) -> console or Resend via fetch

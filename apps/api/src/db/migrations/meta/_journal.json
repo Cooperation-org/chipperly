@@ -155,6 +155,48 @@
       "when": 1790200000000,
       "tag": "0021_story_page_audio",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790210000000,
+      "tag": "0022_activity_reward_locations",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790220000000,
+      "tag": "0023_day_plan_photo",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790230000000,
+      "tag": "0025_day_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790240000000,
+      "tag": "0026_community",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790250000000,
+      "tag": "0027_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790260000000,
+      "tag": "0028_reward_free_choice",
+      "breakpoints": true
     }
   ]
 }
