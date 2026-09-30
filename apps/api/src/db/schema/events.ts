@@ -1,4 +1,4 @@
-import { date, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { date, index, integer, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
 import type { EventRecurrence } from '@chipperly/shared/schemas/event';
 import { syncColumns } from './_sync.js';
 
@@ -26,4 +26,15 @@ export const day_events = pgTable(
     index('day_events_profile_version_idx').on(t.profile_id, t.version),
     index('day_events_profile_date_idx').on(t.profile_id, t.date),
   ],
+);
+
+/** The sent-marker for the morning event push: the caregiver's local "today" of the last push for this event. Not synced. */
+export const event_reminder_sent = pgTable(
+  'event_reminder_sent',
+  {
+    event_id: uuid('event_id').notNull(),
+    user_id: uuid('user_id').notNull(),
+    sent_for: date('sent_for', { mode: 'string' }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.event_id, t.user_id] })],
 );

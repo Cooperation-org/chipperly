@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useRef, useState, type ChangeEvent } from 'react';
-import type { DayEvent, EventRecurrence } from '@chipperly/shared/schemas/event';
+import { DEFAULT_EVENT_REMIND_HOUR, type DayEvent, type EventRecurrence } from '@chipperly/shared/schemas/event';
 import { deleteEvent, saveEvent } from '@/lib/data/events';
 import { useStories } from '@/lib/data/stories';
 import { pickAndStoreImage } from '@/lib/data/media';
@@ -51,6 +51,13 @@ const REMIND_ITEMS = [
   { value: '7', label: 'Each of 7 days before' },
 ];
 
+/** Sensible times for the morning push; a saved hour outside the list is added so it still shows. */
+const REMIND_HOURS = [6, 7, 8, 9, 12, 18];
+
+function hourLabel(h: number): string {
+  return new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' });
+}
+
 const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -72,6 +79,8 @@ export function EventSheet({ profileId, isoDate, event }: EventSheetProps) {
   const [note, setNote] = useState(event?.note ?? '');
   const [storyId, setStoryId] = useState(event?.story_id ?? null);
   const [remind, setRemind] = useState(String(event?.remind_days_before ?? 0));
+  const [remindHour, setRemindHour] = useState(String(event?.remind_hour ?? DEFAULT_EVENT_REMIND_HOUR));
+  const hourItems = [...new Set([...REMIND_HOURS, Number(remindHour)])].sort((a, b) => a - b).map((h) => ({ value: String(h), label: hourLabel(h) }));
 
   const story = stories.find((s) => s.id === storyId);
   const canSave = title.trim().length > 0 && date.length === 10;
@@ -120,6 +129,7 @@ export function EventSheet({ profileId, isoDate, event }: EventSheetProps) {
       recurrence: repeat === 'none' ? null : (repeat as EventRecurrence),
       recurrence_weekdays: repeat === 'weekly' && weekdays.length > 0 ? weekdays : null,
       remind_days_before: Number(remind),
+      remind_hour: Number(remindHour),
     });
     close();
   }
@@ -220,6 +230,11 @@ export function EventSheet({ profileId, isoDate, event }: EventSheetProps) {
       <Field label="Reminder" hint="A morning notification, shown on Today until you remove it.">
         <Segmented items={REMIND_ITEMS} value={remind} onChange={setRemind} label="Reminder" />
       </Field>
+      {remind === '0' ? null : (
+        <Field label="Reminder time">
+          <Segmented items={hourItems} value={remindHour} onChange={setRemindHour} label="Reminder time" />
+        </Field>
+      )}
 
       <BigButton variant="primary" fullWidth disabled={!canSave} onClick={() => void onSave()}>
         Save
