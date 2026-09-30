@@ -194,7 +194,10 @@ test.describe('today', () => {
     await expectNoOverflow(page, 'S19 edit reward');
     await snap(page, 's19-edit-reward');
 
-    await page.getByRole('button', { name: /^Cost/ }).click();
+    // "Cost" became "How to get it" on 30 Sept (#15): a reward is always available,
+    // costs chips, or unlocks after a task. The chip stepper belongs to the middle one.
+    await page.getByRole('button', { name: /^How to get it/ }).click();
+    await page.getByRole('radio', { name: 'Costs chips', exact: true }).click();
     await expect(page.getByRole('group', { name: 'Chip cost' })).toBeVisible();
 
     await page.goBack();

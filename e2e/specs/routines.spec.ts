@@ -113,7 +113,9 @@ test.describe('routines', () => {
     await page.locator('button[class*="ListRow_main"]', { hasText: 'Brush Teeth' }).click();
     await page.waitForURL('**/activity/edit/**');
 
-    await page.getByRole('button', { name: /^Repeat/ }).click();
+    // Repeat and time sit inside the collapsed "When" row since the 30 Sept
+    // reordering (#30: activities lead with when, rewards with where).
+    await page.getByRole('button', { name: /^When/ }).click();
     // Not getByLabel: Playwright's label-text match folds in the <select>'s
     // own rendered option text (e.g. "RepeatNone"), so an exact 'Repeat'
     // match never resolves. getByRole reads the accessible name off the

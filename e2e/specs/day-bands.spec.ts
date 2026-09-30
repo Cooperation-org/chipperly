@@ -74,13 +74,15 @@ test.describe('day bands', () => {
     await expect(page.getByRole('heading', { name: 'Benny' })).toBeVisible();
   });
 
-  test('S32: today note at the top band, tomorrow note and Wake Up at the bottom band', async () => {
+  test('S32: today note at the top band, tomorrow note at the bottom band', async () => {
     const today = page.getByRole('region', { name: 'Today' });
     await expect(today.getByText('Grandma is visiting after school.')).toBeVisible();
 
     const tomorrow = page.getByRole('region', { name: 'Tomorrow' });
     await expect(tomorrow.getByText('Swim class starts at 4.')).toBeVisible();
-    await expect(tomorrow.getByText('Wake Up', { exact: true })).toBeVisible();
+    // Owner, 30 Sept: "we don't need the entire tomorrow routine". The band carries the
+    // note and the day's events now, not a preview of tomorrow's tasks (#14).
+    await expect(tomorrow.getByText('Wake Up', { exact: true })).toHaveCount(0);
 
     await expectNoOverflow(page, 'S32 child today with day bands');
     await snap(page, 's32-child-bands');
