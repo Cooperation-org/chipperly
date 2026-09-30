@@ -57,9 +57,8 @@ export async function signUp(page: Page, opts: { name: string; email?: string })
 
   await page.waitForURL('**/onboarding/profile/');
   await page.getByLabel('Name', { exact: true }).fill('Benny');
-  // PicturePicker's emoji grid is open by default (ux-plan.md: "Emoji is
-  // default so nobody is blocked by a photo"), so no toggle click is needed
-  // here — clicking the "Emoji" button would instead *close* it.
+  // PicturePicker's emoji grid starts closed; open it, then pick the first emoji.
+  await page.getByRole('button', { name: 'Emoji', exact: true }).click();
   await page
     .getByRole('radiogroup', { name: 'Choose a picture' })
     .getByRole('radio')

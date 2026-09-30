@@ -83,6 +83,7 @@ test.describe('auth', () => {
     // PicturePicker's emoji grid is open by default (ux-plan.md: "Emoji is
     // default so nobody is blocked by a photo"), so no toggle click is needed
     // here — clicking the "Emoji" button would instead *close* it.
+    await page.getByRole('button', { name: 'Emoji', exact: true }).click();
     await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
@@ -165,6 +166,7 @@ test.describe('auth', () => {
     await page.waitForURL('**/onboarding/kind/');
     await page.getByRole('button', { name: /My family/ }).click();
     await page.getByLabel('Name', { exact: true }).fill('Mia');
+    await page.getByRole('button', { name: 'Emoji', exact: true }).click();
     await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Skip setup', exact: true }).click();

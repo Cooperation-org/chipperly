@@ -261,6 +261,7 @@ test.describe('starter plan wording and shape', () => {
     await page.getByRole('button', { name: /My family/ }).click();
     await page.waitForURL('**/onboarding/profile/');
     await page.getByLabel('Name', { exact: true }).fill('Mia');
+    await page.getByRole('button', { name: 'Emoji', exact: true }).click();
     await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
