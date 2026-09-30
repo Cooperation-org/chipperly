@@ -196,9 +196,11 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
           />
         </div>
       ) : null}
-      <p className={styles.message} role="status" aria-live="polite">
-        {pasting ? 'Waiting for permission...' : message}
-      </p>
+      {pasting || message ? (
+        <p className={styles.message} role="status">
+          {pasting ? 'Waiting for permission...' : message}
+        </p>
+      ) : null}
       {value.photo_id ? (
         <button type="button" className={styles.remove} onClick={() => onChange({ ...value, photo_id: null })}>
           Remove photo
