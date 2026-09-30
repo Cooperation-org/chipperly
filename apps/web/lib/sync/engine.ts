@@ -26,6 +26,9 @@ export interface SyncStatus {
   last_synced_at: number | null;
 }
 
+/** A big batch on a slow phone connection needs longer than the 20s a normal request gets. */
+const SYNC_TIMEOUT_MS = 60_000;
+
 const MAX_BACKOFF_MS = 5 * 60 * 1000;
 const DEBOUNCE_MS = 500;
 const POLL_MS = 60_000;
@@ -200,7 +203,7 @@ async function pullProfileNow(profileId: string): Promise<void> {
   while (hasMore) {
     const res = await api.get<SyncPullResponse>(
       `/sync/pull?profile_id=${encodeURIComponent(profileId)}&since=${cursor}`,
-      { schema: SyncPullResponseSchema },
+      { schema: SyncPullResponseSchema, timeoutMs: SYNC_TIMEOUT_MS },
     );
     await applyChanges(res.changes);
     cursor = res.version;
@@ -294,7 +297,7 @@ async function pushOutbox(): Promise<void> {
     const res = await api.post<SyncPushResponse>(
       '/sync/push',
       { profile_id: profileId, mutations },
-      { schema: SyncPushResponseSchema },
+      { schema: SyncPushResponseSchema, timeoutMs: SYNC_TIMEOUT_MS },
     );
 
     for (const id of res.applied) {
