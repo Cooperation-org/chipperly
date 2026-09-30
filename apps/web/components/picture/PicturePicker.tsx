@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { pickAndStoreImage } from '@/lib/data/media';
 import { toast } from '@/lib/toast';
 import { EmojiGrid } from './EmojiGrid';
+import { firstImageFile, isTextEntryTarget } from './clipboardImage';
 import styles from './PicturePicker.module.css';
 
 export interface PicturePickerValue {
@@ -23,13 +24,15 @@ export interface PicturePickerProps {
   defaultEmojiOpen?: boolean;
 }
 
-/** Emoji / photo / camera / paste, in that order, per the global picture pattern. */
+/** Emoji / photo / camera / paste, in that order (plus Ctrl+V and a search link), per the global picture pattern. */
 export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen = false }: PicturePickerProps) {
   // Collapsed everywhere (owner, 30 Sept): 96 cells buried whatever came after them,
   // so the grid opens on tapping Emoji. Emoji is still the default picture choice —
   // it never fails offline and asks for no permission — it just isn't shown unasked.
   const [emojiOpen, setEmojiOpen] = useState(defaultEmojiOpen);
-  const [pasteMessage, setPasteMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pasting, setPasting] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
@@ -56,10 +59,33 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
     try {
       const photo_id = await pickAndStoreImage(file);
       onChange({ emoji: value.emoji ?? null, photo_id });
+      setMessage('Picture added.');
     } catch {
+      setMessage(null);
       toast("Couldn't add that photo. Try again.");
     }
   }
+
+  // Ctrl+V / Cmd+V / long-press paste. The handler is re-made each render, so keep the
+  // latest in a ref and attach the document listener once.
+  const storeRef = useRef(storeFile);
+  useEffect(() => {
+    storeRef.current = storeFile;
+  });
+  useEffect(() => {
+    function onDocumentPaste(e: ClipboardEvent) {
+      // Hidden pickers (closed sheets, other tabs) must not swallow the paste.
+      if (!pickerRef.current || pickerRef.current.getClientRects().length === 0) return;
+      if (isTextEntryTarget(e.target as HTMLElement | null)) return;
+      const file = firstImageFile(e.clipboardData?.items);
+      if (!file) return;
+      e.preventDefault();
+      setMessage(null);
+      void storeRef.current(file);
+    }
+    document.addEventListener('paste', onDocumentPaste);
+    return () => document.removeEventListener('paste', onDocumentPaste);
+  }, []);
 
   async function onFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -68,11 +94,12 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
   }
 
   async function onPaste() {
-    setPasteMessage(null);
+    setMessage(null);
     if (!navigator.clipboard?.read) {
-      setPasteMessage("Paste isn't supported on this device.");
+      setMessage("This browser can't paste images here. Save the image and use Photo instead.");
       return;
     }
+    setPasting(true);
     try {
       const items = await navigator.clipboard.read();
       for (const item of items) {
@@ -82,14 +109,21 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
           return;
         }
       }
-      setPasteMessage('No image on the clipboard.');
+      setMessage("There's no image on the clipboard. Copy an image first, then tap Paste.");
     } catch {
-      setPasteMessage("Couldn't read the clipboard.");
+      setMessage(
+        'Copy an image first, then tap Paste. If your browser asks, choose Allow. You can also press Ctrl+V (Cmd+V on Mac).',
+      );
+    } finally {
+      setPasting(false);
     }
   }
 
+  const query = name?.trim();
+  const searchUrl = `https://duckduckgo.com/?${query ? `q=${encodeURIComponent(query)}&` : ''}iax=images&ia=images`;
+
   return (
-    <div className={styles.picker}>
+    <div ref={pickerRef} className={styles.picker}>
       <Picture emoji={value.emoji} photo_id={value.photo_id} name={name ?? 'Picture'} size="grid" />
       <div className={styles.row}>
         <button
@@ -103,7 +137,7 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
           aria-expanded={emojiOpen}
           aria-controls={emojiOpen ? gridId : undefined}
         >
-          <Icon name="image" size={20} />
+          <Icon name="smiley" size={20} />
           Emoji
         </button>
         <button type="button" className={styles.choice} onClick={() => photoInputRef.current?.click()}>
@@ -114,11 +148,15 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
           <Icon name="camera" size={20} />
           Camera
         </button>
-        <button type="button" className={styles.choice} onClick={onPaste}>
-          <Icon name="image" size={20} />
+        <button type="button" className={styles.choice} onClick={onPaste} disabled={pasting}>
+          <Icon name="clipboard" size={20} />
           Paste
         </button>
       </div>
+      <p className={styles.hint}>Tip: copy an image from any website, then tap Paste.</p>
+      <a className={styles.findLink} href={searchUrl} target="_blank" rel="noopener noreferrer">
+        Find an image online
+      </a>
       <input
         ref={photoInputRef}
         type="file"
@@ -149,7 +187,9 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
           />
         </div>
       ) : null}
-      {pasteMessage ? <p className={styles.message}>{pasteMessage}</p> : null}
+      <p className={styles.message} role="status" aria-live="polite">
+        {pasting ? 'Waiting for permission...' : message}
+      </p>
       {value.photo_id ? (
         <button type="button" className={styles.remove} onClick={() => onChange({ ...value, photo_id: null })}>
           Remove photo
