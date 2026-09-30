@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Segmented } from '@/components/ui/Segmented';
-import { LoadState, PostCard } from './PostCard';
+import { LoadState, PostCard, useSignedIn } from './PostCard';
 import styles from './CommunityFeed.module.css';
 
 const FILTERS: { value: 'all' | PostKind; label: string }[] = [
@@ -26,17 +26,26 @@ function toFilter(value: string): 'all' | PostKind {
 export function CommunityFeed() {
   const [filter, setFilter] = useState<'all' | PostKind>('all');
   const feed = useFeed(filter === 'all' ? undefined : filter);
-  const selling = useSellerStatus().status;
+  const signedIn = useSignedIn();
+  const selling = useSellerStatus(signedIn).status;
 
   return (
     <div className={styles.screen}>
       <PageHeader title="Community" compact />
       <div className={styles.toolbar}>
         <Segmented items={FILTERS} value={filter} onChange={(v) => setFilter(toFilter(v))} label="Show" />
-        <Link href="/community/new/" className={styles.newLink}>
-          <Icon name="plus" size={20} /> New post
-        </Link>
-        {selling ? (
+        {signedIn ? (
+          <Link href="/community/new/" className={styles.newLink}>
+            <Icon name="plus" size={20} /> New post
+          </Link>
+        ) : (
+          // /community/new/ sits behind RequireSession, so pointing a signed-out
+          // reader at it would just bounce them. Send them to sign-in knowingly.
+          <Link href="/" className={styles.newLink}>
+            Sign in to share
+          </Link>
+        )}
+        {signedIn && selling ? (
           <Link href="/community/selling/" className={styles.newLink}>
             Selling
           </Link>

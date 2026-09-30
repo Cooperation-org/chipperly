@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useMediaUrl } from '@/lib/data/media';
 import { canDelete, deletePost, formatPrice, toCard, type CommunityPost, type LoadStatus } from '@/lib/data/community';
 import { toast } from '@/lib/toast';
+import { useSession } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
@@ -40,8 +41,32 @@ export function PostImage({ mediaId, alt }: { mediaId: string; alt: string }) {
 }
 
 /** Opens the ReportSheet for one post or comment. */
+/** Anyone may READ the community; writing to it needs an account. */
+export function useSignedIn(): boolean {
+  return useSession().status === 'signed_in';
+}
+
+/** What a signed-out reader sees where a signed-in one gets a control. */
+export function SignInToJoin({ what }: { what: string }) {
+  return (
+    <p className={styles.signIn}>
+      <Link href="/">Sign in</Link> to {what}.
+    </p>
+  );
+}
+
 export function ReportButton({ targetType, targetId }: { targetType: 'post' | 'comment'; targetId: string }) {
   const sheet = useSheet();
+  const signedIn = useSignedIn();
+  // Reporting needs an account (the endpoint is rate-limited per user), so a
+  // signed-out reader gets the way in rather than a button that would 401.
+  if (!signedIn) {
+    return (
+      <Link className={styles.reportLink} href="/">
+        Sign in to report
+      </Link>
+    );
+  }
   return (
     <Button
       variant="ghost"

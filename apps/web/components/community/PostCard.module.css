@@ -98,3 +98,18 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+
+/* Where a signed-out reader gets a way in instead of a control that would 401. */
+.signIn,
+.reportLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.signIn a,
+.reportLink {
+  color: var(--color-primary);
+}

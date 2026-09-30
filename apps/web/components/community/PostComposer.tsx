@@ -8,7 +8,6 @@ import { db } from '@/lib/db/db';
 import {
   createPost,
   isNicknameRequired,
-  isOffline,
   normalizeCurrency,
   routineToPayload,
   sellingErrorMessage,
@@ -20,7 +19,7 @@ import {
 import { useStory } from '@/lib/data/stories';
 import { useActivity } from '@/lib/data/activities';
 import { pickAndStoreImage, useMediaUrl } from '@/lib/data/media';
-import { useSyncStatus } from '@/lib/sync/engine';
+import { useOnline } from '@/lib/device/online';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
@@ -56,7 +55,7 @@ export function PostComposer() {
   const router = useRouter();
   const params = useSearchParams();
   const requirePin = useCommunityGate();
-  const offline = isOffline(useSyncStatus().state);
+  const offline = !useOnline();
   const { profile } = useActiveProfile();
   const bodyId = useId();
 

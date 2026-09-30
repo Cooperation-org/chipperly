@@ -4,7 +4,10 @@ import { PostDetail } from '@/components/community/PostDetail';
 
 export const metadata: Metadata = {
   title: 'Community post',
-  robots: { index: false, follow: false },
+  // Readable by anyone, but not indexable: this is a static export, so every
+  // post shares one shell and the id arrives as ?id=. Indexing it would index
+  // an empty page. The feed at /community/ is the discoverable entry point.
+  robots: { index: false, follow: true },
 };
 
 export default function CommunityPostPage() {

@@ -1,24 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  appendPage,
-  canDelete,
-  canEdit,
-  commentsPath,
-  feedPath,
-  mergeById,
-  normalizeCurrency,
-  omitNull,
-  sellingErrorMessage,
-  toMinorUnits,
-  isMine,
-  isNicknameRequired,
-  isOffline,
-  parsePayload,
-  payloadToActivityInput,
-  storyToPayload,
-  toCard,
-  type CommunityPost,
-} from './community';
+import { appendPage, canDelete, canEdit, commentsPath, feedPath, mergeById, normalizeCurrency, omitNull, sellingErrorMessage, toMinorUnits, isMine, isNicknameRequired, parsePayload, payloadToActivityInput, storyToPayload, toCard, type CommunityPost } from './community';
 import { ApiError } from '../api/client';
 
 function post(over: Record<string, unknown> = {}): CommunityPost {
@@ -79,11 +60,6 @@ describe('toCard', () => {
 });
 
 describe('offline and errors', () => {
-  it('only the offline sync state counts as offline', () => {
-    expect(isOffline('offline')).toBe(true);
-    expect(isOffline('synced')).toBe(false);
-    expect(isOffline('error')).toBe(false);
-  });
   it('recognises the nickname_required 409', () => {
     expect(isNicknameRequired(new ApiError(409, 'nickname_required'))).toBe(true);
     expect(isNicknameRequired(new ApiError(409, 'other'))).toBe(false);

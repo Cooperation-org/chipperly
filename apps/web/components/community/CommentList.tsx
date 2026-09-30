@@ -7,7 +7,7 @@ import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
-import { Byline, LoadState, ReportButton } from './PostCard';
+import { Byline, LoadState, ReportButton, SignInToJoin, useSignedIn } from './PostCard';
 import styles from './CommentList.module.css';
 
 const COMMENT_MAX = 1000;
@@ -17,6 +17,7 @@ export function CommentList({ postId }: { postId: string }) {
   const { status, comments, reload } = list;
   const { profile } = useActiveProfile();
   const fieldId = useId();
+  const signedIn = useSignedIn();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [needsNickname, setNeedsNickname] = useState(false);
@@ -85,7 +86,9 @@ export function CommentList({ postId }: { postId: string }) {
           </Button>
         ) : null}
       </LoadState>
-      {status === 'offline' ? null : (
+      {status === 'offline' ? null : !signedIn ? (
+        <SignInToJoin what="comment" />
+      ) : (
         <form
           className={styles.form}
           onSubmit={(e) => {

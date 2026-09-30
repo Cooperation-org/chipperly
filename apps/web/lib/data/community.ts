@@ -13,7 +13,7 @@ import {
   type SellerStatus,
 } from '@chipperly/shared/schemas/community';
 import { api, ApiError } from '../api/client';
-import { useSyncStatus, type SyncState } from '../sync/engine';
+import { useOnline } from '../device/online';
 import { uploadPending } from './media';
 import type { SaveActivityInput } from './activities';
 import type { SaveStoryInput } from './stories';
@@ -87,10 +87,6 @@ export function formatPrice(price: Price): string {
 export function normalizeCurrency(text: string): string | null {
   const c = text.trim().toLowerCase();
   return /^[a-z]{3}$/.test(c) ? c : null;
-}
-
-export function isOffline(state: SyncState): boolean {
-  return state === 'offline';
 }
 
 export function isNicknameRequired(err: unknown): boolean {
@@ -289,7 +285,7 @@ async function fetchFeed(kind: PostKind | undefined, cursor: string | null): Pro
  * React (and the lint rule) rightly object to it.
  */
 function useOnlineLoad<T>(load: () => Promise<T>, key: string) {
-  const offline = isOffline(useSyncStatus().state);
+  const offline = !useOnline();
   const [nonce, setNonce] = useState(0);
   const [result, setResult] = useState<{ key: string; status: 'ready' | 'error'; data: T | null } | null>(null);
   const fullKey = `${key}#${nonce}`;
@@ -487,17 +483,22 @@ export function editPost(id: string, input: { title: string | null; body: string
 // ---- selling (all of it absent unless the server has Stripe) ----
 
 /** GET /community/selling. Null while loading and for good when selling is off (404) or nobody is signed in. */
-export function useSellerStatus(): { status: SellerStatus | null; reload: () => void } {
+/**
+ * `enabled` is false for a signed-out reader: the feed is public, and asking an
+ * authenticated route on every anonymous view only logs a failed request.
+ */
+export function useSellerStatus(enabled = true): { status: SellerStatus | null; reload: () => void } {
   const [nonce, setNonce] = useState(0);
   const [status, setStatus] = useState<SellerStatus | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     const ctl = new AbortController();
     api
       .get<SellerStatus>('/community/selling', { schema: SellerStatusSchema, signal: ctl.signal })
       .then(setStatus)
       .catch(() => undefined);
     return () => ctl.abort();
-  }, [nonce]);
+  }, [nonce, enabled]);
   return { status, reload: useCallback(() => setNonce((n) => n + 1), []) };
 }
 
