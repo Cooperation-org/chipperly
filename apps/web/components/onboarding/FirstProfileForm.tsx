@@ -9,6 +9,8 @@ import { api } from '@/lib/api/client';
 import { setKv, useKv } from '@/lib/db/kv';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
+import { saveGuidedSetup, type GuidedPicks } from '@/lib/profile/guidedSetup';
+import { toast } from '@/lib/toast';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -42,7 +44,7 @@ export function FirstProfileForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function create(setup: SetupAnswers | null): Promise<void> {
+  async function create(setup: SetupAnswers | null, picks?: GuidedPicks): Promise<void> {
     if (!accountId) {
       setError('Something went wrong. Start over.');
       return;
@@ -60,6 +62,8 @@ export function FirstProfileForm() {
       await setKv(SETUP_ANSWERS_KEY, setup);
       await refreshMe();
       setActiveProfileId(profile.id);
+      // The server made no locations or rewards for guided answers; they are created here, with their photos.
+      if (picks) await saveGuidedSetup(profile.id, picks).catch(() => toast("Couldn't save the places and rewards. Add them in settings."));
       router.push('/onboarding/ready/');
     } catch {
       setError("Couldn't save that. Try again.");
@@ -98,7 +102,7 @@ export function FirstProfileForm() {
           name={selfMode ? (user?.display_name ?? 'you') : name}
           selfMode={selfMode}
           busy={loading}
-          onDone={(answers) => void create(answers)}
+          onDone={(answers, picks) => void create(answers, picks)}
           onBack={selfMode ? undefined : () => setPhase('details')}
         />
         {errorLine}

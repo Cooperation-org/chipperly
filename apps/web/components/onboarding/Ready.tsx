@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import type { SetupAnswers } from '@chipperly/shared/schemas/profile';
 import { buildSeed } from '@chipperly/shared/constants/setup';
 import { useActiveProfile } from '@/lib/profile/active';
+import { useLocations } from '@/lib/data/locations';
+import { useRewards } from '@/lib/data/rewards';
 import { useKv } from '@/lib/db/kv';
 import { startSync } from '@/lib/sync/engine';
 import { enterParentMode } from '@/lib/device/settings';
@@ -22,6 +24,12 @@ export function Ready() {
   const plan = answers ? buildSeed(answers) : null;
   const routines = plan?.activities.filter((a) => a.steps && a.steps.length > 0) ?? [];
   const repeating = plan?.activities.filter((a) => a.recurrence).length ?? 0;
+  // Guided setup made its locations and rewards on this device (the plan has none), so read them back.
+  const guided = answers?.guided === true;
+  const places = useLocations(guided ? (profile?.id ?? '') : '');
+  const rewards = useRewards(guided ? (profile?.id ?? '') : '');
+  const freeChoices = rewards.filter((r) => r.always_available);
+  const earned = rewards.filter((r) => !r.always_available);
 
   // The caregiver just finished setting this profile up and is almost
   // certainly about to keep editing (more routines, rewards) -- land them
@@ -57,9 +65,23 @@ export function Ready() {
             <li>
               <span aria-hidden="true">📅</span> {repeating} repeating activities fill each day
             </li>
-            <li>
-              <span aria-hidden="true">⭐</span> {plan.rewards.length} rewards · {plan.locations.map((l) => l.name).join(', ')}
-            </li>
+            {guided ? (
+              <>
+                <li>
+                  <span aria-hidden="true">📍</span> {places.map((l) => l.name).join(', ')}
+                </li>
+                <li>
+                  <span aria-hidden="true">🎈</span> Free choices: {freeChoices.length > 0 ? freeChoices.map((r) => r.name).join(', ') : 'none yet'}
+                </li>
+                <li>
+                  <span aria-hidden="true">⭐</span> Earned with chips: {earned.length > 0 ? earned.map((r) => `${r.name} (${r.chip_cost})`).join(', ') : 'none yet'}
+                </li>
+              </>
+            ) : (
+              <li>
+                <span aria-hidden="true">⭐</span> {plan.rewards.length} rewards · {plan.locations.map((l) => l.name).join(', ')}
+              </li>
+            )}
           </ul>
           <p className={styles.text}>Change anything later.</p>
         </>
