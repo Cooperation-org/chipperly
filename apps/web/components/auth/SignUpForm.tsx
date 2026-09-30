@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import type { InviteDetails } from '@chipperly/shared/schemas/account';
 import { signUp, useSession } from '@/lib/auth/session';
-import { ApiError } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { GoogleButton } from './GoogleButton';
@@ -42,6 +43,20 @@ export function SignUpForm() {
 
   useEffect(() => {
     void getAuthProviders().then((providers) => setInviteCodeRequired(providers.invite_code_required));
+  }, []);
+
+  // An invitee's email is already known from the invite.
+  useEffect(() => {
+    void (async () => {
+      const token = await getPendingInviteToken();
+      if (!token) return;
+      try {
+        const invite = await api.get<InviteDetails>(`/invites/${encodeURIComponent(token)}`);
+        setEmail((cur) => cur || invite.email);
+      } catch {
+        // ponytail: a bad token just leaves the field empty.
+      }
+    })();
   }, []);
 
   if (status === 'signed_in') return null;

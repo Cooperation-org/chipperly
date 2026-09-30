@@ -122,6 +122,11 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
             { value: 'member', label: 'Member' },
           ]}
         />
+        <p className={styles.hint}>
+          {role === 'admin'
+            ? 'Admin: manages everything, including the team.'
+            : 'Member: sees and checks off the schedule for the chosen profiles.'}
+        </p>
       </div>
       {role === 'member' ? (
         <div>
