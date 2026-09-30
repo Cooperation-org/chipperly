@@ -81,7 +81,7 @@ export function SignUpForm() {
         </div>
       ) : null}
       <form className={styles.form} onSubmit={(e) => void handleSubmit(e)}>
-        <TextField label="Name" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} />
+        <TextField label="Name" hint="First name is fine." autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} />
         <TextField
           label="Email"
           type="email"
