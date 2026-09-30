@@ -33,6 +33,13 @@
   color: var(--color-text);
 }
 
+.toggleHint {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 .sectionTitle {
   font-size: var(--text-sm);
   font-weight: 600;

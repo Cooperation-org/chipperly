@@ -21,6 +21,8 @@ import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { Stepper } from '@/components/ui/Stepper';
 import { Celebration } from '@/components/ui/Celebration';
+import { useCelebrate } from '@/components/ui/CelebrationBurst';
+import { useSavedLockOptions } from '@/lib/device/settings';
 import { useSheet } from '@/components/ui/Sheet';
 import { FreeTimeSheet } from './FreeTimeSheet';
 import { RoutineGoals } from './RoutineGoals';
@@ -75,6 +77,7 @@ export function ChipsScreen() {
   const ledger = useLedger(profileId, locationId);
   const tones = profile?.settings.chips_by_attitude ? chipTones(ledger, locationId, working.filled) : undefined;
   const [celebrateMessage, setCelebrateMessage] = useState<string | null>(null);
+  const { celebrate, layer: celebrationLayer } = useCelebrate(useSavedLockOptions(profileId).celebrations);
 
   if (!profile) return null;
 
@@ -143,6 +146,7 @@ export function ChipsScreen() {
     // redeem() may remove more than reward.chip_cost (reset mode empties the
     // whole board), so undo compensates with what it actually returns.
     const removed = await redeem(profileId, location.id, reward);
+    celebrate();
     setCelebrateMessage(`You got it, ${reward.name}! ${reward.emoji ?? '🎉'}`);
     toast(`Redeemed ${reward.name}`, {
       undo: () => {
@@ -154,6 +158,7 @@ export function ChipsScreen() {
 
   return (
     <div className={styles.screen}>
+      {celebrationLayer}
       <Segmented label="View" items={VIEW_ITEMS} value={view} onChange={(v) => void setKv(chipsViewKey(profileId), v as ChipsView)} />
 
       {view === 'routine' ? <RoutineGoals profileId={profileId} /> : null}

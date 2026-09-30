@@ -110,6 +110,8 @@ test.describe('child mode', () => {
 
     await page.getByRole('checkbox', { name: /^Wake Up,/ }).click();
     await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toHaveAttribute('aria-checked', 'true');
+    // Celebrations are on by default: a short, click-through layer of stars (celebrations.spec.ts covers off).
+    await expect(page.getByTestId('celebration')).toBeVisible();
 
     await expect(chipStrip).toHaveAttribute('aria-label', /^1 of \d+ chips/);
 

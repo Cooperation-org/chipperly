@@ -34,6 +34,8 @@ export interface LockOptions {
   show_visual_schedule: boolean;
   /** Off by default; on replaces the whole locked view with just First-Then, full-page -- no task list, no other options underneath. */
   first_then_only: boolean;
+  /** On by default; on gives a short burst of stars and a soft sound when a chip is earned or a reward is redeemed. */
+  celebrations: boolean;
 }
 
 export interface LockState {
@@ -55,6 +57,7 @@ export const DEFAULT_LOCK_OPTIONS: LockOptions = {
   show_step_timers: false,
   show_visual_schedule: true,
   first_then_only: false,
+  celebrations: true,
 };
 const DEFAULT_LOCK_STATE: LockState = { locked_profile_id: null, options: DEFAULT_LOCK_OPTIONS };
 

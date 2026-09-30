@@ -38,6 +38,8 @@ import { Button } from '@/components/ui/Button';
 import { ChipStrip } from '@/components/ui/ChipStrip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Celebration } from '@/components/ui/Celebration';
+import { useCelebrate } from '@/components/ui/CelebrationBurst';
+import { useSavedLockOptions } from '@/lib/device/settings';
 import { useSheet } from '@/components/ui/Sheet';
 import { speak } from '@/lib/speech';
 import { toast } from '@/lib/toast';
@@ -60,6 +62,8 @@ export function TodayScreen() {
 
   const profileId = profile?.id ?? '';
   const userId = user?.id ?? '';
+  const celebrationsOn = useSavedLockOptions(profileId).celebrations;
+  const { celebrate, layer: celebrationLayer } = useCelebrate(celebrationsOn);
 
   const dayItems = useDayItems(profileId, isoDate);
   const moodLevel = useMoodLevel(profileId, isoDate);
@@ -194,6 +198,7 @@ export function TodayScreen() {
   async function onToggleComplete(day: DayItem, next: boolean): Promise<void> {
     await setCompleted(day.item.id, next, userId);
     if (next) {
+      if (day.activity.chip_value > 0) celebrate();
       toast(`Done: ${day.activity.name}`, {
         undo: () => {
           void setCompleted(day.item.id, false, userId);
@@ -430,6 +435,7 @@ export function TodayScreen() {
         </div>
       )}
 
+      {celebrationLayer}
       {celebrating ? (
         <div className={styles.celebrationWrap}>
           <Celebration kind="all_done" onDone={() => setCelebrating(false)} />

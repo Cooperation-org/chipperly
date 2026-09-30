@@ -1,0 +1,56 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  fill: var(--color-accent);
+  opacity: 0;
+  animation: fly 1s var(--ease) forwards;
+  animation-delay: calc(var(--i) * 20ms);
+}
+
+.star:nth-child(3n) {
+  fill: var(--color-primary);
+}
+
+@keyframes fly {
+  0% {
+    opacity: 1;
+    transform: rotate(calc(var(--i) * 36deg)) translateY(-10px) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--i) * 36deg + 60deg)) translateY(-150px) scale(1.1);
+  }
+}
+
+/* Reduced motion: a soft edge glow that only fades, nothing travels. */
+.glow {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 60px 10px var(--color-accent);
+  opacity: 0;
+  animation: glow 0.6s ease-out forwards;
+}
+
+@keyframes glow {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
