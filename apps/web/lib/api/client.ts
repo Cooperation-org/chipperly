@@ -3,6 +3,7 @@ import { TokensResponseSchema, type TokensResponse } from '@chipperly/shared/sch
 import { apiBase } from './base';
 import { getKv, setKv } from '../db/kv';
 import { setServerDate } from '../clock';
+import { GUEST_MESSAGE, isGuestMode } from '../auth/guest';
 
 const TOKENS_KEY = 'auth_tokens';
 const ACTIVE_ACCOUNT_KEY = 'active_account_id';
@@ -130,6 +131,9 @@ async function request<T>(
   opts: ApiOptions | undefined,
   isRetry: boolean,
 ): Promise<T> {
+  // A guest's data never leaves the device. 403, not 0 or 5xx: callers that queue a retry on
+  // offline/server errors (reward requests, First-Then progress) drop it instead.
+  if (isGuestMode()) throw new ApiError(403, 'guest', GUEST_MESSAGE);
   const tokens = await getTokens();
   const accountId = opts?.accountId ?? (await getKv<string>(ACTIVE_ACCOUNT_KEY));
   const lockState = await getKv<LockStateShape>(LOCK_KEY);

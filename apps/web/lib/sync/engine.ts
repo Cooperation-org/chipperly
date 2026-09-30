@@ -10,6 +10,7 @@ import { api, ApiError } from '../api/client';
 import { now } from '../clock';
 import { uploadPending } from '../media/upload';
 import { clearSession } from '../auth/session';
+import { isGuestMode } from '../auth/guest';
 import { applyPulledRow } from './applyPulledRow';
 import { mutationProfileId } from './mutationProfileId';
 import { flushRewardRequests } from '../data/rewardRequest';
@@ -76,7 +77,7 @@ function handleVisibility(): void {
 }
 
 export function startSync(): void {
-  if (running) return;
+  if (running || isGuestMode()) return;
   running = true;
   backoffMs = 0;
   setStatus({ state: typeof navigator !== 'undefined' && navigator.onLine ? 'pending' : 'offline' });
