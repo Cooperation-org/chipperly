@@ -3,6 +3,37 @@ import { AccountKind } from './account.js';
 import { msTimestampSchema, uuidSchema } from './common.js';
 
 export const TRIAL_DAYS = 21;
+/** After a trial or paid period ends, everything keeps working this long before caregiver-side creation pauses. */
+export const GRACE_DAYS = 7;
+
+/**
+ * Where an account stands. Only `lapsed` pauses anything: creating new
+ * caregiver content (routines, rewards, stories, children, invites, uploads).
+ * Reading, exporting, editing, completing, the child view and offline use never pause.
+ * `open` = billing is off, or this kind of account cannot check out: nothing ever pauses.
+ */
+export const AccessState = z.enum(['open', 'subscribed', 'trial', 'grace', 'lapsed']);
+export type AccessState = z.infer<typeof AccessState>;
+
+export const AccessSchema = z.object({
+  state: AccessState,
+  /** Trial end (trial/grace) or the end of the last paid period (grace/lapsed); null otherwise. */
+  ended_at: msTimestampSchema.nullable(),
+  /** When creation pauses if nothing changes (trial/grace); the day it paused (lapsed). */
+  pauses_at: msTimestampSchema.nullable(),
+  write_paused: z.boolean(),
+});
+export type Access = z.infer<typeof AccessSchema>;
+
+/** The caregiver's early access discount as it applies to the plan they would buy. */
+export const BillingDiscountSchema = z.object({
+  code: z.string(),
+  percent_off: z.number().int().min(1).max(100),
+  applies_to: z.enum(['annual', 'any']),
+  /** False when the offer is annual-only and this account's price is not yearly. */
+  applicable: z.boolean(),
+});
+export type BillingDiscount = z.infer<typeof BillingDiscountSchema>;
 
 /** "Remind me to check this child's routines": every 1 to 30 days (0 = off), at this local hour. */
 export const ReviewReminderSchema = z.object({
@@ -115,6 +146,8 @@ export const BillingStatusSchema = z.object({
     .nullable(),
   /** Only an account admin can start checkout or open the portal. */
   can_manage: z.boolean(),
+  access: AccessSchema,
+  discount: BillingDiscountSchema.nullable(),
 });
 export type BillingStatus = z.infer<typeof BillingStatusSchema>;
 

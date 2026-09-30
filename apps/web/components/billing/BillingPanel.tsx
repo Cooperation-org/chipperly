@@ -1,34 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { BillingRedirectSchema, BillingStatusSchema, type BillingStatus } from '@chipperly/shared/schemas/billing';
-import { ApiError, api } from '@/lib/api/client';
+import { useState } from 'react';
+import { BillingRedirectSchema } from '@chipperly/shared/schemas/billing';
+import { api } from '@/lib/api/client';
+import { useBillingStatus } from '@/lib/billing/useBillingStatus';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
-import { isLive, priceLabel, subscriptionLine } from './billingCopy';
+import { accessNotice, discountLine, isLive, planLine, priceLabel } from './billingCopy';
 import styles from './BillingPanel.module.css';
 
 /**
- * Subscription card. Renders nothing when the server has no Stripe keys
- * (GET /billing 404s), so the upgrade path does not exist until billing is on.
+ * Subscription card: current plan, renewal or trial end, the early access
+ * discount, the manage link, and the plain-words explanation when new things
+ * are paused. Renders nothing when the server has no Stripe keys (GET /billing 404s).
  */
 export function BillingPanel() {
-  const [status, setStatus] = useState<BillingStatus | null>(null);
+  const status = useBillingStatus(() => toast('Could not load billing'));
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const ctl = new AbortController();
-    api
-      .get<BillingStatus>('/billing', { schema: BillingStatusSchema, signal: ctl.signal })
-      .then(setStatus)
-      .catch((err: unknown) => {
-        if (!(err instanceof ApiError && err.status === 404) && !ctl.signal.aborted) toast('Could not load billing');
-      });
-    return () => ctl.abort();
-  }, []);
 
   if (!status) return null;
   const sub = status.subscription;
+  const notice = accessNotice(status.access, status.can_manage);
 
   async function go(path: '/billing/checkout' | '/billing/portal'): Promise<void> {
     setBusy(true);
@@ -43,17 +35,24 @@ export function BillingPanel() {
 
   return (
     <section className={styles.card} aria-label="Subscription">
-      {sub ? <p>{subscriptionLine(sub)}</p> : <p>You are on the free trial.</p>}
+      <p>{planLine(status)}</p>
+      {notice && (
+        <div className={notice.tone === 'paused' ? styles.notice : styles.muted} role="status">
+          <strong>{notice.title}</strong>
+          <p>{notice.body}</p>
+        </div>
+      )}
+      {status.discount && <p className={styles.muted}>{discountLine(status.discount)}</p>}
       {!isLive(sub) && status.price && <p className={styles.muted}>{priceLabel(status.price)}</p>}
       {!status.can_manage && <p className={styles.muted}>Only an account admin can change the subscription.</p>}
       {status.can_manage && sub && (
         <Button variant="secondary" loading={busy} onClick={() => void go('/billing/portal')}>
-          Manage subscription
+          Manage billing
         </Button>
       )}
       {status.can_manage && !isLive(sub) && status.checkout_available && (
         <Button loading={busy} onClick={() => void go('/billing/checkout')}>
-          Upgrade
+          Subscribe
         </Button>
       )}
     </section>

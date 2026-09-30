@@ -7,7 +7,17 @@ import { account_members, accounts, users } from '../db/schema/accounts.js';
 import { subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
 import { linkBase } from '../lib/links.js';
-import { applyStripeEvent, parseStripeEvent, priceIdForKind, stripeRequest, verifyStripeSignature } from '../lib/stripe.js';
+import {
+  applyStripeEvent,
+  discountApplies,
+  ensureCoupon,
+  loadPersonalDiscount,
+  parseStripeEvent,
+  priceIdForKind,
+  stripeRequest,
+  verifyStripeSignature,
+} from '../lib/stripe.js';
+import { accountAccess } from '../lib/trial.js';
 import { requireAccount } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -73,6 +83,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
         request.log.warn({ err }, 'could not read the Stripe price');
       }
     }
+    const held = await loadPersonalDiscount(userId);
     return {
       kind,
       checkout_available: Boolean(priceId),
@@ -81,6 +92,8 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
         ? { status: sub.status, current_period_end: sub.current_period_end, cancel_at_period_end: sub.cancel_at_period_end }
         : null,
       can_manage: isAdmin,
+      access: await accountAccess(accountId),
+      discount: held ? { ...held, applicable: discountApplies(held, price?.interval ?? null) } : null,
     };
   });
 
@@ -93,6 +106,14 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     if (!priceId) throw new AppError(409, 'price_not_set', 'No price is set for this kind of account yet');
     if (sub && LIVE_STATES.has(sub.status)) throw new AppError(409, 'already_subscribed', 'This account already has a subscription');
 
+    // The early-access discount rides along on a first subscription only, and
+    // only when its plan restriction fits the price being bought. A Stripe
+    // failure here fails the checkout (the person can retry) instead of
+    // silently charging full price to someone who was promised a discount.
+    let coupon: string | undefined;
+    const held = sub ? null : await loadPersonalDiscount(userId);
+    if (held && discountApplies(held, (await readPrice(priceId))?.interval ?? null)) coupon = await ensureCoupon(held.percent_off);
+
     const back = `${linkBase(request)}/settings/billing/`;
     const { url } = await stripeRequest('POST', '/checkout/sessions', UrlSchema, {
       mode: 'subscription',
@@ -101,6 +122,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
       client_reference_id: accountId,
       // The webhook finds the account through this metadata.
       'subscription_data[metadata][account_id]': accountId,
+      'discounts[0][coupon]': coupon,
       customer: sub?.stripe_customer_id,
       customer_email: sub ? undefined : user?.email,
       success_url: `${back}?checkout=done`,

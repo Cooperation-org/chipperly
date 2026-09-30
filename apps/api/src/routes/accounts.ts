@@ -29,6 +29,7 @@ import { social_stories, story_pages } from '../db/schema/stories.js';
 import { attitude_checks } from '../db/schema/attitude.js';
 import { requireUser, canAccessProfile } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
+import { assertCanCreate } from '../lib/trial.js';
 import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
 import { sendDataMessage, sendPush, sendWebPush } from '../lib/push.js';
@@ -135,6 +136,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const body = CreateProfileBodySchema.parse(request.body);
     const userId = request.user!.id;
     await requireAdmin(accountId, userId);
+    await assertCanCreate(accountId);
 
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
     if (!account) throw new AppError(404, 'not_found', 'Account not found');
@@ -184,6 +186,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const body = InviteBodySchema.parse(request.body);
     const userId = request.user!.id;
     await requireAdmin(accountId, userId);
+    await assertCanCreate(accountId);
 
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
     if (!account) throw new AppError(404, 'not_found', 'Account not found');

@@ -1,9 +1,10 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { lte } from 'drizzle-orm';
+import { eq, lte } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AccountKind } from '@chipperly/shared/schemas/account';
 import { SubscriptionStatus } from '@chipperly/shared/schemas/billing';
 import { db } from '../db/client.js';
+import { promo_codes, users } from '../db/schema/accounts.js';
 import { stripe_events, subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
 import { AppError } from '../plugins/errors.js';
@@ -68,6 +69,15 @@ export function stripeForm(params: Record<string, string | undefined>): URLSearc
   return form;
 }
 
+/** A non-2xx from Stripe; `stripeStatus` lets a caller tell "does not exist" (404) from a real failure. */
+export class StripeApiError extends AppError {
+  readonly stripeStatus: number;
+  constructor(stripeStatus: number) {
+    super(502, 'stripe_error', `Stripe returned ${stripeStatus}`);
+    this.stripeStatus = stripeStatus;
+  }
+}
+
 export async function stripeRequest<S extends z.ZodType>(
   method: 'GET' | 'POST',
   path: string,
@@ -85,7 +95,7 @@ export async function stripeRequest<S extends z.ZodType>(
     body: method === 'POST' ? form : undefined,
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new AppError(502, 'stripe_error', `Stripe returned ${res.status}`);
+  if (!res.ok) throw new StripeApiError(res.status);
   return schema.parse(await res.json());
 }
 
@@ -165,4 +175,73 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
       });
     return 'applied';
   });
+}
+
+// ---- promo codes as Stripe discounts ----
+
+export interface PersonalDiscount {
+  code: string;
+  percent_off: number;
+  applies_to: 'annual' | 'any';
+}
+
+/**
+ * The early-access discount this person holds: their own code (users.personal_code)
+ * under an offer that is still active and has a percentage decided. The offer's
+ * dates only govern who is issued a code, not when a held code stops working
+ * (an admin can also issue one by hand outside them), so they are not checked here.
+ */
+export async function loadPersonalDiscount(userId: string): Promise<PersonalDiscount | null> {
+  const [row] = await db
+    .select({ code: users.personal_code, percent_off: promo_codes.percent_off, applies_to: promo_codes.applies_to, active: promo_codes.active })
+    .from(users)
+    .innerJoin(promo_codes, eq(promo_codes.code, users.promo_code))
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!row?.code || !row.active || row.percent_off === null) return null;
+  return { code: row.code, percent_off: row.percent_off, applies_to: row.applies_to };
+}
+
+/** `applies_to: 'annual'` only discounts a yearly price; `'any'` discounts whatever the price is. */
+export function discountApplies(discount: Pick<PersonalDiscount, 'applies_to'>, priceInterval: string | null): boolean {
+  return discount.applies_to === 'any' || priceInterval === 'year';
+}
+
+/** Deterministic, so one coupon per percentage is shared by everyone and found again later. */
+export const couponIdFor = (percentOff: number): string => `chipperly-early-${percentOff}pct-12mo`;
+
+const CouponSchema = z.object({ id: z.string() });
+type StripeCall = typeof stripeRequest;
+
+/**
+ * Finds the coupon for this percentage in Stripe, creating it on first use, so
+ * nothing has to be set up in the dashboard and no amount is hardcoded. It
+ * takes 12 months off the top, which is one full year for an annual plan and
+ * the first year of a monthly one.
+ */
+export async function ensureCoupon(percentOff: number, call: StripeCall = stripeRequest): Promise<string> {
+  const id = couponIdFor(percentOff);
+  const find = async (): Promise<boolean> => {
+    try {
+      await call('GET', `/coupons/${encodeURIComponent(id)}`, CouponSchema);
+      return true;
+    } catch (err) {
+      if (err instanceof StripeApiError && err.stripeStatus === 404) return false;
+      throw err;
+    }
+  };
+  if (await find()) return id;
+  try {
+    await call('POST', '/coupons', CouponSchema, {
+      id,
+      percent_off: String(percentOff),
+      duration: 'repeating',
+      duration_in_months: '12',
+      name: `Early access ${percentOff}% off`,
+    });
+  } catch (err) {
+    // Two checkouts racing to create it: the loser's create fails, the coupon exists now.
+    if (!(await find())) throw err;
+  }
+  return id;
 }

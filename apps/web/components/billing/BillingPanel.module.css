@@ -11,3 +11,17 @@
 .muted {
   color: var(--color-text-muted);
 }
+
+.notice {
+  padding: var(--space-3);
+  background: var(--color-surface-raised, var(--color-surface));
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+}
+
+.strip {
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}

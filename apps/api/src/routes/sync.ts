@@ -21,6 +21,7 @@ import { ProfileSchema, ProfileSettingsSchema } from '@chipperly/shared/schemas/
 import { sql } from '../db/client.js';
 import { canAccessProfile, canWriteProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
+import { isPausedCreation, writePausedForProfile } from '../lib/trial.js';
 
 type Sql = postgres.TransactionSql<{}>;
 export type SyncRow = Record<string, unknown>;
@@ -125,6 +126,10 @@ export default async function syncRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const role = await getRole(user.id, body.profile_id);
+    // A lapsed account pauses NEW caregiver content only. A locked (child) device is
+    // exempt: what the child does all day must never depend on the card on file.
+    // Returns false without a query when Stripe is unconfigured, so nothing locks then.
+    const paused = !request.locked && (await writePausedForProfile(body.profile_id));
 
     const applied: string[] = [];
     const rejected: RejectedMutation[] = [];
@@ -143,7 +148,7 @@ export default async function syncRoutes(app: FastifyInstance): Promise<void> {
         // aborting the whole push transaction and 500ing the request.
         // eslint-disable-next-line no-await-in-loop -- mutations must apply in outbox order, one transaction.
         const result = await tx
-          .savepoint((sp) => applyMutation(sp, mutation, body.profile_id, user.id, request.locked, role))
+          .savepoint((sp) => applyMutation(sp, mutation, body.profile_id, user.id, request.locked, role, paused))
           .catch((error: unknown) => {
             request.log.error({ err: error, mutationId: mutation.id, table: mutation.table }, 'sync mutation failed');
             const failed: ApplyResult = { ok: false, reason: 'invalid', server_row: null };
@@ -174,7 +179,7 @@ async function getRole(userId: string, profileId: string): Promise<'admin' | 'me
   return (row?.role as 'admin' | 'member' | undefined) ?? null;
 }
 
-type RejectReason = 'stale' | 'locked' | 'forbidden' | 'invalid';
+type RejectReason = 'stale' | 'locked' | 'forbidden' | 'invalid' | 'lapsed';
 type ApplyResult = { ok: true } | { ok: false; reason: RejectReason; server_row: SyncRow | null };
 
 async function applyMutation(
@@ -184,12 +189,21 @@ async function applyMutation(
   userId: string,
   locked: boolean,
   role: 'admin' | 'member' | null,
+  paused: boolean,
 ): Promise<ApplyResult> {
   const { table } = mutation;
 
   if (locked) {
     const allowed = await lockGateAllows(tx, mutation);
     if (!allowed) return { ok: false, reason: 'locked', server_row: null };
+  }
+
+  // Lapsed: creating new caregiver content pauses, editing and deleting never do.
+  // isPausedCreation(m, false) answers "could this table pause at all", so an edit
+  // costs the existence query only for the handful of tables that can.
+  if (paused && isPausedCreation(mutation, false)) {
+    const [stored] = await tx`select 1 as x from ${tx(table)} where id = ${mutation.id} limit 1`;
+    if (!stored) return { ok: false, reason: 'lapsed', server_row: null };
   }
 
   if (APPEND_ONLY_TABLES.has(table)) {
