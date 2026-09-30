@@ -7,6 +7,9 @@ import type { InviteDetails, AcceptInviteResponse } from '@chipperly/shared/sche
 import { api } from '@/lib/api/client';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveAccount, useActiveProfile } from '@/lib/profile/active';
+import { startSync } from '@/lib/sync/engine';
+import { enterParentMode } from '@/lib/device/settings';
+import { asksDeviceRole, setDeviceRole } from '@/lib/device/role';
 import { BigButton } from '@/components/ui/BigButton';
 import { PictureTile } from '@/components/ui/PictureTile';
 import { GoogleButton } from './GoogleButton';
@@ -15,6 +18,16 @@ import { setPostAuthRedirect } from './postAuthRedirect';
 import styles from './InviteAccept.module.css';
 
 type LoadState = { status: 'loading' } | { status: 'not_found' } | { status: 'ready'; invite: InviteDetails };
+
+/** The account is auto-named after its owner, so "Sam invited you to Sam" reads oddly: name the profiles instead. */
+function headline({ inviter_name, account_name, profiles }: InviteDetails): string {
+  const names = profiles.map((p) => p.name);
+  if (names.length > 0 && inviter_name === account_name) {
+    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+    return `${inviter_name} invited you to help with ${list}`;
+  }
+  return inviter_name === account_name ? `${inviter_name} invited you to Chipperly` : `${inviter_name} invited you to ${account_name}`;
+}
 
 /** S33: accept invite. Reads the token via useSearchParams (page wraps this in Suspense). */
 export function InviteAccept() {
@@ -57,6 +70,15 @@ export function InviteAccept() {
       await refreshMe();
       setActiveAccountId(result.account_id);
       if (result.profile_ids[0]) setActiveProfileId(result.profile_ids[0]);
+      // They signed in here to manage a child's schedule, so this is a caregiver device
+      // (otherwise they land in the child view); the app asks who uses the device first.
+      if (asksDeviceRole()) {
+        router.push('/onboarding/device/');
+        return;
+      }
+      startSync();
+      await setDeviceRole({ kind: 'caregiver' });
+      await enterParentMode();
       router.push('/today/');
     } catch {
       setAcceptError("Couldn't accept the invite. Try again.");
@@ -89,7 +111,7 @@ export function InviteAccept() {
   return (
     <div className={styles.wrap}>
       <h1 className={styles.title}>
-        {invite.inviter_name} invited you to {invite.account_name}
+        {headline(invite)}
       </h1>
       <p className={styles.text}>
         As {invite.role === 'admin' ? 'an admin' : 'a team member'} you&apos;ll see the schedule, chips and stories for:
