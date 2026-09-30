@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import Link from 'next/link';
-import { addComment, deleteComment, isMine, isNicknameRequired, useComments, useMyNickname } from '@/lib/data/community';
+import { addComment, canDelete, deleteComment, isNicknameRequired, useComments } from '@/lib/data/community';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
@@ -13,8 +13,8 @@ import styles from './CommentList.module.css';
 const COMMENT_MAX = 1000;
 
 export function CommentList({ postId }: { postId: string }) {
-  const { status, comments, reload } = useComments(postId);
-  const myNickname = useMyNickname();
+  const list = useComments(postId);
+  const { status, comments, reload } = list;
   const { profile } = useActiveProfile();
   const fieldId = useId();
   const [text, setText] = useState('');
@@ -29,9 +29,8 @@ export function CommentList({ postId }: { postId: string }) {
     setError(null);
     setNeedsNickname(false);
     try {
-      await addComment(postId, body, profile?.id);
+      list.added(await addComment(postId, body, profile?.id));
       setText('');
-      reload();
     } catch (e) {
       if (isNicknameRequired(e)) setNeedsNickname(true);
       else setError("Your comment didn't send. Check your connection and try again.");
@@ -43,7 +42,7 @@ export function CommentList({ postId }: { postId: string }) {
   async function remove(id: string): Promise<void> {
     try {
       await deleteComment(id);
-      reload();
+      list.removed(id);
     } catch {
       toast("Couldn't delete that comment. Try again.");
     }
@@ -64,9 +63,9 @@ export function CommentList({ postId }: { postId: string }) {
                 <Byline nickname={c.author.nickname} isSupport={c.author.is_support} when={c.created_at} />
                 <p className={styles.body}>{c.body}</p>
                 <div className={styles.actions}>
-                  {isMine(c.author, myNickname) ? (
+                  {canDelete(c.viewer) ? (
                     <Button variant="ghost" icon="trash" onClick={() => void remove(c.id)}>
-                      Delete
+                      {c.viewer.is_mine ? 'Delete' : 'Remove'}
                     </Button>
                   ) : null}
                   <ReportButton targetType="comment" targetId={c.id} />
@@ -75,6 +74,16 @@ export function CommentList({ postId }: { postId: string }) {
             ))}
           </ul>
         )}
+        {list.moreFailed ? (
+          <p className={styles.notice} role="alert">
+            Couldn&apos;t load more comments. Try again.
+          </p>
+        ) : null}
+        {list.hasMore ? (
+          <Button variant="secondary" fullWidth loading={list.loadingMore} onClick={() => void list.loadMore()}>
+            Load more comments
+          </Button>
+        ) : null}
       </LoadState>
       {status === 'offline' ? null : (
         <form

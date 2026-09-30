@@ -31,6 +31,22 @@ export const CommunityAuthorSchema = z.object({
 });
 export type CommunityAuthor = z.infer<typeof CommunityAuthorSchema>;
 
+/** What the caller may do with one item. Says nothing about anyone else. */
+export const CommunityViewerSchema = z.object({
+  /** The signed-in caller wrote it. */
+  is_mine: z.boolean(),
+  /** The caller is support or super admin, so Delete shows on other people's items. */
+  can_moderate: z.boolean(),
+});
+export const DEFAULT_VIEWER = { is_mine: false, can_moderate: false } as const;
+
+/** Integer minor units (cents) and a lowercase ISO 4217 code. The seller picks both; nothing is preset. */
+export const PriceSchema = z.object({
+  amount: z.number().int().positive().max(99_999_999),
+  currency: z.string().trim().toLowerCase().regex(/^[a-z]{3}$/, 'three-letter currency code'),
+});
+export type Price = z.infer<typeof PriceSchema>;
+
 export const CommunityProfileSchema = z.object({
   nickname: z.string().nullable(),
 });
@@ -55,6 +71,11 @@ export const CommunityPostSchema = z.object({
   updated_at: msTimestampSchema,
   author: CommunityAuthorSchema,
   media: z.array(CommunityPostMediaSchema),
+  /** Null = free. */
+  price: PriceSchema.nullable().default(null),
+  /** False on a paid item the caller has not bought: `payload` is then null. Always true when free. */
+  has_access: z.boolean().default(true),
+  viewer: CommunityViewerSchema.default(DEFAULT_VIEWER),
 });
 export type CommunityPost = z.infer<typeof CommunityPostSchema>;
 
@@ -65,6 +86,7 @@ export const CommunityCommentSchema = z.object({
   status: PostStatusSchema,
   created_at: msTimestampSchema,
   author: CommunityAuthorSchema,
+  viewer: CommunityViewerSchema.default(DEFAULT_VIEWER),
 });
 export type CommunityComment = z.infer<typeof CommunityCommentSchema>;
 
@@ -103,8 +125,12 @@ export const CreatePostBodySchema = z
       .array(z.object({ media_id: uuidSchema, kind: CommunityMediaKindSchema }))
       .max(10)
       .default([]),
+    /** Omitted = free. Only a story or routine can be sold, and the API refuses it unless payouts are set up. */
+    price: PriceSchema.optional(),
   })
   .refine((v) => v.kind === 'post' || v.payload !== undefined, { message: 'payload required for story and routine' })
+  .refine((v) => v.price === undefined || v.kind !== 'post', { message: 'only a story or routine can have a price' })
+  .refine((v) => v.price === undefined || v.title !== undefined, { message: 'a priced item needs a title' })
   .refine((v) => v.title !== undefined || v.body !== undefined || v.media.length > 0 || v.payload !== undefined, {
     message: 'empty post',
   });
@@ -131,6 +157,28 @@ export const ResolveReportBodySchema = z.object({
   action: z.enum(['hide', 'remove', 'dismiss']),
   note: z.string().trim().max(1000).optional(),
 });
+
+export const CommentsResponseSchema = z.object({
+  comments: z.array(CommunityCommentSchema),
+  next_cursor: z.string().nullable(),
+});
+export type CommentsResponse = z.infer<typeof CommentsResponseSchema>;
+
+/** GET /community/selling. The route 404s when Stripe is not configured, so the web hides selling on a 404. */
+export const SellerStatusSchema = z.object({
+  connected: z.boolean(),
+  details_submitted: z.boolean(),
+  charges_enabled: z.boolean(),
+  payouts_enabled: z.boolean(),
+  /** The owner has set a platform fee on the server. Without one nothing can be priced. */
+  fee_configured: z.boolean(),
+  can_sell: z.boolean(),
+  /** Plain-language reason `can_sell` is false; null when it is true. */
+  reason: z.string().nullable(),
+});
+export type SellerStatus = z.infer<typeof SellerStatusSchema>;
+
+export const StripeUrlResponseSchema = z.object({ url: z.string().url() });
 
 export const FeedResponseSchema = z.object({
   posts: z.array(CommunityPostSchema),

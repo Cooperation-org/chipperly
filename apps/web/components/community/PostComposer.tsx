@@ -9,8 +9,12 @@ import {
   createPost,
   isNicknameRequired,
   isOffline,
+  normalizeCurrency,
   routineToPayload,
+  sellingErrorMessage,
   storyToPayload,
+  toMinorUnits,
+  useSellerStatus,
   type PostKind,
 } from '@/lib/data/community';
 import { useStory } from '@/lib/data/stories';
@@ -71,6 +75,8 @@ export function PostComposer() {
   const [images, setImages] = useState<string[]>([]);
   const [audioId, setAudioId] = useState<string | null>(null);
   const [includeAudio, setIncludeAudio] = useState(false);
+  const [priceText, setPriceText] = useState('');
+  const [currencyText, setCurrencyText] = useState('');
   const [sending, setSending] = useState(false);
   const [needsNickname, setNeedsNickname] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +85,23 @@ export function PostComposer() {
   const sharedName = shareKind === 'story' ? story?.title : activity?.name;
   const shareReady = shareKind === 'story' ? Boolean(story && pages) : shareKind === 'routine' ? Boolean(activity) : true;
   const storyHasAudio = shareKind === 'story' && (pages ?? []).some((p) => p.audio_id);
-  const canSend = shareReady && (sharing || title.trim() !== '' || body.trim() !== '' || images.length > 0 || audioId !== null);
+  // Absent (null) when the server has no Stripe: then there is no price control and nothing changes.
+  const selling = useSellerStatus().status;
+  const pricing = sharing && selling !== null;
+  const wantsPrice = pricing && priceText.trim() !== '';
+  const currency = normalizeCurrency(currencyText);
+  const minor = currency ? toMinorUnits(priceText, currency) : null;
+  const priceError = wantsPrice
+    ? !currency
+      ? 'Enter a three-letter currency code.'
+      : minor === null
+        ? 'Enter an amount above zero, with no more decimals than that currency uses.'
+        : title.trim() === ''
+          ? 'Give a paid item a title.'
+          : null
+    : null;
+  const hasContent = sharing || title.trim() !== '' || body.trim() !== '' || images.length > 0 || audioId !== null;
+  const canSend = shareReady && hasContent && !priceError && !(wantsPrice && selling?.can_sell !== true);
 
   async function addImages(files: FileList | null): Promise<void> {
     if (!files) return;
@@ -117,11 +139,12 @@ export function PostComposer() {
           ...(audioId ? [{ media_id: audioId, kind: 'audio' as const }] : []),
         ],
         author_profile_id: profile?.id ?? null,
+        price: wantsPrice && currency && minor !== null ? { amount: minor, currency } : undefined,
       });
       router.replace(`/community/post/?id=${post.id}`);
     } catch (e) {
       if (isNicknameRequired(e)) setNeedsNickname(true);
-      else setError("Your post didn't send. Check your connection and try again.");
+      else setError(wantsPrice ? sellingErrorMessage(e) : "Your post didn't send. Check your connection and try again.");
       setSending(false);
     }
   }
@@ -184,6 +207,35 @@ export function PostComposer() {
               <VoiceRecorder audioId={audioId} onChange={setAudioId} label="your post" />
             </>
           )}
+
+          {pricing ? (
+            <fieldset className={styles.price}>
+              <legend className={styles.switchTitle}>Price (optional)</legend>
+              {selling?.can_sell ? (
+                <>
+                  <p className={styles.hint}>Leave the amount empty to share it free. Buyers get their own copy.</p>
+                  <TextField
+                    label="Amount"
+                    inputMode="decimal"
+                    value={priceText}
+                    onChange={(e) => setPriceText(e.target.value)}
+                    error={priceError ?? undefined}
+                  />
+                  <TextField
+                    label="Currency code"
+                    hint="Three letters, for example the code Stripe shows on your account."
+                    value={currencyText}
+                    maxLength={3}
+                    onChange={(e) => setCurrencyText(e.target.value)}
+                  />
+                </>
+              ) : (
+                <p className={styles.hint} role="status">
+                  You can&apos;t set a price yet. {selling?.reason} <Link href="/community/selling/">Open selling</Link>
+                </p>
+              )}
+            </fieldset>
+          ) : null}
 
           {storyHasAudio ? (
             <div className={styles.switchRow}>

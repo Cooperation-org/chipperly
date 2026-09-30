@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useFeed, type PostKind } from '@/lib/data/community';
+import { useFeed, useSellerStatus, type PostKind } from '@/lib/data/community';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
@@ -26,6 +26,7 @@ function toFilter(value: string): 'all' | PostKind {
 export function CommunityFeed() {
   const [filter, setFilter] = useState<'all' | PostKind>('all');
   const feed = useFeed(filter === 'all' ? undefined : filter);
+  const selling = useSellerStatus().status;
 
   return (
     <div className={styles.screen}>
@@ -35,6 +36,11 @@ export function CommunityFeed() {
         <Link href="/community/new/" className={styles.newLink}>
           <Icon name="plus" size={20} /> New post
         </Link>
+        {selling ? (
+          <Link href="/community/selling/" className={styles.newLink}>
+            Selling
+          </Link>
+        ) : null}
       </div>
       <LoadState status={feed.status} onRetry={feed.reload}>
         {feed.posts.length === 0 ? (
@@ -44,7 +50,7 @@ export function CommunityFeed() {
             <ul className={styles.list}>
               {feed.posts.map((post) => (
                 <li key={post.id}>
-                  <PostCard post={post} />
+                  <PostCard post={post} onDeleted={() => feed.remove(post.id)} />
                 </li>
               ))}
             </ul>

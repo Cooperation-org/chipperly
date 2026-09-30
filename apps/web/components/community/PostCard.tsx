@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useMediaUrl } from '@/lib/data/media';
-import { toCard, type CommunityPost, type LoadStatus } from '@/lib/data/community';
+import { canDelete, deletePost, formatPrice, toCard, type CommunityPost, type LoadStatus } from '@/lib/data/community';
+import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useSheet } from '@/components/ui/Sheet';
+import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { ReportSheet } from './ReportSheet';
 import styles from './PostCard.module.css';
 
@@ -52,6 +53,37 @@ export function ReportButton({ targetType, targetId }: { targetType: 'post' | 'c
   );
 }
 
+/** Delete for the author, Remove for a moderator on someone else's post. The API decides who gets `viewer`; the server re-checks on the call. */
+export function DeletePostButton({ post, onDeleted }: { post: CommunityPost; onDeleted: () => void }) {
+  const sheet = useSheet();
+  if (!canDelete(post.viewer)) return null;
+  const verb = post.viewer.is_mine ? 'Delete' : 'Remove';
+  return (
+    <Button
+      variant="ghost"
+      icon="trash"
+      onClick={() =>
+        sheet.open(
+          <Confirm
+            title={`${verb} this post?`}
+            body={post.viewer.is_mine ? 'It disappears from the community.' : 'It disappears from the community for everyone.'}
+            confirmLabel={verb}
+            danger
+            onCancel={sheet.close}
+            onConfirm={() => {
+              sheet.close();
+              deletePost(post.id).then(onDeleted, () => toast("Couldn't do that. Try again."));
+            }}
+          />,
+          { title: `${verb} post` },
+        )
+      }
+    >
+      {verb}
+    </Button>
+  );
+}
+
 /** Loading, offline and error views shared by the feed and the post page. */
 export function LoadState({ status, onRetry, children }: { status: LoadStatus; onRetry: () => void; children: ReactNode }) {
   if (status === 'offline') {
@@ -82,13 +114,16 @@ export function LoadState({ status, onRetry, children }: { status: LoadStatus; o
   return <>{children}</>;
 }
 
-export function PostCard({ post }: { post: CommunityPost }) {
+export function PostCard({ post, onDeleted }: { post: CommunityPost; onDeleted?: () => void }) {
   const card = toCard(post);
   const firstImage = card.image_ids[0];
   return (
     <article className={styles.card}>
       <Link href={`/community/post/?id=${card.id}`} className={styles.link}>
-        <span className={styles.kind}>{KIND_LABEL[card.kind]}</span>
+        <span className={styles.kind}>
+          {KIND_LABEL[card.kind]}
+          {post.price ? ` · ${formatPrice(post.price)}` : ''}
+        </span>
         {card.title ? <h2 className={styles.title}>{card.title}</h2> : null}
         {card.excerpt ? <p className={styles.excerpt}>{card.excerpt}</p> : null}
         {firstImage ? <PostImage mediaId={firstImage} alt="" /> : null}
@@ -101,6 +136,7 @@ export function PostCard({ post }: { post: CommunityPost }) {
       </Link>
       <div className={styles.actions}>
         <ReportButton targetType="post" targetId={card.id} />
+        {onDeleted ? <DeletePostButton post={post} onDeleted={onDeleted} /> : null}
       </div>
     </article>
   );

@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  deletePost,
-  isMine,
+  canEdit,
+  formatPrice,
   parsePayload,
   payloadToActivityInput,
   payloadToStoryInput,
-  useMyNickname,
+  sellingErrorMessage,
+  startCheckout,
   usePost,
   type CommunityPost,
   type RoutinePayload,
@@ -24,7 +25,8 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CommentList } from './CommentList';
-import { Byline, KIND_LABEL, LoadState, PostImage, ReportButton } from './PostCard';
+import { PostEditor } from './PostEditor';
+import { Byline, DeletePostButton, KIND_LABEL, LoadState, PostImage, ReportButton } from './PostCard';
 import styles from './PostDetail.module.css';
 
 function AudioClip({ mediaId, label }: { mediaId: string; label: string }) {
@@ -75,12 +77,12 @@ function RoutineSnapshot({ routine }: { routine: RoutinePayload }) {
   );
 }
 
-function PostBody({ post }: { post: CommunityPost }) {
+function PostBody({ post, onChanged }: { post: CommunityPost; onChanged: () => void }) {
   const router = useRouter();
   const { profile } = useActiveProfile();
-  const myNickname = useMyNickname();
   const [imported, setImported] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [buying, setBuying] = useState(false);
   const parsed = parsePayload(post.kind, post.payload);
   const media = [...(post.media ?? [])].sort((a, b) => a.position - b.position);
   const audio = post.include_audio ? media.find((m) => m.kind === 'audio') : undefined;
@@ -98,14 +100,13 @@ function PostBody({ post }: { post: CommunityPost }) {
     }
   }
 
-  async function remove(): Promise<void> {
-    setDeleting(true);
+  async function buy(): Promise<void> {
+    setBuying(true);
     try {
-      await deletePost(post.id);
-      router.replace('/community/');
-    } catch {
-      setDeleting(false);
-      toast("Couldn't delete that post. Try again.");
+      window.location.assign(await startCheckout(post.id));
+    } catch (e) {
+      toast(sellingErrorMessage(e));
+      setBuying(false);
     }
   }
 
@@ -114,7 +115,18 @@ function PostBody({ post }: { post: CommunityPost }) {
       <p className={styles.kind}>{KIND_LABEL[post.kind]}</p>
       {title ? <h2 className={styles.title}>{title}</h2> : null}
       <Byline nickname={post.author.nickname} isSupport={post.author.is_support} when={post.created_at} />
-      {post.body ? <p className={styles.text}>{post.body}</p> : null}
+      {editing ? (
+        <PostEditor
+          post={post}
+          onCancel={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            onChanged();
+          }}
+        />
+      ) : post.body ? (
+        <p className={styles.text}>{post.body}</p>
+      ) : null}
       {media
         .filter((m) => m.kind === 'image')
         .map((m) => (
@@ -123,17 +135,26 @@ function PostBody({ post }: { post: CommunityPost }) {
       {audio ? <AudioClip mediaId={audio.media_id} label="Recording" /> : null}
       {parsed?.kind === 'story' ? <StorySnapshot story={parsed.data} /> : null}
       {parsed?.kind === 'routine' ? <RoutineSnapshot routine={parsed.data} /> : null}
+      {!post.has_access && post.price ? (
+        <p className={styles.muted}>This {KIND_LABEL[post.kind].toLowerCase()} costs {formatPrice(post.price)}. Buy it to add your own copy.</p>
+      ) : null}
       <div className={styles.actions}>
-        {parsed && profile ? (
+        {!post.has_access && post.price ? (
+          <Button loading={buying} onClick={() => void buy()}>
+            Buy for {formatPrice(post.price)}
+          </Button>
+        ) : null}
+        {post.has_access && parsed && profile ? (
           <Button disabled={imported} onClick={() => void importIt()}>
             {imported ? 'Added' : parsed.kind === 'story' ? `Add to ${profile.name}'s stories` : `Add to ${profile.name}'s routines`}
           </Button>
         ) : null}
-        {isMine(post.author, myNickname) ? (
-          <Button variant="danger" icon="trash" loading={deleting} onClick={() => void remove()}>
-            Delete post
+        {canEdit(post.viewer) && !editing ? (
+          <Button variant="secondary" icon="edit" onClick={() => setEditing(true)}>
+            Edit
           </Button>
         ) : null}
+        <DeletePostButton post={post} onDeleted={() => router.replace('/community/')} />
         <ReportButton targetType="post" targetId={post.id} />
       </div>
     </article>
@@ -144,6 +165,21 @@ function PostBody({ post }: { post: CommunityPost }) {
 export function PostDetail() {
   const id = useSearchParams().get('id') ?? '';
   const { status, post, reload } = usePost(id);
+  const returnedFromPayment = useSearchParams().get('purchased') === '1';
+  const waitingForPayment = returnedFromPayment && post !== null && !post.has_access;
+
+  // Stripe's webhook can land a moment after the buyer does: look again a few times. The
+  // count lives in a ref because each look briefly unmounts the post and would reset it.
+  const looks = useRef(0);
+  useEffect(() => {
+    if (!waitingForPayment || looks.current >= 6) return;
+    const timer = setTimeout(() => {
+      looks.current += 1;
+      reload();
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [waitingForPayment, reload]);
+
   return (
     <div className={styles.screen}>
       <PageHeader title="Community" backHref="/community/" compact />
@@ -153,7 +189,8 @@ export function PostDetail() {
         <LoadState status={status} onRetry={reload}>
           {post ? (
             <>
-              <PostBody post={post} />
+              {waitingForPayment ? <p role="status">Payment received. Unlocking your copy...</p> : null}
+              <PostBody post={post} onChanged={reload} />
               <CommentList postId={post.id} />
             </>
           ) : null}

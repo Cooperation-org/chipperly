@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { and, asc, desc, eq, inArray, sql as drizzleSql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql as drizzleSql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { v7 as uuidv7 } from 'uuid';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
@@ -12,11 +12,13 @@ import {
   ResolveReportBodySchema,
   SetNicknameBodySchema,
   UpdatePostBodySchema,
+  type CommentsResponse,
   type CommunityComment,
   type CommunityPost,
   type CommunityProfile,
   type CommunityReport,
   type FeedResponse,
+  type SellerStatus,
 } from '@chipperly/shared/schemas/community';
 import { db } from '../db/client.js';
 import { account_members, users } from '../db/schema/accounts.js';
@@ -27,8 +29,26 @@ import {
   community_media,
   community_posts,
   community_profiles,
+  community_purchases,
   community_reports,
 } from '../db/schema/community.js';
+import { env } from '../env.js';
+import { linkBase } from '../lib/links.js';
+import { parseStripeEvent, verifyStripeSignature } from '../lib/stripe.js';
+import {
+  applyConnectEvent,
+  claimPurchase,
+  createOnboardingLink,
+  createPurchaseSession,
+  ensureSellerAccount,
+  expireSession,
+  getSeller,
+  platformFeeAmount,
+  platformFeePercent,
+  refreshSeller,
+  sellerStatus,
+  webhookSecrets,
+} from '../lib/stripeConnect.js';
 import { isSuperAdmin } from '../lib/trial.js';
 import { canModerate } from '../lib/moderation.js';
 import { canAccessProfile, requireUser } from '../plugins/auth.js';
@@ -114,6 +134,16 @@ async function privateNamesOf(userId: string): Promise<Set<string>> {
   return out;
 }
 
+interface Viewer {
+  id: string | null;
+  moderator: boolean;
+}
+
+/** Who is asking, resolved once per request. Signed out = nothing is theirs and nothing is moderatable. */
+async function viewerOf(request: FastifyRequest): Promise<Viewer> {
+  return { id: request.user?.id ?? null, moderator: await isModerator(request) };
+}
+
 /** Public GETs are cacheable; a signed-in caller may see moderator-only rows, so theirs are not. */
 function cacheHeader(request: FastifyRequest, reply: FastifyReply): void {
   reply.header('Cache-Control', request.user ? 'private, no-store' : 'public, max-age=30');
@@ -121,6 +151,9 @@ function cacheHeader(request: FastifyRequest, reply: FastifyReply): void {
 
 const postSelect = {
   id: community_posts.id,
+  author_user_id: community_posts.author_user_id,
+  price_amount: community_posts.price_amount,
+  price_currency: community_posts.price_currency,
   kind: community_posts.kind,
   title: community_posts.title,
   body: community_posts.body,
@@ -144,8 +177,26 @@ function postQuery() {
 type PostRow = Awaited<ReturnType<typeof postQuery>>[number];
 
 /** Field-by-field on purpose: nothing private can ride along by accident. */
-async function toPosts(rows: PostRow[]): Promise<CommunityPost[]> {
+async function toPosts(rows: PostRow[], viewer: Viewer): Promise<CommunityPost[]> {
   if (rows.length === 0) return [];
+  const paidIds = rows.filter((r) => r.price_amount !== null).map((r) => r.id);
+  const bought =
+    viewer.id && paidIds.length > 0
+      ? new Set(
+          (
+            await db
+              .select({ post_id: community_purchases.post_id })
+              .from(community_purchases)
+              .where(
+                and(
+                  eq(community_purchases.buyer_user_id, viewer.id),
+                  eq(community_purchases.status, 'paid'),
+                  inArray(community_purchases.post_id, paidIds),
+                ),
+              )
+          ).map((p) => p.post_id),
+        )
+      : new Set<string>();
   const mediaRows = await db
     .select({
       post_id: community_media.post_id,
@@ -156,21 +207,31 @@ async function toPosts(rows: PostRow[]): Promise<CommunityPost[]> {
     .from(community_media)
     .where(inArray(community_media.post_id, rows.map((r) => r.id)))
     .orderBy(asc(community_media.position));
-  return rows.map((r) => ({
-    id: r.id,
-    kind: r.kind,
-    title: r.title,
-    body: r.body,
-    payload: r.payload,
-    include_audio: r.include_audio,
-    status: r.status,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
-    author: { nickname: r.nickname, is_support: r.is_support },
-    media: mediaRows
-      .filter((m) => m.post_id === r.id)
-      .map((m) => ({ media_id: m.media_id, kind: m.kind, position: m.position })),
-  }));
+  return rows.map((r) => {
+    const isMine = viewer.id !== null && r.author_user_id === viewer.id;
+    const price =
+      r.price_amount !== null && r.price_currency !== null ? { amount: r.price_amount, currency: r.price_currency } : null;
+    // The shared item is what is being sold: only the author and a buyer get it, and that is decided here, not in the UI.
+    const hasAccess = price === null || isMine || bought.has(r.id);
+    return {
+      id: r.id,
+      kind: r.kind,
+      title: r.title,
+      body: r.body,
+      payload: hasAccess ? r.payload : null,
+      include_audio: r.include_audio,
+      status: r.status,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      author: { nickname: r.nickname, is_support: r.is_support },
+      media: mediaRows
+        .filter((m) => m.post_id === r.id)
+        .map((m) => ({ media_id: m.media_id, kind: m.kind, position: m.position })),
+      price,
+      has_access: hasAccess,
+      viewer: { is_mine: isMine, can_moderate: viewer.moderator },
+    };
+  });
 }
 
 function encodeCursor(row: { created_at: number; id: string }): string {
@@ -190,13 +251,40 @@ const FeedQuerySchema = z.object({
   kind: PostKindSchema.optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
+const PageQuerySchema = z.object({
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
 const idParamSchema = z.object({ id: uuidSchema });
+
+/**
+ * A seller who has not finished Stripe onboarding cannot set a price, and the error says why.
+ * Selling is invisible without Stripe: the same 404 the /billing routes give.
+ */
+async function assertMaySell(userId: string): Promise<void> {
+  if (!env.stripeEnabled) throw new AppError(404, 'not_found', 'Selling is not enabled');
+  let seller = await getSeller(userId);
+  // Onboarding may have finished after the last webhook; ask Stripe once before saying no.
+  if (seller && !(seller.charges_enabled && seller.payouts_enabled)) {
+    try {
+      seller = await refreshSeller(seller);
+    } catch {
+      // keep the stored flags; the answer below is still right, just possibly a minute old
+    }
+  }
+  const status = sellerStatus(seller, platformFeePercent() !== null);
+  if (!status.can_sell) {
+    throw new AppError(409, status.fee_configured ? 'seller_not_onboarded' : 'fee_not_set', status.reason ?? 'Selling is not available');
+  }
+}
 
 export default async function communityRoutes(app: FastifyInstance): Promise<void> {
   app.get('/community/feed', async (request, reply): Promise<FeedResponse> => {
     const query = FeedQuerySchema.parse(request.query);
     const conditions: SQL[] = [eq(community_posts.status, 'published')];
     if (query.kind) conditions.push(eq(community_posts.kind, query.kind));
+    // With Stripe unset selling does not exist: paid items stay out of the feed and the free path is unchanged.
+    if (!env.stripeEnabled) conditions.push(isNull(community_posts.price_amount));
     if (query.cursor) {
       const c = decodeCursor(query.cursor);
       conditions.push(drizzleSql`(${community_posts.created_at}, ${community_posts.id}) < (${c.created_at}::bigint, ${c.id}::uuid)`);
@@ -209,7 +297,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
     const last = page[page.length - 1];
     cacheHeader(request, reply);
     return {
-      posts: await toPosts(page),
+      posts: await toPosts(page, await viewerOf(request)),
       next_cursor: rows.length > query.limit && last ? encodeCursor(last) : null,
     };
   });
@@ -221,17 +309,24 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       throw new AppError(404, 'not_found', 'Post not found');
     }
     cacheHeader(request, reply);
-    const [post] = await toPosts([row]);
+    const [post] = await toPosts([row], await viewerOf(request));
     if (!post) throw new AppError(404, 'not_found', 'Post not found');
     return post;
   });
 
-  app.get('/community/posts/:id/comments', async (request, reply): Promise<{ comments: CommunityComment[] }> => {
+  app.get('/community/posts/:id/comments', async (request, reply): Promise<CommentsResponse> => {
     const { id } = idParamSchema.parse(request.params);
+    const query = PageQuerySchema.parse(request.query);
+    const conditions: SQL[] = [eq(community_comments.post_id, id), eq(community_comments.status, 'published')];
+    if (query.cursor) {
+      const c = decodeCursor(query.cursor);
+      conditions.push(drizzleSql`(${community_comments.created_at}, ${community_comments.id}) > (${c.created_at}::bigint, ${c.id}::uuid)`);
+    }
     const rows = await db
       .select({
         id: community_comments.id,
         post_id: community_comments.post_id,
+        author_user_id: community_comments.author_user_id,
         body: community_comments.body,
         status: community_comments.status,
         created_at: community_comments.created_at,
@@ -241,19 +336,24 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       .from(community_comments)
       .innerJoin(community_profiles, eq(community_profiles.user_id, community_comments.author_user_id))
       .innerJoin(users, eq(users.id, community_comments.author_user_id))
-      .where(and(eq(community_comments.post_id, id), eq(community_comments.status, 'published')))
-      .orderBy(asc(community_comments.created_at))
-      .limit(200);
+      .where(and(...conditions))
+      .orderBy(asc(community_comments.created_at), asc(community_comments.id))
+      .limit(query.limit + 1);
+    const page = rows.slice(0, query.limit);
+    const last = page[page.length - 1];
+    const viewer = await viewerOf(request);
     cacheHeader(request, reply);
     return {
-      comments: rows.map((r) => ({
+      comments: page.map((r) => ({
         id: r.id,
         post_id: r.post_id,
         body: r.body,
         status: r.status,
         created_at: r.created_at,
         author: { nickname: r.nickname, is_support: r.is_support },
+        viewer: { is_mine: viewer.id !== null && r.author_user_id === viewer.id, can_moderate: viewer.moderator },
       })),
+      next_cursor: rows.length > query.limit && last ? encodeCursor(last) : null,
     };
   });
 
@@ -305,6 +405,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       const body = CreatePostBodySchema.parse(request.body);
       await requireNickname(userId);
       await assertOwnProfile(userId, body.author_profile_id);
+      if (body.price) await assertMaySell(userId);
 
       if (body.payload && Buffer.byteLength(JSON.stringify(body.payload)) > MAX_PAYLOAD_BYTES) {
         throw new AppError(413, 'payload_too_large', 'Shared item is too large');
@@ -335,6 +436,8 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
           payload: body.payload ?? null,
           include_audio: body.include_audio,
           status: 'published',
+          price_amount: body.price?.amount ?? null,
+          price_currency: body.price?.currency ?? null,
           created_at: now,
           updated_at: now,
         });
@@ -346,7 +449,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       });
 
       const [row] = await postQuery().where(eq(community_posts.id, id)).limit(1);
-      const [post] = row ? await toPosts([row]) : [];
+      const [post] = row ? await toPosts([row], await viewerOf(request)) : [];
       if (!post) throw new AppError(500, 'internal', 'Post not saved');
       reply.code(201);
       return post;
@@ -358,12 +461,19 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
     const { id } = idParamSchema.parse(request.params);
     const body = UpdatePostBodySchema.parse(request.body);
     const [existing] = await db
-      .select({ author_user_id: community_posts.author_user_id, status: community_posts.status })
+      .select({
+        author_user_id: community_posts.author_user_id,
+        status: community_posts.status,
+        price_amount: community_posts.price_amount,
+      })
       .from(community_posts)
       .where(eq(community_posts.id, id))
       .limit(1);
     if (!existing || existing.status === 'removed') throw new AppError(404, 'not_found', 'Post not found');
     if (existing.author_user_id !== userId) throw new AppError(403, 'forbidden', 'Not your post');
+    if (existing.price_amount !== null && body.title === null) {
+      throw new AppError(400, 'title_required', 'A priced item needs a title');
+    }
 
     await db
       .update(community_posts)
@@ -374,7 +484,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       })
       .where(eq(community_posts.id, id));
     const [row] = await postQuery().where(eq(community_posts.id, id)).limit(1);
-    const [post] = row ? await toPosts([row]) : [];
+    const [post] = row ? await toPosts([row], await viewerOf(request)) : [];
     if (!post) throw new AppError(404, 'not_found', 'Post not found');
     return post;
   });
@@ -434,6 +544,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
         status: 'published',
         created_at: now,
         author: { nickname, is_support: support?.is_support ?? false },
+        viewer: { is_mine: true, can_moderate: await isModerator(request) },
       };
     },
   );
@@ -590,4 +701,121 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       return { ok: true, status };
     },
   );
+
+  await app.register(sellingRoutes);
+}
+
+/**
+ * Selling, gated the way /billing is: with Stripe unset every route in this scope
+ * 404s (checked per request), so the web sees no selling at all.
+ */
+async function sellingRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('onRequest', async () => {
+    if (!env.stripeEnabled) throw new AppError(404, 'not_found', 'Selling is not enabled');
+  });
+
+  app.get('/community/selling', { preHandler: requireUser }, async (request): Promise<SellerStatus> => {
+    let seller = await getSeller(uid(request));
+    if (seller && !(seller.charges_enabled && seller.payouts_enabled)) {
+      try {
+        seller = await refreshSeller(seller);
+      } catch (err) {
+        request.log.warn({ err }, 'could not refresh the Stripe account');
+      }
+    }
+    return sellerStatus(seller, platformFeePercent() !== null);
+  });
+
+  app.post(
+    '/community/selling/onboarding',
+    { preHandler: requireUser, config: hourly(20) },
+    async (request): Promise<{ url: string }> => {
+      const userId = uid(request);
+      assertNotLocked(request);
+      await requireNickname(userId);
+      const seller = await ensureSellerAccount(userId);
+      const base = `${linkBase(request)}/community/selling/`;
+      return { url: await createOnboardingLink(seller.stripe_account_id, `${base}?onboarding=return`, `${base}?onboarding=refresh`) };
+    },
+  );
+
+  app.post(
+    '/community/posts/:id/checkout',
+    { preHandler: requireUser, config: hourly(20) },
+    async (request): Promise<{ url: string }> => {
+      const userId = uid(request);
+      assertNotLocked(request);
+      const { id } = idParamSchema.parse(request.params);
+      const feePercent = platformFeePercent();
+      if (feePercent === null) throw new AppError(409, 'fee_not_set', 'Selling is not switched on yet');
+
+      const [post] = await db
+        .select({
+          id: community_posts.id,
+          author_user_id: community_posts.author_user_id,
+          title: community_posts.title,
+          amount: community_posts.price_amount,
+          currency: community_posts.price_currency,
+        })
+        .from(community_posts)
+        .where(and(eq(community_posts.id, id), eq(community_posts.status, 'published')))
+        .limit(1);
+      if (!post || post.amount === null || post.currency === null) throw new AppError(404, 'not_found', 'Nothing to buy here');
+      if (post.author_user_id === userId) throw new AppError(409, 'own_post', 'This is your own item');
+
+      const seller = await getSeller(post.author_user_id);
+      if (!seller || !seller.charges_enabled) throw new AppError(409, 'seller_unavailable', 'The seller cannot take payments right now');
+
+      const purchase = await claimPurchase({
+        postId: post.id,
+        buyerId: userId,
+        sellerId: post.author_user_id,
+        amount: post.amount,
+        currency: post.currency,
+        feeAmount: platformFeeAmount(post.amount, feePercent),
+      });
+      if (purchase.status === 'paid') throw new AppError(409, 'already_purchased', 'You already own this item');
+      // A second tap while a session is open: close the old one so only the new one can be paid.
+      if (purchase.stripe_session_id) await expireSession(purchase.stripe_session_id);
+
+      const [buyer] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+      const back = `${linkBase(request)}/community/post/?id=${post.id}`;
+      const session = await createPurchaseSession({
+        purchaseId: purchase.id,
+        title: post.title ?? 'Shared item',
+        amount: purchase.amount,
+        currency: purchase.currency,
+        feeAmount: purchase.application_fee_amount,
+        destinationAccountId: seller.stripe_account_id,
+        buyerEmail: buyer?.email,
+        successUrl: `${back}&purchased=1`,
+        cancelUrl: back,
+      });
+      await db.update(community_purchases).set({ stripe_session_id: session.id }).where(eq(community_purchases.id, purchase.id));
+      return { url: session.url };
+    },
+  );
+
+  // Needs the exact bytes Stripe signed: own scope with a raw-body JSON parser, like /billing/webhook.
+  await app.register(async (hook) => {
+    hook.addContentTypeParser('application/json', { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
+
+    hook.post('/community/webhook', async (request, reply) => {
+      const raw = request.body;
+      const header = request.headers['stripe-signature'];
+      const signature = Array.isArray(header) ? header[0] : header;
+      if (
+        !Buffer.isBuffer(raw) ||
+        !webhookSecrets(env.STRIPE_WEBHOOK_SECRET).some((secret) => verifyStripeSignature(raw, signature, secret))
+      ) {
+        throw new AppError(400, 'bad_signature', 'Invalid signature');
+      }
+      const result = await applyConnectEvent(parseStripeEvent(JSON.parse(raw.toString('utf8'))));
+      if (result === 'mismatch' || result === 'duplicate_payment') {
+        request.log.error({ result }, 'community purchase needs attention (refund or investigate)');
+      }
+      reply.code(200);
+      return { received: true, result };
+    });
+  });
 }

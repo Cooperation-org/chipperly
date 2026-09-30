@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createHmac } from 'node:crypto';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
@@ -12,8 +13,15 @@ import { buildTestApp, expectShape, request } from './helpers.js';
 import { addMember, createAccount, createProfile, createUser, type TestUser } from './fixtures.js';
 import { db } from '../src/db/client.js';
 import { users } from '../src/db/schema/accounts.js';
-import { community_comments, community_posts } from '../src/db/schema/community.js';
+import {
+  community_comments,
+  community_posts,
+  community_purchases,
+  community_sellers,
+} from '../src/db/schema/community.js';
+import { env } from '../src/env.js';
 import { canModerate } from '../src/lib/moderation.js';
+import { platformFeeAmount, platformFeePercent } from '../src/lib/stripeConnect.js';
 
 const run = uuidv7().slice(-8);
 let counter = 0;
@@ -307,7 +315,86 @@ describe('community', () => {
     });
   });
 
+  describe('comment paging', () => {
+    it('pages comments oldest first with a cursor and never repeats one', async () => {
+      const { user: author } = await nicknamedUser();
+      const { user: commenter } = await nicknamedUser();
+      const post = expectShape(await makePost(author), CommunityPostSchema);
+      const ids: string[] = [];
+      for (const text of ['one', 'two', 'three']) {
+        const res = await request(app, {
+          method: 'POST',
+          url: `/api/community/posts/${post.id}/comments`,
+          headers: auth(commenter),
+          payload: { body: text },
+        });
+        ids.push(expectShape(res, CommunityCommentSchema).id);
+      }
+      const get = async (query: string) =>
+        (await request(app, { method: 'GET', url: `/api/community/posts/${post.id}/comments${query}` })).json() as {
+          comments: { id: string }[];
+          next_cursor: string | null;
+        };
+
+      const first = await get('?limit=2');
+      expect(first.comments.map((c) => c.id)).toEqual(ids.slice(0, 2));
+      expect(first.next_cursor).not.toBeNull();
+      const second = await get(`?limit=2&cursor=${first.next_cursor}`);
+      expect(second.comments.map((c) => c.id)).toEqual(ids.slice(2));
+      expect(second.next_cursor).toBeNull();
+
+      const bad = await request(app, { method: 'GET', url: `/api/community/posts/${post.id}/comments?cursor=nonsense` });
+      expect(bad.statusCode).toBe(400);
+    });
+  });
+
   describe('moderation', () => {
+    it('tells a moderator to show Delete on someone else\'s post, and a normal user not to', async () => {
+      const { user: author } = await nicknamedUser();
+      const { user: stranger } = await nicknamedUser();
+      const moderator = await createUser();
+      await makeSupport(moderator);
+      const post = expectShape(await makePost(author), CommunityPostSchema);
+
+      const viewerOf = async (headers: Record<string, string>) => {
+        const res = await request(app, { method: 'GET', url: `/api/community/posts/${post.id}`, headers });
+        expect(res.statusCode).toBe(200);
+        return expectShape(res, CommunityPostSchema).viewer;
+      };
+      expect(await viewerOf(auth(moderator))).toEqual({ is_mine: false, can_moderate: true });
+      expect(await viewerOf(auth(stranger))).toEqual({ is_mine: false, can_moderate: false });
+      expect(await viewerOf(auth(author))).toEqual({ is_mine: true, can_moderate: false });
+      expect(await viewerOf({})).toEqual({ is_mine: false, can_moderate: false });
+
+      // The same flags come back on the feed, and nothing about the author's identity rides along.
+      const feed = await request(app, { method: 'GET', url: '/api/community/feed?limit=50', headers: auth(moderator) });
+      const inFeed = expectShape(feed, FeedResponseSchema).posts.find((p) => p.id === post.id);
+      expect(inFeed?.viewer).toEqual({ is_mine: false, can_moderate: true });
+      expect(feed.body).not.toContain(author.id);
+      expect(feed.headers['cache-control']).toContain('no-store');
+    });
+
+    it('flags comments the same way', async () => {
+      const { user: author } = await nicknamedUser();
+      const { user: commenter } = await nicknamedUser();
+      const moderator = await createUser();
+      await makeSupport(moderator);
+      const post = expectShape(await makePost(author), CommunityPostSchema);
+      await request(app, {
+        method: 'POST',
+        url: `/api/community/posts/${post.id}/comments`,
+        headers: auth(commenter),
+        payload: { body: 'hello' },
+      });
+      const flagsFor = async (headers: Record<string, string>) => {
+        const res = await request(app, { method: 'GET', url: `/api/community/posts/${post.id}/comments`, headers });
+        return (res.json() as { comments: { viewer: unknown }[] }).comments[0]?.viewer;
+      };
+      expect(await flagsFor(auth(moderator))).toEqual({ is_mine: false, can_moderate: true });
+      expect(await flagsFor(auth(commenter))).toEqual({ is_mine: true, can_moderate: false });
+      expect(await flagsFor(auth(author))).toEqual({ is_mine: false, can_moderate: false });
+    });
+
     it('canModerate is true for super admin or support only', () => {
       expect(canModerate({})).toBe(false);
       expect(canModerate({ is_super_admin: false, is_support: false })).toBe(false);
@@ -436,6 +523,459 @@ describe('community', () => {
       expect(res.statusCode).toBe(200);
       const [row] = await db.select().from(community_posts).where(eq(community_posts.id, post.id));
       expect(row?.status).toBe('removed');
+    });
+  });
+});
+
+describe('community selling (Stripe Connect)', () => {
+  let app: FastifyInstance;
+  const WEBHOOK_SECRET = 'whsec_community_test';
+  const saved = {
+    enabled: env.stripeEnabled,
+    key: env.STRIPE_SECRET_KEY,
+    hook: env.STRIPE_WEBHOOK_SECRET,
+    fee: process.env.COMMUNITY_PLATFORM_FEE_PERCENT,
+  };
+  // A test-only percent: the real one is the owner's decision and comes from the environment.
+  const TEST_FEE_PERCENT = '10';
+  const stripeCalls: { url: string; body: string }[] = [];
+  const stripeAccount = { charges_enabled: false, payouts_enabled: false, details_submitted: false };
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    env.stripeEnabled = true;
+    env.STRIPE_SECRET_KEY = 'sk_test_community';
+    env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
+    process.env.COMMUNITY_PLATFORM_FEE_PERCENT = TEST_FEE_PERCENT;
+    stripeCalls.length = 0;
+    stripeAccount.charges_enabled = false;
+    stripeAccount.payouts_enabled = false;
+    stripeAccount.details_submitted = false;
+    // Stripe is faked at fetch; app.inject does not use fetch, so requests to the API are unaffected.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL, init?: { body?: unknown }) => {
+        const url = String(input);
+        stripeCalls.push({ url, body: String(init?.body ?? '') });
+        if (url.includes('/checkout/sessions')) {
+          return new Response(JSON.stringify({ id: `cs_test_${stripeCalls.length}`, url: 'https://checkout.stripe.test/pay' }));
+        }
+        if (url.includes('/account_links')) return new Response(JSON.stringify({ url: 'https://connect.stripe.test/onboard' }));
+        return new Response(JSON.stringify({ id: 'acct_test_1', ...stripeAccount }));
+      }),
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    env.stripeEnabled = saved.enabled;
+    env.STRIPE_SECRET_KEY = saved.key;
+    env.STRIPE_WEBHOOK_SECRET = saved.hook;
+    if (saved.fee === undefined) delete process.env.COMMUNITY_PLATFORM_FEE_PERCENT;
+    else process.env.COMMUNITY_PLATFORM_FEE_PERCENT = saved.fee;
+  });
+
+  const authHeader = (u: TestUser): Record<string, string> => ({ authorization: `Bearer ${u.token}` });
+
+  async function nicknamed(): Promise<TestUser> {
+    const user = await createUser('Sam Seller');
+    counter += 1;
+    const res = await request(app, {
+      method: 'PUT',
+      url: '/api/community/me/nickname',
+      headers: authHeader(user),
+      payload: { nickname: `sell${run}${counter}` },
+    });
+    expect(res.statusCode).toBe(200);
+    return user;
+  }
+
+  async function seedSeller(user: TestUser, flags: { charges: boolean; payouts: boolean }): Promise<string> {
+    const accountId = `acct_${uuidv7().slice(-12)}`;
+    await db.insert(community_sellers).values({
+      user_id: user.id,
+      stripe_account_id: accountId,
+      details_submitted: flags.charges,
+      charges_enabled: flags.charges,
+      payouts_enabled: flags.payouts,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    });
+    return accountId;
+  }
+
+  const PAID_STORY = {
+    kind: 'story',
+    title: 'Dentist visit',
+    payload: { title: 'Dentist visit', pages: [{ text: 'Sit in the chair' }] },
+    price: { amount: 500, currency: 'usd' },
+  };
+  const postPaid = (user: TestUser, extra: Record<string, unknown> = {}) =>
+    request(app, { method: 'POST', url: '/api/community/posts', headers: authHeader(user), payload: { ...PAID_STORY, ...extra } });
+
+  async function paidPostBy(seller: TestUser): Promise<CommunityPost> {
+    await seedSeller(seller, { charges: true, payouts: true });
+    const res = await postPaid(seller);
+    expect(res.statusCode).toBe(201);
+    return expectShape(res, CommunityPostSchema);
+  }
+
+  async function markPurchase(postId: string, buyerId: string, sellerId: string, status: 'pending' | 'paid'): Promise<string> {
+    const id = uuidv7();
+    await db.insert(community_purchases).values({
+      id,
+      post_id: postId,
+      buyer_user_id: buyerId,
+      seller_user_id: sellerId,
+      status,
+      amount: 500,
+      currency: 'usd',
+      application_fee_amount: 50,
+      created_at: Date.now(),
+    });
+    return id;
+  }
+
+  function signed(body: string, secret = WEBHOOK_SECRET): Record<string, string> {
+    const t = Math.floor(Date.now() / 1000);
+    const v1 = createHmac('sha256', secret).update(`${t}.${body}`).digest('hex');
+    return { 'content-type': 'application/json', 'stripe-signature': `t=${t},v1=${v1}` };
+  }
+  const webhook = (body: string, headers: Record<string, string>) =>
+    request(app, { method: 'POST', url: '/api/community/webhook', headers, payload: body });
+
+  function paidEvent(
+    purchaseId: string,
+    o: { id?: string; amount?: number; intent?: string; session?: string } = {},
+  ): string {
+    return JSON.stringify({
+      id: o.id ?? `evt_${uuidv7()}`,
+      type: 'checkout.session.completed',
+      created: Math.floor(Date.now() / 1000),
+      data: {
+        object: {
+          // Unique per event by default: Stripe session ids are unique, and
+          // community_purchases.stripe_session_id is unique too, so a shared literal
+          // made one case's update collide with a row another case had already paid.
+          id: o.session ?? `cs_${uuidv7()}`,
+          payment_status: 'paid',
+          amount_total: o.amount ?? 500,
+          currency: 'usd',
+          payment_intent: o.intent ?? 'pi_test_1',
+          metadata: { purchase_id: purchaseId },
+        },
+      },
+    });
+  }
+
+  describe('who may set a price', () => {
+    it('refuses a seller with no Stripe account and says why', async () => {
+      const seller = await nicknamed();
+      const res = await postPaid(seller);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('seller_not_onboarded');
+      expect(res.json().error.message).toContain('Set up payouts');
+    });
+
+    it('refuses a seller whose onboarding Stripe has not finished, after asking Stripe once', async () => {
+      const seller = await nicknamed();
+      await seedSeller(seller, { charges: false, payouts: false });
+      const res = await postPaid(seller);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('seller_not_onboarded');
+      expect(stripeCalls.some((c) => c.url.includes('/accounts/'))).toBe(true);
+      const feed = await request(app, { method: 'GET', url: '/api/community/feed?limit=50' });
+      expect(feed.body).not.toContain(PAID_STORY.title);
+    });
+
+    it('refuses when charges work but payouts do not', async () => {
+      const seller = await nicknamed();
+      await seedSeller(seller, { charges: true, payouts: false });
+      stripeAccount.charges_enabled = true;
+      const res = await postPaid(seller);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.message).toContain('payouts');
+    });
+
+    it('refuses to price anything while no platform fee is configured', async () => {
+      const seller = await nicknamed();
+      await seedSeller(seller, { charges: true, payouts: true });
+      delete process.env.COMMUNITY_PLATFORM_FEE_PERCENT;
+      const res = await postPaid(seller);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('fee_not_set');
+    });
+
+    it('lets a finished seller price a story, and only a story or routine', async () => {
+      const seller = await nicknamed();
+      await seedSeller(seller, { charges: true, payouts: true });
+      const ok = expectShape(await postPaid(seller), CommunityPostSchema);
+      expect(ok.price).toEqual({ amount: 500, currency: 'usd' });
+      const plain = await postPaid(seller, { kind: 'post', payload: undefined });
+      expect(plain.statusCode).toBe(400);
+    });
+
+    it('learns the seller finished onboarding from Stripe on the next call', async () => {
+      const seller = await nicknamed();
+      await seedSeller(seller, { charges: false, payouts: false });
+      stripeAccount.charges_enabled = true;
+      stripeAccount.payouts_enabled = true;
+      stripeAccount.details_submitted = true;
+      const res = await postPaid(seller);
+      expect(res.statusCode).toBe(201);
+    });
+  });
+
+  describe('onboarding routes', () => {
+    it('creates an Express account once and returns a link; status reports the flags', async () => {
+      const seller = await nicknamed();
+      const first = await request(app, { method: 'POST', url: '/api/community/selling/onboarding', headers: authHeader(seller) });
+      expect(first.statusCode).toBe(200);
+      expect(first.json().url).toContain('stripe.test');
+      const created = stripeCalls.find((c) => c.url.endsWith('/accounts'));
+      expect(created?.body).toContain('type=express');
+
+      await request(app, { method: 'POST', url: '/api/community/selling/onboarding', headers: authHeader(seller) });
+      expect(stripeCalls.filter((c) => c.url.endsWith('/accounts'))).toHaveLength(1);
+
+      const status = await request(app, { method: 'GET', url: '/api/community/selling', headers: authHeader(seller) });
+      expect(status.json()).toMatchObject({ connected: true, charges_enabled: false, can_sell: false, fee_configured: true });
+    });
+  });
+
+  describe('buying', () => {
+    it('withholds the shared item until it is bought; buyer and author get it', async () => {
+      const seller = await nicknamed();
+      const buyer = await nicknamed();
+      const stranger = await nicknamed();
+      const post = await paidPostBy(seller);
+      expect(post.payload).not.toBeNull(); // the author sees their own item
+      expect(post.has_access).toBe(true);
+
+      const asStranger = expectShape(
+        await request(app, { method: 'GET', url: `/api/community/posts/${post.id}`, headers: authHeader(stranger) }),
+        CommunityPostSchema,
+      );
+      expect(asStranger.has_access).toBe(false);
+      expect(asStranger.payload).toBeNull();
+      expect(asStranger.price).toEqual({ amount: 500, currency: 'usd' });
+
+      // Assert on THIS post's row, not the whole body: the shared test database also
+      // holds free stories from other cases whose text happens to match.
+      const publicFeed = await request(app, { method: 'GET', url: '/api/community/feed?limit=50' });
+      const mine = (publicFeed.json().posts as { id: string; payload: unknown; has_access: boolean }[]).find((p) => p.id === post.id);
+      expect(mine).toBeDefined();
+      expect(mine?.payload).toBeNull();
+      expect(mine?.has_access).toBe(false);
+
+      await markPurchase(post.id, buyer.id, seller.id, 'pending');
+      const pending = expectShape(
+        await request(app, { method: 'GET', url: `/api/community/posts/${post.id}`, headers: authHeader(buyer) }),
+        CommunityPostSchema,
+      );
+      expect(pending.payload).toBeNull(); // a started checkout is not a purchase
+
+      await db.update(community_purchases).set({ status: 'paid', paid_at: Date.now() }).where(eq(community_purchases.buyer_user_id, buyer.id));
+      const asBuyer = expectShape(
+        await request(app, { method: 'GET', url: `/api/community/posts/${post.id}`, headers: authHeader(buyer) }),
+        CommunityPostSchema,
+      );
+      expect(asBuyer.has_access).toBe(true);
+      expect(asBuyer.payload).toEqual(PAID_STORY.payload);
+    });
+
+    it('starts a destination charge with the platform fee from the environment', async () => {
+      const seller = await nicknamed();
+      const buyer = await nicknamed();
+      const post = await paidPostBy(seller);
+      const [row] = await db.select().from(community_sellers).where(eq(community_sellers.user_id, seller.id));
+
+      const res = await request(app, { method: 'POST', url: `/api/community/posts/${post.id}/checkout`, headers: authHeader(buyer) });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().url).toContain('checkout.stripe.test');
+
+      const form = new URLSearchParams(stripeCalls.find((c) => c.url.endsWith('/checkout/sessions'))?.body ?? '');
+      expect(form.get('mode')).toBe('payment');
+      expect(form.get('payment_intent_data[transfer_data][destination]')).toBe(row?.stripe_account_id);
+      expect(form.get('payment_intent_data[application_fee_amount]')).toBe(String(platformFeeAmount(500, Number(TEST_FEE_PERCENT))));
+      expect(form.get('line_items[0][price_data][unit_amount]')).toBe('500');
+      expect(form.get('line_items[0][price_data][currency]')).toBe('usd');
+    });
+
+    it('rejects a duplicate purchase, in the API and in the database', async () => {
+      const seller = await nicknamed();
+      const buyer = await nicknamed();
+      const post = await paidPostBy(seller);
+      await markPurchase(post.id, buyer.id, seller.id, 'paid');
+
+      const res = await request(app, { method: 'POST', url: `/api/community/posts/${post.id}/checkout`, headers: authHeader(buyer) });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('already_purchased');
+      expect(stripeCalls.some((c) => c.url.endsWith('/checkout/sessions'))).toBe(false);
+
+      await expect(markPurchase(post.id, buyer.id, seller.id, 'paid')).rejects.toThrow();
+    });
+
+    it('does not let an author buy their own item, or anyone buy a free post', async () => {
+      const seller = await nicknamed();
+      const post = await paidPostBy(seller);
+      const own = await request(app, { method: 'POST', url: `/api/community/posts/${post.id}/checkout`, headers: authHeader(seller) });
+      expect(own.statusCode).toBe(409);
+      expect(own.json().error.code).toBe('own_post');
+
+      const free = expectShape(
+        await request(app, { method: 'POST', url: '/api/community/posts', headers: authHeader(seller), payload: { body: 'free one' } }),
+        CommunityPostSchema,
+      );
+      const buyer = await nicknamed();
+      const res = await request(app, { method: 'POST', url: `/api/community/posts/${free.id}/checkout`, headers: authHeader(buyer) });
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
+  describe('webhook', () => {
+    it('rejects a missing or wrong signature', async () => {
+      const body = paidEvent(uuidv7());
+      expect((await webhook(body, { 'content-type': 'application/json' })).statusCode).toBe(400);
+      expect((await webhook(body, signed(body, 'whsec_wrong'))).statusCode).toBe(400);
+    });
+
+    it('grants a purchase once and ignores a redelivery', async () => {
+      const seller = await nicknamed();
+      const buyer = await nicknamed();
+      const post = await paidPostBy(seller);
+      const purchaseId = await markPurchase(post.id, buyer.id, seller.id, 'pending');
+      const body = paidEvent(purchaseId);
+
+      const first = await webhook(body, signed(body));
+      expect(first.statusCode).toBe(200);
+      expect(first.json()).toMatchObject({ received: true, result: 'applied' });
+      const [granted] = await db.select().from(community_purchases).where(eq(community_purchases.id, purchaseId));
+      expect(granted?.status).toBe('paid');
+      expect(granted?.stripe_payment_intent_id).toBe('pi_test_1');
+      const paidAt = granted?.paid_at;
+
+      const again = await webhook(body, signed(body));
+      expect(again.json()).toMatchObject({ result: 'duplicate' });
+      const [after] = await db.select().from(community_purchases).where(eq(community_purchases.id, purchaseId));
+      expect(after?.paid_at).toBe(paidAt);
+    });
+
+    it('flags a second payment for an already paid purchase instead of granting twice', async () => {
+      const seller = await nicknamed();
+      const buyer = await nicknamed();
+      const post = await paidPostBy(seller);
+      const purchaseId = await markPurchase(post.id, buyer.id, seller.id, 'pending');
+      const first = paidEvent(purchaseId);
+      await webhook(first, signed(first));
+      const second = paidEvent(purchaseId, { intent: 'pi_test_other' });
+      const res = await webhook(second, signed(second));
+      expect(res.json()).toMatchObject({ result: 'duplicate_payment' });
+    });
+
+    it('does not grant when the paid amount differs from the price', async () => {
+      const seller = await nicknamed();
+      const buyer = await nicknamed();
+      const post = await paidPostBy(seller);
+      const purchaseId = await markPurchase(post.id, buyer.id, seller.id, 'pending');
+      const body = paidEvent(purchaseId, { amount: 1 });
+      expect((await webhook(body, signed(body))).json()).toMatchObject({ result: 'mismatch' });
+      const [row] = await db.select().from(community_purchases).where(eq(community_purchases.id, purchaseId));
+      expect(row?.status).toBe('pending');
+    });
+
+    it('ignores a session that is not one of ours', async () => {
+      const body = JSON.stringify({
+        id: `evt_${uuidv7()}`,
+        type: 'checkout.session.completed',
+        created: Math.floor(Date.now() / 1000),
+        data: { object: { id: 'cs_sub', payment_status: 'paid', metadata: {} } },
+      });
+      expect((await webhook(body, signed(body))).json()).toMatchObject({ result: 'ignored' });
+    });
+
+    it('account.updated refreshes onboarding status, once', async () => {
+      const seller = await nicknamed();
+      const accountId = await seedSeller(seller, { charges: false, payouts: false });
+      const body = JSON.stringify({
+        id: `evt_${uuidv7()}`,
+        type: 'account.updated',
+        created: Math.floor(Date.now() / 1000),
+        data: { object: { id: accountId, charges_enabled: true, payouts_enabled: true, details_submitted: true } },
+      });
+      expect((await webhook(body, signed(body))).json()).toMatchObject({ result: 'applied' });
+      const [row] = await db.select().from(community_sellers).where(eq(community_sellers.user_id, seller.id));
+      expect(row).toMatchObject({ charges_enabled: true, payouts_enabled: true, details_submitted: true });
+      expect((await webhook(body, signed(body))).json()).toMatchObject({ result: 'duplicate' });
+    });
+  });
+
+  describe('with Stripe unset', () => {
+    beforeEach(() => {
+      env.stripeEnabled = false;
+    });
+
+    it('every selling route 404s', async () => {
+      const user = await nicknamed();
+      const anyId = uuidv7();
+      const calls = [
+        request(app, { method: 'GET', url: '/api/community/selling', headers: authHeader(user) }),
+        request(app, { method: 'POST', url: '/api/community/selling/onboarding', headers: authHeader(user) }),
+        request(app, { method: 'POST', url: `/api/community/posts/${anyId}/checkout`, headers: authHeader(user) }),
+        webhook('{}', { 'content-type': 'application/json' }),
+      ];
+      for (const res of await Promise.all(calls)) expect(res.statusCode).toBe(404);
+      expect(stripeCalls).toHaveLength(0);
+    });
+
+    it('a priced post is refused with a 404 while a free post still works exactly as before', async () => {
+      const user = await nicknamed();
+      const priced = await postPaid(user);
+      expect(priced.statusCode).toBe(404);
+      const free = await request(app, {
+        method: 'POST',
+        url: '/api/community/posts',
+        headers: authHeader(user),
+        payload: { kind: 'story', title: 'Free story', payload: { title: 'Free story', pages: [] } },
+      });
+      expect(free.statusCode).toBe(201);
+      const post = expectShape(free, CommunityPostSchema);
+      expect(post.price).toBeNull();
+      expect(post.has_access).toBe(true);
+      expect(post.payload).not.toBeNull();
+    });
+
+    it('keeps already-priced items out of the feed', async () => {
+      const seller = await nicknamed();
+      env.stripeEnabled = true;
+      const post = await paidPostBy(seller);
+      env.stripeEnabled = false;
+      const feed = expectShape(await request(app, { method: 'GET', url: '/api/community/feed?limit=50' }), FeedResponseSchema);
+      expect(feed.posts.map((p) => p.id)).not.toContain(post.id);
+    });
+  });
+
+  describe('fee arithmetic', () => {
+    it('rounds to whole minor units and never exceeds the price', () => {
+      expect(platformFeeAmount(500, 10)).toBe(50);
+      expect(platformFeeAmount(499, 10)).toBe(50);
+      expect(platformFeeAmount(1, 100)).toBe(1);
+      expect(platformFeeAmount(500, 0)).toBe(0);
+    });
+    it('reads the percent from the environment and treats unset, empty or junk as not configured', () => {
+      process.env.COMMUNITY_PLATFORM_FEE_PERCENT = '2.5';
+      expect(platformFeePercent()).toBe(2.5);
+      for (const bad of ['', '  ', 'abc', '-1', '101']) {
+        process.env.COMMUNITY_PLATFORM_FEE_PERCENT = bad;
+        expect(platformFeePercent()).toBeNull();
+      }
+      delete process.env.COMMUNITY_PLATFORM_FEE_PERCENT;
+      expect(platformFeePercent()).toBeNull();
     });
   });
 });

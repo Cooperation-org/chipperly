@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendPage,
+  canDelete,
+  canEdit,
+  commentsPath,
   feedPath,
+  mergeById,
+  normalizeCurrency,
+  omitNull,
+  sellingErrorMessage,
+  toMinorUnits,
   isMine,
   isNicknameRequired,
   isOffline,
@@ -117,5 +125,59 @@ describe('payload snapshots', () => {
     expect(input.steps.map((s) => s.id)).toEqual(['new-1', 'new-2']);
     expect(input.steps[1]?.parent_step_id).toBe('new-1');
     expect(input.location_ids).toEqual([]);
+  });
+});
+
+describe('viewer capability', () => {
+  it('author and moderator can delete, a stranger cannot; only the author edits', () => {
+    expect(canDelete({ is_mine: true, can_moderate: false })).toBe(true);
+    expect(canDelete({ is_mine: false, can_moderate: true })).toBe(true);
+    expect(canDelete({ is_mine: false, can_moderate: false })).toBe(false);
+    expect(canEdit({ is_mine: true, can_moderate: false })).toBe(true);
+    expect(canEdit({ is_mine: false, can_moderate: true })).toBe(false);
+  });
+});
+
+describe('paging helpers', () => {
+  it('mergeById keeps order and drops repeats', () => {
+    expect(mergeById([{ id: 'a' }, { id: 'b' }], [{ id: 'b' }, { id: 'c' }]).map((x) => x.id)).toEqual(['a', 'b', 'c']);
+  });
+  it('commentsPath adds an encoded cursor only when set', () => {
+    expect(commentsPath('p1', null)).toBe('/community/posts/p1/comments');
+    expect(commentsPath('p1', 'a+b/c=')).toBe('/community/posts/p1/comments?cursor=a%2Bb%2Fc%3D');
+  });
+  it('omitNull drops null and undefined but keeps false and empty', () => {
+    expect(omitNull({ a: null, b: undefined, c: false, d: '', e: 0 })).toEqual({ c: false, d: '', e: 0 });
+  });
+});
+
+describe('prices', () => {
+  it('turns typed amounts into minor units for a two-decimal currency', () => {
+    expect(toMinorUnits('4.99', 'usd')).toBe(499);
+    expect(toMinorUnits('4,5', 'usd')).toBe(450);
+    expect(toMinorUnits('12', 'usd')).toBe(1200);
+  });
+  it('honours a zero-decimal currency and rejects extra decimals', () => {
+    expect(toMinorUnits('500', 'jpy')).toBe(500);
+    expect(toMinorUnits('5.5', 'jpy')).toBeNull();
+    expect(toMinorUnits('1.234', 'usd')).toBeNull();
+  });
+  it('rejects zero, negatives, words and empty', () => {
+    for (const bad of ['0', '0.00', '-1', 'abc', '', ' ', '1e3']) expect(toMinorUnits(bad, 'usd')).toBeNull();
+  });
+  it('normalizes a currency code or refuses it', () => {
+    expect(normalizeCurrency(' USD ')).toBe('usd');
+    expect(normalizeCurrency('us')).toBeNull();
+    expect(normalizeCurrency('us1')).toBeNull();
+  });
+});
+
+describe('selling errors', () => {
+  it('says why in plain words', () => {
+    expect(sellingErrorMessage(new ApiError(409, 'seller_not_onboarded', 'Stripe has not finished checking your account'))).toBe(
+      'Stripe has not finished checking your account',
+    );
+    expect(sellingErrorMessage(new ApiError(409, 'already_purchased'))).toBe('You already own this item.');
+    expect(sellingErrorMessage(new Error('x'))).toContain('try again');
   });
 });
