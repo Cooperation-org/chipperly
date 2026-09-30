@@ -127,7 +127,7 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
       {step === 4 ? (
         <>
           <h1 className={styles.title}>What does {name} love?</h1>
-          <p className={styles.subtitle}>These become the rewards to work for.</p>
+          <p className={styles.subtitle}>Each one becomes a reward {name} can spend chips on. You can change the prices later.</p>
           <div className={styles.grid}>
             {loveTiles.map((tile) => (
               <button
