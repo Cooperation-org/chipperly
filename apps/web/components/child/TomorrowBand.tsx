@@ -1,12 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { addDays } from '@chipperly/shared/helpers/date';
-import { db } from '@/lib/db/db';
-import { previewDay } from '@/lib/data/schedule';
 import { useDayNote } from '@/lib/data/dayPlans';
-import { Picture } from '@/components/media/Picture';
+import { eventsOnDate, useDayEvents } from '@/lib/data/events';
+import { useLock } from '@/lib/device/settings';
+import { EventLine } from '@/components/events/EventLine';
+import { EventSheet } from '@/components/events/EventSheet';
+import { IconButton } from '@/components/ui/IconButton';
+import { Button } from '@/components/ui/Button';
+import { useSheet } from '@/components/ui/Sheet';
 import { weekdayName } from '@/components/schedule/todayModel';
 import styles from './TomorrowBand.module.css';
 
@@ -16,50 +19,72 @@ export interface TomorrowBandProps {
   isoDate: string;
 }
 
-const PREVIEW_COUNT = 3;
+/** How many days after tomorrow to look for "coming up this week". */
+const LOOKAHEAD_DAYS = 5;
 
 /**
- * S32 bottom band: prepares the child for tomorrow -- tomorrow's caregiver
- * note (if any) and the first three things planned, without materializing
- * any rows a day early (`previewDay`, lib/data/schedule.ts).
+ * S32 bottom band: prepares the child for tomorrow with the caregiver's note
+ * and tomorrow's events (short day, doctor, crazy hair day, what to wear),
+ * then a line each for bigger things later in the week. Not the routine.
+ * A caregiver can add and edit events here unless the device is hard-locked
+ * (the server refuses event edits from a locked session).
  */
 export function TomorrowBand({ profileId, isoDate }: TomorrowBandProps) {
   const tomorrowIso = addDays(isoDate, 1);
   const note = useDayNote(profileId, tomorrowIso);
+  const events = useDayEvents(profileId);
+  const { locked_profile_id } = useLock();
+  const { open } = useSheet();
+  const canEdit = !locked_profile_id;
 
-  const activities = useLiveQuery(() => db.activities.where('profile_id').equals(profileId).toArray(), [profileId], []);
-  const skips = useLiveQuery(() => db.recurrence_skips.where('profile_id').equals(profileId).toArray(), [profileId], []);
-  const manualItems = useLiveQuery(
-    () => db.schedule_items.where('[profile_id+date]').equals([profileId, tomorrowIso]).toArray(),
-    [profileId, tomorrowIso],
-    [],
+  const tomorrow = useMemo(() => eventsOnDate(events, tomorrowIso), [events, tomorrowIso]);
+  const later = useMemo(
+    () =>
+      Array.from({ length: LOOKAHEAD_DAYS }, (_, i) => addDays(tomorrowIso, i + 1)).flatMap((iso) =>
+        eventsOnDate(events, iso).map((event) => ({ iso, event })),
+      ),
+    [events, tomorrowIso],
   );
 
-  const preview = useMemo(
-    () => previewDay(activities, skips, manualItems, tomorrowIso),
-    [activities, skips, manualItems, tomorrowIso],
-  );
-  const shown = preview.slice(0, PREVIEW_COUNT);
-  const more = preview.length - shown.length;
+  function edit(event?: (typeof tomorrow)[number]): void {
+    open(<EventSheet profileId={profileId} isoDate={tomorrowIso} event={event} />, { title: event ? 'Edit event' : 'Add to tomorrow' });
+  }
 
   return (
     <section className={styles.band} aria-label="Tomorrow">
       <p className={styles.heading}>Tomorrow, {weekdayName(tomorrowIso)}</p>
       {note?.note ? <p className={styles.note}>{note.note}</p> : null}
 
-      {shown.length === 0 ? (
-        <p className={styles.empty}>Nothing planned yet</p>
+      {tomorrow.length === 0 ? (
+        <p className={styles.empty}>Nothing special tomorrow</p>
       ) : (
         <ul className={styles.list}>
-          {shown.map((entry) => (
-            <li key={entry.id} className={styles.item}>
-              <Picture emoji={entry.activity.emoji} photo_id={entry.activity.photo_id} name={entry.activity.name} size="list" />
-              <span>{entry.activity.name}</span>
-            </li>
+          {tomorrow.map((event) => (
+            <EventLine
+              key={event.id}
+              event={event}
+              actions={canEdit ? <IconButton icon="edit" aria-label={`Edit ${event.title}`} onClick={() => edit(event)} /> : null}
+            />
           ))}
         </ul>
       )}
-      {more > 0 ? <p className={styles.more}>and {more} more</p> : null}
+
+      {later.length > 0 ? (
+        <>
+          <p className={styles.subheading}>Coming up</p>
+          <ul className={styles.list}>
+            {later.map(({ iso, event }) => (
+              <EventLine key={`${event.id}:${iso}`} event={event} kicker={weekdayName(iso)} />
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {canEdit ? (
+        <Button variant="secondary" icon="plus" onClick={() => edit()}>
+          Add to tomorrow
+        </Button>
+      ) : null}
     </section>
   );
 }

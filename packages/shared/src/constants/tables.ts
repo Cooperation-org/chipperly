@@ -17,6 +17,7 @@ export const TABLE_NAMES = [
   'attitude_checks',
   'mood_events',
   'day_plans',
+  'day_events',
 ] as const;
 
 export type SyncedTable = (typeof TABLE_NAMES)[number];

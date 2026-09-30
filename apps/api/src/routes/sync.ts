@@ -12,6 +12,7 @@ import { LocationSchema } from '@chipperly/shared/schemas/location';
 import { ActivitySchema, ActivityStepSchema, RecurrenceSkipSchema } from '@chipperly/shared/schemas/activity';
 import { RewardSchema } from '@chipperly/shared/schemas/reward';
 import { DayPlanSchema, ScheduleItemSchema, StepCompletionSchema } from '@chipperly/shared/schemas/schedule';
+import { DayEventSchema } from '@chipperly/shared/schemas/event';
 import { ChipLedgerSchema } from '@chipperly/shared/schemas/chips';
 import { SocialStorySchema, StoryPageSchema } from '@chipperly/shared/schemas/story';
 import { AttitudeCheckSchema } from '@chipperly/shared/schemas/attitude';
@@ -45,6 +46,7 @@ export const TABLE_SCHEMAS: Record<MutationTable, z.ZodType> = {
   attitude_checks: AttitudeCheckSchema,
   mood_events: MoodEventSchema,
   day_plans: DayPlanSchema,
+  day_events: DayEventSchema,
   profiles: ProfileSchema,
 };
 

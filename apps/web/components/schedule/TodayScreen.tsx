@@ -42,6 +42,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { DateNav } from './DateNav';
 import { DayNote, DayNoteAddButton } from './DayNote';
+import { TodayEvents } from '@/components/events/TodayEvents';
 import { TeamCheckupSheet } from '@/components/feelings/FeelingSheets';
 import { ItemSheet } from './ItemSheet';
 import { allDone, groupByPartOfDay, moveItem, secondaryText, weekdayName } from './todayModel';
@@ -262,6 +263,7 @@ export function TodayScreen() {
       ) : null}
       <DateNav isoDate={isoDate} onChange={setIsoDate} />
       <DayNote profileId={profileId} isoDate={isoDate} childName={profile.name} />
+      <TodayEvents profileId={profileId} isoDate={isoDate} />
 
       <div className={styles.chipStripRow}>
         {workingFor.reward || workingFor.filled > 0 ? (
