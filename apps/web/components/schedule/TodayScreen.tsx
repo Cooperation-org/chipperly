@@ -250,8 +250,7 @@ export function TodayScreen() {
 
   return (
     <div className={styles.screen}>
-      <VerifyBanner />
-      <RewardAlertsBanner />
+      <VerifyBanner fallback={<RewardAlertsBanner />} />
       {/* First thing on Today, not only in Settings: switching place right before handing the device to the child. */}
       {locations.length > 1 ? (
         <Segmented
