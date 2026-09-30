@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPassword, useSession } from '@/lib/auth/session';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { GuestEntry } from './GuestEntry';
@@ -42,7 +42,13 @@ export function SignInForm() {
       await signInWithPassword(email, password);
       await redirectAfterAuth(router);
     } catch (err) {
-      setError(err instanceof ApiError ? "Couldn't sign in. Check your email and password." : "Couldn't sign in. Try again.");
+      setError(
+        err instanceof TimeoutError
+          ? TIMEOUT_MESSAGE
+          : err instanceof ApiError
+            ? "Couldn't sign in. Check your email and password."
+            : "Couldn't sign in. Try again.",
+      );
     } finally {
       setLoading(false);
       submittingRef.current = false;

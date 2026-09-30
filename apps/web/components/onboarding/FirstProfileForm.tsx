@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Profile, SetupAnswers } from '@chipperly/shared/schemas/profile';
 import { AVATAR_EMOJI } from '@chipperly/shared/constants/emoji';
-import { api } from '@/lib/api/client';
+import { api, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
 import { setKv, useKv } from '@/lib/db/kv';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -58,11 +58,12 @@ export function FirstProfileForm() {
         ...(setup ? { setup } : {}),
       });
       await setKv(SETUP_ANSWERS_KEY, setup);
-      await refreshMe();
+      // The profile exists server-side now; a slow refresh must not fail the step (and a retry would add a second profile).
+      await refreshMe().catch(() => undefined);
       setActiveProfileId(profile.id);
       router.push('/onboarding/ready/');
-    } catch {
-      setError("Couldn't save that. Try again.");
+    } catch (err) {
+      setError(err instanceof TimeoutError ? TIMEOUT_MESSAGE : "Couldn't save that. Try again.");
     } finally {
       setLoading(false);
     }

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { InviteDetails } from '@chipperly/shared/schemas/account';
 import { signUp, useSession } from '@/lib/auth/session';
-import { api, ApiError } from '@/lib/api/client';
+import { api, ApiError, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { GuestEntry } from './GuestEntry';
@@ -73,7 +73,9 @@ export function SignUpForm() {
       await redirectAfterAuth(router);
     } catch (err) {
       setError(
-        err instanceof ApiError && err.code === 'email_taken'
+        err instanceof TimeoutError
+          ? TIMEOUT_MESSAGE
+          : err instanceof ApiError && err.code === 'email_taken'
           ? 'An account with this email already exists.'
           : err instanceof ApiError && err.code === 'invite_code_invalid'
             ? err.message
