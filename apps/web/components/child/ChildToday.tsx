@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Capacitor } from '@capacitor/core';
 import { todayIso } from '@chipperly/shared/helpers/date';
-import { exitParentMode, useLock } from '@/lib/device/settings';
+import { exitParentMode, useLock, useSavedLockOptions } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
 import { childViewProfileId, useDeviceRole } from '@/lib/device/role';
@@ -36,6 +36,7 @@ import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import { BigButton } from '@/components/ui/BigButton';
 import { Celebration } from '@/components/ui/Celebration';
+import { useCelebrate } from '@/components/ui/CelebrationBurst';
 import { useSheet } from '@/components/ui/Sheet';
 import { FreeTimeSheet } from '@/components/chips/FreeTimeSheet';
 import { PickRewardSheet } from './PickRewardSheet';
@@ -80,6 +81,11 @@ export function ChildToday() {
 
   const profileId = childViewProfileId(locked_profile_id, deviceRole, activeProfile, allProfiles);
   const userId = user?.id ?? '';
+  // Locked: the options frozen into the lock (old ones predate `celebrations`, so only an explicit false is off).
+  // Not locked: this profile's saved options, so the setting applies straight away.
+  const savedOptions = useSavedLockOptions(profileId ?? '');
+  const celebrationsOn = locked_profile_id ? options.celebrations !== false : savedOptions.celebrations;
+  const { celebrate, layer: celebrationLayer } = useCelebrate(celebrationsOn);
   const [isoDate] = useState(() => todayIso());
 
   const profile = useLiveQuery(() => (profileId ? db.profiles.get(profileId) : undefined), [profileId]);
@@ -196,9 +202,9 @@ export function ChildToday() {
 
   const isAllDone = dayItems.length > 0 && dayItems.every((day) => day.item.completed_at !== null);
   useEffect(() => {
-    if (isAllDone && !wasAllDoneRef.current) setCelebrating(true);
+    if (isAllDone && !wasAllDoneRef.current && celebrationsOn) setCelebrating(true);
     wasAllDoneRef.current = isAllDone;
-  }, [isAllDone]);
+  }, [isAllDone, celebrationsOn]);
 
   // A stepped item's steps default open/closed per options.expand_steps
   // (Lock this device's "Show steps expanded"); this tracks only the ids
@@ -258,8 +264,14 @@ export function ChildToday() {
     if (!next) return;
     if (readAloud) speak(`${day.activity.name}, done!`);
     void alertRewardsFor(day);
-    if (day.activity.chip_value > 0) playChip();
+    if (day.activity.chip_value > 0) chipEarned();
     showPromptFor(day.item.id);
+  }
+
+  // The synthesized celebration replaces the recorded chip sound; with celebrations off the old sound stays.
+  function chipEarned(): void {
+    if (celebrationsOn) celebrate();
+    else playChip();
   }
 
   // Predicts whether checking this one step completes the parent (the same
@@ -278,7 +290,7 @@ export function ChildToday() {
     }
     if (!completesParent) return;
     void alertRewardsFor(day);
-    if (day.activity.chip_value > 0) playChip();
+    if (day.activity.chip_value > 0) chipEarned();
     showPromptFor(day.item.id);
   }
 
@@ -687,6 +699,7 @@ export function ChildToday() {
 
       <TomorrowBand profileId={profileId} isoDate={isoDate} />
 
+      {celebrationLayer}
       {celebrating ? (
         <div className={styles.celebrationWrap}>
           <Celebration kind="all_done" onDone={() => setCelebrating(false)} />

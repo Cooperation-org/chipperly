@@ -12,6 +12,8 @@ import { db } from '@/lib/db/db';
 import { toast } from '@/lib/toast';
 import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { playChip } from '@/lib/sound';
+import { useCelebrate } from '@/components/ui/CelebrationBurst';
+import { useSavedLockOptions } from '@/lib/device/settings';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
@@ -37,6 +39,8 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
   const rewards = useRewards(profileId, { location_id: locationId, always_available: true });
   const earned = useRewards(profileId, { location_id: locationId, always_available: false }).filter(hasCost);
   const balance = useBalance(profileId, locationId);
+  const celebrationsOn = useSavedLockOptions(profileId).celebrations;
+  const { celebrate, layer: celebrationLayer } = useCelebrate(celebrationsOn);
   const profile = useLiveQuery(() => db.profiles.get(profileId), [profileId]);
   // `canCreate` is only true for the caregiver's own Free time choices
   // (ChipsScreen); the toggle is "Let [name] redeem rewards", so it must not
@@ -75,7 +79,8 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
     const removed = await redeem(profileId, locationId, reward);
     // canCreate is the caregiver's own sheet; only the child's redeem alerts them.
     if (!canCreate) void sendRewardRequest(profileId, locationId, reward.name, 'free_time');
-    playChip();
+    if (celebrationsOn) celebrate();
+    else playChip();
     toast(`Redeemed ${reward.name}`, {
       // ponytail: restores the balance only; redeem() also clears the
       // location's working-for reward as a side effect and this flow
@@ -114,6 +119,7 @@ export function FreeTimeSheet({ profileId, locationId, canCreate }: FreeTimeShee
 
   return (
     <div className={styles.sections}>
+      {celebrationLayer}
       {rewards.length > 0 || canCreate ? (
         <div className={styles.grid}>
           {canCreate ? (
