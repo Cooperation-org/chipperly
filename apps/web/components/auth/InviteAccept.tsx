@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { InviteDetails, AcceptInviteResponse } from '@chipperly/shared/schemas/account';
-import { api } from '@/lib/api/client';
+import { api, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveAccount, useActiveProfile } from '@/lib/profile/active';
 import { startSync } from '@/lib/sync/engine';
@@ -67,7 +67,8 @@ export function InviteAccept() {
     setAcceptError(null);
     try {
       const result = await api.post<AcceptInviteResponse>(`/invites/${encodeURIComponent(token)}/accept`);
-      await refreshMe();
+      // Accepted already; a slow refresh must not leave this button dead (sync fills the rest in).
+      void refreshMe().catch(() => undefined);
       setActiveAccountId(result.account_id);
       if (result.profile_ids[0]) setActiveProfileId(result.profile_ids[0]);
       // They signed in here to manage a child's schedule, so this is a caregiver device
@@ -80,8 +81,8 @@ export function InviteAccept() {
       await setDeviceRole({ kind: 'caregiver' });
       await enterParentMode();
       router.push('/today/');
-    } catch {
-      setAcceptError("Couldn't accept the invite. Try again.");
+    } catch (err) {
+      setAcceptError(err instanceof TimeoutError ? TIMEOUT_MESSAGE : "Couldn't accept the invite. Try again.");
       setAccepting(false);
     }
   }

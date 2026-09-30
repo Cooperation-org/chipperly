@@ -13,7 +13,7 @@ vi.mock('../db/kv', () => ({
   }),
 }));
 
-import { api, ApiError, buildHeaders } from './client';
+import { api, ApiError, buildHeaders, TimeoutError } from './client';
 
 describe('buildHeaders', () => {
   it('omits Content-Type when there is no body', () => {
@@ -129,5 +129,89 @@ describe('401 retry-with-refresh', () => {
     expect(results).toEqual([{ ok: true }, { ok: true }, { ok: true }]);
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/auth/refresh'))).toHaveLength(1);
     expect(kv.get('auth_tokens')).toMatchObject({ refresh_token: 'r2' });
+  });
+});
+
+describe('request timeout', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    kv.clear();
+  });
+
+  /** A fetch that never answers, but honours its AbortSignal like the real one. */
+  function stalledFetch() {
+    return vi.fn().mockImplementation(
+      (_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+    );
+  }
+
+  it('rejects with a TimeoutError (a TypeError, like an offline fetch) after the default 20s', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', stalledFetch());
+
+    const pending = api.get('/me').catch((err: unknown) => err);
+    await vi.advanceTimersByTimeAsync(19_999);
+    let settled = false;
+    void pending.then(() => {
+      settled = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    const error = await pending;
+    expect(error).toBeInstanceOf(TimeoutError);
+    expect(error).toBeInstanceOf(TypeError);
+    expect(error).not.toBeInstanceOf(ApiError);
+  });
+
+  it('honours opts.timeoutMs', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', stalledFetch());
+
+    const pending = api.get('/me', { timeoutMs: 500 }).catch((err: unknown) => err);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(await pending).toBeInstanceOf(TimeoutError);
+  });
+
+  it('still lets a caller abort the request, with the abort error rather than a timeout', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', stalledFetch());
+    const ctl = new AbortController();
+
+    const pending = api.get('/me', { signal: ctl.signal }).catch((err: unknown) => err);
+    await vi.advanceTimersByTimeAsync(1_000);
+    ctl.abort();
+    const error = await pending;
+    expect(error).not.toBeInstanceOf(TimeoutError);
+    expect((error as Error).name).toBe('AbortError');
+  });
+
+  it('does not touch a fast response, and leaves no timer behind', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 })));
+
+    await expect(api.get('/me')).resolves.toEqual({ ok: true });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps the tokens when the refresh itself times out', async () => {
+    kv.set('auth_tokens', { access_token: 'stale', refresh_token: 'r', expires_in: 900, obtained_at: Date.now() });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) =>
+        String(url).includes('/auth/refresh')
+          ? Promise.reject(new TypeError('timed out'))
+          : Promise.resolve(new Response(JSON.stringify({}), { status: 401 })),
+      ),
+    );
+
+    await api.get('/me').catch(() => undefined);
+
+    expect(kv.get('auth_tokens')).toMatchObject({ refresh_token: 'r' });
   });
 });
