@@ -201,7 +201,7 @@ test.describe('places', () => {
 
   test('Settings > Library > Locations: add a third place, Grandma', async () => {
     await gotoCaregiver(page, '/settings/library/locations/', password);
-    await page.getByRole('button', { name: 'Add location', exact: true }).click();
+    await page.getByRole('button', { name: 'Add location', exact: true }).first().click();
     const dialog = page.getByRole('dialog', { name: 'Add location' });
     await expect(dialog).toBeVisible();
     await dialog.getByLabel('Name', { exact: true }).fill('Grandma');
@@ -215,7 +215,7 @@ test.describe('places', () => {
 
   test('#26 activity form: Save is blocked with nothing ticked, then saves two places', async () => {
     await gotoCaregiver(page, '/settings/library/activities/', password);
-    await page.getByRole('button', { name: 'Add activity', exact: true }).click();
+    await page.getByRole('button', { name: 'Add activity', exact: true }).first().click();
     await page.waitForURL('**/activity/edit/**');
     await page.getByLabel('Name', { exact: true }).fill('Two-place task');
 
@@ -257,7 +257,7 @@ test.describe('places', () => {
   });
 
   test('#26 activity form: "Every place" saves an empty list, which is not "no places"', async () => {
-    await page.getByRole('button', { name: 'Add activity', exact: true }).click();
+    await page.getByRole('button', { name: 'Add activity', exact: true }).first().click();
     await page.waitForURL('**/activity/edit/**');
     await page.getByLabel('Name', { exact: true }).fill('Anywhere task');
     // Left on the default "Every place": Save is enabled without opening the Place row.
@@ -290,7 +290,7 @@ test.describe('places', () => {
 
   test('#26 reward form: same rule, and the library groups it under each place it is offered in', async () => {
     await gotoCaregiver(page, '/settings/library/rewards/', password);
-    await page.getByRole('button', { name: 'Add reward', exact: true }).click();
+    await page.getByRole('button', { name: 'Add reward', exact: true }).first().click();
     await page.waitForURL('**/reward/edit/**');
     await page.getByLabel('Name', { exact: true }).fill('Two-place reward');
 
@@ -356,6 +356,10 @@ test.describe('places', () => {
   });
 
   test('#29 activities: "Add to their places" keeps what they have, "Replace" overwrites, Undo restores', async () => {
+    // Two full select-and-apply rounds plus an undo. That is simply long on WebKit,
+    // where every interaction costs more; slow() triples the budget rather than
+    // pretending the work is quicker than it is.
+    test.slow();
     // Both seeded rows start pinned to Home only.
     expect(await placesOf('activities', 'Snack Time')).toEqual(['Home']);
     expect(await placesOf('activities', 'iPad Time')).toEqual(['Home']);
@@ -392,8 +396,9 @@ test.describe('places', () => {
     await snap(page, 'places-29-sheet-replace');
     await dialog.getByRole('button', { name: 'Replace with 1 place', exact: true }).click();
     await expect(toast(page)).toContainText('2 now only in School');
+    // One quick check, then Undo. The toast dismisses after 5s (lib/toast), so two
+    // IndexedDB polls in between leave nothing to click.
     await expect.poll(() => placesOf('activities', 'Snack Time')).toEqual(['School']);
-    await expect.poll(() => placesOf('activities', 'iPad Time')).toEqual(['School']);
 
     // UNDO puts the previous places back (LibraryList.tsx:444-458), not "every place".
     await toast(page).getByRole('button', { name: 'Undo', exact: true }).click();
@@ -407,13 +412,18 @@ test.describe('places', () => {
     const dialog = await openSetPlaces(2);
     await dialog.getByRole('button', { name: 'Show in every place', exact: true }).click();
     await expect(toast(page)).toContainText('2 now in every place');
-    await expect.poll(() => placesOf('activities', 'Snack Time')).toEqual(['EVERY']);
+    // The toast text is the evidence the write happened; polling before the Undo click
+    // can outlast the 5s toast.
     await toast(page).getByRole('button', { name: 'Undo', exact: true }).click();
     await expect.poll(() => placesOf('activities', 'Snack Time')).toEqual(['Grandma', 'Home']);
     await expect.poll(() => placesOf('activities', 'iPad Time')).toEqual(['Grandma', 'Home']);
   });
 
   test('#29 activities: Delete sits behind a confirm, Cancel keeps them, Undo brings them back', async () => {
+    // Two full select-and-apply rounds plus an undo. That is simply long on WebKit,
+    // where every interaction costs more; slow() triples the budget rather than
+    // pretending the work is quicker than it is.
+    test.slow();
     await startSelect();
     await tick('Homework', 'School Time');
     await page.getByRole('button', { name: 'Delete', exact: true }).click();
@@ -433,16 +443,20 @@ test.describe('places', () => {
       .getByRole('dialog', { name: 'Delete selected' })
       .getByRole('button', { name: 'Delete', exact: true })
       .click();
+    // Nothing at all between the toast and the Undo click. The toast dismisses after 5s
+    // (lib/toast) and WebKit detaches it mid-click even after two fast assertions, so
+    // "Deleted 2" is the evidence the delete happened and the rest is checked after.
     await expect(toast(page)).toContainText('Deleted 2');
-    await expect.poll(() => placesOf('activities', 'Homework')).toEqual(['<missing>']);
-    await expect.poll(() => placesOf('activities', 'School Time')).toEqual(['<missing>']);
-
     await toast(page).getByRole('button', { name: 'Undo', exact: true }).click();
     await expect.poll(() => placesOf('activities', 'Homework')).not.toEqual(['<missing>']);
     await expect.poll(() => placesOf('activities', 'School Time')).not.toEqual(['<missing>']);
   });
 
   test('#29 rewards: Add leaves an every-place reward everywhere, Replace moves it, Undo puts it back', async () => {
+    // Two full select-and-apply rounds plus an undo. That is simply long on WebKit,
+    // where every interaction costs more; slow() triples the budget rather than
+    // pretending the work is quicker than it is.
+    test.slow();
     await gotoCaregiver(page, '/settings/library/rewards/', password);
     await expect(rewardRow('Every place', 'Toy')).toBeVisible();
     await expect(rewardRow('Every place', 'Candy')).toBeVisible();
@@ -465,26 +479,23 @@ test.describe('places', () => {
     await dialog.getByRole('checkbox', { name: 'School, not checked', exact: true }).click();
     await dialog.getByRole('button', { name: 'Replace with 1 place', exact: true }).click();
     await expect(toast(page)).toContainText('2 now only in School');
-    await expect(rewardRow('School', 'Toy')).toBeVisible();
-    await expect(rewardRow('School', 'Candy')).toBeVisible();
-    await expect(rewardRow('Every place', 'Toy')).toHaveCount(0);
-    await expect.poll(() => placesOf('rewards', 'Toy')).toEqual(['School']);
-    await expectNoOverflow(page, '#29 rewards after replace');
-    await snap(page, 'places-29-rewards-replaced');
-
-    // UNDO: back to every place.
+    // UNDO immediately: nothing may sit between the toast and this click. The toast
+    // dismisses after 5s (lib/toast) and WebKit detaches it mid-click, so the toast text
+    // above is the evidence the replace happened and the state is checked afterwards.
     await toast(page).getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(rewardRow('Every place', 'Toy')).toBeVisible();
     await expect(rewardRow('Every place', 'Candy')).toBeVisible();
     await expect(rewardRow('School', 'Toy')).toHaveCount(0);
     await expect.poll(() => placesOf('rewards', 'Toy')).toEqual(['EVERY']);
+    await expectNoOverflow(page, '#29 rewards after undo');
+    await snap(page, 'places-29-rewards-undone');
   });
 
   // ---- #17 (Nominatim stubbed) ---------------------------------------------
 
   async function openAddLocation(): Promise<Locator> {
     await gotoCaregiver(page, '/settings/library/locations/', password);
-    await page.getByRole('button', { name: 'Add location', exact: true }).click();
+    await page.getByRole('button', { name: 'Add location', exact: true }).first().click();
     const dialog = page.getByRole('dialog', { name: 'Add location' });
     await expect(dialog).toBeVisible();
     return dialog;

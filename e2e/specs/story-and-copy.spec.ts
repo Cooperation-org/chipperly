@@ -323,8 +323,12 @@ test.describe('starter plan wording and shape', () => {
     // count of 0 can simply mean "not loaded", and clicking then shuts an open row.
     const stepsRow = page.getByRole('button', { name: /^Steps/ });
     await expect(stepsRow).toBeVisible();
-    if ((await stepsRow.getAttribute('aria-expanded')) !== 'true') await stepsRow.click();
-    await expect(stepsRow).toHaveAttribute('aria-expanded', 'true');
+    // Retry rather than assume one click did it: on WebKit the click can land before
+    // hydration attaches the handler, leaving the row shut with no error.
+    await expect(async () => {
+      if ((await stepsRow.getAttribute('aria-expanded')) !== 'true') await stepsRow.click();
+      await expect(stepsRow).toHaveAttribute('aria-expanded', 'true', { timeout: 1_000 });
+    }).toPass({ timeout: 20_000 });
     await expect(brushStep).toBeVisible();
     await expect(dressedStep).toBeVisible();
     await expectNoOverflow(page, 'plan: morning routine steps');

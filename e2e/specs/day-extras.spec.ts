@@ -62,7 +62,7 @@ async function openViewSheet(page: Page): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function createRoutine(page: Page, name: string, steps: string[]): Promise<void> {
-  await page.getByRole('button', { name: 'Add activity', exact: true }).click();
+  await page.getByRole('button', { name: 'Add activity', exact: true }).first().click();
   await page.getByRole('dialog').getByRole('button', { name: 'Create new', exact: true }).click();
   await page.waitForURL('**/activity/edit/**');
   await page.getByLabel('Name', { exact: true }).fill(name);
