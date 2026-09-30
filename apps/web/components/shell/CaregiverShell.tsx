@@ -18,6 +18,7 @@ import { TabBar } from '@/components/ui/TabBar';
 import { TabRail } from '@/components/ui/TabRail';
 import { TimerPill } from '@/components/timer/TimerPill';
 import { SyncSheet } from './SyncSheet';
+import { GuestBanner } from './GuestBanner';
 import styles from './CaregiverShell.module.css';
 
 const TABS = [
@@ -57,7 +58,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   // mount) gates the redirect so it can't flicker true while Dexie's live
   // query for `useActiveProfile().profiles` (used for the switcher list) is
   // still resolving its first result.
-  const { status: sessionStatus, profiles: sessionProfiles, user } = useSession();
+  const { status: sessionStatus, profiles: sessionProfiles, user, guest } = useSession();
   const blockingReady = useBlockingReady();
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
   // TopBar is a dumb tile: without a resolved URL a photo avatar stays a skeleton forever.
@@ -122,7 +123,8 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
 
   if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !decided || !allowed) return null;
   // Lock buttons only for a child who uses the app themselves.
-  const lockable = profile && usesApp(profile) ? profile : null;
+  // A guest has no PIN or server to lock against, so no lock buttons.
+  const lockable = profile && usesApp(profile) && !guest ? profile : null;
 
   return (
     <div className={styles.shell}>
@@ -131,7 +133,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
           profile ? { name: profile.name, emoji: profile.avatar_emoji ?? undefined, photo_id: profile.avatar_photo_id, photoUrl: avatarUrl } : null
         }
         title={profile?.name ?? 'Chipperly'}
-        sync={sync}
+        sync={guest ? { state: 'synced' } : sync}
         onProfileTap={() =>
           open(
             <ProfileSwitcherSheet
@@ -143,14 +145,17 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
             />,
           )
         }
-        onSyncTap={() => open(<SyncSheet />, { title: 'Sync' })}
+        onSyncTap={guest ? undefined : () => open(<SyncSheet />, { title: 'Sync' })}
         onSettingsTap={() => router.push('/settings/')}
         onLockTap={lockable ? () => void lockNow(lockable.id, false) : undefined}
         lockLabel={lockable ? `Lock to ${lockable.name}` : undefined}
         onLockPhoneTap={lockable && blockingReady ? () => void lockNow(lockable.id, true) : undefined}
       />
       <TimerPill />
-      <main className={styles.content}>{children}</main>
+      <main className={styles.content}>
+        <GuestBanner />
+        {children}
+      </main>
       <div className={styles.tabbarSlot} data-shell-tabbar>
         <TabBar items={TABS} />
       </div>
