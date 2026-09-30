@@ -29,6 +29,15 @@ const EnvSchema = z.object({
   BETA_INVITE_CODE: z.string().min(1).optional(),
   /** Comma-separated emails that see the super admin dashboard (routes/admin.ts). */
   SUPER_ADMIN_EMAILS: z.string().min(1).optional(),
+  /** Stripe secret key. Unset = every /billing route 404s and the web hides the upgrade path. */
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  /** Signing secret of the Stripe webhook endpoint (whsec_...). Billing stays off without it: an unverifiable webhook is not accepted. */
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  /** One Stripe price id per account kind. The owner sets the amounts in Stripe; a kind with no id cannot check out. */
+  STRIPE_PRICE_INDIVIDUAL: z.string().min(1).optional(),
+  STRIPE_PRICE_HOUSEHOLD: z.string().min(1).optional(),
+  STRIPE_PRICE_AGENCY: z.string().min(1).optional(),
+  STRIPE_PRICE_SUPPORTED: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(1).default('Chipperly <no-reply@chipperlyapp.com>'),
   /** The Firebase service account key JSON, as a single-line string (a deploy sets this, not a file path). Unset = push logs to the console instead of sending. */
@@ -63,6 +72,8 @@ export const env = {
       parsed.APPLE_SIGNIN_KEY_ID &&
       parsed.APPLE_SIGNIN_PRIVATE_KEY,
   ),
+  /** True when /billing should be enabled instead of 404: the secret key and the webhook signing secret are both set. */
+  stripeEnabled: Boolean(parsed.STRIPE_SECRET_KEY && parsed.STRIPE_WEBHOOK_SECRET),
   /** True when Resend is configured; false = mail is logged to stdout. */
   mailEnabled: Boolean(parsed.RESEND_API_KEY),
   /** True when a Firebase service account is configured; false = push logs to stdout instead of sending. */

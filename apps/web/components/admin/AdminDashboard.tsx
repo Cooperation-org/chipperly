@@ -12,6 +12,14 @@ import { useSheet } from '@/components/ui/Sheet';
 import { PromoCodeSheet } from './PromoCodeSheet';
 import styles from './AdminDashboard.module.css';
 
+/** Plural label per account kind, for the counts line. Unknown kinds read as individuals. */
+const KIND_LABELS: Record<string, string> = {
+  household: 'families',
+  agency: 'organizations',
+  supported: 'supported accounts',
+  individual: 'individuals',
+};
+
 function day(ms: number): string {
   return new Date(ms).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
 }
@@ -120,7 +128,7 @@ export function AdminDashboard() {
             </div>
             <p className={styles.muted}>
               {Object.entries(overview.accounts_by_kind)
-                .map(([kind, n]) => `${n} ${kind === 'household' ? 'families' : kind === 'agency' ? 'organizations' : 'individuals'}`)
+                .map(([kind, n]) => `${n} ${KIND_LABELS[kind] ?? 'individuals'}`)
                 .join(' · ') || 'No accounts yet'}
             </p>
           </section>

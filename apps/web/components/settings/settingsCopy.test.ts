@@ -6,6 +6,8 @@ describe('isSelfManaged', () => {
     expect(isSelfManaged({ kind: 'individual' })).toBe(true);
     expect(isSelfManaged({ kind: 'household' })).toBe(false);
     expect(isSelfManaged({ kind: 'agency' })).toBe(false);
+    // 'supported' is someone else's account, held for them: not self-managed.
+    expect(isSelfManaged({ kind: 'supported' })).toBe(false);
     expect(isSelfManaged(undefined)).toBe(false);
   });
 });

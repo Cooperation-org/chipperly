@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AccountSchema, Role, UserPublicSchema } from './account.js';
+import { AccountKind, AccountSchema, Role, UserPublicSchema } from './account.js';
 import { uuidSchema } from './common.js';
 import { MediaKind } from './media.js';
 import { ProfileSchema, SetupAnswersSchema } from './profile.js';
@@ -122,7 +122,7 @@ export const ExportResponseSchema = z.object({
 export type ExportResponse = z.infer<typeof ExportResponseSchema>;
 
 export const CreateAccountBodySchema = z.object({
-  kind: z.enum(['individual', 'household', 'agency']),
+  kind: AccountKind,
   name: z.string().min(1),
 });
 export type CreateAccountBody = z.infer<typeof CreateAccountBodySchema>;

@@ -5,6 +5,8 @@ export const PROFILE_LIMITS: Record<AccountKind, number> = {
   individual: 1,
   household: 8,
   agency: Infinity,
+  /** One person, managed by someone else. */
+  supported: 1,
 };
 
 /** Highest chip value/cost the picker UI offers. */

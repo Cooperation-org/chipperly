@@ -179,9 +179,35 @@ export function SettingsMenu() {
       </div>
 
       <div className={styles.section}>
+        <span className={styles.sectionTitle}>Community</span>
+        <div className={styles.card}>
+          <ListRow
+            tile={<Icon name="users" size={20} />}
+            name="Browse the community"
+            secondary="Stories and routines other families share"
+            trailing={<Icon name="chevron" size={20} />}
+            onTap={() => router.push('/community/')}
+          />
+          <ListRow
+            tile={<Icon name="users" size={20} />}
+            name="Your community name"
+            secondary="Chosen once, and public"
+            trailing={<Icon name="chevron" size={20} />}
+            onTap={() => router.push('/settings/community/')}
+          />
+        </div>
+      </div>
+
+      <div className={styles.section}>
         <span className={styles.sectionTitle}>Account</span>
         <div className={styles.card}>
           <ListRow tile={<Icon name="gear" size={20} />} name="Account" secondary={user?.email} trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/account/')} />
+          <ListRow
+            tile={<Icon name="chips" size={20} />}
+            name="Plan"
+            trailing={<Icon name="chevron" size={20} />}
+            onTap={() => router.push('/settings/billing/')}
+          />
           {user?.is_super_admin ? (
             <ListRow
               tile={<Icon name="gear" size={20} />}

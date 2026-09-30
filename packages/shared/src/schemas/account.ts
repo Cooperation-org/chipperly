@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { msTimestampSchema, uuidSchema } from './common.js';
 
-export const AccountKind = z.enum(['individual', 'household', 'agency']);
+/**
+ * individual = "Myself"; household = my family; agency = my organization;
+ * supported = one person managed by someone else (an adult supporting a
+ * parent, a professional with a single client). Not self-managed: the
+ * holder is supporting someone, so it gets third-person copy.
+ */
+export const AccountKind = z.enum(['individual', 'household', 'agency', 'supported']);
 export type AccountKind = z.infer<typeof AccountKind>;
 
 export const AccountSchema = z.object({
@@ -47,6 +53,8 @@ export const UserPublicSchema = z.object({
   promo: z.object({ code: z.string(), percent_off: z.number().nullable(), applies_to: z.enum(['annual', 'any']) }).nullable().optional(),
   /** Listed in the server's SUPER_ADMIN_EMAILS: sees the admin dashboard. */
   is_super_admin: z.boolean().optional(),
+  /** `users.is_support`: can work the community moderation queue without full admin. */
+  is_support: z.boolean().optional(),
 });
 export type UserPublic = z.infer<typeof UserPublicSchema>;
 

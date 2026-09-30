@@ -19,6 +19,7 @@ interface KindOption {
 const OPTIONS: KindOption[] = [
   { kind: 'individual', emoji: '🙂', label: 'Myself', description: "I'll use the tools for my own day." },
   { kind: 'household', emoji: '👪', label: 'My family', description: 'One or more people at home.' },
+  { kind: 'supported', emoji: '🤝', label: 'Someone I support', description: 'One person, like a parent or a client.' },
   { kind: 'agency', emoji: '🏢', label: 'My organization', description: 'Clients and staff.' },
 ];
 
@@ -51,7 +52,13 @@ export function KindPicker() {
     setBusy(kind);
     setError(null);
     try {
-      const name = kind === 'agency' ? 'My organization' : user.display_name;
+      // 'supported' is named for the person being supported, and their name is only
+      // asked for on the next screen, so the account gets a neutral label until then.
+      const accountNames: Partial<Record<AccountKind, string>> = {
+        agency: 'My organization',
+        supported: 'Someone I support',
+      };
+      const name = accountNames[kind] ?? user.display_name;
       const { account } = await api.post<CreateAccountResponse>('/accounts', { kind, name });
       await refreshMe();
       setActiveAccountId(account.id);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AccountKind } from './account.js';
 import { msTimestampSchema, uuidSchema } from './common.js';
 
 export const TRIAL_DAYS = 21;
@@ -80,3 +81,43 @@ export type AdminOverview = z.infer<typeof AdminOverviewSchema>;
 export const IssueCodeBodySchema = z.object({ offer: z.string().min(1) });
 
 export const ExtendTrialBodySchema = z.object({ days: z.number().int().min(1).max(365) });
+
+/** Stripe's subscription statuses, stored as-is. */
+export const SubscriptionStatus = z.enum([
+  'incomplete',
+  'incomplete_expired',
+  'trialing',
+  'active',
+  'past_due',
+  'canceled',
+  'unpaid',
+  'paused',
+]);
+export type SubscriptionStatus = z.infer<typeof SubscriptionStatus>;
+
+/**
+ * GET /billing: what the billing screen shows for the active account.
+ * The route 404s entirely when the server has no Stripe keys, so the web
+ * hides the upgrade path on a 404. `price` is read live from Stripe (the
+ * owner sets it there); it is null when no price is configured for this
+ * account kind, in which case `checkout_available` is false.
+ */
+export const BillingStatusSchema = z.object({
+  kind: AccountKind,
+  checkout_available: z.boolean(),
+  price: z.object({ amount: z.number().int(), currency: z.string(), interval: z.string().nullable() }).nullable(),
+  subscription: z
+    .object({
+      status: SubscriptionStatus,
+      current_period_end: msTimestampSchema.nullable(),
+      cancel_at_period_end: z.boolean(),
+    })
+    .nullable(),
+  /** Only an account admin can start checkout or open the portal. */
+  can_manage: z.boolean(),
+});
+export type BillingStatus = z.infer<typeof BillingStatusSchema>;
+
+/** POST /billing/checkout and POST /billing/portal: send the browser here. */
+export const BillingRedirectSchema = z.object({ url: z.string().url() });
+export type BillingRedirect = z.infer<typeof BillingRedirectSchema>;

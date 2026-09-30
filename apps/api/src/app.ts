@@ -17,6 +17,8 @@ import deviceLocationRoutes from './routes/deviceLocation.js';
 import testingRoutes from './routes/testing.js';
 import adminRoutes from './routes/admin.js';
 import internalRoutes from './routes/internal.js';
+import billingRoutes from './routes/billing.js';
+import communityRoutes from './routes/community.js';
 
 export interface BuildAppOptions {
   readonly env: Env;
@@ -32,6 +34,8 @@ const routePlugins: FastifyPluginAsync[] = [
   shareRoutes,
   deviceLocationRoutes,
   adminRoutes,
+  billingRoutes,
+  communityRoutes,
 ];
 
 // Test-only route, never registered outside e2e (see routes/testing.ts).
