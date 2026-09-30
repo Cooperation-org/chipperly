@@ -39,7 +39,9 @@ import { ChipStrip } from '@/components/ui/ChipStrip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Celebration } from '@/components/ui/Celebration';
 import { useSheet } from '@/components/ui/Sheet';
+import { speak } from '@/lib/speech';
 import { toast } from '@/lib/toast';
+import { useCanSpeak } from '@/lib/useCanSpeak';
 import { DateNav } from './DateNav';
 import { DayNote, DayNoteAddButton } from './DayNote';
 import { TodayEvents } from '@/components/events/TodayEvents';
@@ -116,6 +118,8 @@ export function TodayScreen() {
     });
   }
 
+  const canSpeakHere = useCanSpeak();
+
   function renderStepNode(node: StepNode, itemId: string, depth: number): ReactNode {
     const step = node.node.step;
     const hasChildren = node.children.length > 0;
@@ -132,6 +136,7 @@ export function TodayScreen() {
           hasChildren={hasChildren}
           expanded={expanded}
           onToggle={hasChildren ? () => toggleStepExpanded(step.id) : undefined}
+          onSpeak={canSpeakHere ? () => speak(step.name) : undefined}
         />
         {hasChildren && expanded ? (
           <ul className={styles.steps}>{node.children.map((child) => renderStepNode(child, itemId, depth + 1))}</ul>

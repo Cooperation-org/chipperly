@@ -132,7 +132,7 @@ export function VisualSchedule({ title, picture, nodes, onToggle, onClose, readO
             </button>
           )}
           {readAloud && !readOnly ? (
-            <IconButton icon="speaker" aria-label={`Say ${step.name}`} className={styles.check} onClick={() => speak(step.name)} />
+            <IconButton icon="speaker" aria-label={`Read step aloud: ${step.name}`} className={styles.check} onClick={() => speak(step.name)} />
           ) : null}
           <CheckCircle
             checked={node.done}
