@@ -34,19 +34,22 @@ export async function seedProfile(tx: Tx, profileId: string, updatedBy: string, 
       };
 
   // Home is first and is the only place that gets starter activities; the rest start empty.
-  const homeId = uuidv7();
-  await tx.insert(locations).values(
-    plan.locations.map((location, position) => ({
-      id: position === 0 ? homeId : uuidv7(),
-      ...sync,
-      name: location.name,
-      emoji: location.emoji,
-      photo_id: null,
-      position,
-      chip_goal: 5,
-      working_for_reward_id: null,
-    })),
-  );
+  // Guided setup seeds no locations (the client creates them), so activities then show everywhere.
+  const homeId = plan.locations.length > 0 ? uuidv7() : null;
+  if (plan.locations.length > 0) {
+    await tx.insert(locations).values(
+      plan.locations.map((location, position) => ({
+        id: position === 0 ? homeId! : uuidv7(),
+        ...sync,
+        name: location.name,
+        emoji: location.emoji,
+        photo_id: null,
+        position,
+        chip_goal: 5,
+        working_for_reward_id: null,
+      })),
+    );
+  }
 
   for (const [position, activity] of plan.activities.entries()) {
     const activityId = uuidv7();
@@ -81,6 +84,7 @@ export async function seedProfile(tx: Tx, profileId: string, updatedBy: string, 
     }
   }
 
+  if (plan.rewards.length === 0) return;
   await tx.insert(rewards).values(
     plan.rewards.map((reward, position) => ({
       id: uuidv7(),
