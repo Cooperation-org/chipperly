@@ -68,6 +68,8 @@ export const ROUTINE_TILES: readonly Tile<SetupAnswers['routines'][number]>[] = 
   { key: 'bedtime', name: 'Bedtime', emoji: '🌙' },
   { key: 'leaving', name: 'Leaving the house', emoji: '🎒' },
   { key: 'toilet', name: 'Toilet training', emoji: '🚽' },
+  { key: 'speech', name: 'Speech therapy session', emoji: '🗣️' },
+  { key: 'aba', name: 'ABA session', emoji: '🧩' },
 ];
 
 export const PLACE_TILES: readonly Tile<SetupAnswers['places'][number]>[] = [
@@ -288,6 +290,44 @@ const ROUTINE_PACKS: Record<Exclude<SetupAnswers['routines'][number], 'dressed' 
       { name: 'Flush', emoji: '🚿' },
       { name: 'Pull Up', emoji: '👖' },
       { name: 'Wash Hands', emoji: '🧼' },
+    ],
+  },
+  speech: {
+    name: 'Speech Therapy Session',
+    emoji: '🗣️',
+    young: [
+      { name: 'Warm Up', emoji: '🙆' },
+      { name: 'Practice Sounds', emoji: '🔤' },
+      { name: 'Practice Words', emoji: '💬' },
+      { name: 'Play a Game', emoji: '🎲' },
+      { name: 'All Done', emoji: '🎉' },
+    ],
+    older: [
+      { name: 'Warm Up', emoji: '🙆' },
+      { name: 'Practice Sounds', emoji: '🔤' },
+      { name: 'Practice Words', emoji: '💬' },
+      { name: 'Play a Game', emoji: '🎲' },
+      { name: 'All Done', emoji: '🎉' },
+    ],
+  },
+  aba: {
+    name: 'ABA Session',
+    emoji: '🧩',
+    young: [
+      { name: 'Sit Down', emoji: '🪑' },
+      { name: 'Learning Time', emoji: '📚' },
+      { name: 'Break', emoji: '🧘' },
+      { name: 'Learning Time', emoji: '📚' },
+      { name: 'Reward Time', emoji: '🎁' },
+      { name: 'All Done', emoji: '🎉' },
+    ],
+    older: [
+      { name: 'Sit Down', emoji: '🪑' },
+      { name: 'Learning Time', emoji: '📚' },
+      { name: 'Break', emoji: '🧘' },
+      { name: 'Learning Time', emoji: '📚' },
+      { name: 'Reward Time', emoji: '🎁' },
+      { name: 'All Done', emoji: '🎉' },
     ],
   },
 };

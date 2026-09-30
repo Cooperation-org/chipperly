@@ -75,7 +75,7 @@ test.describe('auth', () => {
   });
 
   test('S4 first profile', async () => {
-    await expect(page.getByRole('heading', { name: 'Who is this for?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: "What's their name?" })).toBeVisible();
     await expectNoOverflow(page, 'S4 onboarding profile');
     await snap(page, 's4-onboarding-profile');
 

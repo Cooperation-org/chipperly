@@ -81,6 +81,15 @@ describe('setup interview seed', () => {
     expect(plan.rewards.length).toBeGreaterThan(1);
   });
 
+  it('the speech and ABA session packs seed steps and are accepted by the schema', () => {
+    const plan = buildSeed({ ...defaultAnswers('2-7'), routines: ['speech', 'aba'] });
+    const speech = plan.activities.find((a) => a.name === 'Speech Therapy Session');
+    expect(speech?.steps?.map((s) => s.name)).toEqual(['Warm Up', 'Practice Sounds', 'Practice Words', 'Play a Game', 'All Done']);
+    expect(plan.activities.find((a) => a.name === 'ABA Session')?.steps?.length).toBeGreaterThan(0);
+    expect(SetupAnswersSchema.safeParse({ ...defaultAnswers('2-7'), routines: ['speech', 'aba'] }).success).toBe(true);
+    expect(defaultAnswers('2-7').routines).not.toContain('speech');
+  });
+
   it('the toilet training pack is available to any band', () => {
     for (const band of ['0-2', '2-7', '13-17', '18+'] as const) {
       const plan = buildSeed({ ...defaultAnswers(band), routines: ['toilet'] });

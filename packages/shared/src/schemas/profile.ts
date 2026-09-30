@@ -48,7 +48,7 @@ export type AgeBand = z.infer<typeof AgeBandSchema>;
 export const SetupAnswersSchema = z.object({
   age_band: AgeBandSchema,
   week: z.array(z.enum(['school', 'work', 'therapy', 'day_program'])).max(4),
-  routines: z.array(z.enum(['morning', 'dressed', 'teeth', 'meals', 'homework', 'chores', 'bedtime', 'leaving', 'toilet'])).max(9),
+  routines: z.array(z.enum(['morning', 'dressed', 'teeth', 'meals', 'homework', 'chores', 'bedtime', 'leaving', 'toilet', 'speech', 'aba'])).max(11),
   places: z.array(z.enum(['school', 'work', 'therapy', 'other_home'])).max(4),
   loves: z.array(z.object({ name: z.string().min(1).max(60), emoji: z.string().min(1).max(8) })).max(20),
 });
