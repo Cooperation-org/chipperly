@@ -50,12 +50,30 @@ export class ApiError extends Error {
   }
 }
 
+/** Default per-request budget; a stalled connection otherwise leaves an awaiting screen hanging forever. */
+export const DEFAULT_TIMEOUT_MS = 20_000;
+
+/**
+ * A request that got no answer in time. A TypeError subclass on purpose: callers and the sync engine
+ * already treat a non-ApiError (what fetch throws offline) as "offline, try later", and a timeout is the same thing.
+ */
+export class TimeoutError extends TypeError {
+  constructor() {
+    super('Request timed out');
+    this.name = 'TimeoutError';
+  }
+}
+
+export const TIMEOUT_MESSAGE = "That's taking too long. Check your connection and try again.";
+
 export interface ApiOptions {
   /** Overrides the active account read from kv (CONTRACTS.md "X-Account-Id"). */
   accountId?: string;
   /** Sends `X-Locked: 1` (child-mode restricted writes). */
   locked?: boolean;
   signal?: AbortSignal;
+  /** Gives up with a TimeoutError after this long (default DEFAULT_TIMEOUT_MS). */
+  timeoutMs?: number;
   /** Validates the JSON body against this shared zod schema; a mismatch throws ApiError('bad_response') instead of handing back a shape the caller didn't ask for. */
   schema?: z.ZodType;
 }
@@ -104,6 +122,7 @@ async function doRefresh(refreshToken: string): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
     if (!res.ok) {
       // A request that read the old token after another refresh already rotated it.
@@ -120,6 +139,7 @@ async function doRefresh(refreshToken: string): Promise<boolean> {
     await setTokens(parsed.data);
     return true;
   } catch {
+    // Includes a timeout: no answer isn't a rejected refresh, so the tokens stay.
     return false;
   }
 }
@@ -134,6 +154,35 @@ async function request<T>(
   // A guest's data never leaves the device. 403, not 0 or 5xx: callers that queue a retry on
   // offline/server errors (reward requests, First-Then progress) drop it instead.
   if (isGuestMode()) throw new ApiError(403, 'guest', GUEST_MESSAGE);
+  const ctl = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctl.abort();
+  }, opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const abortFromCaller = (): void => ctl.abort();
+  if (opts?.signal?.aborted) ctl.abort();
+  else opts?.signal?.addEventListener('abort', abortFromCaller, { once: true });
+  try {
+    return await send<T>(method, path, body, opts, isRetry, ctl.signal, () => clearTimeout(timer));
+  } catch (err) {
+    if (timedOut) throw new TimeoutError();
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    opts?.signal?.removeEventListener('abort', abortFromCaller);
+  }
+}
+
+async function send<T>(
+  method: string,
+  path: string,
+  body: unknown,
+  opts: ApiOptions | undefined,
+  isRetry: boolean,
+  signal: AbortSignal,
+  stopTimer: () => void,
+): Promise<T> {
   const tokens = await getTokens();
   const accountId = opts?.accountId ?? (await getKv<string>(ACTIVE_ACCOUNT_KEY));
   const lockState = await getKv<LockStateShape>(LOCK_KEY);
@@ -149,7 +198,7 @@ async function request<T>(
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: opts?.signal,
+    signal,
   });
 
   const dateHeader = res.headers.get('date');
@@ -166,6 +215,7 @@ async function request<T>(
   if (res.status === 401 && !isRetry && tokens?.refresh_token && !path.startsWith('/auth/')) {
     const refreshed = await refreshTokens(tokens.refresh_token);
     if (refreshed) {
+      stopTimer(); // the retry has its own timeout
       return request<T>(method, path, body, opts, true);
     }
   }
