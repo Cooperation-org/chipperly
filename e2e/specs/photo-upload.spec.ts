@@ -93,7 +93,7 @@ test.describe('photo upload', () => {
 
     await page.getByRole('button', { name: /^Picture/ }).click();
     await page.getByRole('button', { name: 'Photo', exact: true }).click();
-    // Two hidden file inputs share the row (Photo, Camera); Camera's has
+    // Two hidden file inputs sit next to the Photo and Camera buttons; Camera's has
     // `capture="environment"` (PicturePicker.tsx), so this is unambiguous.
     await page.locator('input[type="file"]:not([capture])').setInputFiles(pngFile('activity.png'));
 
