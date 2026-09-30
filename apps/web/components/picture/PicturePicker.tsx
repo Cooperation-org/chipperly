@@ -24,6 +24,9 @@ export interface PicturePickerProps {
   defaultEmojiOpen?: boolean;
 }
 
+/** Mounted pickers, newest last: a paste goes to the newest only (a sheet opened over a form, two pickers on one page). */
+const mountedPickers: object[] = [];
+
 /** Emoji / photo / camera / paste, in that order (plus Ctrl+V and a search link), per the global picture pattern. */
 export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen = false }: PicturePickerProps) {
   // Collapsed everywhere (owner, 30 Sept): 96 cells buried whatever came after them,
@@ -73,7 +76,10 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
     storeRef.current = storeFile;
   });
   useEffect(() => {
+    const me = {};
+    mountedPickers.push(me);
     function onDocumentPaste(e: ClipboardEvent) {
+      if (mountedPickers[mountedPickers.length - 1] !== me) return;
       // Hidden pickers (closed sheets, other tabs) must not swallow the paste.
       if (!pickerRef.current || pickerRef.current.getClientRects().length === 0) return;
       if (isTextEntryTarget(e.target as HTMLElement | null)) return;
@@ -84,7 +90,10 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
       void storeRef.current(file);
     }
     document.addEventListener('paste', onDocumentPaste);
-    return () => document.removeEventListener('paste', onDocumentPaste);
+    return () => {
+      document.removeEventListener('paste', onDocumentPaste);
+      mountedPickers.splice(mountedPickers.indexOf(me), 1);
+    };
   }, []);
 
   async function onFileChange(e: ChangeEvent<HTMLInputElement>) {
