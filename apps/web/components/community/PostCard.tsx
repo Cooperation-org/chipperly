@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useMediaUrl } from '@/lib/data/media';
-import { canDelete, deletePost, formatPrice, toCard, type CommunityPost, type LoadStatus } from '@/lib/data/community';
+import { canDelete, deletePost, formatPrice, profileHref, toCard, type CommunityPost, type LoadStatus } from '@/lib/data/community';
 import { toast } from '@/lib/toast';
 import { useSession } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
+import { Avatar } from './Avatar';
 import { ReportSheet } from './ReportSheet';
 import styles from './PostCard.module.css';
 
@@ -20,10 +21,24 @@ export function formatWhen(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function Byline({ nickname, isSupport, when }: { nickname: string; isSupport: boolean; when: number }) {
+/** The nickname is a link to that person's profile. Never put a Byline inside another link. */
+export function Byline({
+  nickname,
+  isSupport,
+  avatarEmoji = null,
+  when,
+}: {
+  nickname: string;
+  isSupport: boolean;
+  avatarEmoji?: string | null;
+  when: number;
+}) {
   return (
     <p className={styles.byline}>
-      <span className={styles.nickname}>{nickname}</span>
+      <Link href={profileHref(nickname)} className={styles.nickname}>
+        <Avatar nickname={nickname} emoji={avatarEmoji} />
+        <span className={styles.nicknameText}>{nickname}</span>
+      </Link>
       {isSupport ? <span className={styles.badge}>Support</span> : null}
       <span>{formatWhen(when)}</span>
     </p>
@@ -40,7 +55,6 @@ export function PostImage({ mediaId, alt }: { mediaId: string; alt: string }) {
   );
 }
 
-/** Opens the ReportSheet for one post or comment. */
 /** Anyone may READ the community; writing to it needs an account. */
 export function useSignedIn(): boolean {
   return useSession().status === 'signed_in';
@@ -55,7 +69,8 @@ export function SignInToJoin({ what }: { what: string }) {
   );
 }
 
-export function ReportButton({ targetType, targetId }: { targetType: 'post' | 'comment'; targetId: string }) {
+/** Opens the ReportSheet for one post, comment or profile (a profile is named, never an id). */
+export function ReportButton(target: { targetType: 'post' | 'comment'; targetId: string } | { targetType: 'profile'; targetNickname: string }) {
   const sheet = useSheet();
   const signedIn = useSignedIn();
   // Reporting needs an account (the endpoint is rate-limited per user), so a
@@ -71,7 +86,16 @@ export function ReportButton({ targetType, targetId }: { targetType: 'post' | 'c
     <Button
       variant="ghost"
       icon="more"
-      onClick={() => sheet.open(<ReportSheet target_type={targetType} target_id={targetId} />, { title: 'Report' })}
+      onClick={() =>
+        sheet.open(
+          target.targetType === 'profile' ? (
+            <ReportSheet target_type="profile" target_nickname={target.targetNickname} />
+          ) : (
+            <ReportSheet target_type={target.targetType} target_id={target.targetId} />
+          ),
+          { title: 'Report' },
+        )
+      }
     >
       Report
     </Button>
@@ -127,6 +151,9 @@ export function LoadState({ status, onRetry, children }: { status: LoadStatus; o
       />
     );
   }
+  if (status === 'not_found') {
+    return <EmptyState picture={<Icon name="sync" size={48} />} sentence="That isn't here." />;
+  }
   if (status === 'loading') {
     return (
       <div className={styles.skeletons} role="status" aria-label="Loading">
@@ -157,8 +184,10 @@ export function PostCard({ post, onDeleted }: { post: CommunityPost; onDeleted?:
             <Icon name="speaker" size={20} /> Has a recording
           </span>
         ) : null}
-        <Byline nickname={card.nickname} isSupport={card.is_support} when={card.created_at} />
       </Link>
+      <div className={styles.bylineRow}>
+        <Byline nickname={card.nickname} isSupport={card.is_support} avatarEmoji={card.avatar_emoji} when={card.created_at} />
+      </div>
       <div className={styles.actions}>
         <ReportButton targetType="post" targetId={card.id} />
         {onDeleted ? <DeletePostButton post={post} onDeleted={onDeleted} /> : null}

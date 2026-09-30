@@ -7,6 +7,8 @@ import {
   CommunityCommentSchema,
   CommunityPostSchema,
   FeedResponseSchema,
+  ProfilePostsResponseSchema,
+  PublicProfileSchema,
   SellerStatusSchema,
   StripeUrlResponseSchema,
   type Price,
@@ -22,6 +24,7 @@ import type { SaveStoryInput } from './stories';
 
 export type CommunityPost = z.infer<typeof CommunityPostSchema>;
 export type CommunityComment = z.infer<typeof CommunityCommentSchema>;
+export type PublicProfile = z.infer<typeof PublicProfileSchema>;
 export type PostKind = 'post' | 'story' | 'routine';
 
 export interface FeedPages {
@@ -236,6 +239,7 @@ export interface PostCardModel {
   excerpt: string;
   nickname: string;
   is_support: boolean;
+  avatar_emoji: string | null;
   created_at: number;
   image_ids: string[];
   has_audio: boolean;
@@ -255,6 +259,7 @@ export function toCard(post: CommunityPost): PostCardModel {
     excerpt: body.length > EXCERPT_MAX ? `${body.slice(0, EXCERPT_MAX).trimEnd()}...` : body,
     nickname: post.author.nickname,
     is_support: post.author.is_support,
+    avatar_emoji: post.author.avatar_emoji ?? null,
     created_at: post.created_at,
     image_ids: media.filter((m) => m.kind === 'image').map((m) => m.media_id),
     has_audio: media.some((m) => m.kind === 'audio'),
@@ -263,7 +268,7 @@ export function toCard(post: CommunityPost): PostCardModel {
 
 // ---- fetching ----
 
-export type LoadStatus = 'loading' | 'ready' | 'error' | 'offline';
+export type LoadStatus = 'loading' | 'ready' | 'error' | 'offline' | 'not_found';
 
 export function feedPath(kind: PostKind | undefined, cursor: string | null): string {
   const q = new URLSearchParams();
@@ -287,7 +292,7 @@ async function fetchFeed(kind: PostKind | undefined, cursor: string | null): Pro
 function useOnlineLoad<T>(load: () => Promise<T>, key: string) {
   const offline = !useOnline();
   const [nonce, setNonce] = useState(0);
-  const [result, setResult] = useState<{ key: string; status: 'ready' | 'error'; data: T | null } | null>(null);
+  const [result, setResult] = useState<{ key: string; status: 'ready' | 'error' | 'not_found'; data: T | null } | null>(null);
   const fullKey = `${key}#${nonce}`;
 
   useEffect(() => {
@@ -297,8 +302,8 @@ function useOnlineLoad<T>(load: () => Promise<T>, key: string) {
       (data) => {
         if (live) setResult({ key: fullKey, status: 'ready', data });
       },
-      () => {
-        if (live) setResult({ key: fullKey, status: 'error', data: null });
+      (e) => {
+        if (live) setResult({ key: fullKey, status: e instanceof ApiError && e.status === 404 ? 'not_found' : 'error', data: null });
       },
     );
     return () => {
@@ -316,8 +321,8 @@ function useOnlineLoad<T>(load: () => Promise<T>, key: string) {
  * in place (a new comment, a deleted item) without refetching. A reload discards
  * everything appended to or patched onto the old first page.
  */
-function usePagedList<T extends { id: string }>(
-  fetchPage: (cursor: string | null) => Promise<{ items: T[]; next_cursor: string | null }>,
+function usePagedList<T extends { id: string }, E extends object = object>(
+  fetchPage: (cursor: string | null) => Promise<{ items: T[]; next_cursor: string | null } & E>,
   key: string,
 ) {
   const first = useOnlineLoad(
@@ -354,6 +359,8 @@ function usePagedList<T extends { id: string }>(
 
   return {
     status: first.status,
+    /** Whatever else the first page carried (the profile, for a profile page). */
+    head: first.data,
     items: current?.items ?? [],
     hasMore: Boolean(current?.next_cursor),
     loadingMore,
@@ -423,15 +430,17 @@ export function useComments(postId: string) {
 
 const MeSchema = z.object({ nickname: z.string().nullable() });
 
-/** Null both for "no nickname yet" and for a signed-out reader (the endpoint needs auth). */
-export function useMyNickname(): string | null {
+/** Null both for "no nickname yet" and for a signed-out reader (the endpoint needs auth). Pass `enabled=false` to skip the request. */
+export function useMyNickname(enabled = true): string | null {
   const load = useCallback(
     () =>
-      api
-        .get<z.infer<typeof MeSchema>>('/community/me', { schema: MeSchema })
-        .then((m) => m.nickname)
-        .catch(() => null),
-    [],
+      enabled
+        ? api
+            .get<z.infer<typeof MeSchema>>('/community/me', { schema: MeSchema })
+            .then((m) => m.nickname)
+            .catch(() => null)
+        : Promise.resolve(null),
+    [enabled],
   );
   return useOnlineLoad(load, 'me').data ?? null;
 }
@@ -518,4 +527,82 @@ export function sellingErrorMessage(err: unknown): string {
     if (err.code === 'seller_unavailable') return "The seller can't take payments right now.";
   }
   return "That didn't work. Check your connection and try again.";
+}
+
+// ---- profiles ----
+
+export const BIO_MAX = 200;
+
+/** The page a nickname lives at. A query param, not a path segment: the site is a static export. */
+export function profileHref(nickname: string): string {
+  return `/community/u/?name=${encodeURIComponent(nickname)}`;
+}
+
+/** The API path for one person's posts. */
+export function profilePath(nickname: string, cursor: string | null): string {
+  const base = `/community/u/${encodeURIComponent(nickname)}`;
+  return cursor ? `${base}?cursor=${encodeURIComponent(cursor)}` : base;
+}
+
+/** Why a bio can't be saved, or null. Length is judged after trimming, the way it is sent. */
+export function validateBio(raw: string): string | null {
+  return raw.trim().length > BIO_MAX ? `Use at most ${BIO_MAX} characters.` : null;
+}
+
+/** What goes in the PATCH: an empty bio is null, which clears it. */
+export function bioToBody(raw: string): string | null {
+  const t = raw.trim();
+  return t === '' ? null : t;
+}
+
+export function formatJoined(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+export function postCountLabel(n: number): string {
+  return n === 1 ? '1 post' : `${n} posts`;
+}
+
+export function useProfilePosts(nickname: string) {
+  const fetchPage = useCallback(
+    async (cursor: string | null) => {
+      const page = await api.get<z.infer<typeof ProfilePostsResponseSchema>>(profilePath(nickname, cursor), {
+        schema: ProfilePostsResponseSchema,
+      });
+      return { items: page.posts, next_cursor: page.next_cursor, profile: page.profile };
+    },
+    [nickname],
+  );
+  const r = usePagedList(fetchPage, `u:${nickname}`);
+  return {
+    status: r.status,
+    profile: r.head?.profile ?? null,
+    posts: r.items,
+    hasMore: r.hasMore,
+    loadingMore: r.loadingMore,
+    moreFailed: r.moreFailed,
+    loadMore: r.loadMore,
+    remove: (id: string) => r.patch((items) => items.filter((p) => p.id !== id)),
+    reload: r.reload,
+  };
+}
+
+export interface MyProfile {
+  nickname: string | null;
+  bio: string | null;
+  avatar_emoji: string | null;
+}
+
+const MyProfileSchema = z.object({
+  nickname: z.string().nullable(),
+  bio: z.string().nullable().catch(null),
+  avatar_emoji: z.string().nullable().catch(null),
+});
+
+export function fetchMyProfile(): Promise<MyProfile> {
+  return api.get<MyProfile>('/community/me', { schema: MyProfileSchema });
+}
+
+export function saveMyProfile(body: { bio?: string | null; avatar_emoji?: string | null }): Promise<unknown> {
+  return api.patch<unknown>('/community/me/profile', body);
 }

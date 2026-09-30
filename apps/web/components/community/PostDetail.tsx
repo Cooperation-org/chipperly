@@ -114,7 +114,7 @@ function PostBody({ post, onChanged }: { post: CommunityPost; onChanged: () => v
     <article className={styles.post}>
       <p className={styles.kind}>{KIND_LABEL[post.kind]}</p>
       {title ? <h2 className={styles.title}>{title}</h2> : null}
-      <Byline nickname={post.author.nickname} isSupport={post.author.is_support} when={post.created_at} />
+      <Byline nickname={post.author.nickname} isSupport={post.author.is_support} avatarEmoji={post.author.avatar_emoji} when={post.created_at} />
       {editing ? (
         <PostEditor
           post={post}

@@ -6,9 +6,12 @@ import { v7 as uuidv7 } from 'uuid';
 import {
   CommunityCommentSchema,
   CommunityPostSchema,
+  CommunityProfileSchema,
   FeedResponseSchema,
+  ProfilePostsResponseSchema,
   type CommunityPost,
 } from '@chipperly/shared/schemas/community';
+import { AVATAR_EMOJI } from '@chipperly/shared/constants/emoji';
 import { buildTestApp, expectShape, request } from './helpers.js';
 import { addMember, createAccount, createProfile, createUser, type TestUser } from './fixtures.js';
 import { db } from '../src/db/client.js';
@@ -16,6 +19,7 @@ import { users } from '../src/db/schema/accounts.js';
 import {
   community_comments,
   community_posts,
+  community_profiles,
   community_purchases,
   community_sellers,
 } from '../src/db/schema/community.js';
@@ -68,7 +72,7 @@ describe('community', () => {
     it('starts as null and can be set once, never twice', async () => {
       const user = await createUser();
       const before = await request(app, { method: 'GET', url: '/api/community/me', headers: auth(user) });
-      expect(before.json()).toEqual({ nickname: null });
+      expect(before.json()).toEqual({ nickname: null, bio: null, avatar_emoji: null, created_at: null });
 
       const name = await setNickname(user);
       const again = await request(app, {
@@ -81,7 +85,7 @@ describe('community', () => {
       expect(again.json().error.code).toBe('nickname_already_set');
 
       const after = await request(app, { method: 'GET', url: '/api/community/me', headers: auth(user) });
-      expect(after.json()).toEqual({ nickname: name });
+      expect(after.json()).toMatchObject({ nickname: name, bio: null, avatar_emoji: null });
     });
 
     it('is unique case-insensitively', async () => {
@@ -113,7 +117,7 @@ describe('community', () => {
       expect(res.statusCode).toBe(400);
       expect(res.json().error.code).toBe('nickname_not_allowed');
       const me = await request(app, { method: 'GET', url: '/api/community/me', headers: auth(user) });
-      expect(me.json()).toEqual({ nickname: null });
+      expect(me.json()).toMatchObject({ nickname: null });
     });
 
     it('rejects a nickname equal to the email local part', async () => {
@@ -173,7 +177,7 @@ describe('community', () => {
       expect(body.posts.every((p) => p.status === 'published')).toBe(true);
 
       const mine = body.posts.find((p) => p.id === visiblePost.id);
-      expect(mine?.author).toEqual({ nickname, is_support: false });
+      expect(mine?.author).toEqual({ nickname, is_support: false, avatar_emoji: null });
 
       const raw = feed.body;
       expect(raw).not.toContain(user.id);
@@ -296,7 +300,7 @@ describe('community', () => {
       expect(list.statusCode).toBe(200);
       const comments = (list.json() as { comments: unknown[] }).comments;
       expect(comments).toHaveLength(1);
-      expect(comments[0]).toMatchObject({ id: comment.id, author: { nickname, is_support: false } });
+      expect(comments[0]).toMatchObject({ id: comment.id, author: { nickname, is_support: false, avatar_emoji: null } });
       expect(list.body).not.toContain(commenter.id);
     });
 
@@ -523,6 +527,233 @@ describe('community', () => {
       expect(res.statusCode).toBe(200);
       const [row] = await db.select().from(community_posts).where(eq(community_posts.id, post.id));
       expect(row?.status).toBe('removed');
+    });
+  });
+
+  describe('public profiles', () => {
+    const emoji = AVATAR_EMOJI[0] ?? '';
+    const patchProfile = (user: TestUser, payload: Record<string, unknown>) =>
+      request(app, { method: 'PATCH', url: '/api/community/me/profile', headers: auth(user), payload });
+    const getProfile = (nickname: string, headers: Record<string, string> = {}, query = '') =>
+      request(app, { method: 'GET', url: `/api/community/u/${nickname}${query}`, headers });
+
+    it('is public with no account, case-insensitive, and shows bio, emoji and only published posts', async () => {
+      const { user, nickname } = await nicknamedUser();
+      const set = await patchProfile(user, { bio: '  I like trains  ', avatar_emoji: emoji });
+      expect(set.statusCode).toBe(200);
+      const mine = expectShape(set, CommunityProfileSchema);
+      expect(mine).toMatchObject({ nickname, bio: 'I like trains', avatar_emoji: emoji });
+
+      const shown = expectShape(await makePost(user, { body: 'one' }), CommunityPostSchema);
+      const hidden = expectShape(await makePost(user, { body: 'two' }), CommunityPostSchema);
+      await db.update(community_posts).set({ status: 'hidden' }).where(eq(community_posts.id, hidden.id));
+
+      const res = await getProfile(nickname.toUpperCase());
+      expect(res.statusCode).toBe(200);
+      const body = expectShape(res, ProfilePostsResponseSchema);
+      expect(body.profile).toMatchObject({ nickname, bio: 'I like trains', avatar_emoji: emoji, is_support: false, post_count: 1 });
+      expect(body.posts.map((p) => p.id)).toEqual([shown.id]);
+      expect(body.posts[0]?.author).toEqual({ nickname, is_support: false, avatar_emoji: emoji });
+      expect(res.headers['cache-control']).toContain('public');
+    });
+
+    it('404s for an unknown nickname, but a profile with no posts is still a page', async () => {
+      const missing = await getProfile(`nobody${run}`);
+      expect(missing.statusCode).toBe(404);
+      expect(missing.json().error.code).toBe('not_found');
+
+      const { nickname } = await nicknamedUser();
+      const res = await getProfile(nickname);
+      expect(res.statusCode).toBe(200);
+      const body = expectShape(res, ProfilePostsResponseSchema);
+      expect(body.posts).toEqual([]);
+      expect(body.next_cursor).toBeNull();
+      expect(body.profile).toMatchObject({ nickname, bio: null, avatar_emoji: null, post_count: 0 });
+    });
+
+    it('post_count ignores hidden and removed posts, and the list pages with a cursor', async () => {
+      const { user, nickname } = await nicknamedUser();
+      const ids: string[] = [];
+      for (const text of ['a', 'b', 'c']) ids.push(expectShape(await makePost(user, { body: text }), CommunityPostSchema).id);
+      const extra = expectShape(await makePost(user, { body: 'd' }), CommunityPostSchema);
+      const gone = expectShape(await makePost(user, { body: 'e' }), CommunityPostSchema);
+      await db.update(community_posts).set({ status: 'hidden' }).where(eq(community_posts.id, extra.id));
+      await db.update(community_posts).set({ status: 'removed' }).where(eq(community_posts.id, gone.id));
+
+      const first = expectShape(await getProfile(nickname, {}, '?limit=2'), ProfilePostsResponseSchema);
+      expect(first.profile.post_count).toBe(3);
+      expect(first.posts.map((p) => p.id)).toEqual([ids[2], ids[1]]);
+      expect(first.next_cursor).not.toBeNull();
+      const second = expectShape(await getProfile(nickname, {}, `?limit=2&cursor=${first.next_cursor}`), ProfilePostsResponseSchema);
+      expect(second.posts.map((p) => p.id)).toEqual([ids[0]]);
+      expect(second.next_cursor).toBeNull();
+    });
+
+    it('withholds a paid post payload on the profile page like the feed does', async () => {
+      const { user, nickname } = await nicknamedUser();
+      const saved = env.stripeEnabled;
+      const story = await makePost(user, { kind: 'story', title: 'Paid one', payload: { pages: [{ text: 'secret page' }] } });
+      const post = expectShape(story, CommunityPostSchema);
+      await db.update(community_posts).set({ price_amount: 500, price_currency: 'usd' }).where(eq(community_posts.id, post.id));
+      env.stripeEnabled = true;
+      try {
+        const stranger = await createUser();
+        const asStranger = await getProfile(nickname, auth(stranger));
+        const listed = expectShape(asStranger, ProfilePostsResponseSchema).posts.find((p) => p.id === post.id);
+        expect(listed?.payload).toBeNull();
+        expect(listed?.has_access).toBe(false);
+        expect(asStranger.body).not.toContain('secret page');
+        const anon = await getProfile(nickname);
+        expect(anon.body).not.toContain('secret page');
+        const asAuthor = expectShape(await getProfile(nickname, auth(user)), ProfilePostsResponseSchema);
+        expect(asAuthor.posts.find((p) => p.id === post.id)?.payload).not.toBeNull();
+      } finally {
+        env.stripeEnabled = saved;
+      }
+    });
+
+    it('rejects a bio over 200 characters and accepts exactly 200; null clears', async () => {
+      const { user } = await nicknamedUser();
+      expect((await patchProfile(user, { bio: 'x'.repeat(201) })).statusCode).toBe(400);
+      expect((await patchProfile(user, { bio: 'x'.repeat(200) })).statusCode).toBe(200);
+      const cleared = await patchProfile(user, { bio: null });
+      expect(cleared.json().bio).toBeNull();
+    });
+
+    it('rejects an avatar_emoji outside AVATAR_EMOJI; null clears', async () => {
+      const { user } = await nicknamedUser();
+      for (const bad of ['🍕', 'lion', '<script>', '']) {
+        expect((await patchProfile(user, { avatar_emoji: bad })).statusCode).toBe(400);
+      }
+      expect((await patchProfile(user, { avatar_emoji: emoji })).json().avatar_emoji).toBe(emoji);
+      expect((await patchProfile(user, { avatar_emoji: null })).json().avatar_emoji).toBeNull();
+    });
+
+    it('needs sign-in and a nickname to edit', async () => {
+      expect((await request(app, { method: 'PATCH', url: '/api/community/me/profile', payload: { bio: 'hi' } })).statusCode).toBe(401);
+      const plain = await createUser();
+      const res = await patchProfile(plain, { bio: 'hi' });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('nickname_required');
+    });
+
+    async function reportProfile(reporter: TestUser, target_nickname: string) {
+      return request(app, {
+        method: 'POST',
+        url: '/api/community/reports',
+        headers: auth(reporter),
+        payload: { target_type: 'profile', target_nickname, reason: 'personal_information' },
+      });
+    }
+
+    it('reports a profile by nickname, never returns an id, and 404s for an unknown nickname', async () => {
+      const { user: owner, nickname } = await nicknamedUser();
+      const reporter = await createUser();
+      const res = await reportProfile(reporter, nickname.toUpperCase());
+      expect(res.statusCode).toBe(201);
+      expect(res.json()).toEqual({ ok: true });
+      expect(res.body).not.toContain(owner.id);
+      expect((await reportProfile(reporter, `nobody${run}`)).statusCode).toBe(404);
+
+      const noName = await request(app, {
+        method: 'POST',
+        url: '/api/community/reports',
+        headers: auth(reporter),
+        payload: { target_type: 'profile', reason: 'spam' },
+      });
+      expect(noName.statusCode).toBe(400);
+
+      const moderator = await createUser();
+      await makeSupport(moderator);
+      const list = await request(app, { method: 'GET', url: '/api/community/moderation/reports?status=open', headers: auth(moderator) });
+      expect(list.statusCode).toBe(200);
+      const found = (list.json() as { reports: { target_type: string; target_nickname: string | null; target_id: string | null }[] }).reports.find(
+        (r) => r.target_nickname === nickname,
+      );
+      expect(found).toMatchObject({ target_type: 'profile', target_id: null });
+      expect(list.body).not.toContain(owner.id);
+    });
+
+    it('a moderator resolving a profile report clears bio and avatar but keeps the nickname', async () => {
+      for (const action of ['hide', 'remove'] as const) {
+        const { user: owner, nickname } = await nicknamedUser();
+        await patchProfile(owner, { bio: 'call me on 555-0100', avatar_emoji: emoji });
+        const post = expectShape(await makePost(owner, { body: 'still here' }), CommunityPostSchema);
+        const reporter = await createUser();
+        const moderator = await createUser();
+        await makeSupport(moderator);
+        expect((await reportProfile(reporter, nickname)).statusCode).toBe(201);
+
+        const list = await request(app, { method: 'GET', url: '/api/community/moderation/reports?status=open', headers: auth(moderator) });
+        const found = (list.json() as { reports: { id: string; target_nickname: string | null }[] }).reports.find((r) => r.target_nickname === nickname);
+        if (!found) throw new Error('profile report not listed');
+        const res = await request(app, {
+          method: 'POST',
+          url: `/api/community/moderation/reports/${found.id}/resolve`,
+          headers: auth(moderator),
+          payload: { action },
+        });
+        expect(res.statusCode).toBe(200);
+
+        const after = expectShape(await getProfile(nickname), ProfilePostsResponseSchema);
+        expect(after.profile).toMatchObject({ nickname, bio: null, avatar_emoji: null, post_count: 1 });
+        expect(after.posts.map((p) => p.id)).toEqual([post.id]);
+        const [row] = await db.select().from(community_profiles).where(eq(community_profiles.user_id, owner.id));
+        expect(row?.nickname).toBe(nickname);
+        const me = await request(app, { method: 'GET', url: '/api/community/me', headers: auth(owner) });
+        expect(me.json()).toMatchObject({ nickname, bio: null, avatar_emoji: null });
+      }
+    });
+
+    it('dismissing a profile report leaves bio and avatar alone', async () => {
+      const { user: owner, nickname } = await nicknamedUser();
+      await patchProfile(owner, { bio: 'fine words', avatar_emoji: emoji });
+      const reporter = await createUser();
+      const moderator = await createUser();
+      await makeSupport(moderator);
+      await reportProfile(reporter, nickname);
+      const list = await request(app, { method: 'GET', url: '/api/community/moderation/reports?status=open', headers: auth(moderator) });
+      const found = (list.json() as { reports: { id: string; target_nickname: string | null }[] }).reports.find((r) => r.target_nickname === nickname);
+      if (!found) throw new Error('profile report not listed');
+      await request(app, {
+        method: 'POST',
+        url: `/api/community/moderation/reports/${found.id}/resolve`,
+        headers: auth(moderator),
+        payload: { action: 'dismiss' },
+      });
+      const after = expectShape(await getProfile(nickname), ProfilePostsResponseSchema);
+      expect(after.profile).toMatchObject({ bio: 'fine words', avatar_emoji: emoji });
+    });
+
+    it('a locked session cannot edit the profile', async () => {
+      const { user } = await nicknamedUser();
+      const accountId = await createAccount(user.id);
+      await addMember(accountId, user.id, 'admin');
+      const profileId = await createProfile(accountId, user.id);
+      await request(app, { method: 'POST', url: '/api/me/lock', headers: auth(user), payload: { profile_id: profileId } });
+      const res = await patchProfile(user, { bio: 'nope' });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe('device_locked');
+    });
+
+    it('no profile response leaks a user id or email', async () => {
+      const { user, nickname } = await nicknamedUser();
+      const accountId = await createAccount(user.id);
+      await addMember(accountId, user.id, 'admin');
+      const profileId = await createProfile(accountId, user.id, 'Zebulon');
+      await patchProfile(user, { bio: 'hello', avatar_emoji: emoji });
+      await makePost(user, { body: 'a post', author_profile_id: profileId });
+      const patched = await patchProfile(user, { bio: 'hello again' });
+      const page = await getProfile(nickname);
+      const signedInPage = await getProfile(nickname, auth(user));
+      for (const res of [patched, page, signedInPage]) {
+        expect(res.body).not.toContain(user.id);
+        expect(res.body).not.toContain('@example.com');
+        expect(res.body).not.toContain('Zebulon');
+        expect(res.body).not.toContain(profileId);
+        expect(res.body).not.toContain('user_id');
+        expect(res.body).not.toContain('email');
+      }
     });
   });
 });

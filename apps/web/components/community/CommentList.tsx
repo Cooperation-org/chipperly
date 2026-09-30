@@ -61,7 +61,7 @@ export function CommentList({ postId }: { postId: string }) {
           <ul className={styles.list}>
             {comments.map((c) => (
               <li key={c.id} className={styles.item}>
-                <Byline nickname={c.author.nickname} isSupport={c.author.is_support} when={c.created_at} />
+                <Byline nickname={c.author.nickname} isSupport={c.author.is_support} avatarEmoji={c.author.avatar_emoji} when={c.created_at} />
                 <p className={styles.body}>{c.body}</p>
                 <div className={styles.actions}>
                   {canDelete(c.viewer) ? (

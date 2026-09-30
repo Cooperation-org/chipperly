@@ -10,15 +10,14 @@ import { REPORT_REASONS } from '@/lib/data/moderation';
 import { toast } from '@/lib/toast';
 import styles from './ReportSheet.module.css';
 
-export interface ReportTarget {
-  target_type: 'post' | 'comment';
-  target_id: string;
-}
+export type ReportTarget =
+  | { target_type: 'post' | 'comment'; target_id: string }
+  | { target_type: 'profile'; target_nickname: string };
 
 const NOTE_MAX = 500;
 
 /** Sheet content: pick a reason, optionally add a note, send. Confirms only after the server accepts it. */
-export function ReportSheet({ target_type, target_id }: ReportTarget) {
+export function ReportSheet(target: ReportTarget) {
   const { close } = useSheet();
   const { status } = useSession();
   const [reason, setReason] = useState<ReportReason | null>(null);
@@ -33,7 +32,7 @@ export function ReportSheet({ target_type, target_id }: ReportTarget) {
     setError(null);
     try {
       const trimmed = note.trim();
-      await api.post('/community/reports', { target_type, target_id, reason, ...(trimmed ? { note: trimmed } : {}) });
+      await api.post('/community/reports', { ...target, reason, ...(trimmed ? { note: trimmed } : {}) });
       setSent(true);
       toast('Report sent. Thank you.');
     } catch (e) {
@@ -66,7 +65,7 @@ export function ReportSheet({ target_type, target_id }: ReportTarget) {
   return (
     <div className={styles.sheet}>
       <fieldset className={styles.reasons}>
-        <legend className={styles.legend}>Why are you reporting this {target_type}?</legend>
+        <legend className={styles.legend}>Why are you reporting this {target.target_type}?</legend>
         {REPORT_REASONS.map((r) => (
           <label key={r.value} className={styles.reason}>
             <input

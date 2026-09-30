@@ -211,6 +211,13 @@
       "when": 1790280000000,
       "tag": "0031_event_reminder_sent",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790290000000,
+      "tag": "0032_community_profile",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,9 @@ export const community_profiles = pgTable(
   {
     user_id: uuid('user_id').primaryKey(),
     nickname: text('nickname').notNull(),
+    /** Migration 0032. Both cleared (null) by a moderator; the nickname never is. */
+    bio: text('bio'),
+    avatar_emoji: text('avatar_emoji'),
     created_at: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (t) => [uniqueIndex('community_profiles_nickname_lower').on(sql`lower(${t.nickname})`)],
@@ -66,7 +69,7 @@ export const community_reports = pgTable(
   'community_reports',
   {
     id: uuid('id').primaryKey(),
-    target_type: text('target_type').$type<'post' | 'comment'>().notNull(),
+    target_type: text('target_type').$type<'post' | 'comment' | 'profile'>().notNull(),
     target_id: uuid('target_id').notNull(),
     reporter_user_id: uuid('reporter_user_id').notNull(),
     reason: text('reason').$type<ReportReason>().notNull(),

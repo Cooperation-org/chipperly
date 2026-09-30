@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import { msTimestampSchema, uuidSchema } from './common.js';
+import { AVATAR_EMOJI } from '../constants/emoji.js';
+
+/** One of the fixed AVATAR_EMOJI, never free text. */
+export const AvatarEmojiSchema = z.string().refine((v) => AVATAR_EMOJI.includes(v), 'not an avatar emoji');
+
+export const BIO_MAX = 200;
 
 /** 3-24 chars; stored as typed, unique case-insensitively. */
 export const NicknameSchema = z
@@ -28,6 +34,7 @@ export type CommunityMediaKind = z.infer<typeof CommunityMediaKindSchema>;
 export const CommunityAuthorSchema = z.object({
   nickname: z.string(),
   is_support: z.boolean(),
+  avatar_emoji: z.string().nullable(),
 });
 export type CommunityAuthor = z.infer<typeof CommunityAuthorSchema>;
 
@@ -47,10 +54,33 @@ export const PriceSchema = z.object({
 });
 export type Price = z.infer<typeof PriceSchema>;
 
+/** GET /community/me and PATCH /community/me/profile. Everything is null until a nickname is chosen. */
 export const CommunityProfileSchema = z.object({
   nickname: z.string().nullable(),
+  bio: z.string().nullable(),
+  avatar_emoji: z.string().nullable(),
+  created_at: msTimestampSchema.nullable(),
 });
 export type CommunityProfile = z.infer<typeof CommunityProfileSchema>;
+
+/** What anyone can see at GET /community/u/:nickname. No user id, no email. */
+export const PublicProfileSchema = z.object({
+  nickname: z.string(),
+  is_support: z.boolean(),
+  bio: z.string().nullable(),
+  avatar_emoji: z.string().nullable(),
+  created_at: msTimestampSchema,
+  /** Published posts only. */
+  post_count: z.number().int().nonnegative(),
+});
+export type PublicProfile = z.infer<typeof PublicProfileSchema>;
+
+/** Trimmed, max 200 chars, null clears. Omitted = unchanged. */
+export const UpdateMyProfileBodySchema = z.object({
+  bio: z.string().trim().max(BIO_MAX).nullable().optional(),
+  avatar_emoji: AvatarEmojiSchema.nullable().optional(),
+});
+export type UpdateMyProfileBody = z.infer<typeof UpdateMyProfileBodySchema>;
 
 export const CommunityPostMediaSchema = z.object({
   media_id: uuidSchema,
@@ -90,11 +120,16 @@ export const CommunityCommentSchema = z.object({
 });
 export type CommunityComment = z.infer<typeof CommunityCommentSchema>;
 
+export const ReportTargetTypeSchema = z.enum(['post', 'comment', 'profile']);
+export type ReportTargetType = z.infer<typeof ReportTargetTypeSchema>;
+
 /** What a moderator sees. No reporter identity. */
 export const CommunityReportSchema = z.object({
   id: uuidSchema,
-  target_type: z.enum(['post', 'comment']),
-  target_id: uuidSchema,
+  target_type: ReportTargetTypeSchema,
+  /** Null on a profile report: the person is identified by `target_nickname`, never by id. */
+  target_id: uuidSchema.nullable(),
+  target_nickname: z.string().nullable().default(null),
   reason: ReportReasonSchema,
   note: z.string().nullable(),
   status: ReportStatusSchema,
@@ -146,12 +181,20 @@ export const CreateCommentBodySchema = z.object({
   author_profile_id: uuidSchema.optional(),
 });
 
-export const CreateReportBodySchema = z.object({
-  target_type: z.enum(['post', 'comment']),
-  target_id: uuidSchema,
-  reason: ReportReasonSchema,
-  note: z.string().trim().max(1000).optional(),
-});
+export const CreateReportBodySchema = z
+  .object({
+    target_type: ReportTargetTypeSchema,
+    /** Required for a post or comment. */
+    target_id: uuidSchema.optional(),
+    /** Required for a profile: the client only ever knows the nickname. */
+    target_nickname: z.string().trim().min(1).max(64).optional(),
+    reason: ReportReasonSchema,
+    note: z.string().trim().max(1000).optional(),
+  })
+  .refine((v) => (v.target_type === 'profile' ? v.target_nickname !== undefined : v.target_id !== undefined), {
+    message: 'target_id is required for a post or comment, target_nickname for a profile',
+  });
+export type CreateReportBody = z.infer<typeof CreateReportBodySchema>;
 
 export const ResolveReportBodySchema = z.object({
   action: z.enum(['hide', 'remove', 'dismiss']),
@@ -185,3 +228,11 @@ export const FeedResponseSchema = z.object({
   next_cursor: z.string().nullable(),
 });
 export type FeedResponse = z.infer<typeof FeedResponseSchema>;
+
+/** GET /community/u/:nickname. A profile with no posts is still a page: posts is []. */
+export const ProfilePostsResponseSchema = z.object({
+  profile: PublicProfileSchema,
+  posts: z.array(CommunityPostSchema),
+  next_cursor: z.string().nullable(),
+});
+export type ProfilePostsResponse = z.infer<typeof ProfilePostsResponseSchema>;

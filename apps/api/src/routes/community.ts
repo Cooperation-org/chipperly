@@ -11,6 +11,7 @@ import {
   ReportStatusSchema,
   ResolveReportBodySchema,
   SetNicknameBodySchema,
+  UpdateMyProfileBodySchema,
   UpdatePostBodySchema,
   type CommentsResponse,
   type CommunityComment,
@@ -18,6 +19,7 @@ import {
   type CommunityProfile,
   type CommunityReport,
   type FeedResponse,
+  type ProfilePostsResponse,
   type SellerStatus,
 } from '@chipperly/shared/schemas/community';
 import { db } from '../db/client.js';
@@ -84,6 +86,20 @@ async function nicknameOf(userId: string): Promise<string | null> {
     .where(eq(community_profiles.user_id, userId))
     .limit(1);
   return row?.nickname ?? null;
+}
+
+async function myProfile(userId: string): Promise<CommunityProfile> {
+  const [row] = await db
+    .select({
+      nickname: community_profiles.nickname,
+      bio: community_profiles.bio,
+      avatar_emoji: community_profiles.avatar_emoji,
+      created_at: community_profiles.created_at,
+    })
+    .from(community_profiles)
+    .where(eq(community_profiles.user_id, userId))
+    .limit(1);
+  return row ?? { nickname: null, bio: null, avatar_emoji: null, created_at: null };
 }
 
 async function requireNickname(userId: string): Promise<void> {
@@ -163,6 +179,7 @@ const postSelect = {
   created_at: community_posts.created_at,
   updated_at: community_posts.updated_at,
   nickname: community_profiles.nickname,
+  avatar_emoji: community_profiles.avatar_emoji,
   is_support: users.is_support,
 };
 
@@ -223,7 +240,7 @@ async function toPosts(rows: PostRow[], viewer: Viewer): Promise<CommunityPost[]
       status: r.status,
       created_at: r.created_at,
       updated_at: r.updated_at,
-      author: { nickname: r.nickname, is_support: r.is_support },
+      author: { nickname: r.nickname, is_support: r.is_support, avatar_emoji: r.avatar_emoji },
       media: mediaRows
         .filter((m) => m.post_id === r.id)
         .map((m) => ({ media_id: m.media_id, kind: m.kind, position: m.position })),
@@ -331,6 +348,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
         status: community_comments.status,
         created_at: community_comments.created_at,
         nickname: community_profiles.nickname,
+        avatar_emoji: community_profiles.avatar_emoji,
         is_support: users.is_support,
       })
       .from(community_comments)
@@ -350,7 +368,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
         body: r.body,
         status: r.status,
         created_at: r.created_at,
-        author: { nickname: r.nickname, is_support: r.is_support },
+        author: { nickname: r.nickname, is_support: r.is_support, avatar_emoji: r.avatar_emoji },
         viewer: { is_mine: viewer.id !== null && r.author_user_id === viewer.id, can_moderate: viewer.moderator },
       })),
       next_cursor: rows.length > query.limit && last ? encodeCursor(last) : null,
@@ -358,7 +376,75 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
   });
 
   app.get('/community/me', { preHandler: requireUser }, async (request): Promise<CommunityProfile> => {
-    return { nickname: await nicknameOf(uid(request)) };
+    return myProfile(uid(request));
+  });
+
+  app.patch(
+    '/community/me/profile',
+    { preHandler: requireUser, config: hourly(30) },
+    async (request): Promise<CommunityProfile> => {
+      const userId = uid(request);
+      assertNotLocked(request);
+      const body = UpdateMyProfileBodySchema.parse(request.body);
+      await requireNickname(userId);
+      const set = {
+        // A bio that is only whitespace is the same as clearing it.
+        ...(body.bio !== undefined ? { bio: body.bio === null || body.bio === '' ? null : body.bio } : {}),
+        ...(body.avatar_emoji !== undefined ? { avatar_emoji: body.avatar_emoji } : {}),
+      };
+      if (Object.keys(set).length > 0) {
+        await db.update(community_profiles).set(set).where(eq(community_profiles.user_id, userId));
+      }
+      return myProfile(userId);
+    },
+  );
+
+  app.get('/community/u/:nickname', async (request, reply): Promise<ProfilePostsResponse> => {
+    const { nickname } = z.object({ nickname: z.string().min(1).max(64) }).parse(request.params);
+    const query = PageQuerySchema.parse(request.query);
+    const [person] = await db
+      .select({
+        user_id: community_profiles.user_id,
+        nickname: community_profiles.nickname,
+        bio: community_profiles.bio,
+        avatar_emoji: community_profiles.avatar_emoji,
+        created_at: community_profiles.created_at,
+        is_support: users.is_support,
+      })
+      .from(community_profiles)
+      .innerJoin(users, eq(users.id, community_profiles.user_id))
+      .where(drizzleSql`lower(${community_profiles.nickname}) = ${nickname.toLowerCase()}`)
+      .limit(1);
+    if (!person) throw new AppError(404, 'not_found', 'Nobody by that nickname');
+
+    // Same visibility rules as the feed, so the count matches what the list can show.
+    const base: SQL[] = [eq(community_posts.author_user_id, person.user_id), eq(community_posts.status, 'published')];
+    if (!env.stripeEnabled) base.push(isNull(community_posts.price_amount));
+    const conditions = [...base];
+    if (query.cursor) {
+      const c = decodeCursor(query.cursor);
+      conditions.push(drizzleSql`(${community_posts.created_at}, ${community_posts.id}) < (${c.created_at}::bigint, ${c.id}::uuid)`);
+    }
+    const [counted] = await db.select({ n: drizzleSql<number>`count(*)::int` }).from(community_posts).where(and(...base));
+    const rows = await postQuery()
+      .where(and(...conditions))
+      .orderBy(desc(community_posts.created_at), desc(community_posts.id))
+      .limit(query.limit + 1);
+    const page = rows.slice(0, query.limit);
+    const last = page[page.length - 1];
+    cacheHeader(request, reply);
+    return {
+      profile: {
+        nickname: person.nickname,
+        is_support: person.is_support,
+        bio: person.bio,
+        avatar_emoji: person.avatar_emoji,
+        created_at: person.created_at,
+        post_count: counted?.n ?? 0,
+      },
+      posts: await toPosts(page, await viewerOf(request)),
+      next_cursor: rows.length > query.limit && last ? encodeCursor(last) : null,
+    };
   });
 
   app.put('/community/me/nickname', { preHandler: requireUser }, async (request): Promise<CommunityProfile> => {
@@ -393,7 +479,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       if (now) throw new AppError(409, 'nickname_taken', 'That nickname is taken');
       throw error;
     }
-    return { nickname };
+    return myProfile(userId);
   });
 
   app.post(
@@ -513,7 +599,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       assertNotLocked(request);
       const { id } = idParamSchema.parse(request.params);
       const body = CreateCommentBodySchema.parse(request.body);
-      const nickname = await nicknameOf(userId);
+      const { nickname, avatar_emoji } = await myProfile(userId);
       if (nickname === null) throw new AppError(409, 'nickname_required', 'Choose a community nickname first');
       await assertOwnProfile(userId, body.author_profile_id);
 
@@ -543,7 +629,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
         body: body.body,
         status: 'published',
         created_at: now,
-        author: { nickname, is_support: support?.is_support ?? false },
+        author: { nickname, is_support: support?.is_support ?? false, avatar_emoji },
         viewer: { is_mine: true, can_moderate: await isModerator(request) },
       };
     },
@@ -571,24 +657,31 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
     async (request, reply): Promise<{ ok: true }> => {
       const userId = uid(request);
       const body = CreateReportBodySchema.parse(request.body);
+      // A profile is reported by nickname; the user id is looked up here and stays server-side.
       const [target] =
-        body.target_type === 'post'
+        body.target_type === 'profile'
           ? await db
-              .select({ id: community_posts.id })
-              .from(community_posts)
-              .where(and(eq(community_posts.id, body.target_id), eq(community_posts.status, 'published')))
+              .select({ id: community_profiles.user_id })
+              .from(community_profiles)
+              .where(drizzleSql`lower(${community_profiles.nickname}) = ${(body.target_nickname ?? '').toLowerCase()}`)
               .limit(1)
-          : await db
-              .select({ id: community_comments.id })
-              .from(community_comments)
-              .where(and(eq(community_comments.id, body.target_id), eq(community_comments.status, 'published')))
-              .limit(1);
+          : body.target_type === 'post'
+            ? await db
+                .select({ id: community_posts.id })
+                .from(community_posts)
+                .where(and(eq(community_posts.id, body.target_id ?? ''), eq(community_posts.status, 'published')))
+                .limit(1)
+            : await db
+                .select({ id: community_comments.id })
+                .from(community_comments)
+                .where(and(eq(community_comments.id, body.target_id ?? ''), eq(community_comments.status, 'published')))
+                .limit(1);
       if (!target) throw new AppError(404, 'not_found', 'Nothing to report');
 
       await db.insert(community_reports).values({
         id: uuidv7(),
         target_type: body.target_type,
-        target_id: body.target_id,
+        target_id: target.id,
         reporter_user_id: userId,
         reason: body.reason,
         note: body.note ?? null,
@@ -651,20 +744,35 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
               .from(community_comments)
               .leftJoin(community_profiles, eq(community_profiles.user_id, community_comments.author_user_id))
               .where(inArray(community_comments.id, commentIds));
+      const profileIds = rows.filter((r) => r.target_type === 'profile').map((r) => r.target_id);
+      const people =
+        profileIds.length === 0
+          ? []
+          : await db
+              .select({ user_id: community_profiles.user_id, nickname: community_profiles.nickname, bio: community_profiles.bio })
+              .from(community_profiles)
+              .where(inArray(community_profiles.user_id, profileIds));
       const postById = new Map(posts.map((p) => [p.id, p]));
       const commentById = new Map(comments.map((c) => [c.id, c]));
+      const personById = new Map(people.map((p) => [p.user_id, p]));
 
       return {
-        reports: rows.map((r) => {
-          const p = r.target_type === 'post' ? postById.get(r.target_id) : undefined;
-          const c = r.target_type === 'comment' ? commentById.get(r.target_id) : undefined;
+        reports: rows.map(({ target_id, ...r }) => {
+          const p = r.target_type === 'post' ? postById.get(target_id) : undefined;
+          const c = r.target_type === 'comment' ? commentById.get(target_id) : undefined;
+          const person = r.target_type === 'profile' ? personById.get(target_id) : undefined;
           return {
             ...r,
+            // A profile's target_id is a user id: moderators get the nickname instead.
+            target_id: r.target_type === 'profile' ? null : target_id,
+            target_nickname: person?.nickname ?? null,
             target: p
               ? { title: p.title, body: p.body, status: p.status, author_nickname: p.nickname }
               : c
                 ? { title: null, body: c.body, status: c.status, author_nickname: c.nickname }
-                : null,
+                : person
+                  ? { title: null, body: person.bio, status: 'published' as const, author_nickname: person.nickname }
+                  : null,
           };
         }),
       };
@@ -687,7 +795,13 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
       await db.transaction(async (tx) => {
         if (body.action !== 'dismiss') {
           const next = body.action === 'hide' ? 'hidden' : 'removed';
-          if (report.target_type === 'post') {
+          if (report.target_type === 'profile') {
+            // Clear the words and the picture; the nickname is their identity and stays.
+            await tx
+              .update(community_profiles)
+              .set({ bio: null, avatar_emoji: null })
+              .where(eq(community_profiles.user_id, report.target_id));
+          } else if (report.target_type === 'post') {
             await tx.update(community_posts).set({ status: next, updated_at: now }).where(eq(community_posts.id, report.target_id));
           } else {
             await tx.update(community_comments).set({ status: next }).where(eq(community_comments.id, report.target_id));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendPage, canDelete, canEdit, commentsPath, feedPath, mergeById, normalizeCurrency, omitNull, sellingErrorMessage, toMinorUnits, isMine, isNicknameRequired, parsePayload, payloadToActivityInput, storyToPayload, toCard, type CommunityPost } from './community';
+import { appendPage, bioToBody, BIO_MAX, postCountLabel, profileHref, profilePath, validateBio, canDelete, canEdit, commentsPath, feedPath, mergeById, normalizeCurrency, omitNull, sellingErrorMessage, toMinorUnits, isMine, isNicknameRequired, parsePayload, payloadToActivityInput, storyToPayload, toCard, type CommunityPost } from './community';
 import { ApiError } from '../api/client';
 
 function post(over: Record<string, unknown> = {}): CommunityPost {
@@ -155,5 +155,44 @@ describe('selling errors', () => {
     );
     expect(sellingErrorMessage(new ApiError(409, 'already_purchased'))).toBe('You already own this item.');
     expect(sellingErrorMessage(new Error('x'))).toContain('try again');
+  });
+});
+
+describe('profile paths', () => {
+  it('builds the page url with the name as a query param', () => {
+    expect(profileHref('sunny-1')).toBe('/community/u/?name=sunny-1');
+    expect(profileHref('a b&c')).toBe('/community/u/?name=a%20b%26c');
+  });
+
+  it('builds the api path, with and without a cursor', () => {
+    expect(profilePath('sunny', null)).toBe('/community/u/sunny');
+    expect(profilePath('sunny', 'c 1/2')).toBe('/community/u/sunny?cursor=c%201%2F2');
+  });
+
+  it('accumulates profile posts page by page and drops a repeated post', () => {
+    const first = { posts: [post({ id: 'a' }), post({ id: 'b' })], next_cursor: 'c1' };
+    const second = { posts: [post({ id: 'b' }), post({ id: 'c' })], next_cursor: null };
+    const all = appendPage(first, second);
+    expect(all.posts.map((p) => p.id)).toEqual(['a', 'b', 'c']);
+    expect(all.next_cursor).toBeNull();
+  });
+
+  it('labels the post count', () => {
+    expect(postCountLabel(0)).toBe('0 posts');
+    expect(postCountLabel(1)).toBe('1 post');
+  });
+});
+
+describe('bio', () => {
+  it('accepts up to the limit and rejects one over, judged after trimming', () => {
+    expect(validateBio('a'.repeat(BIO_MAX))).toBeNull();
+    expect(validateBio(`  ${'a'.repeat(BIO_MAX)}  `)).toBeNull();
+    expect(validateBio('a'.repeat(BIO_MAX + 1))).toMatch(/at most 200/);
+  });
+
+  it('sends an empty or blank bio as null so it clears', () => {
+    expect(bioToBody('')).toBeNull();
+    expect(bioToBody('   ')).toBeNull();
+    expect(bioToBody('  hi  ')).toBe('hi');
   });
 });

@@ -14,7 +14,7 @@ interface MeResponse {
 }
 
 /** /settings/community/: the community nickname, chosen once. Public, never a real name. */
-export function NicknameSetup() {
+export function NicknameSetup({ onSaved }: { onSaved?: () => void }) {
   const { profile } = useActiveProfile();
   const name = profile?.name ?? 'your child';
   const [nickname, setNickname] = useState<string | null | undefined>(undefined);
@@ -61,6 +61,7 @@ export function NicknameSetup() {
       const me = await api.put<MeResponse>('/community/me/nickname', { nickname: value.trim() });
       setNickname(me.nickname ?? value.trim());
       toast('Community name saved');
+      onSaved?.();
     } catch (e) {
       if (e instanceof ApiError && e.code === 'nickname_already_set') await load();
       else setServerError(e instanceof ApiError ? e.message : "Couldn't save the name. Check your connection and try again.");
