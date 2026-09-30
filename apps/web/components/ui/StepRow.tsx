@@ -53,7 +53,7 @@ export function StepRow({
         onTap={hasChildren && onToggle ? onToggle : () => onChange(!checked)}
         trailing={
           <span className={styles.trailing}>
-            {onSpeak ? <IconButton icon="speaker" aria-label={`Say ${name}`} onClick={onSpeak} /> : null}
+            {onSpeak ? <IconButton icon="speaker" aria-label={`Read step aloud: ${name}`} onClick={onSpeak} /> : null}
             {hasChildren && onToggle ? (
               <IconButton
                 icon="chevron"

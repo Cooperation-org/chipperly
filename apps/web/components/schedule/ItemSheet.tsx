@@ -18,6 +18,8 @@ import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { formatTime } from './todayModel';
 import { StoryPickerSheet } from './StoryPickerSheet';
+import { speak } from '@/lib/speech';
+import { useCanSpeak } from '@/lib/useCanSpeak';
 import { VisualSchedule } from './VisualSchedule';
 import styles from './ItemSheet.module.css';
 
@@ -90,6 +92,8 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
   // null = closed; 'item' = the whole routine; a step id = that step's sub-tree.
   const [scheduleView, setScheduleView] = useState<null | 'item' | string>(null);
 
+  const canSpeakHere = useCanSpeak();
+
   function renderStepNode(node: StepNode, depth: number): ReactNode {
     const step = node.node.step;
     const hasChildren = node.children.length > 0;
@@ -108,6 +112,7 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
           expanded={expanded}
           onToggle={hasChildren ? () => toggleStepExpanded(step.id) : undefined}
           onOpenVisualSchedule={hasChildren ? () => setScheduleView(step.id) : undefined}
+          onSpeak={canSpeakHere ? () => speak(step.name) : undefined}
         />
         {hasChildren && expanded ? <ul className={styles.steps}>{node.children.map((child) => renderStepNode(child, depth + 1))}</ul> : null}
       </li>
@@ -242,6 +247,7 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
       {scheduleView ? (
         <VisualSchedule
           printable
+          readAloud={canSpeakHere}
           title={scheduleView === 'item' ? day.activity.name : (scheduleNode?.node.step.name ?? '')}
           picture={
             scheduleView === 'item'

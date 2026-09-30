@@ -49,7 +49,8 @@ import { VisualSchedule } from '@/components/schedule/VisualSchedule';
 import { AttitudePrompt } from './AttitudePrompt';
 import { ChildCheckupSheet, MomentSheet } from '@/components/feelings/FeelingSheets';
 import { ChildOrderSheet } from './ChildOrderSheet';
-import { canSpeak, speak } from '@/lib/speech';
+import { speak } from '@/lib/speech';
+import { useCanSpeak } from '@/lib/useCanSpeak';
 import { DayBand } from './DayBand';
 import { ReadStoryButton } from './ReadStoryButton';
 import { TomorrowBand } from './TomorrowBand';
@@ -251,7 +252,8 @@ export function ChildToday() {
   }
 
   // Read tasks aloud (profile setting read_aloud): speaker buttons, and "<name>, done!" on a tick.
-  const readAloud = profile?.settings.read_aloud === true && canSpeak();
+  const canSpeakHere = useCanSpeak();
+  const readAloud = profile?.settings.read_aloud === true && canSpeakHere;
 
   async function handleToggle(day: DayItem, next: boolean): Promise<void> {
     await setCompleted(day.item.id, next, userId);
