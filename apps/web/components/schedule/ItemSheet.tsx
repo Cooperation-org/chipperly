@@ -177,6 +177,7 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
         <TimeRow value={item.start_time} onChange={setTime} />
 
         <Segmented label="Part of day" items={PART_OF_DAY_ITEMS} value={item.part_of_day ?? 'none'} onChange={(v) => void setPartOfDay(v)} />
+        <p className={styles.scopeCaption}>Time and part of day change today only. To change every day, edit the activity.</p>
 
         {tree.length > 0 ? (
           <>
@@ -210,6 +211,17 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
           <BigButton variant="primary" fullWidth onClick={() => void onDone()}>
             Done
           </BigButton>
+          <Button
+            variant="secondary"
+            fullWidth
+            icon="edit"
+            onClick={() => {
+              close();
+              router.push(`/activity/edit/?id=${day.activity.id}`);
+            }}
+          >
+            Edit activity and repeat days
+          </Button>
           {removing ? (
             <div className={styles.removeChoice}>
               <Button variant="secondary" fullWidth onClick={() => void onRemove('today')}>
@@ -225,17 +237,6 @@ export function ItemSheet({ day, userId }: ItemSheetProps) {
             </Button>
           )}
         </div>
-
-        <button
-          type="button"
-          className={styles.editLink}
-          onClick={() => {
-            close();
-            router.push(`/activity/edit/?id=${day.activity.id}`);
-          }}
-        >
-          Edit activity
-        </button>
       </div>
 
       {scheduleView ? (
