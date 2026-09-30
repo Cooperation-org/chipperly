@@ -229,6 +229,13 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
               <Switch label="Show steps expanded" checked={options.expand_steps} onChange={(v) => setOptions((o) => ({ ...o, expand_steps: v }))} />
             </div>
             <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>
+                Celebrate when a chip is earned
+                <span className={styles.toggleHint}>A short burst of stars and a soft sound. Turn off if it&rsquo;s too much.</span>
+              </span>
+              <Switch label="Celebrate when a chip is earned" checked={options.celebrations} onChange={(v) => setOptions((o) => ({ ...o, celebrations: v }))} />
+            </div>
+            <div className={styles.toggleRow}>
               <span className={styles.toggleLabel}>Ask how it went after each task (How do you feel)</span>
               <Switch label="Ask how it went after each task" checked={options.attitude_prompt} onChange={(v) => toggleExclusive('attitude_prompt', v)} />
             </div>
