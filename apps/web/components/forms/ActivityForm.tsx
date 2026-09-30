@@ -6,7 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity, ActivityStep, Recurrence } from '@chipperly/shared/schemas/activity';
 import { CHIP_MAX } from '@chipperly/shared/constants/limits';
 import { db } from '@/lib/db/db';
-import { deleteActivity, saveActivity, useActivities, useActivity, type SaveActivityStepInput } from '@/lib/data/activities';
+import { deleteActivity, effectiveLocationIds, saveActivity, useActivities, useActivity, type SaveActivityStepInput } from '@/lib/data/activities';
 import { addToDay, stepTree, type DayStep, type StepNode } from '@/lib/data/schedule';
 import { useLocations } from '@/lib/data/locations';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -27,6 +27,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { toast } from '@/lib/toast';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FormRow } from './FormRow';
+import { LocationMultiSelect, nothingPicked, whereSummary } from './LocationMultiSelect';
 import { StepPictureSheet } from './StepPictureSheet';
 import styles from './ActivityForm.module.css';
 
@@ -158,7 +159,8 @@ export function ActivityForm() {
   const [picture, setPicture] = useState<PicturePickerValue>({ emoji: null, photo_id: null });
   // 1, not 0: the seeded activities are worth 1, and a routine a parent just built should earn something.
   const [chips, setChips] = useState(1);
-  const [locationId, setLocationId] = useState<string | null>(null);
+  const [everyPlace, setEveryPlace] = useState(true);
+  const [placeIds, setPlaceIds] = useState<string[]>([]);
   const [repeat, setRepeat] = useState<'none' | Recurrence>('none');
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [recurrenceTime, setRecurrenceTime] = useState<string | null>(null);
@@ -192,7 +194,9 @@ export function ActivityForm() {
     setName(activity.name);
     setPicture({ emoji: activity.emoji, photo_id: activity.photo_id });
     setChips(activity.chip_value);
-    setLocationId(activity.location_id);
+    const ids = effectiveLocationIds(activity);
+    setEveryPlace(ids.length === 0);
+    setPlaceIds(ids);
     setRepeat(activity.recurrence ?? 'none');
     setWeekdays(activity.recurrence_weekdays ?? []);
     setRecurrenceTime(activity.recurrence_time);
@@ -359,7 +363,7 @@ export function ActivityForm() {
   const weeklyNeedsDay = repeat === 'weekly' && weekdays.length === 0;
 
   async function onSave(): Promise<void> {
-    if (!name.trim() || !profileId || saving || weeklyNeedsDay) return;
+    if (!name.trim() || !profileId || saving || weeklyNeedsDay || noPlacePicked) return;
     setSaving(true);
     try {
       const id = await saveActivity({
@@ -369,7 +373,7 @@ export function ActivityForm() {
         emoji: picture.emoji ?? null,
         photo_id: picture.photo_id ?? null,
         chip_value: chips,
-        location_id: locationId,
+        location_ids: everyPlace ? [] : placeIds,
         recurrence: repeat === 'none' ? null : repeat,
         recurrence_weekdays: repeat === 'weekly' ? weekdays : null,
         recurrence_time: repeat === 'none' ? null : recurrenceTime,
@@ -417,9 +421,10 @@ export function ActivityForm() {
     router.push('/settings/library/activities/');
   }
 
-  const locationItems = [{ value: '', label: 'Everywhere' }, ...locations.map((l) => ({ value: l.id, label: l.name }))];
-  const locationLabel = locationId ? (locations.find((l) => l.id === locationId)?.name ?? 'Everywhere') : 'Everywhere';
+  const noPlacePicked = nothingPicked(locations, everyPlace, placeIds);
+  const locationLabel = whereSummary(locations, everyPlace, placeIds);
   const repeatLabel = REPEAT_ITEMS.find((i) => i.value === repeat)?.label ?? 'None';
+  const whenSummary = repeat !== 'none' && recurrenceTime ? `${repeatLabel}, ${recurrenceTime}` : repeatLabel;
 
   const hasNamedSteps = steps.some((s) => s.name.trim().length > 0);
 
@@ -447,15 +452,7 @@ export function ActivityForm() {
         <PicturePicker value={picture} onChange={setPicture} name={name || 'Activity'} />
       </FormRow>
 
-      <FormRow label="Chips" summary={`${chips} chip${chips === 1 ? '' : 's'}`} open={openField === 'chips'} onToggle={() => toggle('chips')}>
-        <Stepper label="Chips earned" value={chips} min={0} max={CHIP_MAX} onChange={setChips} />
-      </FormRow>
-
-      <FormRow label="Where" summary={locationLabel} open={openField === 'where'} onToggle={() => toggle('where')}>
-        <Segmented label="Where" items={locationItems} value={locationId ?? ''} onChange={(v) => setLocationId(v || null)} />
-      </FormRow>
-
-      <FormRow label="Repeat" summary={repeatLabel} open={openField === 'repeat'} onToggle={() => toggle('repeat')}>
+      <FormRow label="When" summary={whenSummary} open={openField === 'repeat'} onToggle={() => toggle('repeat')}>
         <Segmented
           label="Repeat"
           items={REPEAT_ITEMS}
@@ -497,6 +494,23 @@ export function ActivityForm() {
             ) : null}
           </>
         ) : null}
+      </FormRow>
+
+      <FormRow label="Chips" summary={`${chips} chip${chips === 1 ? '' : 's'}`} open={openField === 'chips'} onToggle={() => toggle('chips')}>
+        <Stepper label="Chips earned" value={chips} min={0} max={CHIP_MAX} onChange={setChips} />
+      </FormRow>
+
+      <FormRow label="Place (optional)" summary={locationLabel} open={openField === 'where'} onToggle={() => toggle('where')}>
+        <LocationMultiSelect
+          locations={locations}
+          everyPlace={everyPlace}
+          placeIds={placeIds}
+          onChange={(next) => {
+            setEveryPlace(next.everyPlace);
+            setPlaceIds(next.placeIds);
+          }}
+          noun="activity"
+        />
       </FormRow>
 
       <FormRow
@@ -643,7 +657,7 @@ export function ActivityForm() {
       </FormRow>
 
       <div className={styles.saveBar}>
-        <BigButton variant="primary" fullWidth disabled={!name.trim() || saving || weeklyNeedsDay} onClick={() => void onSave()}>
+        <BigButton variant="primary" fullWidth disabled={!name.trim() || saving || weeklyNeedsDay || noPlacePicked} onClick={() => void onSave()}>
           Save
         </BigButton>
       </div>

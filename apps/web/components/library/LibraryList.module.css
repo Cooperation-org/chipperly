@@ -79,3 +79,46 @@
   color: var(--color-text-muted);
   margin: 0;
 }
+
+.searchRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.searchRow > :first-child {
+  flex: 1 1 auto;
+}
+
+.pickRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 48px;
+}
+
+.pickName {
+  font-size: var(--text-md);
+  color: var(--color-text);
+}
+
+.pickRule {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-2) 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.groupHeading {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin: 0;
+}

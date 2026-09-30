@@ -6,11 +6,18 @@ export const RewardSchema = SyncColumnsSchema.extend({
   emoji: z.string().nullable(),
   photo_id: uuidSchema.nullable(),
   chip_cost: z.number().int().nonnegative().nullable(),
-  /** Location this reward belongs to; null means "everywhere". */
+  /** Legacy single location; null means "everywhere". Mirror of `location_ids` for older clients (see activity.ts). */
   location_id: uuidSchema.nullable(),
+  /** Places this reward shows in. [] = every place; null/absent = pre-column row, read `location_id`. */
+  location_ids: z.array(uuidSchema).nullable().optional(),
   /** True = free-time choice board tile, costs nothing. */
   always_available: z.boolean(),
   position: z.number().int(),
+  /**
+   * Earned free choice: the activity that must be done today before this reward
+   * can be picked (the owner's "after homework"). null/absent = no requirement.
+   */
+  requires_activity_id: uuidSchema.nullable().optional(),
   /**
    * Screen time this reward buys: redeeming it grants each app in
    * `screen_time_packages` this many minutes as a timed app allowance

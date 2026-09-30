@@ -108,3 +108,19 @@
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+/* Not yet available: dimmed, but the reason stays readable (it is the point). */
+.locked {
+  cursor: default;
+  background: var(--color-bg);
+}
+
+.locked > :not(.reason) {
+  opacity: 0.55;
+}
+
+.reason {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}

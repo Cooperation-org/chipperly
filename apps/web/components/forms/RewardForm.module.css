@@ -74,3 +74,19 @@
   min-height: 48px;
   padding-right: var(--space-1);
 }
+
+.select {
+  min-height: var(--tap);
+  width: 100%;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-md);
+}
+
+.select:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}

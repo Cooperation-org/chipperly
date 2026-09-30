@@ -6,6 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Geolocation } from '@capacitor/geolocation';
 import type { Map as LeafletMap, Marker as LeafletMarker, Circle as LeafletCircle } from 'leaflet';
 import type { Activity } from '@chipperly/shared/schemas/activity';
+import { PartOfDay } from '@chipperly/shared/schemas/schedule';
 import type { Location } from '@chipperly/shared/schemas/location';
 import { Picture } from '@/components/media/Picture';
 import { Field } from '@/components/ui/Field';
@@ -14,7 +15,7 @@ import { ListRow } from '@/components/ui/ListRow';
 import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
-import { Stepper } from '@/components/ui/Stepper';
+import { Segmented } from '@/components/ui/Segmented';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSheet, Confirm } from '@/components/ui/Sheet';
 import { CheckCircle } from '@/components/ui/CheckCircle';
@@ -27,6 +28,10 @@ import { useLocations, saveLocation, deleteLocation } from '@/lib/data/locations
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import { withBase } from '@/lib/api/base';
+import { effectiveLocationIds, locationFields } from '@/lib/data/locationScope';
+import { partOfDayFor } from '@/lib/data/schedule';
+import { searchAddress } from './addressSearch';
+import { groupRows, mergePlaces, type AddressHit, type PlaceMode } from './places';
 import { toggleId, toggleAll, allSelected, pruneSelection } from './selection';
 import styles from './LibraryList.module.css';
 
@@ -143,7 +148,11 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
   const radiusInputId = useId();
   const [name, setName] = useState(location?.name ?? '');
   const [picture, setPicture] = useState<PicturePickerValue>({ emoji: location?.emoji, photo_id: location?.photo_id });
-  const [goal, setGoal] = useState(location?.chip_goal ?? 5);
+  const [goalText, setGoalText] = useState(String(location?.chip_goal ?? 5));
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [hits, setHits] = useState<AddressHit[] | undefined>();
+  const [searchNote, setSearchNote] = useState<string | undefined>();
   const [lat, setLat] = useState(location?.lat ?? null);
   const [lng, setLng] = useState(location?.lng ?? null);
   const [radiusM, setRadiusM] = useState(location?.radius_m ?? null);
@@ -179,6 +188,40 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
     }
   }
 
+  // Chips to earn: plain number entry. Anything that isn't a whole number >= 1 keeps the place's current goal.
+  const typedGoal = Number(goalText);
+  const parsedGoal = Number.isInteger(typedGoal) && typedGoal >= 1 ? typedGoal : (location?.chip_goal ?? 5);
+
+  // Runs only on Search / Enter, never per keystroke (Nominatim allows 1 request a second).
+  async function runSearch(): Promise<void> {
+    const q = query.trim();
+    if (!q || searching) return;
+    setSearching(true);
+    setSearchNote(undefined);
+    setHits(undefined);
+    const result = await searchAddress(q);
+    setSearching(false);
+    if (!result.ok) {
+      setSearchNote(
+        result.reason === 'offline'
+          ? "You're offline, so address search isn't available. Use your current location or drag the pin instead."
+          : "Couldn't search just now. Try again, or use your current location or drag the pin.",
+      );
+    } else if (result.hits.length === 0) {
+      setSearchNote('No match. Try a street and town, or drag the pin.');
+    } else {
+      setHits(result.hits);
+    }
+  }
+
+  function applyHit(hit: AddressHit): void {
+    setLat(hit.lat);
+    setLng(hit.lng);
+    setRadiusM((current) => current ?? DEFAULT_RADIUS_M);
+    setHits(undefined);
+    setSearchNote(undefined);
+  }
+
   async function submit(): Promise<void> {
     if (!name.trim()) return;
     setSaving(true);
@@ -188,7 +231,7 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
       name: name.trim(),
       emoji: picture.emoji ?? null,
       photo_id: picture.photo_id ?? null,
-      chip_goal: goal,
+      chip_goal: parsedGoal,
       working_for_reward_id: location?.working_for_reward_id,
       lat,
       lng,
@@ -202,12 +245,55 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
     <div className={styles.sheet}>
       <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       <PicturePicker value={picture} onChange={setPicture} name={name || 'Location'} />
-      <Stepper label="Chips to earn" value={goal} min={1} max={20} onChange={setGoal} />
+      <TextField
+        label="Chips to earn"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        step={1}
+        value={goalText}
+        onChange={(e) => setGoalText(e.target.value)}
+      />
       <div className={styles.geo}>
         <span className={styles.geoLabel}>Set this location&rsquo;s spot</span>
         <Button variant="secondary" onClick={() => void locateCurrentPosition()} disabled={locating} loading={locating}>
           Use my current location
         </Button>
+        <div
+          className={styles.searchRow}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void runSearch();
+            }
+          }}
+        >
+          <TextField
+            label="Or type an address"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Street and town"
+            autoComplete="off"
+          />
+          <Button variant="secondary" onClick={() => void runSearch()} disabled={searching || !query.trim()} loading={searching}>
+            Search
+          </Button>
+        </div>
+        {searchNote ? (
+          <p className={styles.geoError} role="status">
+            {searchNote}
+          </p>
+        ) : null}
+        {hits ? (
+          <div className={styles.pickList} role="group" aria-label="Address matches">
+            {hits.map((hit) => (
+              <Button key={`${hit.lat},${hit.lng},${hit.label}`} variant="secondary" onClick={() => applyHit(hit)}>
+                {hit.label}
+              </Button>
+            ))}
+          </div>
+        ) : null}
         {geoError ? (
           <p className={styles.geoError} role="alert">
             {geoError}
@@ -242,18 +328,43 @@ function LocationSheet({ profileId, location }: { profileId: string; location?: 
   );
 }
 
-function LocationPick({ locations, onPick }: { locations: Location[]; onPick: (locationId: string | null) => void }) {
+type PlaceChoice = { kind: 'every' } | { kind: 'some'; mode: PlaceMode; ids: string[] };
+
+function LocationPick({ locations, count, onPick }: { locations: Location[]; count: number; onPick: (choice: PlaceChoice) => void }) {
+  const [mode, setMode] = useState<PlaceMode>('add');
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const n = chosen.size;
+  const noun = `${n} ${n === 1 ? 'place' : 'places'}`;
   return (
     <div className={styles.pickList}>
-      <p className={styles.pickNote}>Each one shows in a single place, or in every place.</p>
-      <Button variant="secondary" onClick={() => onPick(null)}>
-        Every place
-      </Button>
+      <Segmented
+        label="What to do with the places"
+        value={mode}
+        onChange={(v) => setMode(v === 'replace' ? 'replace' : 'add')}
+        items={[
+          { value: 'add', label: 'Add to their places' },
+          { value: 'replace', label: 'Replace their places' },
+        ]}
+      />
+      <p className={styles.pickNote}>
+        {mode === 'add'
+          ? `Keeps the places each of the ${count} already has and adds the ones you tick. Ones that show in every place stay that way.`
+          : `Throws away the places each of the ${count} has now. They show only in the ones you tick.`}
+      </p>
       {locations.map((l) => (
-        <Button key={l.id} variant="secondary" onClick={() => onPick(l.id)}>
-          {l.name}
-        </Button>
+        <div key={l.id} className={styles.pickRow}>
+          <span className={styles.pickName}>{l.name}</span>
+          <CheckCircle name={l.name} checked={chosen.has(l.id)} onChange={() => setChosen(toggleId(chosen, l.id))} />
+        </div>
       ))}
+      <BigButton fullWidth disabled={n === 0} onClick={() => onPick({ kind: 'some', mode, ids: [...chosen] })}>
+        {n === 0 ? 'Tick at least one place' : mode === 'add' ? `Add ${noun}` : `Replace with ${noun}`}
+      </BigButton>
+      <hr className={styles.pickRule} />
+      <p className={styles.pickNote}>Or skip the ticks and show them in all places, including ones you add later.</p>
+      <Button variant="secondary" onClick={() => onPick({ kind: 'every' })}>
+        Show in every place
+      </Button>
     </div>
   );
 }
@@ -299,34 +410,48 @@ export function LibraryList({ kind }: LibraryListProps) {
     setSelected(new Set());
   }
 
-  async function setLocationFor(locationId: string | null): Promise<void> {
+  async function setLocationFor(choice: PlaceChoice): Promise<void> {
     const ids = [...liveSelected];
     const table = kind === 'reward' ? 'rewards' : 'activities';
-    const previous: Array<{ id: string; location_id: string | null }> = [];
+    interface Prev {
+      id: string;
+      location_id: string | null;
+      location_ids: string[] | null | undefined;
+    }
+    const previous: Prev[] = [];
+    const nextFor = (row: { location_id: string | null; location_ids?: string[] | null }): string[] =>
+      choice.kind === 'every' ? [] : mergePlaces(effectiveLocationIds(row), choice.ids, choice.mode);
     for (const id of ids) {
       if (table === 'rewards') {
         const row = await db.rewards.get(id);
         if (!row) continue;
-        previous.push({ id, location_id: row.location_id });
-        await upsert('rewards', { ...row, location_id: locationId });
+        previous.push({ id, location_id: row.location_id, location_ids: row.location_ids });
+        await upsert('rewards', { ...row, ...locationFields(nextFor(row)) });
       } else {
         const row = await db.activities.get(id);
         if (!row) continue;
-        previous.push({ id, location_id: row.location_id });
-        await upsert('activities', { ...row, location_id: locationId });
+        previous.push({ id, location_id: row.location_id, location_ids: row.location_ids });
+        await upsert('activities', { ...row, ...locationFields(nextFor(row)) });
       }
     }
-    const placeName = locationId === null ? 'every place' : (locations.find((l) => l.id === locationId)?.name ?? 'that place');
-    toast(`${previous.length} now in ${placeName}`, {
+    const names = choice.kind === 'every' ? [] : choice.ids.map((pid) => locations.find((l) => l.id === pid)?.name ?? 'a place');
+    const message =
+      choice.kind === 'every'
+        ? `${previous.length} now in every place`
+        : choice.mode === 'add'
+          ? `${previous.length} now also in ${names.join(', ')}`
+          : `${previous.length} now only in ${names.join(', ')}`;
+    toast(message, {
       undo: () => {
         void (async () => {
           for (const prev of previous) {
+            const { id, ...cols } = prev;
             if (table === 'rewards') {
-              const row = await db.rewards.get(prev.id);
-              if (row) await upsert('rewards', { ...row, location_id: prev.location_id });
+              const row = await db.rewards.get(id);
+              if (row) await upsert('rewards', { ...row, ...cols });
             } else {
-              const row = await db.activities.get(prev.id);
-              if (row) await upsert('activities', { ...row, location_id: prev.location_id });
+              const row = await db.activities.get(id);
+              if (row) await upsert('activities', { ...row, ...cols });
             }
           }
         })();
@@ -339,12 +464,13 @@ export function LibraryList({ kind }: LibraryListProps) {
     open(
       <LocationPick
         locations={locations}
-        onPick={(locationId) => {
+        count={liveSelected.size}
+        onPick={(choice) => {
           close();
-          void setLocationFor(locationId);
+          void setLocationFor(choice);
         }}
       />,
-      { title: `Set place for ${liveSelected.size}` },
+      { title: `Set places for ${liveSelected.size}` },
     );
   }
 
@@ -376,12 +502,21 @@ export function LibraryList({ kind }: LibraryListProps) {
     else open(<LocationSheet profileId={pid} />, { title: 'Add location' });
   }
 
+  const knownPlaceIds = new Set(locations.map((l) => l.id));
+  function rewardPlaceKeys(r: { location_id: string | null; location_ids?: string[] | null }): string[] {
+    const ids = effectiveLocationIds(r);
+    if (ids.length === 0) return ['all'];
+    const known = ids.filter((pid) => knownPlaceIds.has(pid));
+    return known.length > 0 ? known : ['all'];
+  }
+
   const rows =
     kind === 'activity'
       ? plainActivities.map((a) => ({
           id: a.id,
           name: a.name,
           secondary: repeatLabel(a),
+          groupKeys: [partOfDayFor(a.recurrence_time) ?? 'anytime'],
           tile: <Picture emoji={a.emoji} photo_id={a.photo_id} name={a.name} size="list" />,
           onTap: () => router.push(`/activity/edit/?id=${a.id}`),
           onDelete: () => {
@@ -393,6 +528,7 @@ export function LibraryList({ kind }: LibraryListProps) {
         ? routines.map((a) => ({
             id: a.id,
             name: a.name,
+            groupKeys: [] as string[],
             secondary: `${stepCounts.get(a.id) ?? 0} step${(stepCounts.get(a.id) ?? 0) === 1 ? '' : 's'}`,
             tile: <Picture emoji={a.emoji} photo_id={a.photo_id} name={a.name} size="list" />,
             onTap: () => router.push(`/activity/edit/?id=${a.id}`),
@@ -405,6 +541,7 @@ export function LibraryList({ kind }: LibraryListProps) {
         ? rewards.map((r) => ({
             id: r.id,
             name: r.name,
+            groupKeys: rewardPlaceKeys(r),
             secondary: r.always_available ? 'Free time' : r.chip_cost !== null ? `${r.chip_cost} chip${r.chip_cost === 1 ? '' : 's'}` : undefined,
             tile: <Picture emoji={r.emoji} photo_id={r.photo_id} name={r.name} size="list" />,
             onTap: () => router.push(`/reward/edit/?id=${r.id}`),
@@ -416,6 +553,7 @@ export function LibraryList({ kind }: LibraryListProps) {
         : locations.map((l) => ({
             id: l.id,
             name: l.name,
+            groupKeys: [] as string[],
             secondary: `${l.chip_goal} chips to earn`,
             tile: <Picture emoji={l.emoji} photo_id={l.photo_id} name={l.name} size="list" />,
             onTap: () => open(<LocationSheet profileId={pid} location={l} />, { title: 'Edit location' }),
@@ -424,6 +562,16 @@ export function LibraryList({ kind }: LibraryListProps) {
               toast(`Deleted ${l.name}`, { undo: () => void restore('locations', l.id) });
             },
           }));
+
+  // Activities are day-time based (group by part of day), rewards place based (group by place).
+  const grouped = kind === 'activity' || kind === 'reward';
+  const groups = grouped
+    ? groupRows(rows, (r) => r.groupKeys, kind === 'activity' ? [...PartOfDay.options, 'anytime'] : ['all', ...locations.map((l) => l.id)])
+    : [{ key: '', rows }];
+  function groupLabel(key: string): string {
+    if (kind === 'activity') return key === 'anytime' ? 'Any time of day' : key.charAt(0).toUpperCase() + key.slice(1);
+    return key === 'all' ? 'Every place' : (locations.find((l) => l.id === key)?.name ?? 'Other place');
+  }
 
   const addLabel =
     kind === 'activity' ? 'Add activity' : kind === 'routine' ? 'Add routine' : kind === 'reward' ? 'Add reward' : 'Add location';
@@ -471,28 +619,33 @@ export function LibraryList({ kind }: LibraryListProps) {
       {rows.length === 0 ? (
         <EmptyState sentence={emptySentence} />
       ) : (
-        <div className={styles.list}>
-          {rows.map((row) => (
-            <ListRow
-              key={row.id}
-              tile={row.tile}
-              name={row.name}
-              secondary={row.secondary}
-              onTap={selecting && bulkable ? () => setSelected(toggleId(liveSelected, row.id)) : row.onTap}
-              trailing={
-                selecting && bulkable ? (
-                  <CheckCircle
-                    name={row.name}
-                    checked={liveSelected.has(row.id)}
-                    onChange={() => setSelected(toggleId(liveSelected, row.id))}
-                  />
-                ) : (
-                  <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />
-                )
-              }
-            />
-          ))}
-        </div>
+        groups.map((group) => (
+          <section key={group.key} className={styles.group}>
+            {grouped ? <h2 className={styles.groupHeading}>{groupLabel(group.key)}</h2> : null}
+            <div className={styles.list}>
+              {group.rows.map((row) => (
+                <ListRow
+                  key={row.id}
+                  tile={row.tile}
+                  name={row.name}
+                  secondary={row.secondary}
+                  onTap={selecting && bulkable ? () => setSelected(toggleId(liveSelected, row.id)) : row.onTap}
+                  trailing={
+                    selecting && bulkable ? (
+                      <CheckCircle
+                        name={row.name}
+                        checked={liveSelected.has(row.id)}
+                        onChange={() => setSelected(toggleId(liveSelected, row.id))}
+                      />
+                    ) : (
+                      <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />
+                    )
+                  }
+                />
+              ))}
+            </div>
+          </section>
+        ))
       )}
     </div>
   );

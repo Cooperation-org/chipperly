@@ -12,6 +12,8 @@ export const activities = pgTable(
     chip_value: integer('chip_value').notNull().default(0),
     /** Null means "everywhere". */
     location_id: uuid('location_id'),
+    /** [] = every place; null = pre-0022 row, read `location_id`. */
+    location_ids: uuid('location_ids').array(),
     recurrence: text('recurrence').$type<Recurrence>(),
     /** Days of the week (0 Sunday - 6 Saturday) this recurs on; empty/null when recurrence is not `weekly`. */
     recurrence_weekdays: integer('recurrence_weekdays').array(),

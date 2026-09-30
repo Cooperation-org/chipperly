@@ -11,6 +11,17 @@ import { upsert, softDelete } from '../sync/mutate';
 import { nextPosition } from './_util';
 import { descendantsOf } from './schedule';
 
+// The place helpers live in ./locationScope so schedule.ts can use them too
+// without closing a cycle back through this file. Re-exported for callers.
+import {
+  effectiveLocationIds,
+  locationFields,
+  matchesLocation,
+  type LocationScoped,
+} from './locationScope';
+
+export { effectiveLocationIds, locationFields, matchesLocation, type LocationScoped };
+
 export function useActivities(profileId: string): Activity[] {
   const rows = useLiveQuery(() => db.activities.where('profile_id').equals(profileId).toArray(), [profileId], []);
   return useMemo(
@@ -55,7 +66,8 @@ export interface SaveActivityInput {
   emoji: string | null;
   photo_id: string | null;
   chip_value: number;
-  location_id: string | null;
+  /** [] = every place. */
+  location_ids: string[];
   recurrence: Recurrence | null;
   recurrence_weekdays: number[] | null;
   recurrence_time: string | null;
@@ -87,7 +99,7 @@ export async function saveActivity(input: SaveActivityInput): Promise<string> {
     emoji: input.emoji,
     photo_id: input.photo_id,
     chip_value: input.chip_value,
-    location_id: input.location_id,
+    ...locationFields(input.location_ids),
     recurrence: input.recurrence,
     recurrence_weekdays: input.recurrence_weekdays,
     recurrence_time: input.recurrence_time,

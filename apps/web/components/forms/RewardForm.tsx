@@ -7,23 +7,29 @@ import { CheckCircle } from '@/components/ui/CheckCircle';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { COST_MAX } from '@chipperly/shared/constants/limits';
 import { deleteReward, saveReward, useRewards } from '@/lib/data/rewards';
+import { effectiveLocationIds } from '@/lib/data/activities';
 import { setWorkingFor } from '@/lib/data/chips';
 import { useLocations } from '@/lib/data/locations';
 import { useActiveProfile } from '@/lib/profile/active';
 import { restore } from '@/lib/sync/mutate';
+import { useActivities } from '@/lib/data/activities';
+import { Field } from '@/components/ui/Field';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Picture } from '@/components/media/Picture';
 import { TextField } from '@/components/ui/TextField';
 import { Stepper } from '@/components/ui/Stepper';
 import { Segmented } from '@/components/ui/Segmented';
 import { BigButton } from '@/components/ui/BigButton';
-import { Switch } from '@/components/ui/Switch';
 import { toast } from '@/lib/toast';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FormRow } from './FormRow';
+import { LocationMultiSelect, nothingPicked, whereSummary } from './LocationMultiSelect';
 import styles from './RewardForm.module.css';
 
 type FieldKey = 'name' | 'picture' | 'cost' | 'where' | 'screen';
+
+/** How a reward is earned: nothing, chips, or finishing a task today (owner: free choice "related to a certain task like homework"). */
+type Earn = 'always' | 'chips' | 'task';
 
 const SCREEN_MINUTES = [0, 15, 30, 60, 120];
 
@@ -50,8 +56,11 @@ export function RewardForm() {
   const [name, setName] = useState('');
   const [picture, setPicture] = useState<PicturePickerValue>({ emoji: null, photo_id: null });
   const [cost, setCost] = useState(1);
-  const [alwaysAvailable, setAlwaysAvailable] = useState(false);
-  const [locationId, setLocationId] = useState<string | null>(null);
+  const [earn, setEarn] = useState<Earn>('chips');
+  const [requiresActivityId, setRequiresActivityId] = useState('');
+  const activities = useActivities(profileId);
+  const [everyPlace, setEveryPlace] = useState(true);
+  const [placeIds, setPlaceIds] = useState<string[]>([]);
   const [screenMinutes, setScreenMinutes] = useState(0);
   const [screenPackages, setScreenPackages] = useState<string[]>([]);
   const [screenWholePhone, setScreenWholePhone] = useState(false);
@@ -67,8 +76,11 @@ export function RewardForm() {
     setName(reward.name);
     setPicture({ emoji: reward.emoji, photo_id: reward.photo_id });
     setCost(reward.chip_cost ?? 1);
-    setAlwaysAvailable(reward.always_available);
-    setLocationId(reward.location_id);
+    setEarn(reward.requires_activity_id ? 'task' : reward.always_available ? 'always' : 'chips');
+    setRequiresActivityId(reward.requires_activity_id ?? '');
+    const ids = effectiveLocationIds(reward);
+    setEveryPlace(ids.length === 0);
+    setPlaceIds(ids);
     setScreenMinutes(reward.screen_time_minutes ?? 0);
     setScreenPackages(reward.screen_time_packages ?? []);
     setScreenWholePhone(reward.screen_time_whole_phone ?? false);
@@ -95,7 +107,7 @@ export function RewardForm() {
   }
 
   async function onSave(): Promise<void> {
-    if (!name.trim() || !profileId || saving) return;
+    if (!name.trim() || !profileId || saving || noPlacePicked || taskMissing) return;
     setSaving(true);
     try {
       const id = await saveReward({
@@ -104,9 +116,10 @@ export function RewardForm() {
         name: name.trim(),
         emoji: picture.emoji ?? null,
         photo_id: picture.photo_id ?? null,
-        chip_cost: alwaysAvailable ? null : cost,
-        location_id: locationId,
-        always_available: alwaysAvailable,
+        chip_cost: earn === 'chips' ? cost : null,
+        location_ids: everyPlace ? [] : placeIds,
+        always_available: earn !== 'chips',
+        requires_activity_id: earn === 'task' ? requiresActivityId : null,
         screen_time_minutes: screenMinutes > 0 ? screenMinutes : null,
         screen_time_packages: screenMinutes > 0 && !screenWholePhone ? screenPackages : null,
         screen_time_whole_phone: screenMinutes > 0 ? screenWholePhone : null,
@@ -137,15 +150,18 @@ export function RewardForm() {
     router.push('/settings/library/rewards/');
   }
 
-  const locationItems = [{ value: '', label: 'Everywhere' }, ...locations.map((l) => ({ value: l.id, label: l.name }))];
-  const locationLabel = locationId ? (locations.find((l) => l.id === locationId)?.name ?? 'Everywhere') : 'Everywhere';
+  const taskMissing = earn === 'task' && !activities.some((a) => a.id === requiresActivityId);
+  const noPlacePicked = nothingPicked(locations, everyPlace, placeIds);
+  const locationLabel = whereSummary(locations, everyPlace, placeIds);
   const screenSummary =
     screenMinutes === 0
       ? 'Off'
       : screenWholePhone
         ? `${minutesLabel(screenMinutes)}, whole phone`
         : `${minutesLabel(screenMinutes)}${screenPackages.length === 0 ? ', no app chosen' : `, ${screenPackages.length} app${screenPackages.length === 1 ? '' : 's'}`}`;
-  const costSummary = alwaysAvailable ? 'Always available' : `${cost} chip${cost === 1 ? '' : 's'}`;
+  const taskName = activities.find((a) => a.id === requiresActivityId)?.name;
+  const costSummary =
+    earn === 'always' ? 'Always available' : earn === 'task' ? (taskName ? `After ${taskName}` : 'Pick a task') : `${cost} chip${cost === 1 ? '' : 's'}`;
 
   return (
     <div className={styles.page}>
@@ -157,6 +173,19 @@ export function RewardForm() {
         </div>
       </FormRow>
 
+      <FormRow label="Where it is offered" summary={locationLabel} open={openField === 'where'} onToggle={() => toggle('where')}>
+        <LocationMultiSelect
+          locations={locations}
+          everyPlace={everyPlace}
+          placeIds={placeIds}
+          onChange={(next) => {
+            setEveryPlace(next.everyPlace);
+            setPlaceIds(next.placeIds);
+          }}
+          noun="reward"
+        />
+      </FormRow>
+
       <FormRow
         label="Picture"
         summary={<Picture emoji={picture.emoji} photo_id={picture.photo_id} name={name || 'Reward'} size="list" />}
@@ -166,16 +195,35 @@ export function RewardForm() {
         <PicturePicker value={picture} onChange={setPicture} name={name || 'Reward'} />
       </FormRow>
 
-      <FormRow label="Cost" summary={costSummary} open={openField === 'cost'} onToggle={() => toggle('cost')}>
-        <div className={styles.switchRow}>
-          <span>Always available</span>
-          <Switch label="Always available" checked={alwaysAvailable} onChange={setAlwaysAvailable} />
-        </div>
-        {!alwaysAvailable ? <Stepper label="Chip cost" value={cost} min={1} max={COST_MAX} onChange={setCost} /> : null}
-      </FormRow>
-
-      <FormRow label="Where" summary={locationLabel} open={openField === 'where'} onToggle={() => toggle('where')}>
-        <Segmented label="Where" items={locationItems} value={locationId ?? ''} onChange={(v) => setLocationId(v || null)} />
+      <FormRow label="How to get it" summary={costSummary} open={openField === 'cost'} onToggle={() => toggle('cost')}>
+        <Segmented
+          label="How to get it"
+          items={[
+            { value: 'always', label: 'Always available' },
+            { value: 'chips', label: 'Costs chips' },
+            { value: 'task', label: 'After a task' },
+          ]}
+          value={earn}
+          onChange={(v) => setEarn(v as Earn)}
+        />
+        {earn === 'chips' ? <Stepper label="Chip cost" value={cost} min={1} max={COST_MAX} onChange={setCost} /> : null}
+        {earn === 'task' ? (
+          <Field label="Task to finish first" htmlFor="requires-activity" hint="It unlocks once this is done today. Until then the child sees why it is waiting.">
+            <select
+              id="requires-activity"
+              className={styles.select}
+              value={requiresActivityId}
+              onChange={(e) => setRequiresActivityId(e.target.value)}
+            >
+              <option value="">Choose a task</option>
+              {activities.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : null}
       </FormRow>
 
       <FormRow label="Screen time" summary={screenSummary} open={openField === 'screen'} onToggle={() => toggle('screen')}>
@@ -225,7 +273,7 @@ export function RewardForm() {
       </FormRow>
 
       <div className={styles.saveBar}>
-        <BigButton variant="primary" fullWidth disabled={!name.trim() || saving} onClick={() => void onSave()}>
+        <BigButton variant="primary" fullWidth disabled={!name.trim() || saving || noPlacePicked || taskMissing} onClick={() => void onSave()}>
           Save
         </BigButton>
       </div>

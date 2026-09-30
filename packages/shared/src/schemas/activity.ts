@@ -18,8 +18,17 @@ export const ActivitySchema = SyncColumnsSchema.extend({
   emoji: z.string().nullable(),
   photo_id: uuidSchema.nullable(),
   chip_value: z.number().int().nonnegative(),
-  /** Location this activity belongs to; null means "everywhere". */
+  /**
+   * Legacy single location; null means "everywhere". New clients keep it as a
+   * mirror for older ones: the one id when exactly one place is chosen, else null.
+   */
   location_id: uuidSchema.nullable(),
+  /**
+   * Places this activity shows in. [] = every place; [a, b] = only those.
+   * null/absent = a row from before this column: read `location_id` instead.
+   * Authoritative only while consistent with `location_id` (web `effectiveLocationIds`).
+   */
+  location_ids: z.array(uuidSchema).nullable().optional(),
   recurrence: RecurrenceSchema.nullable(),
   /** Days of the week this recurs on; empty/null when recurrence is not `weekly`. */
   recurrence_weekdays: RecurrenceWeekdaysSchema,

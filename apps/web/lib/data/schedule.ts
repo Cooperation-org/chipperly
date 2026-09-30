@@ -9,6 +9,7 @@ import type { ChipLedger } from '@chipperly/shared/schemas/chips';
 import { occursOn, materializedId } from '@chipperly/shared/helpers/recurrence';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { db } from '../db/db';
+import { matchesLocation } from './locationScope';
 import { getKv, setKv } from '../db/kv';
 import { newId } from '../ids';
 import { now } from '../clock';
@@ -141,7 +142,8 @@ export function joinDayItems(
     if (item.deleted_at !== null) continue;
     const activity = activityById.get(item.activity_id);
     if (!activity) continue;
-    if (locationId && activity.location_id && activity.location_id !== locationId) continue;
+    // matchesLocation reads location_ids, so an activity pinned to several places shows in each.
+    if (locationId && !matchesLocation(activity, locationId)) continue;
 
     const activitySteps = stepsByActivity.get(item.activity_id) ?? [];
     const completionByStep = new Map(

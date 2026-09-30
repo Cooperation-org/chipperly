@@ -5,7 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { Activity } from '@chipperly/shared/schemas/activity';
 import type { Reward } from '@chipperly/shared/schemas/reward';
 import { db } from '@/lib/db/db';
-import { useActivities, useRecentActivities } from '@/lib/data/activities';
+import { matchesLocation, useActivities, useRecentActivities } from '@/lib/data/activities';
 import { useRewards } from '@/lib/data/rewards';
 import { Picture } from '@/components/media/Picture';
 import { TextField } from '@/components/ui/TextField';
@@ -34,8 +34,9 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
   const [query, setQuery] = useState('');
   const showRoutines = kind === 'activity' && routines;
 
-  // With a location, activities tagged to another location are hidden: Today would hide them anyway.
-  const hereOrAnywhere = (a: Activity) => !locationId || !a.location_id || a.location_id === locationId;
+  // With a location, activities tagged to other locations are hidden: Today would hide them anyway.
+  // matchesLocation reads location_ids, so an activity pinned to several places shows in each of them.
+  const hereOrAnywhere = (a: Activity) => !locationId || matchesLocation(a, locationId);
   const activities = useActivities(profileId).filter(hereOrAnywhere);
   const recentActivities = useRecentActivities(profileId, RECENT_COUNT).filter(hereOrAnywhere);
   const rewards = useRewards(profileId, { location_id: locationId });

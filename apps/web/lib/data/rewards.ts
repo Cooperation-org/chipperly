@@ -8,6 +8,7 @@ import { newId } from '../ids';
 import { now } from '../clock';
 import { upsert, softDelete } from '../sync/mutate';
 import { nextPosition } from './_util';
+import { effectiveLocationIds, locationFields, matchesLocation } from './activities';
 
 export interface RewardsFilter {
   location_id?: string | null;
@@ -15,10 +16,15 @@ export interface RewardsFilter {
 }
 
 /** Pure: not-deleted, optionally scoped to a location (null-location rewards are everywhere) and/or always-available. */
-function filterRewards(rows: readonly Reward[], filter: RewardsFilter): Reward[] {
+export function filterRewards(rows: readonly Reward[], filter: RewardsFilter): Reward[] {
   return rows
     .filter((row) => row.deleted_at === null)
-    .filter((row) => filter.location_id === undefined || row.location_id === filter.location_id || row.location_id === null)
+    .filter((row) => {
+      if (filter.location_id === undefined) return true;
+      // null asks for rows that show everywhere only, as before.
+      if (filter.location_id === null) return effectiveLocationIds(row).length === 0;
+      return matchesLocation(row, filter.location_id);
+    })
     .filter((row) => filter.always_available === undefined || row.always_available === filter.always_available)
     .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
 }
@@ -38,8 +44,11 @@ export interface SaveRewardInput {
   emoji: string | null;
   photo_id: string | null;
   chip_cost: number | null;
-  location_id: string | null;
+  /** [] = every place. */
+  location_ids: string[];
   always_available: boolean;
+  /** Unlocked by finishing this activity today (#15 "after a task"); null for an ordinary reward. */
+  requires_activity_id?: string | null;
   /** Minutes of screen time redeeming this grants (with `screen_time_packages`); null for an ordinary reward. */
   screen_time_minutes?: number | null;
   screen_time_packages?: string[] | null;
@@ -61,8 +70,9 @@ export async function saveReward(input: SaveRewardInput): Promise<string> {
     emoji: input.emoji,
     photo_id: input.photo_id,
     chip_cost: input.chip_cost,
-    location_id: input.location_id,
+    ...locationFields(input.location_ids),
     always_available: input.always_available,
+    requires_activity_id: input.requires_activity_id ?? null,
     position,
     screen_time_minutes: input.screen_time_minutes ?? null,
     screen_time_packages: input.screen_time_packages ?? null,

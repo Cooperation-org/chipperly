@@ -1,0 +1,77 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.every,
+.everyOn,
+.place {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.everyOn {
+  border: 2px solid var(--color-primary);
+  background: var(--color-surface-2);
+}
+
+.box {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+
+.box:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.everyText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.everyName {
+  font-weight: 600;
+}
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.warn {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
