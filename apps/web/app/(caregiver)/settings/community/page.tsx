@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CommunitySettings } from './CommunitySettings';
+import { GuestGate } from '@/components/auth/GuestGate';
 
 export const metadata: Metadata = {
   title: 'Community',
@@ -11,7 +12,7 @@ export default function CommunitySettingsPage() {
   return (
     <>
       <PageHeader title="Community" backHref="/settings/" />
-      <CommunitySettings />
+      <GuestGate><CommunitySettings /></GuestGate>
     </>
   );
 }

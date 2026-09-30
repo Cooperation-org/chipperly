@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AccountScreen } from '@/components/settings/AccountScreen';
+import { GuestGate } from '@/components/auth/GuestGate';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export default function AccountPage() {
   return (
     <>
       <PageHeader title="Account" backHref="/settings/" />
-      <AccountScreen />
+      <GuestGate><AccountScreen /></GuestGate>
     </>
   );
 }

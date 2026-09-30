@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
+import { GuestGate } from '@/components/auth/GuestGate';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export default function AdminPage() {
   return (
     <>
       <PageHeader title="Admin dashboard" backHref="/settings/" />
-      <AdminDashboard />
+      <GuestGate><AdminDashboard /></GuestGate>
     </>
   );
 }

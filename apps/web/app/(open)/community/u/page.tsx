@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { CommunityProfile } from '@/components/community/CommunityProfile';
+import { GuestGate } from '@/components/auth/GuestGate';
 
 export const metadata: Metadata = {
   title: 'Community profile',
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default function CommunityProfilePage() {
   return (
     <Suspense fallback={null}>
-      <CommunityProfile />
+      <GuestGate><CommunityProfile /></GuestGate>
     </Suspense>
   );
 }

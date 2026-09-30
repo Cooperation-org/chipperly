@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { BillingPanel } from '@/components/billing/BillingPanel';
+import { GuestGate } from '@/components/auth/GuestGate';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export default function BillingPage() {
   return (
     <>
       <PageHeader title="Subscription" backHref="/settings/" />
-      <BillingPanel />
+      <GuestGate><BillingPanel /></GuestGate>
     </>
   );
 }

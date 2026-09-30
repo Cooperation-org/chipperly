@@ -1,6 +1,7 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSession } from '@/lib/auth/session';
 import { db } from '@/lib/db/db';
 import { useKv, setKv } from '@/lib/db/kv';
 import { usesApp, useDeviceRole } from '@/lib/device/role';
@@ -13,6 +14,7 @@ const DISMISSED_KEY = 'reward_alerts_banner_dismissed';
 
 /** On the caregiver's Today: reward alerts are on for a child, but this device can't show them yet. */
 export function RewardAlertsBanner() {
+  const { guest } = useSession();
   const role = useDeviceRole();
   const dismissed = useKv<boolean>(DISMISSED_KEY, false);
   const wanted = useLiveQuery(
@@ -22,7 +24,7 @@ export function RewardAlertsBanner() {
   );
   const { state, turnOn } = useNotifications();
 
-  if (dismissed || role?.kind === 'child' || wanted === 0 || state === 'on' || state === 'loading') return null;
+  if (guest || dismissed || role?.kind === 'child' || wanted === 0 || state === 'on' || state === 'loading') return null;
 
   return (
     <div className={styles.banner} role="status">

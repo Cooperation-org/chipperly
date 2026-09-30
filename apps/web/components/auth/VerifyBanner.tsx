@@ -38,12 +38,12 @@ function readDismissed(): boolean {
  * the tab session; it reappears next visit until the address is verified.
  */
 export function VerifyBanner() {
-  const { user } = useSession();
+  const { user, guest } = useSession();
   const [dismissed, setDismissed] = useState(readDismissed);
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  if (!user || user.email_verified_at !== null || dismissed) return null;
+  if (!user || guest || user.email_verified_at !== null || dismissed) return null;
 
   function dismiss(): void {
     setDismissed(true);
