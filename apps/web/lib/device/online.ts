@@ -15,9 +15,13 @@ import { useEffect, useState } from 'react';
  * treat it as "worth trying", and let the request itself report a real failure.
  */
 export function useOnline(): boolean {
-  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  // Guard on `window`, not `navigator`: Node 22 defines a global navigator, but with
+  // no `onLine`, so a navigator check passes during the static build and reads
+  // undefined. That baked "You're offline" into the prerendered community page and
+  // then mismatched on hydration. Anything but an explicit false means online.
+  const [online, setOnline] = useState(() => (typeof window === 'undefined' ? true : navigator.onLine !== false));
   useEffect(() => {
-    const update = (): void => setOnline(navigator.onLine);
+    const update = (): void => setOnline(navigator.onLine !== false);
     window.addEventListener('online', update);
     window.addEventListener('offline', update);
     update();

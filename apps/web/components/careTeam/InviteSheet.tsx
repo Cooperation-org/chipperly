@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { InviteIssuedSchema, type InviteIssued } from '@chipperly/shared/schemas/account';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { Picture } from '@/components/media/Picture';
@@ -14,28 +14,13 @@ import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
 import { toast } from '@/lib/toast';
+import { useOnline } from '@/lib/device/online';
 import styles from './InviteSheet.module.css';
 
 export interface InviteSheetProps {
   accountId: string;
   profiles: Profile[];
   onSent: () => void;
-}
-
-function useOnline(): boolean {
-  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
-  useEffect(() => {
-    function set(): void {
-      setOnline(navigator.onLine);
-    }
-    window.addEventListener('online', set);
-    window.addEventListener('offline', set);
-    return () => {
-      window.removeEventListener('online', set);
-      window.removeEventListener('offline', set);
-    };
-  }, []);
-  return online;
 }
 
 /**
