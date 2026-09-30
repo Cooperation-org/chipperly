@@ -41,6 +41,18 @@ describe('setup interview seed', () => {
     expect(freeChoice?.always_available).toBe(true);
   });
 
+  it('guided answers seed routines only: no locations, no rewards, no Free Choice', () => {
+    const guided = { ...defaultAnswers('8-12'), guided: true };
+    expect(SetupAnswersSchema.parse(guided).guided).toBe(true);
+    const plan = buildSeed(guided);
+    expect(plan.locations).toEqual([]);
+    expect(plan.rewards).toEqual([]);
+    expect(plan.activities.length).toBeGreaterThan(0);
+    // An old payload (no `guided`) validates and seeds as before.
+    expect(SetupAnswersSchema.parse(defaultAnswers('8-12')).guided).toBeUndefined();
+    expect(buildSeed(defaultAnswers('8-12')).rewards.some((r) => r.name === 'Free Choice')).toBe(true);
+  });
+
   it('keeps the other locations, and the after school tile seeds After School', () => {
     const plan = buildSeed({ ...defaultAnswers('8-12'), week: ['school', 'day_program'], places: ['school', 'therapy'] });
     expect(plan.locations.map((l) => l.name)).toEqual(['Home', 'School', 'Therapy']);

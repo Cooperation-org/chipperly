@@ -51,6 +51,13 @@ export const SetupAnswersSchema = z.object({
   routines: z.array(z.enum(['morning', 'dressed', 'teeth', 'meals', 'homework', 'chores', 'bedtime', 'leaving', 'toilet', 'speech', 'aba'])).max(11),
   places: z.array(z.enum(['school', 'work', 'therapy', 'other_home'])).max(4),
   loves: z.array(z.object({ name: z.string().min(1).max(60), emoji: z.string().min(1).max(8) })).max(20),
+  /**
+   * True when the client sets up locations, free choices and rewards itself
+   * (the guided rewards steps, so photos attach). The server then seeds no
+   * locations or rewards and ignores `places` and `loves`. Absent: seed them
+   * from `places` and `loves` as before.
+   */
+  guided: z.boolean().optional(),
 });
 export type SetupAnswers = z.infer<typeof SetupAnswersSchema>;
 

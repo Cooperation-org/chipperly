@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import type { AgeBand, SetupAnswers } from '@chipperly/shared/schemas/profile';
-import { AGE_BAND_TILES, LOVE_TILES, PLACE_TILES, ROUTINE_TILES, WEEK_TILES, defaultAnswers } from '@chipperly/shared/constants/setup';
+import { AGE_BAND_TILES, LOVE_TILES, ROUTINE_TILES, WEEK_TILES, defaultAnswers } from '@chipperly/shared/constants/setup';
+import { newId } from '@/lib/ids';
+import type { GuidedItem, GuidedPicks, GuidedPlace } from '@/lib/profile/guidedSetup';
 import { Button } from '@/components/ui/Button';
-import { TextField } from '@/components/ui/TextField';
+import { PickStep, PlacesStep } from './GuidedSteps';
 import styles from './SetupQuestions.module.css';
 
 export interface SetupQuestionsProps {
@@ -12,27 +14,32 @@ export interface SetupQuestionsProps {
   /** "Myself" accounts skip the age question and start from the 18+ defaults. */
   selfMode: boolean;
   busy: boolean;
-  /** The finished answers, or null for "Skip setup" (the fixed default lists). */
-  onDone: (answers: SetupAnswers | null) => void;
+  /** The finished answers and the guided picks to create locally, or null for "Skip setup" (the fixed default lists). */
+  onDone: (answers: SetupAnswers | null, picks?: GuidedPicks) => void;
   /** Family and organization accounts: back from the first question to the name form. */
   onBack?: () => void;
 }
 
-type MultiKey = 'week' | 'routines' | 'places';
+type MultiKey = 'week' | 'routines';
+
+const LAST_STEP = 5;
 
 /**
- * S4b, the setup interview: five picture-tile questions whose answers seed a
- * starter plan that fits the person (constants/setup.ts buildSeed). Every
- * step is skippable; skipping the whole thing keeps the old default lists.
+ * S4b, the setup interview: age, week and routines seed a starter plan that
+ * fits the person (constants/setup.ts buildSeed); then a guided walk through
+ * places, three free choices and three earned rewards, which the caller
+ * creates locally so photos attach. Every step is skippable; skipping the whole thing keeps the old default lists.
  */
 export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQuestionsProps) {
   const [step, setStep] = useState(selfMode ? 1 : 0);
   const [answers, setAnswers] = useState<SetupAnswers>(() => defaultAnswers(selfMode ? '18+' : '2-7'));
-  const [custom, setCustom] = useState('');
+  const [places, setPlaces] = useState<GuidedPlace[]>(() => [{ id: newId(), name: 'Home', emoji: '🏠', photo_id: null }]);
+  const [free, setFree] = useState<GuidedItem[]>([]);
+  const [earned, setEarned] = useState<GuidedItem[]>([]);
 
   const firstStep = selfMode ? 1 : 0;
   // Under 2: no school/week and no routines steps (a newborn has neither; the plan is a fixed caregiver day).
-  const order = (answers.age_band === '0-2' ? [0, 3, 4] : [0, 1, 2, 3, 4]).filter((s) => s >= firstStep);
+  const order = (answers.age_band === '0-2' ? [0, 3, 4, 5] : [0, 1, 2, 3, 4, 5]).filter((s) => s >= firstStep);
   const pos = order.indexOf(step);
   const nextStep = order[pos + 1] ?? step;
   const prevStep = order[pos - 1] ?? step;
@@ -52,22 +59,13 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
     });
   }
 
-  function toggleLove(tile: { name: string; emoji: string }): void {
-    setAnswers((a) => {
-      const on = a.loves.some((l) => l.name === tile.name);
-      return { ...a, loves: on ? a.loves.filter((l) => l.name !== tile.name) : [...a.loves, tile] };
-    });
+  function finish(): void {
+    // Blank names are dropped; the first place is always kept (Home if it was cleared).
+    const named = places.filter((p) => p.name.trim()).map((p) => ({ ...p, name: p.name.trim() }));
+    const kept = named.length > 0 ? named : [{ ...places[0]!, name: 'Home' }];
+    // `guided`: the server seeds no locations or rewards; the caller creates these.
+    onDone({ ...answers, places: [], loves: [], guided: true }, { places: kept, free, earned });
   }
-
-  function addCustomLove(): void {
-    const trimmed = custom.trim();
-    if (!trimmed) return;
-    setAnswers((a) => (a.loves.some((l) => l.name === trimmed) ? a : { ...a, loves: [...a.loves, { name: trimmed, emoji: '⭐' }] }));
-    setCustom('');
-  }
-
-  // The love tiles: the band's suggestions plus anything typed in.
-  const loveTiles = [...LOVE_TILES[answers.age_band], ...answers.loves.filter((l) => !LOVE_TILES[answers.age_band].some((t) => t.name === l.name))];
 
   function multiStep(
     key: MultiKey,
@@ -122,45 +120,33 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
 
       {step === 1 ? multiStep('week', "What's in a typical week?", 'Pick what applies; none is fine.', WEEK_TILES) : null}
       {step === 2 ? multiStep('routines', 'Which routines should we start with?', 'Each one becomes a step-by-step routine.', ROUTINE_TILES) : null}
-      {step === 3 ? multiStep('places', 'Where will you use Chipperly?', 'Home is always included.', PLACE_TILES) : null}
-
+      {step === 3 ? <PlacesStep name={name} places={places} onChange={setPlaces} /> : null}
       {step === 4 ? (
-        <>
-          <h1 className={styles.title}>What does {name} love?</h1>
-          <p className={styles.subtitle}>Each one becomes a reward {name} can spend chips on. You can change the prices later.</p>
-          <div className={styles.grid}>
-            {loveTiles.map((tile) => (
-              <button
-                key={tile.name}
-                type="button"
-                className={styles.tile}
-                aria-pressed={answers.loves.some((l) => l.name === tile.name)}
-                onClick={() => toggleLove(tile)}
-              >
-                <span className={styles.tileEmoji} aria-hidden="true">
-                  {tile.emoji}
-                </span>
-                {tile.name}
-                {answers.loves.some((l) => l.name === tile.name) ? (
-                  <span className={styles.tileCheck} aria-hidden="true">
-                    ✓
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </div>
-          <div className={styles.customRow}>
-            <TextField label="Add your own" value={custom} onChange={(e) => setCustom(e.target.value)} />
-            <Button variant="secondary" onClick={addCustomLove} disabled={custom.trim().length === 0}>
-              Add
-            </Button>
-          </div>
-        </>
+        <PickStep
+          title={`Pick three things ${name} can choose anytime`}
+          subtitle="These are always there and need no chips. Pick up to three, or skip this."
+          tiles={LOVE_TILES[answers.age_band]}
+          items={free}
+          onChange={setFree}
+          places={places}
+          priced={false}
+        />
+      ) : null}
+      {step === 5 ? (
+        <PickStep
+          title={`Pick three rewards ${name} earns with chips`}
+          subtitle={`${name} saves up chips for these. The price is 5 chips unless you change it. Skipping is fine.`}
+          tiles={LOVE_TILES[answers.age_band].filter((t) => !free.some((f) => f.name === t.name))}
+          items={earned}
+          onChange={setEarned}
+          places={places}
+          priced
+        />
       ) : null}
 
       <div className={styles.actions}>
-        {step === 4 ? (
-          <Button fullWidth loading={busy} onClick={() => onDone(answers)}>
+        {step === LAST_STEP ? (
+          <Button fullWidth loading={busy} onClick={finish}>
             Create {name}&apos;s plan
           </Button>
         ) : step > 0 ? (

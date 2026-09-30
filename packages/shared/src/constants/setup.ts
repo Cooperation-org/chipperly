@@ -32,7 +32,7 @@ export interface SeedReward {
 
 export interface SeedPlan {
   readonly locations: readonly { name: string; emoji: string }[];
-  /** All for Home (the first location); the other locations get none. */
+  /** All for Home (the first location); the other locations get none. With no locations (guided setup) they show everywhere. */
   readonly activities: readonly SeedActivity[];
   readonly rewards: readonly SeedReward[];
 }
@@ -79,7 +79,7 @@ export const PLACE_TILES: readonly Tile<SetupAnswers['places'][number]>[] = [
   { key: 'other_home', name: 'Another home', emoji: '🏡' },
 ];
 
-/** Reward tiles per age band; "Screen time" expands into the three timed rewards below. */
+/** Reward tiles per age band (the guided free-choice and reward steps suggest from these); "Screen time" expands into the three timed rewards below. */
 export const LOVE_TILES: Readonly<Record<AgeBand, readonly { name: string; emoji: string }[]>> = {
   '0-2': [
     { name: 'Cuddles', emoji: '🤗' },
@@ -344,10 +344,13 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
   const baby = age_band === '0-2';
   const young = baby || age_band === '2-7' || age_band === '8-12';
 
-  const locations = [
-    { name: 'Home', emoji: '🏠' },
-    ...PLACE_TILES.filter((place) => answers.places.includes(place.key)).map(({ name, emoji }) => ({ name, emoji })),
-  ];
+  // Guided setup: the client makes the locations, free choices and rewards itself.
+  const locations = answers.guided
+    ? []
+    : [
+        { name: 'Home', emoji: '🏠' },
+        ...PLACE_TILES.filter((place) => answers.places.includes(place.key)).map(({ name, emoji }) => ({ name, emoji })),
+      ];
 
   // Brushing teeth and getting dressed are steps of the morning routine, so
   // picking either tile (or the routine itself) builds that one routine.
@@ -421,6 +424,7 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
   }
 
   const rewards: SeedReward[] = [];
+  if (answers.guided) return { locations, activities, rewards };
   for (const love of answers.loves) {
     if (love.name === 'Screen time') rewards.push(...SCREEN_TIME_REWARDS);
     else rewards.push({ name: love.name, emoji: love.emoji, chip_cost: 5 });

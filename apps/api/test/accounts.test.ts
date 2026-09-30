@@ -104,6 +104,45 @@ describe('accounts routes', () => {
     expect(body.error.message).toMatch(/1/);
   });
 
+  it('guided setup seeds routines but no locations or rewards; old place and love answers still seed them', async () => {
+    const admin = await createUser('admin-guided');
+    const accountRes = await request(app, {
+      method: 'POST',
+      url: '/api/accounts',
+      headers: auth(admin.token),
+      payload: { kind: 'household', name: 'Guided family' },
+    });
+    const { account } = accountRes.json() as { account: { id: string } };
+    const answers = { age_band: '8-12', week: ['school'], routines: ['morning'], places: ['school'], loves: [{ name: 'Art', emoji: '🎨' }] };
+
+    const made: Record<string, string> = {};
+    for (const [label, setup] of [['guided', { ...answers, guided: true }], ['legacy', answers]] as const) {
+      const res = await request(app, {
+        method: 'POST',
+        url: `/api/accounts/${account.id}/profiles`,
+        headers: auth(admin.token),
+        payload: { name: label, setup },
+      });
+      expect(res.statusCode).toBe(201);
+      made[label] = (res.json() as { id: string }).id;
+    }
+
+    const rowsFor = async (id: string) => ({
+      acts: await db.select().from(activities).where(eq(activities.profile_id, id)),
+      rews: await db.select().from(rewards).where(eq(rewards.profile_id, id)),
+      locs: await db.select().from(locations).where(eq(locations.profile_id, id)),
+    });
+    const guided = await rowsFor(made.guided!);
+    expect(guided.acts.length).toBeGreaterThan(0);
+    expect(guided.acts.every((a) => a.location_id === null)).toBe(true);
+    expect(guided.rews).toHaveLength(0);
+    expect(guided.locs).toHaveLength(0);
+
+    const legacy = await rowsFor(made.legacy!);
+    expect(legacy.locs.map((l) => l.name).sort()).toEqual(['Home', 'School']);
+    expect(legacy.rews.map((r) => r.name)).toEqual(expect.arrayContaining(['Art', 'Free Choice']));
+  });
+
   it('invites, accepts, and scopes a member to only their assigned profile', async () => {
     const admin = await createUser('admin2');
     const member = await createUser('member2');
