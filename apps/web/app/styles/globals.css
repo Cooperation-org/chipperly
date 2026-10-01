@@ -9,7 +9,8 @@
 html,
 body {
   overflow-wrap: break-word;
-  hyphens: auto;
+  /* Words stay whole: broken words are hard for early and dyslexic readers. */
+  hyphens: manual;
   padding: 0;
   margin: 0;
 }
