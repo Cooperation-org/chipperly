@@ -23,6 +23,8 @@ The API serves the web export at `/` and the API at `/api/`, on 127.0.0.1:8064.
     # apps/api/.env (chmod 600): DATABASE_URL, DATABASE_URL_OWNER, PORT=8064,
     # HOST=127.0.0.1, BASE_PATH=, WEB_DIR=../web/out, UPLOAD_DIR=/home/mhany/chipperly-uploads,
     # APP_ORIGIN=https://app.chipperlyapp.com, JWT_SECRET, RESEND_API_KEY, MAIL_FROM, ...
+    # Optional: OPENVERSE_CLIENT_ID and OPENVERSE_CLIENT_SECRET turn on in-app image search
+    # (both set, then `sudo systemctl restart chipperly`). Unset, the feature stays hidden.
 
     sudo cp deploy/contabo/chipperly.service /etc/systemd/system/
     sudo systemctl daemon-reload && sudo systemctl enable chipperly
