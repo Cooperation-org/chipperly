@@ -22,7 +22,7 @@ const HIT = {
 
 async function stubImageApi(page: Page, enabled: boolean): Promise<void> {
   await page.route('**/api/images/status', (route) => route.fulfill({ json: { enabled } }));
-  await page.route('**/api/images/search**', (route) =>
+  await page.route(/\/api\/images\/search/, (route) =>
     route.fulfill({ json: { results: [HIT], total: 1, page: 1, page_count: 1 } }),
   );
   await page.route('**/api/images/import', (route) =>
@@ -43,11 +43,14 @@ async function stubImageApi(page: Page, enabled: boolean): Promise<void> {
 async function openActivityPicker(page: Page): Promise<void> {
   await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
   await page.getByRole('button', { name: 'Add activity', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Create a new activity', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Daily task or routine', exact: true }).click();
   await page.waitForURL('**/activity/edit/**');
   await page.getByLabel('Name', { exact: true }).fill('Fox walk');
   await page.getByRole('button', { name: /^Picture/ }).click();
 }
+
+// The app's service worker answers same-origin requests once it is active, and page.route cannot see those.
+test.use({ serviceWorkers: 'block' });
 
 test.describe('image search', () => {
   test('search, pick a result, see the picture and its credit', async ({ page }) => {
