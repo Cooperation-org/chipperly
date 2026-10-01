@@ -313,7 +313,7 @@ export function TodayScreen() {
               🗓️
             </span>
           }
-          sentence={`Nothing planned for ${weekdayName(isoDate)}`}
+          sentence={`Nothing planned for ${weekdayName(isoDate)}. Add a task, or an appointment or lesson, whenever you like.`}
           actions={[
             <Button key="add" onClick={openPicker}>
               Add activity
