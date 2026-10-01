@@ -5,27 +5,20 @@ import { useRouter } from 'next/navigation';
 import { endGuestSession, useSession } from '@/lib/auth/session';
 import { GUEST_STARTED_AT_KEY } from '@/lib/auth/guest';
 import { guestTimeLeftLabel } from '@/lib/auth/guestExpiry';
-import { useKv } from '@/lib/db/kv';
-import { Button } from '@/components/ui/Button';
+import { setKv, useKv, useKvLoaded } from '@/lib/db/kv';
 import { IconButton } from '@/components/ui/IconButton';
 import styles from './GuestBanner.module.css';
 
-const DISMISS_KEY = 'guest_banner_dismissed';
+/** Saved in kv, so it stays dismissed across reloads. Ending the guest session wipes kv, so a later guest sees it again. */
+const DISMISSED_KEY = 'guest_banner_dismissed';
 
-function readDismissed(): boolean {
-  try {
-    return window.sessionStorage.getItem(DISMISS_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-/** Shown on the caregiver and child shells while trying the app as a guest. Dismissal lasts the tab session. */
+/** Shown on the caregiver and child shells while trying the app as a guest. */
 export function GuestBanner() {
   const { guest } = useSession();
   const router = useRouter();
   const startedAt = useKv<number | null>(GUEST_STARTED_AT_KEY, null);
-  const [dismissed, setDismissed] = useState(readDismissed);
+  const dismissed = useKv<boolean>(DISMISSED_KEY, false);
+  const dismissedLoaded = useKvLoaded(DISMISSED_KEY);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -33,16 +26,8 @@ export function GuestBanner() {
     return () => clearInterval(timer);
   }, []);
 
-  if (!guest || startedAt === null || dismissed) return null;
-
-  function dismiss(): void {
-    setDismissed(true);
-    try {
-      window.sessionStorage.setItem(DISMISS_KEY, '1');
-    } catch {
-      // sessionStorage unavailable: the banner still dismisses for this render.
-    }
-  }
+  // Wait for the saved choice, or a dismissed banner would flash on every load.
+  if (!guest || startedAt === null || !dismissedLoaded || dismissed) return null;
 
   // Erases the sample data first: a guest's rows can't move into an account (they'd count as foreign on sign-in anyway).
   async function createAccount(): Promise<void> {
@@ -53,12 +38,12 @@ export function GuestBanner() {
   return (
     <div className={styles.banner} role="status">
       <p className={styles.text}>
-        Trying Chipperly. Nothing leaves this device, and it&apos;s erased in {guestTimeLeftLabel(startedAt, now)}. Create a free account to keep it.
+        Trying Chipperly. Erased in {guestTimeLeftLabel(startedAt, now)}.{' '}
+        <button type="button" className={styles.create} onClick={() => void createAccount()}>
+          Create account
+        </button>
       </p>
-      <IconButton icon="close" aria-label="Dismiss" onClick={dismiss} />
-      <Button className={styles.create} variant="secondary" onClick={() => void createAccount()}>
-        Create account
-      </Button>
+      <IconButton icon="close" aria-label="Dismiss" onClick={() => void setKv<boolean>(DISMISSED_KEY, true)} />
     </div>
   );
 }
