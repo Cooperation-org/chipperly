@@ -35,8 +35,7 @@ test.describe('templates', () => {
     // Every row is collapsed on edit: the Name row shows the name as its summary.
     await expect(page.getByRole('button', { name: /^Name/ })).toContainText('Speech therapy session');
 
-    // The Steps row is collapsed on edit; open it and check the rows.
-    await page.getByRole('button', { name: /^Steps/ }).click();
+    // An activity that has steps opens its Steps row by itself on edit (ActivityForm seeds openField), so no click.
     for (let i = 1; i <= 5; i += 1) await expect(page.getByLabel(`Step ${i}`, { exact: true })).not.toHaveValue('');
     await expect(page.getByLabel('Step 1', { exact: true })).toHaveValue('Warm Up');
     await expect(page.getByLabel('Step 6', { exact: true })).toHaveCount(0);
