@@ -27,12 +27,14 @@ export interface PickerProps {
   onCreateRoutine?: () => void;
   /** kind 'activity' only: a secondary "Start from a template" button under Create. Omit to hide it. */
   onTemplates?: () => void;
+  /** kind 'activity' only: when set, the top of the sheet offers two big choices (daily task or routine, one-off event) instead of one create button. */
+  onCreateEvent?: () => void;
 }
 
 const SEARCH_THRESHOLD = 12;
 
 /** Sheet content for adding an activity to the day or picking a working-for reward. One component, two data sources. */
-export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routines = true, onCreateRoutine, onTemplates }: PickerProps) {
+export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routines = true, onCreateRoutine, onTemplates, onCreateEvent }: PickerProps) {
   const [query, setQuery] = useState('');
   const showRoutines = kind === 'activity' && routines;
 
@@ -84,9 +86,22 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
         />
       ) : null}
 
-      <Button fullWidth icon="plus" onClick={onCreateNew}>
-        {`Create a new ${kind}`}
-      </Button>
+      {kind === 'activity' && onCreateEvent ? (
+        <div className={styles.choices}>
+          <button type="button" className={styles.choice} aria-label="Daily task or routine" onClick={onCreateNew}>
+            <span className={styles.choiceTitle}>Daily task or routine</span>
+            <span className={styles.choiceHint}>Repeats on days you choose. Has steps and chips.</span>
+          </button>
+          <button type="button" className={styles.choice} aria-label="One-off event or appointment" onClick={onCreateEvent}>
+            <span className={styles.choiceTitle}>One-off event or appointment</span>
+            <span className={styles.choiceHint}>Happens on a date, like a doctor visit or a lesson. Can repeat weekly.</span>
+          </button>
+        </div>
+      ) : (
+        <Button fullWidth icon="plus" onClick={onCreateNew}>
+          {`Create a new ${kind}`}
+        </Button>
+      )}
       {kind === 'activity' && onTemplates ? (
         <Button fullWidth variant="secondary" onClick={onTemplates}>
           Start from a template

@@ -26,3 +26,9 @@
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
+
+.groupHeading {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}

@@ -39,7 +39,7 @@ export function remindersOnDate(events: readonly DayEvent[], isoDate: string): E
 }
 
 /** How far ahead "Coming up" looks. */
-export const COMING_UP_DAYS = 30;
+export const COMING_UP_DAYS = 60;
 
 export interface UpcomingEvent {
   event: DayEvent;
@@ -68,6 +68,34 @@ export function upcomingEvents(events: readonly DayEvent[], isoDate: string, hor
   return out.sort(
     (a, b) => a.days_until - b.days_until || (a.event.start_time ?? '99:99').localeCompare(b.event.start_time ?? '99:99') || a.event.title.localeCompare(b.event.title),
   );
+}
+
+export type ComingUpGroupLabel = 'Tomorrow' | 'This week' | 'Later this month' | 'Next month' | 'Later';
+
+export interface ComingUpGroup {
+  label: ComingUpGroupLabel;
+  items: UpcomingEvent[];
+}
+
+/** Which group an event `days_until` days after `isoDate`, on `date`, belongs in. */
+function groupLabel(isoDate: string, { date, days_until }: UpcomingEvent): ComingUpGroupLabel {
+  if (days_until === 1) return 'Tomorrow';
+  if (days_until <= 7) return 'This week';
+  const monthIndex = (iso: string) => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7));
+  const ahead = monthIndex(date) - monthIndex(isoDate);
+  return ahead <= 0 ? 'Later this month' : ahead === 1 ? 'Next month' : 'Later';
+}
+
+/** Splits an already sorted `upcomingEvents` list under plain headings, leaving empty groups out. */
+export function groupUpcoming(items: readonly UpcomingEvent[], isoDate: string): ComingUpGroup[] {
+  const groups: ComingUpGroup[] = [];
+  for (const item of items) {
+    const label = groupLabel(isoDate, item);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(item);
+    else groups.push({ label, items: [item] });
+  }
+  return groups;
 }
 
 /** "tomorrow" or "in 3 days". */

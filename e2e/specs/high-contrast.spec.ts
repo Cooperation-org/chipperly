@@ -42,7 +42,7 @@ test.describe('high contrast (CVI) child view', () => {
 
     // A routine with steps, so the visual schedule can be checked too.
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Create a new activity', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Daily task or routine', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
     await page.getByLabel('Name', { exact: true }).fill('Get Ready');
     await page.getByRole('button', { name: /^Steps/ }).click();

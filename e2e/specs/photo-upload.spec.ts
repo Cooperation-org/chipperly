@@ -86,7 +86,7 @@ test.describe('photo upload', () => {
     await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     const addSheet = page.getByRole('dialog');
-    await addSheet.getByRole('button', { name: 'Create a new activity', exact: true }).click();
+    await addSheet.getByRole('button', { name: 'Daily task or routine', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
 
     await page.getByLabel('Name', { exact: true }).fill('E2E Photo Activity');

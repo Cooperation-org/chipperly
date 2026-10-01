@@ -10,7 +10,7 @@ import {
 import { buildTestApp, expectShape, request } from './helpers.js';
 import { db } from '../src/db/client.js';
 import { account_members, users } from '../src/db/schema/accounts.js';
-import { activities } from '../src/db/schema/activities.js';
+import { activities, activity_steps } from '../src/db/schema/activities.js';
 import { rewards } from '../src/db/schema/rewards.js';
 import { locations } from '../src/db/schema/locations.js';
 import { push_tokens } from '../src/db/schema/push.js';
@@ -141,6 +141,40 @@ describe('accounts routes', () => {
     const legacy = await rowsFor(made.legacy!);
     expect(legacy.locs.map((l) => l.name).sort()).toEqual(['Home', 'School']);
     expect(legacy.rews.map((r) => r.name)).toEqual(expect.arrayContaining(['Art', 'Free Choice']));
+  });
+
+  it('a "just one goal" setup seeds that one routine and no filler day', async () => {
+    const admin = await createUser('admin-focus');
+    const accountRes = await request(app, {
+      method: 'POST',
+      url: '/api/accounts',
+      headers: auth(admin.token),
+      payload: { kind: 'household', name: 'Focus family' },
+    });
+    const { account } = accountRes.json() as { account: { id: string } };
+    const answers = { age_band: '2-7', week: ['school'], routines: [], places: [], loves: [], guided: true };
+
+    const made: Record<string, string> = {};
+    for (const [label, focus] of [['toilet', { routine: 'toilet' }], ['custom', { routine: 'other', name: 'Practice piano' }]] as const) {
+      const res = await request(app, {
+        method: 'POST',
+        url: `/api/accounts/${account.id}/profiles`,
+        headers: auth(admin.token),
+        payload: { name: label, setup: { ...answers, focus } },
+      });
+      expect(res.statusCode).toBe(201);
+      made[label] = (res.json() as { id: string }).id;
+    }
+
+    const toilet = await db.select().from(activities).where(eq(activities.profile_id, made.toilet!));
+    expect(toilet.map((a) => a.name)).toEqual(['Using the Toilet']);
+    const steps = await db.select().from(activity_steps).where(eq(activity_steps.activity_id, toilet[0]!.id));
+    expect(steps.length).toBeGreaterThan(3);
+
+    const custom = await db.select().from(activities).where(eq(activities.profile_id, made.custom!));
+    expect(custom.map((a) => a.name)).toEqual(['Practice piano']);
+    const none = await db.select().from(activity_steps).where(eq(activity_steps.activity_id, custom[0]!.id));
+    expect(none).toHaveLength(0);
   });
 
   it('invites, accepts, and scopes a member to only their assigned profile', async () => {

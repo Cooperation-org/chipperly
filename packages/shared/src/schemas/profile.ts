@@ -45,6 +45,10 @@ export type AgeBand = z.infer<typeof AgeBandSchema>;
  * (constants/setup.ts buildSeed) and are kept on the profile for later
  * reruns, reminders and the planned AI setup.
  */
+/** The goals the setup interview offers for "just one goal"; 'other' takes a free-text name. */
+export const FOCUS_ROUTINES = ['toilet', 'morning', 'bedtime', 'dressed', 'teeth', 'speech', 'other'] as const;
+export type FocusRoutine = (typeof FOCUS_ROUTINES)[number];
+
 export const SetupAnswersSchema = z.object({
   age_band: AgeBandSchema,
   week: z.array(z.enum(['school', 'work', 'therapy', 'day_program'])).max(4),
@@ -58,6 +62,12 @@ export const SetupAnswersSchema = z.object({
    * from `places` and `loves` as before.
    */
   guided: z.boolean().optional(),
+  /**
+   * "Just one goal for now" (toilet training, say): seed only this one routine and none of the
+   * filler daily plan (`week` is ignored). `name` is the goal's name when `routine` is 'other'.
+   * Absent: seed the full plan as before.
+   */
+  focus: z.object({ routine: z.enum(FOCUS_ROUTINES), name: z.string().trim().min(1).max(60).optional() }).optional(),
 });
 export type SetupAnswers = z.infer<typeof SetupAnswersSchema>;
 

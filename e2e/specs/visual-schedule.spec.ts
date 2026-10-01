@@ -37,7 +37,7 @@ test.describe('visual schedule', () => {
     await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     const picker = page.getByRole('dialog');
-    await picker.getByRole('button', { name: 'Create a new activity', exact: true }).click();
+    await picker.getByRole('button', { name: 'Daily task or routine', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
 
     await page.getByLabel('Name', { exact: true }).fill('Get Ready');

@@ -99,6 +99,46 @@ test.describe('onboarding setup interview', () => {
     await page.close();
   });
 
+  test('a family can start with just one goal and no daily plan', async ({ browser }) => {
+    const page = await browser.newPage();
+    await createAccount(page, 'Goal Tester');
+    await page.getByRole('button', { name: /My family/ }).click();
+    await page.waitForURL('**/onboarding/profile/');
+    await page.getByLabel('Name', { exact: true }).fill('Sam');
+    await page.getByRole('button', { name: 'Emoji', exact: true }).click();
+    await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+    await page.getByRole('button', { name: '2 to 7' }).click();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click(); // week
+
+    await page.getByRole('button', { name: 'Just one goal for now', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'What is the one goal?' })).toBeVisible();
+    // Nothing is chosen yet, so Continue waits.
+    await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'Toilet training', exact: true }).click();
+    await expectNoOverflow(page, 'setup: one goal');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+    await expect(page.getByRole('heading', { name: 'Where will Sam use Chipperly?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByRole('button', { name: "Create Sam's plan", exact: true }).click();
+
+    await page.waitForURL('**/onboarding/ready/');
+    await expect(page.getByText(/Using the Toilet · \d+ steps/)).toBeVisible();
+    await expect(page.getByText('Lunch')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Go to Today', exact: true }).click();
+    await page.waitForURL('**/today/');
+
+    // Only the goal is on Today, and Coming up is still there.
+    await expect(page.getByText('Using the Toilet').first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Lunch')).toHaveCount(0);
+    await expect(page.getByText('Dinner')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Coming up' })).toBeVisible();
+    await page.close();
+  });
+
   test('a "Myself" account goes straight to the questions and can skip them', async ({ browser }) => {
     const page = await browser.newPage();
     await createAccount(page, 'Solo Tester');

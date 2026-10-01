@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import type { AgeBand, SetupAnswers } from '@chipperly/shared/schemas/profile';
-import { AGE_BAND_TILES, LOVE_TILES, ROUTINE_TILES, WEEK_TILES, defaultAnswers } from '@chipperly/shared/constants/setup';
+import type { AgeBand, FocusRoutine, SetupAnswers } from '@chipperly/shared/schemas/profile';
+import { AGE_BAND_TILES, FOCUS_TILES, LOVE_TILES, ROUTINE_TILES, WEEK_TILES, defaultAnswers } from '@chipperly/shared/constants/setup';
 import { newId } from '@/lib/ids';
 import type { GuidedItem, GuidedPicks, GuidedPlace } from '@/lib/profile/guidedSetup';
 import { Button } from '@/components/ui/Button';
+import { TextField } from '@/components/ui/TextField';
 import { PickStep, PlacesStep } from './GuidedSteps';
 import styles from './SetupQuestions.module.css';
 
@@ -36,6 +37,9 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
   const [places, setPlaces] = useState<GuidedPlace[]>(() => [{ id: newId(), name: 'Home', emoji: '🏠', photo_id: null }]);
   const [free, setFree] = useState<GuidedItem[]>([]);
   const [earned, setEarned] = useState<GuidedItem[]>([]);
+  // "Just one goal for now": null is off (the usual routines grid); picking nothing yet keeps Continue disabled.
+  const [goal, setGoal] = useState<{ routine: FocusRoutine | null; name: string } | null>(null);
+  const goalReady = goal === null || (goal.routine !== null && (goal.routine !== 'other' || goal.name.trim() !== ''));
 
   const firstStep = selfMode ? 1 : 0;
   // Under 2: no school/week and no routines steps (a newborn has neither; the plan is a fixed caregiver day).
@@ -64,7 +68,8 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
     const named = places.filter((p) => p.name.trim()).map((p) => ({ ...p, name: p.name.trim() }));
     const kept = named.length > 0 ? named : [{ ...places[0]!, name: 'Home' }];
     // `guided`: the server seeds no locations or rewards; the caller creates these.
-    onDone({ ...answers, places: [], loves: [], guided: true }, { places: kept, free, earned });
+    const focus = goal?.routine ? { routine: goal.routine, ...(goal.routine === 'other' ? { name: goal.name.trim() } : {}) } : undefined;
+    onDone({ ...answers, places: [], loves: [], guided: true, ...(focus ? { focus } : {}) }, { places: kept, free, earned });
   }
 
   function multiStep(
@@ -119,7 +124,41 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
       ) : null}
 
       {step === 1 ? multiStep('week', "What's in a typical week?", 'Pick what applies; none is fine.', WEEK_TILES) : null}
-      {step === 2 ? multiStep('routines', 'Which routines should we start with?', 'Each one becomes a step-by-step routine.', ROUTINE_TILES) : null}
+      {step === 2 && goal === null ? (
+        <>
+          {multiStep('routines', 'Which routines should we start with?', 'Each one becomes a step-by-step routine.', ROUTINE_TILES)}
+          <button type="button" className={styles.quietButton} onClick={() => setGoal({ routine: null, name: '' })}>
+            Just one goal for now
+          </button>
+        </>
+      ) : null}
+      {step === 2 && goal !== null ? (
+        <>
+          <h1 className={styles.title}>What is the one goal?</h1>
+          <p className={styles.subtitle}>We start with just this, and no full daily plan. You can add more any time.</p>
+          <div className={styles.grid}>
+            {FOCUS_TILES.map((tile) => (
+              <button key={tile.key} type="button" className={styles.tile} aria-pressed={goal.routine === tile.key} onClick={() => setGoal({ ...goal, routine: tile.key })}>
+                <span className={styles.tileEmoji} aria-hidden="true">
+                  {tile.emoji}
+                </span>
+                {tile.name}
+                {goal.routine === tile.key ? (
+                  <span className={styles.tileCheck} aria-hidden="true">
+                    ✓
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+          {goal.routine === 'other' ? (
+            <TextField label="Name of the goal" value={goal.name} maxLength={60} onChange={(e) => setGoal({ ...goal, name: e.target.value })} />
+          ) : null}
+          <button type="button" className={styles.quietButton} onClick={() => setGoal(null)}>
+            Pick several routines instead
+          </button>
+        </>
+      ) : null}
       {step === 3 ? <PlacesStep name={name} places={places} onChange={setPlaces} /> : null}
       {step === 4 ? (
         <PickStep
@@ -150,7 +189,7 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
             Create {name}&apos;s plan
           </Button>
         ) : step > 0 ? (
-          <Button fullWidth onClick={() => setStep(nextStep)}>
+          <Button fullWidth disabled={step === 2 && !goalReady} onClick={() => setStep(nextStep)}>
             Continue
           </Button>
         ) : null}

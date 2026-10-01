@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSeed, defaultAnswers, LOVE_TILES } from '../src/constants/setup.js';
+import { buildSeed, defaultAnswers, FOCUS_TILES, LOVE_TILES } from '../src/constants/setup.js';
 import { SetupAnswersSchema } from '../src/schemas/profile.js';
 
 describe('setup interview seed', () => {
@@ -138,5 +138,43 @@ describe('setup interview seed', () => {
       );
       expect([...parts].sort()).toEqual(['afternoon', 'evening', 'morning']);
     }
+  });
+});
+
+describe('setup interview: just one goal', () => {
+  it('seeds only the chosen routine with its steps and no filler day', () => {
+    const answers = SetupAnswersSchema.parse({ ...defaultAnswers('2-7'), guided: true, focus: { routine: 'toilet' } });
+    const plan = buildSeed(answers);
+    expect(plan.activities.map((a) => a.name)).toEqual(['Using the Toilet']);
+    expect(plan.activities[0]?.steps?.length).toBeGreaterThan(3);
+    expect(plan.activities[0]?.recurrence).toBe('daily');
+    expect(plan.rewards).toEqual([]);
+  });
+
+  it('ignores the week answers, so school adds nothing', () => {
+    const plan = buildSeed({ ...defaultAnswers('8-12'), week: ['school', 'work'], focus: { routine: 'bedtime' } });
+    expect(plan.activities.map((a) => a.name)).toEqual(['Bedtime Routine']);
+    expect(plan.activities[0]?.recurrence_time).toBe('20:00');
+    // Not guided: the normal places and rewards stay.
+    expect(plan.rewards.some((r) => r.name === 'Free Choice')).toBe(true);
+  });
+
+  it('covers every goal tile; getting dressed and brushing teeth get steps', () => {
+    for (const tile of FOCUS_TILES) {
+      const plan = buildSeed({ ...defaultAnswers('2-7'), focus: { routine: tile.key, name: 'Reading' } });
+      expect(plan.activities).toHaveLength(1);
+      if (tile.key !== 'other') expect(plan.activities[0]?.steps?.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('"Something else" is an empty activity with the typed name', () => {
+    const plan = buildSeed({ ...defaultAnswers('13-17'), focus: { routine: 'other', name: '  Practice piano ' } });
+    expect(plan.activities).toEqual([{ name: 'Practice piano', emoji: '🎯', recurrence: 'daily' }]);
+    expect(SetupAnswersSchema.safeParse({ ...defaultAnswers('13-17'), focus: { routine: 'other', name: '' } }).success).toBe(false);
+  });
+
+  it('old payloads without focus are unchanged', () => {
+    expect(SetupAnswersSchema.parse(defaultAnswers('8-12')).focus).toBeUndefined();
+    expect(buildSeed(defaultAnswers('8-12')).activities.map((a) => a.name)).toContain('Lunch');
   });
 });

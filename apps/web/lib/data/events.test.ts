@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { eventOccursOn, reminderDaysUntil, type DayEvent } from '@chipperly/shared/schemas/event';
-import { daysUntilLabel, eventsOnDate, remindersOnDate, upcomingEvents, withDismissed } from './events';
+import { daysUntilLabel, eventsOnDate, remindersOnDate, groupUpcoming, upcomingEvents, withDismissed } from './events';
 
 function event(overrides: Partial<DayEvent> = {}): DayEvent {
   return {
@@ -155,10 +155,10 @@ describe('upcomingEvents', () => {
     ]);
   });
 
-  it('skips today, the past, what is beyond 30 days, and routine repeats', () => {
+  it('skips today, the past, what is beyond 60 days, and routine repeats', () => {
     const today = event({ id: 'a', date: '2026-10-05' });
     const past = event({ id: 'b', date: '2026-10-01' });
-    const far = event({ id: 'c', date: '2026-12-01' });
+    const far = event({ id: 'c', date: '2026-12-05' });
     const daily = event({ id: 'd', date: '2026-09-01', recurrence: 'daily' });
     const weekdays = event({ id: 'e', date: '2026-09-01', recurrence: 'weekdays' });
     expect(upcomingEvents([today, past, far, daily, weekdays], '2026-10-05')).toEqual([]);
@@ -168,5 +168,52 @@ describe('upcomingEvents', () => {
     const yearly = event({ id: 'y', title: 'Birthday', date: '2020-10-12', recurrence: 'yearly' });
     const deleted = event({ id: 'x', date: '2026-10-08', deleted_at: 5 });
     expect(upcomingEvents([yearly, deleted], '2026-10-05').map((u) => u.event.title)).toEqual(['Birthday']);
+  });
+});
+
+describe('groupUpcoming', () => {
+  const groupsFor = (today: string, dates: string[]) =>
+    groupUpcoming(
+      upcomingEvents(dates.map((date, i) => event({ id: `e${i}`, title: date, date })), today),
+      today,
+    ).map((g) => [g.label, g.items.map((i) => i.event.title)]);
+
+  it('puts tomorrow, days 2 to 7, and the rest of the month in their own groups', () => {
+    expect(groupsFor('2026-10-05', ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-12', '2026-10-13', '2026-10-31'])).toEqual([
+      ['Tomorrow', ['2026-10-06']],
+      ['This week', ['2026-10-07', '2026-10-12']],
+      ['Later this month', ['2026-10-13', '2026-10-31']],
+    ]);
+  });
+
+  it('calls the next calendar month "Next month" and anything after it "Later"', () => {
+    expect(groupsFor('2026-10-20', ['2026-10-30', '2026-11-30', '2026-12-01'])).toEqual([
+      ['Later this month', ['2026-10-30']],
+      ['Next month', ['2026-11-30']],
+      ['Later', ['2026-12-01']],
+    ]);
+  });
+
+  it('keeps a day 7 ahead in This week even when it is next month, and handles the year change', () => {
+    expect(groupsFor('2026-12-28', ['2026-12-29', '2027-01-04', '2027-01-05', '2027-02-10'])).toEqual([
+      ['Tomorrow', ['2026-12-29']],
+      ['This week', ['2027-01-04']],
+      ['Next month', ['2027-01-05']],
+      ['Later', ['2027-02-10']],
+    ]);
+  });
+
+  it('is empty when nothing is coming up', () => {
+    expect(groupUpcoming([], '2026-10-05')).toEqual([]);
+  });
+});
+
+describe('eventsOnDate order', () => {
+  it('lists timed events by time before untimed ones', () => {
+    const out = eventsOnDate(
+      [event({ id: 'a', title: 'Anything' }), event({ id: 'b', title: 'Zed', start_time: '09:00' }), event({ id: 'c', title: 'Bee', start_time: '15:30' })],
+      '2026-10-07',
+    );
+    expect(out.map((e) => e.title)).toEqual(['Zed', 'Bee', 'Anything']);
   });
 });

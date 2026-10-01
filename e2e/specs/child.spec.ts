@@ -26,7 +26,7 @@ test.describe('child mode', () => {
     await expect(page.getByRole('checkbox', { name: /^Wake Up,/ })).toBeVisible();
     await page.getByRole('button', { name: 'Add activity', exact: true }).click();
     const sheet = page.getByRole('dialog');
-    await sheet.getByRole('button', { name: 'Create a new activity', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Daily task or routine', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
     await page.getByLabel('Name', { exact: true }).fill('Get Dressed With Steps');
     await page.getByRole('button', { name: /^Steps/ }).click();
