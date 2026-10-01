@@ -236,6 +236,13 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
               <Switch label="Celebrate when a chip is earned" checked={options.celebrations} onChange={(v) => setOptions((o) => ({ ...o, celebrations: v }))} />
             </div>
             <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>
+                Play sounds
+                <span className={styles.toggleHint}>Chip, timer and mood sounds in this view. Turn off if sound is too much.</span>
+              </span>
+              <Switch label="Play sounds" checked={options.sounds !== false} onChange={(v) => setOptions((o) => ({ ...o, sounds: v }))} />
+            </div>
+            <div className={styles.toggleRow}>
               <span className={styles.toggleLabel}>Ask how it went after each task (How do you feel)</span>
               <Switch label="Ask how it went after each task" checked={options.attitude_prompt} onChange={(v) => toggleExclusive('attitude_prompt', v)} />
             </div>

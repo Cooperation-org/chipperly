@@ -2,6 +2,7 @@
 // preloaded once and unlocked on the first user gesture per platform
 // autoplay rules (ux-plan.md "Sound"). No 'use client' banner: no hooks
 // here, just plain functions safe to import from a client component.
+import { personSoundsOn } from './personSounds';
 import { getKv } from './db/kv';
 import { withBase } from './api/base';
 
@@ -76,7 +77,7 @@ async function soundsEnabled(): Promise<boolean> {
 
 async function play(audio: HTMLAudioElement | null): Promise<void> {
   if (!audio) return;
-  if (!(await soundsEnabled())) return;
+  if (!personSoundsOn() || !(await soundsEnabled())) return;
   audio.currentTime = 0;
   await audio.play().catch(() => {});
 }

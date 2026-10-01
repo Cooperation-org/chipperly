@@ -1,5 +1,6 @@
 // Pure rules and the synthesized sound for the chip/redeem celebration.
 // No 'use client', no window access at import time: safe in the static export.
+import { personSoundsOn } from './personSounds';
 import type { DeviceSettings, LockOptions } from './device/settings';
 
 export interface CelebrationPlan {
@@ -18,7 +19,7 @@ export function shouldCelebrate(
 ): CelebrationPlan {
   if (options.celebrations === false) return { burst: false, glow: false, sound: false };
   const reduced = device.reduce_motion === 'on' || (device.reduce_motion === 'system' && systemReducedMotion);
-  return { burst: !reduced, glow: reduced, sound: device.sounds };
+  return { burst: !reduced, glow: reduced, sound: device.sounds && personSoundsOn() };
 }
 
 /** C5, E5, G5 then a soft C6: frequency in Hz and start offset in seconds. */

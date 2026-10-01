@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Capacitor } from '@capacitor/core';
 import { useTodayIso } from '@/lib/useTodayIso';
+import { setPersonSounds } from '@/lib/personSounds';
 import { exitParentMode, useLock, useSavedLockOptions } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -87,6 +88,12 @@ export function ChildToday() {
   const savedOptions = useSavedLockOptions(profileId ?? '');
   const celebrationsOn = locked_profile_id ? options.celebrations !== false : savedOptions.celebrations;
   const { celebrate, layer: celebrationLayer } = useCelebrate(celebrationsOn);
+  // This person's own sound switch, applied while their view is on screen.
+  const soundsOn = (locked_profile_id ? options.sounds : savedOptions.sounds) !== false;
+  useEffect(() => {
+    setPersonSounds(soundsOn);
+    return () => setPersonSounds(true);
+  }, [soundsOn]);
   const isoDate = useTodayIso();
 
   const profile = useLiveQuery(() => (profileId ? db.profiles.get(profileId) : undefined), [profileId]);

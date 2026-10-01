@@ -36,6 +36,8 @@ export interface LockOptions {
   first_then_only: boolean;
   /** On by default; on gives a short burst of stars and a soft sound when a chip is earned or a reward is redeemed. */
   celebrations: boolean;
+  /** On by default (missing on older saved options counts as on); off silences chip, timer, mood and celebration sounds in this person's view. */
+  sounds?: boolean;
 }
 
 export interface LockState {
@@ -58,6 +60,7 @@ export const DEFAULT_LOCK_OPTIONS: LockOptions = {
   show_visual_schedule: true,
   first_then_only: false,
   celebrations: true,
+  sounds: true,
 };
 const DEFAULT_LOCK_STATE: LockState = { locked_profile_id: null, options: DEFAULT_LOCK_OPTIONS };
 
