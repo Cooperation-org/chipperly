@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { eventOccursOn, reminderDaysUntil, type DayEvent } from '@chipperly/shared/schemas/event';
-import { daysUntilLabel, eventsOnDate, remindersOnDate, withDismissed } from './events';
+import { daysUntilLabel, eventsOnDate, remindersOnDate, upcomingEvents, withDismissed } from './events';
 
 function event(overrides: Partial<DayEvent> = {}): DayEvent {
   return {
@@ -139,5 +139,34 @@ describe('daysUntilLabel / withDismissed', () => {
   it('adds today once and drops dates older than 14 days', () => {
     expect(withDismissed(['2026-09-01', '2026-10-05'], '2026-10-05')).toEqual(['2026-10-05']);
     expect(withDismissed(['2026-10-01'], '2026-10-05')).toEqual(['2026-10-01', '2026-10-05']);
+  });
+});
+
+describe('upcomingEvents', () => {
+  it('lists each event once, at its next day, soonest first', () => {
+    const weekly = event({ id: 'w', title: 'Horse lesson', date: '2026-09-02', recurrence: 'weekly', recurrence_weekdays: [6] });
+    const dated = event({ id: 'd', title: 'Doctor', date: '2026-10-09' });
+    const later = event({ id: 'l', title: 'Birthday', date: '2026-10-25' });
+    const out = upcomingEvents([later, weekly, dated], '2026-10-05'); // a Monday
+    expect(out.map((u) => [u.event.title, u.date, u.days_until])).toEqual([
+      ['Doctor', '2026-10-09', 4],
+      ['Horse lesson', '2026-10-10', 5],
+      ['Birthday', '2026-10-25', 20],
+    ]);
+  });
+
+  it('skips today, the past, what is beyond 30 days, and routine repeats', () => {
+    const today = event({ id: 'a', date: '2026-10-05' });
+    const past = event({ id: 'b', date: '2026-10-01' });
+    const far = event({ id: 'c', date: '2026-12-01' });
+    const daily = event({ id: 'd', date: '2026-09-01', recurrence: 'daily' });
+    const weekdays = event({ id: 'e', date: '2026-09-01', recurrence: 'weekdays' });
+    expect(upcomingEvents([today, past, far, daily, weekdays], '2026-10-05')).toEqual([]);
+  });
+
+  it('includes a yearly event and ignores a deleted one', () => {
+    const yearly = event({ id: 'y', title: 'Birthday', date: '2020-10-12', recurrence: 'yearly' });
+    const deleted = event({ id: 'x', date: '2026-10-08', deleted_at: 5 });
+    expect(upcomingEvents([yearly, deleted], '2026-10-05').map((u) => u.event.title)).toEqual(['Birthday']);
   });
 });

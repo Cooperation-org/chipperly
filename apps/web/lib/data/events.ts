@@ -38,6 +38,38 @@ export function remindersOnDate(events: readonly DayEvent[], isoDate: string): E
   return out.sort((a, b) => a.days_until - b.days_until || a.event.title.localeCompare(b.event.title));
 }
 
+/** How far ahead "Coming up" looks. */
+export const COMING_UP_DAYS = 30;
+
+export interface UpcomingEvent {
+  event: DayEvent;
+  /** The next day it happens after `isoDate`. */
+  date: string;
+  /** 1 = tomorrow. */
+  days_until: number;
+}
+
+/**
+ * Each event's next occurrence in the days after `isoDate`, soonest first. Events that repeat every
+ * day, weekday or weekend are left out: they are the routine, not something coming up.
+ */
+export function upcomingEvents(events: readonly DayEvent[], isoDate: string, horizon: number = COMING_UP_DAYS): UpcomingEvent[] {
+  const out: UpcomingEvent[] = [];
+  for (const event of events) {
+    if (event.recurrence === 'daily' || event.recurrence === 'weekdays' || event.recurrence === 'weekends') continue;
+    for (let k = 1; k <= horizon; k += 1) {
+      const date = addDays(isoDate, k);
+      if (eventOccursOn(event, date)) {
+        out.push({ event, date, days_until: k });
+        break;
+      }
+    }
+  }
+  return out.sort(
+    (a, b) => a.days_until - b.days_until || (a.event.start_time ?? '99:99').localeCompare(b.event.start_time ?? '99:99') || a.event.title.localeCompare(b.event.title),
+  );
+}
+
 /** "tomorrow" or "in 3 days". */
 export function daysUntilLabel(daysUntil: number): string {
   return daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;

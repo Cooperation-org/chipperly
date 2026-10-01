@@ -46,6 +46,7 @@ import { toast } from '@/lib/toast';
 import { useCanSpeak } from '@/lib/useCanSpeak';
 import { DateNav } from './DateNav';
 import { DayNote, DayNoteAddButton } from './DayNote';
+import { ComingUp } from '@/components/events/ComingUp';
 import { TodayEvents } from '@/components/events/TodayEvents';
 import { TeamCheckupSheet } from '@/components/feelings/FeelingSheets';
 import { ItemSheet } from './ItemSheet';
@@ -441,6 +442,8 @@ export function TodayScreen() {
           <Celebration kind="all_done" onDone={() => setCelebrating(false)} />
         </div>
       ) : null}
+
+      <ComingUp profileId={profileId} isoDate={isoDate} />
 
       <Button icon="plus" size="lg" aria-label="Add activity" className={styles.addButton} onClick={openPicker}>
         Add
