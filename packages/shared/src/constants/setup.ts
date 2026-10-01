@@ -155,7 +155,7 @@ const BABY_DAY: readonly SeedActivity[] = [
   { name: 'Sleep', emoji: '🌙', recurrence: 'daily', recurrence_time: SLEEP_TIME['0-2'] },
 ];
 
-interface RoutinePack {
+export interface RoutinePack {
   readonly name: string;
   readonly emoji: string;
   readonly recurrence?: 'daily' | 'weekdays';
@@ -164,7 +164,7 @@ interface RoutinePack {
   readonly older: readonly SeedStep[];
 }
 
-const ROUTINE_PACKS: Record<Exclude<SetupAnswers['routines'][number], 'dressed' | 'teeth'>, RoutinePack> = {
+export const ROUTINE_PACKS: Record<Exclude<SetupAnswers['routines'][number], 'dressed' | 'teeth'>, RoutinePack> = {
   morning: {
     name: 'Morning Routine',
     emoji: '☀️',
