@@ -45,6 +45,8 @@ test.describe('templates', () => {
 
   test('Save, then the routine is in the routines library', async () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
+    // Save writes, then leaves the edit screen: wait for that before a full navigation can cut the write short.
+    await page.waitForURL((url) => !url.pathname.includes('/activity/edit'));
     // It has steps, so it is listed under routines. A full navigation resets caregiver mode, hence the unlock helper.
     await gotoCaregiver(page, '/settings/library/routines/', password);
     await expect(page.getByRole('button', { name: /Speech therapy session/ }).first()).toBeVisible();
