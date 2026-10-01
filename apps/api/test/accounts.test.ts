@@ -177,6 +177,52 @@ describe('accounts routes', () => {
     expect(none).toHaveLength(0);
   });
 
+  it('skip_seed makes a profile with nothing seeded, and a push can then fill it with client-chosen ids', async () => {
+    const admin = await createUser('admin-skip-seed');
+    const { account } = (
+      await request(app, { method: 'POST', url: '/api/accounts', headers: auth(admin.token), payload: { kind: 'household', name: 'Carried' } })
+    ).json() as { account: { id: string } };
+
+    const res = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${account.id}/profiles`,
+      headers: auth(admin.token),
+      payload: { name: 'Sam', emoji: '🧒', skip_seed: true },
+    });
+    expect(res.statusCode).toBe(201);
+    const profile = res.json() as { id: string; settings: Record<string, unknown> };
+    expect(await db.select().from(activities).where(eq(activities.profile_id, profile.id))).toHaveLength(0);
+    expect(await db.select().from(rewards).where(eq(rewards.profile_id, profile.id))).toHaveLength(0);
+    expect(await db.select().from(locations).where(eq(locations.profile_id, profile.id))).toHaveLength(0);
+
+    const activityId = uuidv7();
+    const now = Date.now() + 1000;
+    const push = await request(app, {
+      method: 'POST',
+      url: '/api/sync/push',
+      headers: auth(admin.token),
+      payload: {
+        profile_id: profile.id,
+        mutations: [
+          {
+            table: 'activities',
+            id: activityId,
+            op: 'upsert',
+            client_updated_at: now,
+            row: {
+              id: activityId, profile_id: profile.id, version: 0, client_updated_at: now, updated_by: admin.id, deleted_at: null,
+              name: 'Brush teeth', emoji: '🪥', photo_id: null, chip_value: 1, location_id: null,
+              recurrence: null, recurrence_weekdays: null, recurrence_time: null, position: 0,
+            },
+          },
+        ],
+      },
+    });
+    expect((push.json() as { applied: string[] }).applied).toEqual([activityId]);
+    const [stored] = await db.select().from(activities).where(eq(activities.profile_id, profile.id));
+    expect(stored?.id).toBe(activityId);
+  });
+
   it('invites, accepts, and scopes a member to only their assigned profile', async () => {
     const admin = await createUser('admin2');
     const member = await createUser('member2');
