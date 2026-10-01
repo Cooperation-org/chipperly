@@ -310,23 +310,25 @@ const ROUTINE_PACKS: Record<Exclude<SetupAnswers['routines'][number], 'dressed' 
       { name: 'All Done', emoji: '🎉' },
     ],
   },
+  // A common session arc (hello and play, table work, a break, play-based practice, a choice, done).
+  // Clinics vary, so this is a starting point for a therapist to edit, not a protocol.
   aba: {
     name: 'ABA Session',
     emoji: '🧩',
     young: [
-      { name: 'Sit Down', emoji: '🪑' },
-      { name: 'Learning Time', emoji: '📚' },
+      { name: 'Say Hello and Play', emoji: '👋' },
+      { name: 'Table Work', emoji: '🪑' },
       { name: 'Break', emoji: '🧘' },
-      { name: 'Learning Time', emoji: '📚' },
-      { name: 'Reward Time', emoji: '🎁' },
+      { name: 'Play and Practice', emoji: '🧩' },
+      { name: 'Choose a Reward', emoji: '🎁' },
       { name: 'All Done', emoji: '🎉' },
     ],
     older: [
-      { name: 'Sit Down', emoji: '🪑' },
-      { name: 'Learning Time', emoji: '📚' },
+      { name: 'Say Hello and Play', emoji: '👋' },
+      { name: 'Table Work', emoji: '🪑' },
       { name: 'Break', emoji: '🧘' },
-      { name: 'Learning Time', emoji: '📚' },
-      { name: 'Reward Time', emoji: '🎁' },
+      { name: 'Play and Practice', emoji: '🧩' },
+      { name: 'Choose a Reward', emoji: '🎁' },
       { name: 'All Done', emoji: '🎉' },
     ],
   },

@@ -97,7 +97,15 @@ describe('setup interview seed', () => {
     const plan = buildSeed({ ...defaultAnswers('2-7'), routines: ['speech', 'aba'] });
     const speech = plan.activities.find((a) => a.name === 'Speech Therapy Session');
     expect(speech?.steps?.map((s) => s.name)).toEqual(['Warm Up', 'Practice Sounds', 'Practice Words', 'Play a Game', 'All Done']);
-    expect(plan.activities.find((a) => a.name === 'ABA Session')?.steps?.length).toBeGreaterThan(0);
+    const aba = plan.activities.find((a) => a.name === 'ABA Session');
+    expect(aba?.steps?.map((s) => s.name)).toEqual([
+      'Say Hello and Play',
+      'Table Work',
+      'Break',
+      'Play and Practice',
+      'Choose a Reward',
+      'All Done',
+    ]);
     expect(SetupAnswersSchema.safeParse({ ...defaultAnswers('2-7'), routines: ['speech', 'aba'] }).success).toBe(true);
     expect(defaultAnswers('2-7').routines).not.toContain('speech');
   });
