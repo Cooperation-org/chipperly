@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export const PORT = 54329;
+// Overridable: Windows can reserve a range that contains 54329 ("Permission denied" on bind).
+export const PORT = Number(process.env.EMBEDDED_PG_PORT ?? 54329);
 export const HOST = '127.0.0.1';
 export const USER = 'postgres';
 export const PASSWORD = 'postgres';
