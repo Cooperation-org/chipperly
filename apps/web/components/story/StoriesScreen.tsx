@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Picture } from '@/components/media/Picture';
 import { StoryViewer } from './StoryViewer';
 import styles from './StoriesScreen.module.css';
+import { ScreenHint } from '@/components/ui/ScreenHint';
 
 const TEMPLATES: { key: StoryTemplateKey; label: string }[] = [
   { key: 'haircut', label: 'Haircut' },
@@ -91,6 +92,7 @@ export function StoriesScreen() {
   return (
     <div className={styles.screen}>
       <h1 className={styles.heading}>Stories</h1>
+      <ScreenHint id="stories" title="Writing social stories" body="A short story with pictures can help your child get ready for something new. Read it together on a calm day." section="stories" />
 
       {stories.length === 0 ? (
         <>

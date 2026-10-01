@@ -25,6 +25,7 @@ import { TimerTime } from './TimerTime';
 import { TimerFullScreen } from './TimerFullScreen';
 import { useSquareSize } from './useSquareSize';
 import styles from './TimerScreen.module.css';
+import { ScreenHint } from '@/components/ui/ScreenHint';
 
 const PRESET_MINUTES = [1, 2, 5, 10, 15, 30];
 
@@ -259,6 +260,7 @@ export function TimerScreen() {
 
   return (
     <div className={styles.screen}>
+      <ScreenHint id="timer" title="Using the timer" body="The timer shows time running out without needing a clock. Tell your child before you start it." section="timer" />
       <div className={styles.card}>
         <Segmented
           label="Timer mode"
