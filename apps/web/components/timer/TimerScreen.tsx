@@ -260,7 +260,7 @@ export function TimerScreen() {
 
   return (
     <div className={styles.screen}>
-      <ScreenHint id="timer" title="Using the timer" body="The timer shows time running out without needing a clock. Tell your child before you start it." section="timer" />
+      <ScreenHint id="timer" title="Using the timer" body="The timer shows time running out without needing a clock. Say that it is coming before you start it." section="timer" />
       <div className={styles.card}>
         <Segmented
           label="Timer mode"

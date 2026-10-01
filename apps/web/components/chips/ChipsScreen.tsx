@@ -160,7 +160,7 @@ export function ChipsScreen() {
   return (
     <div className={styles.screen}>
       {celebrationLayer}
-      <ScreenHint id="chips" title="Using chips and rewards" body="Your child earns chips by finishing steps. Keep rewards small and quick, and let them help choose." section="chips" />
+      <ScreenHint id="chips" title="Using chips and rewards" body="Chips are earned by finishing steps. Keep rewards small and quick, and choose them together." section="chips" />
       <Segmented label="View" items={VIEW_ITEMS} value={view} onChange={(v) => void setKv(chipsViewKey(profileId), v as ChipsView)} />
 
       {view === 'routine' ? <RoutineGoals profileId={profileId} /> : null}
