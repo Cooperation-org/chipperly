@@ -135,6 +135,8 @@ export const CreateProfileBodySchema = z.object({
   child_uses_app: z.boolean().optional(),
   /** The setup interview's answers: the seed then fits the person (constants/setup.ts). Omitted: the fixed default lists. */
   setup: SetupAnswersSchema.optional(),
+  /** True: the server seeds no locations, activities or rewards. For "Save my work", where the client pushes the guest's own rows. Omitted: seed as usual. */
+  skip_seed: z.boolean().optional(),
 });
 export type CreateProfileBody = z.infer<typeof CreateProfileBodySchema>;
 

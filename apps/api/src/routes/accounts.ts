@@ -173,7 +173,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
           deleted_at: null,
         })
         .returning();
-      await seedProfile(tx, profileId, userId, body.setup);
+      if (!body.skip_seed) await seedProfile(tx, profileId, userId, body.setup);
       return row!;
     });
 
