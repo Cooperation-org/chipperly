@@ -6,6 +6,7 @@ import { PhotoZoom } from '@/components/ui/PhotoZoom';
 import { useMediaUrl } from '@/lib/data/media';
 import { ChipBoard } from '@/components/ui/ChipBoard';
 import { playChip } from '@/lib/sound';
+import { toast } from '@/lib/toast';
 import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import styles from './WorkingForSheet.module.css';
 
@@ -34,6 +35,10 @@ export function WorkingForSheet({ profileId, locationId }: WorkingForSheetProps)
     if (!locationId) return;
     const filling = next > balance;
     await setFilled(profileId, locationId, next, balance);
+    // One tap can take several chips at once: that gets a short Undo. A single chip does not.
+    if (balance - next >= 2) {
+      toast(`Took away ${balance - next} chips`, { undo: () => void setFilled(profileId, locationId, balance, next), duration_ms: 2000 });
+    }
     // Filling the board from here earns the reward just like finishing tasks does.
     const { reward, goal, filled } = workingFor;
     if (reward && filled < goal && next >= goal) void sendRewardRequest(profileId, locationId, reward.name, 'chips');

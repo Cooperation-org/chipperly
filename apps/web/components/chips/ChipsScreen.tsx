@@ -135,6 +135,11 @@ export function ChipsScreen() {
     if (!location) return;
     const filling = next > balance;
     await setFilled(profileId, location.id, next, balance);
+    // One tap can take several chips at once: that gets a short Undo. A single chip does not.
+    if (balance - next >= 2) {
+      const locationId = location.id;
+      toast(`Took away ${balance - next} chips`, { undo: () => void setFilled(profileId, locationId, balance, next), duration_ms: 2000 });
+    }
     if (filling) {
       playChip();
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
