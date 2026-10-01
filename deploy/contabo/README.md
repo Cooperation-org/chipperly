@@ -34,9 +34,34 @@ Restore into a scratch database first, then swap if it is what you want:
 
 Tested on 1 Oct 2026: the restored copy had the same row counts as live.
 
-These backups are on the same disk as the data. They cover a bad deploy or a
-mistaken delete, not the loss of the server. A copy somewhere else (an R2
-bucket, or Contabo's own snapshots) is not set up yet.
+### The copy off the server
+
+The files in `~/backups/chipperly` are on the same disk as the data. After
+writing them, `backup.sh` sends both to the R2 bucket `chipperly-app-backups`
+(Chipperly's Cloudflare account, western North America), where they are deleted
+after 30 days by the bucket's lifecycle rule. Each upload is named with the date
+and time, for example `db-2026-10-02T0317.dump`.
+
+The server does not hold a Cloudflare token. It sends the files to a small
+Worker, `backup-worker/` (`https://chipperly-backup.chipperly.workers.dev`),
+with a secret that can add a file and nothing else: no listing, reading,
+replacing or deleting. `~/.chipperly-backup.env` (chmod 600) on the server holds
+`BACKUP_URL` and `BACKUP_SECRET`; without that file the upload is skipped. The
+log line ends with `offsite=r2:<time>` when the upload worked.
+
+To get a copy back, use a Cloudflare token that can read R2 (the site deploy
+token can), from `apps/site`:
+
+    pnpm exec wrangler r2 object get chipperly-app-backups/db-YYYY-MM-DDTHHMM.dump --remote --file db.dump
+
+To deploy the Worker again or change the secret (then put the same value in
+`~/.chipperly-backup.env` on the server):
+
+    pnpm exec wrangler deploy --config ../../deploy/contabo/backup-worker/wrangler.jsonc
+    openssl rand -hex 32 | pnpm exec wrangler secret put BACKUP_SECRET --config ../../deploy/contabo/backup-worker/wrangler.jsonc
+
+Tested on 2 Oct 2026: the two files in R2 had the same SHA-256 as the files on
+the server, and the secret was refused for reading, replacing and deleting.
 
 ## First-time setup
 

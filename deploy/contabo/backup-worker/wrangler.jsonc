@@ -1,0 +1,11 @@
+{
+  // Deployed by hand (deploy/contabo/README.md, "Backups"). Its one secret,
+  // BACKUP_SECRET, is set with `wrangler secret put` and is not in the repo.
+  "name": "chipperly-backup",
+  "main": "worker.js",
+  "account_id": "e576a82e9534f6dcf627eeaf15adf6d7",
+  "compatibility_date": "2026-09-15",
+  "workers_dev": true,
+  "preview_urls": false,
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "chipperly-app-backups" }]
+}

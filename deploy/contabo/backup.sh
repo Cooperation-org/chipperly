@@ -3,8 +3,8 @@
 # the uploads, kept for 14 days in ~/backups/chipperly. Runs from cron
 # (README.md, "Backups"). Run it by hand before a risky deploy too.
 #
-# These copies sit on the same disk as the data. They cover a bad deploy or
-# a mistaken delete, not the loss of the server.
+# The local copies sit on the same disk as the data: they cover a bad deploy
+# or a mistaken delete. The copy sent to R2 at the end covers losing the server.
 set -euo pipefail
 
 api="$HOME/chipperly/apps/api"
@@ -30,4 +30,20 @@ mv "$dir/uploads-$stamp.tar.gz.tmp" "$dir/uploads-$stamp.tar.gz"
 
 find "$dir" -type f \( -name 'db-*.dump' -o -name 'uploads-*.tar.gz' \) -mtime +"$keep_days" -delete
 
-echo "$(date -Is) ok db=$(du -h "$dir/db-$stamp.dump" | cut -f1) uploads=$(du -h "$dir/uploads-$stamp.tar.gz" | cut -f1) kept=$(find "$dir" -name 'db-*.dump' | wc -l)"
+# The copy that survives losing this server: an add-only drop box in front of
+# an R2 bucket (backup-worker/). ~/.chipperly-backup.env holds BACKUP_URL and
+# BACKUP_SECRET; without that file this step is skipped. A failed upload ends
+# the script here, so the log line below is only written when it worked.
+offsite=none
+if [ -f "$HOME/.chipperly-backup.env" ]; then
+  # shellcheck disable=SC1091
+  . "$HOME/.chipperly-backup.env"
+  at="$(date +%FT%H%M)"
+  # The header goes in on stdin so the secret never shows in the process list.
+  put() { printf 'Authorization: Bearer %s' "$BACKUP_SECRET" | curl -fsS --retry 3 --max-time 600 -X PUT -H @- -T "$1" "$BACKUP_URL/$2" > /dev/null; }
+  put "$dir/db-$stamp.dump" "db-$at.dump"
+  put "$dir/uploads-$stamp.tar.gz" "uploads-$at.tar.gz"
+  offsite="r2:$at"
+fi
+
+echo "$(date -Is) ok db=$(du -h "$dir/db-$stamp.dump" | cut -f1) uploads=$(du -h "$dir/uploads-$stamp.tar.gz" | cut -f1) kept=$(find "$dir" -name 'db-*.dump' | wc -l) offsite=$offsite"
