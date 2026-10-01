@@ -4,8 +4,13 @@ import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
 import { pickAndStoreImage } from '@/lib/data/media';
+import { saveImageCredit } from '@/lib/data/imageCredits';
+import { importImage, imageSearchEnabled, type ImageResult } from '@/lib/imageSearch';
+import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
+import type { ImageCredit } from '@chipperly/shared/schemas/profile';
 import { EmojiGrid } from './EmojiGrid';
+import { ImageSearchPanel } from './ImageSearchPanel';
 import { firstImageFile, isTextEntryTarget } from './clipboardImage';
 import styles from './PicturePicker.module.css';
 
@@ -35,6 +40,11 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
   const [emojiOpen, setEmojiOpen] = useState(defaultEmojiOpen);
   const [message, setMessage] = useState<string | null>(null);
   const [pasting, setPasting] = useState(false);
+  const [searchEnabled, setSearchEnabled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [credit, setCredit] = useState<ImageCredit | null>(null);
+  // Credits live on the profile's settings, so the search needs one to exist (not the first-profile form).
+  const { profile } = useActiveProfile();
   const pickerRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -58,10 +68,21 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
     cell?.focus();
   }, [emojiOpen]);
 
-  async function storeFile(file: File | Blob) {
+  // The server says whether image search is set up; cached per session, false offline and for guests.
+  useEffect(() => {
+    let alive = true;
+    void imageSearchEnabled().then((on) => alive && setSearchEnabled(on));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function storeFile(file: File | Blob, found: ImageCredit | null = null) {
     try {
       const photo_id = await pickAndStoreImage(file);
+      if (found && profile) await saveImageCredit(profile.id, photo_id, found);
       onChange({ emoji: value.emoji ?? null, photo_id });
+      setCredit(found);
       setMessage('Picture added.');
     } catch {
       setMessage(null);
@@ -95,6 +116,12 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
       mountedPickers.splice(mountedPickers.indexOf(me), 1);
     };
   }, []);
+
+  async function onPickFound(result: ImageResult) {
+    const { file, credit: found } = await importImage(result.id);
+    setSearchOpen(false);
+    await storeFile(file, found ?? { text: result.attribution, url: result.landing_url });
+  }
 
   async function onFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -161,11 +188,23 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
           <Icon name="clipboard" size={20} />
           Paste
         </button>
+        {searchEnabled && profile ? (
+          <button
+            type="button"
+            className={styles.choice}
+            onClick={() => setSearchOpen((open) => !open)}
+            aria-expanded={searchOpen}
+          >
+            <Icon name="search" size={20} />
+            Search images
+          </button>
+        ) : null}
       </div>
       <p className={styles.hint}>Tip: copy an image from any website, then tap Paste.</p>
       <a className={styles.findLink} href={searchUrl} target="_blank" rel="noopener noreferrer">
         Find an image online
       </a>
+      {searchOpen ? <ImageSearchPanel initialQuery={query ?? ''} onPick={onPickFound} /> : null}
       <input
         ref={photoInputRef}
         type="file"
@@ -191,6 +230,7 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
             onChange={(emoji) => {
               opened.current = true;
               onChange({ emoji, photo_id: null });
+              setCredit(null);
               setEmojiOpen(false);
             }}
           />
@@ -201,8 +241,16 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
           {pasting ? 'Waiting for permission...' : message}
         </p>
       ) : null}
+      {credit && value.photo_id ? <p className={styles.credit}>{credit.text}</p> : null}
       {value.photo_id ? (
-        <button type="button" className={styles.remove} onClick={() => onChange({ ...value, photo_id: null })}>
+        <button
+          type="button"
+          className={styles.remove}
+          onClick={() => {
+            onChange({ ...value, photo_id: null });
+            setCredit(null);
+          }}
+        >
           Remove photo
         </button>
       ) : null}

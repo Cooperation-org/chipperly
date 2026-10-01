@@ -103,3 +103,11 @@
 .gridWrap {
   width: 100%;
 }
+
+.credit {
+  margin: 0;
+  max-width: 36ch;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

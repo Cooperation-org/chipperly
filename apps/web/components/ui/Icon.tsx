@@ -35,7 +35,8 @@ export type IconName =
   | 'phoneLock'
   | 'speaker'
   | 'smiley'
-  | 'clipboard';
+  | 'clipboard'
+  | 'search';
 
 const paths: Record<IconName, ReactNode> = {
   check: <polyline points="5 13 10 18 19 7" />,
@@ -116,6 +117,12 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
       <circle cx="12" cy="14" r="3.5" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <line x1="16.5" y1="16.5" x2="21" y2="21" />
     </>
   ),
   image: (
