@@ -51,3 +51,9 @@
   font-size: var(--text-2xl);
   color: var(--color-text);
 }
+
+.lockHint {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+}

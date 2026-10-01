@@ -15,6 +15,9 @@ import { TimerTime } from './TimerTime';
 import { useSquareSize } from './useSquareSize';
 import styles from './TimerFullScreen.module.css';
 
+/** Two taps this close together count as a double tap. */
+const DOUBLE_TAP_MS = 600;
+
 type PinPrompt = 'pause' | 'close' | null;
 
 export interface TimerFullScreenProps {
@@ -35,6 +38,8 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
   const [celebrationDone, setCelebrationDone] = useState(false);
   const [pinPrompt, setPinPrompt] = useState<PinPrompt>(null);
   const [pinError, setPinError] = useState<string | undefined>();
+  const [lockHint, setLockHint] = useState(false);
+  const lastLockedTap = useRef(0);
 
   const justEnded = isEnded(timer);
   const [boxRef, ringSize] = useSquareSize(!justEnded && !pinPrompt && timer.reveal !== null, 280);
@@ -144,6 +149,15 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
   function toggle(): void {
     if (timer.running) {
       if (timer.locked) {
+        // One tap is easy to do by accident and it hid the countdown behind the PIN pad.
+        // The first tap only says what to do; a second one close behind it asks for the PIN.
+        const tappedAt = Date.now();
+        if (tappedAt - lastLockedTap.current > DOUBLE_TAP_MS) {
+          lastLockedTap.current = tappedAt;
+          setLockHint(true);
+          return;
+        }
+        setLockHint(false);
         setPinError(undefined);
         setPinPrompt('pause');
         return;
@@ -197,6 +211,12 @@ export function TimerFullScreen({ onClose }: TimerFullScreenProps) {
               </div>
             ) : null}
             <TimerTime remaining_ms={timer.remaining_ms} large={!timer.reveal} />
+            {lockHint ? (
+              <p className={styles.lockHint} role="status">
+                {/* A finger or a mouse: say the one this device uses. */}
+                {window.matchMedia('(pointer: coarse)').matches ? 'Locked. Double tap to pause.' : 'Locked. Double click to pause.'}
+              </p>
+            ) : null}
           </div>
         </button>
       )}
