@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { SocialStory, StoryPage } from '@chipperly/shared/schemas/story';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -161,6 +162,19 @@ export function StoryForm() {
           Preview
         </Button>
       </div>
+
+      <details className={styles.tips}>
+        <summary className={styles.tipsSummary}>Tips for writing a story</summary>
+        <ul className={styles.tipsList}>
+          <li>Keep it short, with one idea on each page.</li>
+          <li>Say what happens, who is there, and what your child can do.</li>
+          <li>Use calm, plain words. Say what to do rather than what not to do.</li>
+          <li>Add a real photo, and read it together before the day, not in the moment.</li>
+        </ul>
+        <Link className={styles.tipsLink} href="/settings/guide/#stories">
+          More about social stories
+        </Link>
+      </details>
 
       <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
 
