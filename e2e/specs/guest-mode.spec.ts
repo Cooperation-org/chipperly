@@ -19,14 +19,14 @@ test('guest session stays on the device and is erased after 48 hours', async ({ 
   await page.waitForURL('**/today/');
 
   // The sample child's routines, and the banner.
-  await expect(page.getByText('Sample child').first()).toBeVisible();
+  await expect(page.getByText('Sample person').first()).toBeVisible();
   const banner = page.getByText(/Trying Chipperly\. Erased in (\d+ hours?|less than an hour)\./);
   await expect(banner).toBeVisible();
   // Dismissing is for good: it stays gone after a reload.
   await page.getByRole('button', { name: 'Dismiss', exact: true }).click();
   await expect(banner).toBeHidden();
   await page.reload();
-  await expect(page.getByText('Sample child').first()).toBeVisible();
+  await expect(page.getByText('Sample person').first()).toBeVisible();
   await expect(banner).toBeHidden();
   const routine = page.getByRole('checkbox', { name: /^Morning Routine,/ });
   await expect(routine).toBeVisible();

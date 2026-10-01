@@ -269,7 +269,7 @@ export async function startGuestSession(): Promise<void> {
   const profile: Profile = {
     id: ids.profile_id,
     account_id: ids.account_id,
-    name: 'Sample child',
+    name: 'Sample person',
     avatar_emoji: '🧒',
     avatar_photo_id: null,
     share_token: null,
