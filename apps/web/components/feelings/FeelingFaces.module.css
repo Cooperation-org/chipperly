@@ -43,3 +43,9 @@
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary);
 }
+
+/* High contrast sets the border and the primary colour to the same yellow, so a colour swap shows nothing. A thick white ring marks the choice. */
+:global(html[data-contrast='cvi']) .face[aria-pressed='true'] {
+  outline: 4px solid #ffffff;
+  outline-offset: 2px;
+}

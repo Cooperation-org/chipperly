@@ -106,6 +106,8 @@
 
 .dotActive {
   background: var(--color-primary);
+  /* Bigger as well as coloured, so the current page shows without relying on colour. */
+  transform: scale(1.75);
 }
 
 .readAloud {
