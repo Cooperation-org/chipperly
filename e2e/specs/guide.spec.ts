@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { gotoCaregiver, reloadCaregiver, signUp } from '../helpers';
+import { gotoCaregiver, reloadCaregiver, signUp, toast } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -39,6 +39,8 @@ test.describe('guide and first-visit hints', () => {
   test('Show tips again brings the hint back', async () => {
     await gotoCaregiver(page, '/settings/guide/', password);
     await page.getByRole('button', { name: 'Show tips again' }).click();
+    // The toast comes after the IndexedDB delete; leaving before it lands can cancel the delete.
+    await expect(toast(page)).toContainText('Tips will show again');
     await gotoCaregiver(page, '/today/', password);
     await expect(page.getByRole('complementary', { name: 'Tip' })).toBeVisible();
   });

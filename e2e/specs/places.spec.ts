@@ -323,6 +323,8 @@ test.describe('places', () => {
   test('#29 select mode: a checkbox per row, Select all / Select none, live count, actions need a selection', async () => {
     await gotoCaregiver(page, '/settings/library/activities/', password);
     const rows = page.locator('button[class*="ListRow_main"]');
+    // count() does not wait: let the list render before counting it.
+    await expect(rows.nth(2)).toBeVisible();
     const total = await rows.count();
     expect(total).toBeGreaterThan(2);
 
