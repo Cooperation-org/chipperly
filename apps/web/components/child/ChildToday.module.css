@@ -112,6 +112,12 @@
   padding: var(--space-2);
 }
 
+/* The first task that is not done. An outline, so marking it never moves the list. */
+.now {
+  outline: 3px solid var(--color-primary);
+  outline-offset: -1px;
+}
+
 .row {
   display: flex;
   align-items: center;

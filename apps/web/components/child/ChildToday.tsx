@@ -99,6 +99,7 @@ export function ChildToday() {
     () => (ownOrder ? rawDayItems : groupByPartOfDay(rawDayItems).flatMap((group) => group.items)),
     [rawDayItems, ownOrder],
   );
+  const nowItemId = dayItems.find((day) => day.item.completed_at === null)?.item.id ?? null;
   const { location: activeLocation, setActiveLocationId } = useActiveLocation(profileId);
   const locations = useLocations(profileId);
   const workingFor = useWorkingFor(profileId, activeLocation?.id ?? null);
@@ -591,6 +592,8 @@ export function ChildToday() {
         <div className={styles.list}>
           {dayItems.map((day) => {
             const dimmed = day.item.completed_at !== null;
+            // The first thing not done yet is marked, so the list says what is next.
+            const isNow = day.item.id === nowItemId;
             const hasSteps = day.steps.length > 0;
             const expanded = hasSteps && isExpanded(day.item.id);
             const topSteps = hasSteps ? stepTree(day.steps) : [];
@@ -600,7 +603,7 @@ export function ChildToday() {
               <span className={[styles.rowName, dimmed ? styles.dimmed : ''].filter(Boolean).join(' ')}>{day.activity.name}</span>
             );
             return (
-              <div key={day.item.id} className={styles.card}>
+              <div key={day.item.id} className={isNow ? `${styles.card} ${styles.now}` : styles.card} aria-current={isNow ? 'step' : undefined}>
                 <div className={styles.row}>
                   {hasSteps ? (
                     <button
