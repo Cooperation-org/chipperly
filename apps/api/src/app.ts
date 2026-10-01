@@ -19,6 +19,7 @@ import adminRoutes from './routes/admin.js';
 import internalRoutes from './routes/internal.js';
 import billingRoutes from './routes/billing.js';
 import communityRoutes from './routes/community.js';
+import imagesRoutes from './routes/images.js';
 
 export interface BuildAppOptions {
   readonly env: Env;
@@ -36,6 +37,7 @@ const routePlugins: FastifyPluginAsync[] = [
   adminRoutes,
   billingRoutes,
   communityRoutes,
+  imagesRoutes,
 ];
 
 // Test-only route, never registered outside e2e (see routes/testing.ts).
@@ -66,7 +68,7 @@ export async function buildApp({ env }: BuildAppOptions): Promise<FastifyInstanc
     // default, not a Fastify route introspection) -- a cross-origin PATCH or
     // DELETE call fails preflight silently unless every method this API
     // actually uses is listed here.
-    await app.register(cors, { origin: env.CORS_ORIGIN, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
+    await app.register(cors, { origin: env.CORS_ORIGIN, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'], exposedHeaders: ['X-Image-Attribution', 'X-Image-Source'] });
   }
 
   // `global: false`: only routes that opt in via `{ config: { rateLimit: {...} } }`

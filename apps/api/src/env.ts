@@ -42,6 +42,9 @@ const EnvSchema = z.object({
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().min(1).optional(),
   /** Chipperly's cut of a community sale, 0-100. Unset = nothing can be priced or bought; there is deliberately no default. */
   COMMUNITY_PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(100).optional(),
+  /** Openverse API credentials (registered app). Unset = /images/search and /images/import 404 and the web hides image search. */
+  OPENVERSE_CLIENT_ID: z.string().min(1).optional(),
+  OPENVERSE_CLIENT_SECRET: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(1).default('Chipperly <no-reply@chipperlyapp.com>'),
   /** The Firebase service account key JSON, as a single-line string (a deploy sets this, not a file path). Unset = push logs to the console instead of sending. */
@@ -78,6 +81,8 @@ export const env = {
   ),
   /** True when /billing should be enabled instead of 404: the secret key and the webhook signing secret are both set. */
   stripeEnabled: Boolean(parsed.STRIPE_SECRET_KEY && parsed.STRIPE_WEBHOOK_SECRET),
+  /** True when image search should be enabled instead of 404: both Openverse credentials are set. */
+  openverseEnabled: Boolean(parsed.OPENVERSE_CLIENT_ID && parsed.OPENVERSE_CLIENT_SECRET),
   /** True when Resend is configured; false = mail is logged to stdout. */
   mailEnabled: Boolean(parsed.RESEND_API_KEY),
   /** True when a Firebase service account is configured; false = push logs to stdout instead of sending. */
