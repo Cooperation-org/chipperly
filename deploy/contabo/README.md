@@ -12,6 +12,32 @@ The API serves the web export at `/` and the API at `/api/`, on 127.0.0.1:8064.
 
     bash ~/chipperly/deploy/contabo/deploy.sh
 
+## Backups
+
+`backup.sh` dumps the database (`pg_dump`, custom format, listed back with
+`pg_restore --list` before it counts) and tars the uploads into
+`~/backups/chipperly`, keeping 14 days. It runs from mhany's crontab at 03:17:
+
+    install -m 700 ~/chipperly/deploy/contabo/backup.sh ~/bin/chipperly-backup.sh
+    (crontab -l 2>/dev/null; echo '17 3 * * * $HOME/bin/chipperly-backup.sh >> $HOME/backups/chipperly/backup.log 2>&1') | crontab -
+
+The cron line runs the copy in `~/bin`, so a deploy never changes what runs
+at night; repeat the `install` line after editing the script. Check it with
+`tail ~/backups/chipperly/backup.log`.
+
+Restore into a scratch database first, then swap if it is what you want:
+
+    sudo -u postgres createdb -O chipperly chipperly_restore
+    # piped in: the postgres user cannot read the 700 backup folder
+    sudo -u postgres pg_restore --no-owner --role=chipperly -d chipperly_restore < ~/backups/chipperly/db-YYYY-MM-DD.dump
+    tar -xzf ~/backups/chipperly/uploads-YYYY-MM-DD.tar.gz -C /tmp
+
+Tested on 1 Oct 2026: the restored copy had the same row counts as live.
+
+These backups are on the same disk as the data. They cover a bad deploy or a
+mistaken delete, not the loss of the server. A copy somewhere else (an R2
+bucket, or Contabo's own snapshots) is not set up yet.
+
 ## First-time setup
 
     # database: one local role that owns it (the migrations add no grants,
