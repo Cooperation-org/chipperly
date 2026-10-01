@@ -45,8 +45,9 @@ export default function PrivacyPage() {
       <h2>Where it lives</h2>
       <p>
         On our own server, not a third party&apos;s. Photos and videos are compressed on upload and
-        stored there too, backed up regularly. Nothing is sold or shared with data brokers or
-        advertisers.
+        stored there too. A backup copy is made every night and kept for 30 days in a private,
+        encrypted storage bucket in Chipperly&apos;s own Cloudflare account, so your data survives
+        if the server is lost. Nothing is sold or shared with data brokers or advertisers.
       </p>
 
       <h2>Who can see it</h2>
@@ -63,6 +64,14 @@ export default function PrivacyPage() {
         child&apos;s data to train any model, and we don&apos;t show ads, ever. Our public pages
         (this one, the sign-in screen) may use ordinary site analytics to see how many people visit;
         that never touches a signed-in account.
+      </p>
+
+      <h2>When something breaks</h2>
+      <p>
+        If the app hits an error while you are signed in, it sends our server a short technical
+        report: the error message, which screen it happened on, and the app version. It holds no
+        names, pictures, schedules or anything else you entered, and it is kept only in our own
+        server log. Nothing is sent when you use the app without an account.
       </p>
 
       <h2>Your controls</h2>

@@ -51,8 +51,8 @@ The script only moves forward from `main` (`git pull --ff-only`), so going back 
 - Google and Apple sign-in are built but hidden until their client ids are set.
 - Billing and community selling are built but return 404 until the Stripe keys are set. Nothing locks anyone out meanwhile.
 - In-app image search (Openverse) and push notifications (Firebase) are configured.
-- The backups are on the same disk as the data. A copy somewhere else is not set up yet.
-- There is no error reporting: server errors go to `journalctl -u chipperly`, browser errors go nowhere.
+- Backups run nightly on the server and a copy goes to the R2 bucket `chipperly-app-backups`, kept 30 days (`deploy/contabo/README.md`, "Backups").
+- Errors: server errors and uncaught browser errors from signed-in sessions both land in the server log. `journalctl -u chipperly | grep client_error` shows the browser ones. Guests and signed-out visitors send nothing.
 
 ## People
 
