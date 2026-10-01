@@ -8,7 +8,8 @@ import localFont from 'next/font/local';
 export const heading = localFont({
   // One variable file covers every weight.
   src: [{ path: './fonts/alegreya-latin.woff2', weight: '400 900', style: 'normal' }],
-  variable: '--font-heading',
+  // Not --font-heading: tokens.css defines that on :root and would override this class (it did, so Alegreya never rendered).
+  variable: '--font-heading-face',
   display: 'swap',
 });
 
@@ -18,7 +19,7 @@ export const body = localFont({
     { path: './fonts/alegreya-sans-500-latin.woff2', weight: '500', style: 'normal' },
     { path: './fonts/alegreya-sans-700-latin.woff2', weight: '700', style: 'normal' },
   ],
-  variable: '--font-body',
+  variable: '--font-body-face',
   display: 'swap',
 });
 
