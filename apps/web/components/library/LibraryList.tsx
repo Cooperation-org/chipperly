@@ -8,6 +8,7 @@ import type { Map as LeafletMap, Marker as LeafletMarker, Circle as LeafletCircl
 import type { Activity } from '@chipperly/shared/schemas/activity';
 import { PartOfDay } from '@chipperly/shared/schemas/schedule';
 import type { Location } from '@chipperly/shared/schemas/location';
+import { TemplateList } from '@/components/picker/TemplateSheet';
 import { Picture } from '@/components/media/Picture';
 import { Field } from '@/components/ui/Field';
 import { IconButton } from '@/components/ui/IconButton';
@@ -591,6 +592,11 @@ export function LibraryList({ kind }: LibraryListProps) {
       <BigButton fullWidth icon="plus" onClick={addNew}>
         {addLabel}
       </BigButton>
+      {kind === 'activity' || kind === 'routine' ? (
+        <Button fullWidth variant="secondary" onClick={() => open(<TemplateList />, { title: 'Start from a template' })}>
+          Start from a template
+        </Button>
+      ) : null}
       {bulkable && rows.length > 0 ? (
         <div className={styles.bulkBar}>
           {selecting ? (

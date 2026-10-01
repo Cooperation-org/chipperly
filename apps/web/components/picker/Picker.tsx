@@ -25,12 +25,14 @@ export interface PickerProps {
   routines?: boolean;
   /** kind 'activity' only: the dashed "New routine" tile at the end of the Routines section. Omit to not show that tile (e.g. callers with nowhere sensible to send it). */
   onCreateRoutine?: () => void;
+  /** kind 'activity' only: a secondary "Start from a template" button under Create. Omit to hide it. */
+  onTemplates?: () => void;
 }
 
 const SEARCH_THRESHOLD = 12;
 
 /** Sheet content for adding an activity to the day or picking a working-for reward. One component, two data sources. */
-export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routines = true, onCreateRoutine }: PickerProps) {
+export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routines = true, onCreateRoutine, onTemplates }: PickerProps) {
   const [query, setQuery] = useState('');
   const showRoutines = kind === 'activity' && routines;
 
@@ -85,6 +87,11 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
       <Button fullWidth icon="plus" onClick={onCreateNew}>
         {`Create a new ${kind}`}
       </Button>
+      {kind === 'activity' && onTemplates ? (
+        <Button fullWidth variant="secondary" onClick={onTemplates}>
+          Start from a template
+        </Button>
+      ) : null}
 
       {kind === 'activity' ? (
         <>

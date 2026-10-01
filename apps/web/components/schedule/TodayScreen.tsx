@@ -27,6 +27,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { useMediaUrl } from '@/lib/data/media';
 import { useWorkingFor } from '@/lib/data/chips';
 import { levelEmoji, useMoodLevel } from '@/lib/data/mood';
+import { TemplateList } from '@/components/picker/TemplateSheet';
 import { Picker } from '@/components/picker/Picker';
 import { Picture } from '@/components/media/Picture';
 import { ListRow } from '@/components/ui/ListRow';
@@ -188,6 +189,7 @@ export function TodayScreen() {
           close();
           router.push(`/activity/edit/?add_to=${isoDate}&routine=1`);
         }}
+        onTemplates={() => open(<TemplateList />, { title: 'Start from a template' })}
       />,
       { title },
     );
