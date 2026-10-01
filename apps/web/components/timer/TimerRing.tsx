@@ -51,7 +51,8 @@ export function TimerRing({ remaining_ms, total_ms, reveal, size }: TimerRingPro
             // eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API
             <img src={photoUrl} alt="" className={styles.revealImg} />
           ) : reveal.emoji ? (
-            <span className={styles.revealEmoji} aria-hidden="true">
+            // Sized from the ring: a percentage here was a percentage of the text size, which made the emoji tiny.
+            <span className={styles.revealEmoji} style={{ fontSize: Math.round(size * 0.5) }} aria-hidden="true">
               {reveal.emoji}
             </span>
           ) : null}
