@@ -1,15 +1,16 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectNoOverflow, signUp } from '../helpers';
+import { expectNoOverflow, gotoCaregiver, signUp } from '../helpers';
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('templates', () => {
   let page: Page;
+  let password: string;
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
     // signUp skips the setup interview, so the profile has the fixed default lists.
-    await signUp(page, { name: 'Templates Tester' });
+    ({ password } = await signUp(page, { name: 'Templates Tester' }));
   });
 
   test.afterAll(async () => {
@@ -31,7 +32,8 @@ test.describe('templates', () => {
 
     await page.waitForURL('**/activity/edit/?id=*');
     await expect(page.getByText('Added. Change anything you like.')).toBeVisible();
-    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Speech therapy session');
+    // Every row is collapsed on edit: the Name row shows the name as its summary.
+    await expect(page.getByRole('button', { name: /^Name/ })).toContainText('Speech therapy session');
 
     // The Steps row is collapsed on edit; open it and check the rows.
     await page.getByRole('button', { name: /^Steps/ }).click();
@@ -41,9 +43,10 @@ test.describe('templates', () => {
     await expectNoOverflow(page, 'edit screen after template');
   });
 
-  test('Save, then the activity is in the library', async () => {
+  test('Save, then the routine is in the routines library', async () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.goto('/settings/library/activities/');
+    // It has steps, so it is listed under routines. A full navigation resets caregiver mode, hence the unlock helper.
+    await gotoCaregiver(page, '/settings/library/routines/', password);
     await expect(page.getByRole('button', { name: /Speech therapy session/ }).first()).toBeVisible();
   });
 });
