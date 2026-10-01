@@ -34,3 +34,15 @@
   align-self: stretch;
   font-size: var(--text-md);
 }
+
+.link {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--color-text);
+  text-decoration: underline;
+  cursor: pointer;
+}

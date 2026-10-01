@@ -36,7 +36,7 @@ export function Ready() {
   // in caregiver mode directly rather than the child view they'd otherwise
   // default to (lib/device/settings.ts's useParentMode) and immediately
   // need to unlock past.
-  async function goToToday(): Promise<void> {
+  async function goToToday(dest = '/today/'): Promise<void> {
     // A phone or tablet could be the child's; ask. Otherwise this is the caregiver's device.
     if (asksDeviceRole() && profile && usesApp(profile)) {
       router.push('/onboarding/device/');
@@ -45,7 +45,7 @@ export function Ready() {
     startSync();
     await setDeviceRole({ kind: 'caregiver' });
     await enterParentMode();
-    router.push('/today/');
+    router.push(dest);
   }
 
   return (
@@ -91,6 +91,10 @@ export function Ready() {
       <BigButton fullWidth onClick={() => void goToToday()}>
         Go to Today
       </BigButton>
+      {/* Same setup as Go to Today (device role, parent mode) first: /settings/ sits behind the caregiver shell's gate. */}
+      <button type="button" className={styles.link} onClick={() => void goToToday('/settings/guide/')}>
+        New here? Read the short guide
+      </button>
       {profile && usesApp(profile) ? (
         <p className={styles.quiet}>Sharing this device with {name}? You can lock it to their view from the lock button at the top.</p>
       ) : null}
