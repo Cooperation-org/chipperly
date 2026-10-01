@@ -141,10 +141,12 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
   // The child asking for the reward is what alerts the grown-ups where they are
   // (parents plus that location's care team), once per First-Then; checking
   // FIRST no longer does, so nobody gets two buzzes for one reward.
+  // True once the server has taken the alert. Until then the screen only says what is certain.
+  const [told, setTold] = useState(false);
   async function askForReward(): Promise<void> {
     if (!then || asked) return;
     await progress.set({ done: true, asked: true });
-    void sendRewardRequest(profileId, location?.id ?? null, then.name, 'first_then', first?.name);
+    void sendRewardRequest(profileId, location?.id ?? null, then.name, 'first_then', first?.name).then(setTold);
     if (timerMinutes && onStartTimer) onStartTimer(timerMinutes, then.emoji, then.photo_id);
   }
 
@@ -166,7 +168,7 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
                   first_then_activity_id: first?.id ?? null,
                   first_then_reward_id: then?.id ?? null,
                 }).message
-              : 'First-Then is not ready yet. Ask a grown-up to set it up.'
+              : 'First-Then is not ready yet. Ask your team to set it up.'
           }
           actions={
             caregiver
@@ -206,7 +208,7 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
           )}
           {then ? <PanelVoice profileId={profileId} panel="then" mode={mode} label={`Then, ${then.name}`} /> : null}
           {canAsk ? <span className={styles.hint}>Tap to ask for it</span> : null}
-          {!caregiver && asked ? <span className={styles.hint}>Asked. Someone&apos;s on the way.</span> : null}
+          {!caregiver && asked ? <span className={styles.hint}>{told ? 'You asked for it. Your team has been told.' : 'You asked for it.'}</span> : null}
         </div>
 
         {celebrating ? (
