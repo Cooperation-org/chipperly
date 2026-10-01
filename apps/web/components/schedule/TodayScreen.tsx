@@ -52,6 +52,7 @@ import { TeamCheckupSheet } from '@/components/feelings/FeelingSheets';
 import { ItemSheet } from './ItemSheet';
 import { allDone, groupByPartOfDay, moveItem, secondaryText, weekdayName } from './todayModel';
 import styles from './TodayScreen.module.css';
+import { ScreenHint } from '@/components/ui/ScreenHint';
 
 /** S6: the Today tab. */
 export function TodayScreen() {
@@ -261,6 +262,7 @@ export function TodayScreen() {
 
   return (
     <div className={styles.screen}>
+      <ScreenHint id="today" title="Start with one thing" body="Add one routine or activity for today. That is enough to try it with your child." section="start-small" />
       <VerifyBanner fallback={<RewardAlertsBanner />} />
       {/* First thing on Today, not only in Settings: switching place right before handing the device to the child. */}
       {locations.length > 1 ? (

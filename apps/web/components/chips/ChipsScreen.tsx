@@ -28,6 +28,7 @@ import { FreeTimeSheet } from './FreeTimeSheet';
 import { RoutineGoals } from './RoutineGoals';
 import { DayGoal } from './DayGoal';
 import styles from './ChipsScreen.module.css';
+import { ScreenHint } from '@/components/ui/ScreenHint';
 
 type ChipsView = 'place' | 'routine' | 'day';
 
@@ -159,6 +160,7 @@ export function ChipsScreen() {
   return (
     <div className={styles.screen}>
       {celebrationLayer}
+      <ScreenHint id="chips" title="Using chips and rewards" body="Your child earns chips by finishing steps. Keep rewards small and quick, and let them help choose." section="chips" />
       <Segmented label="View" items={VIEW_ITEMS} value={view} onChange={(v) => void setKv(chipsViewKey(profileId), v as ChipsView)} />
 
       {view === 'routine' ? <RoutineGoals profileId={profileId} /> : null}
