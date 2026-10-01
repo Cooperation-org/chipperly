@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +12,17 @@ const pkg = JSON.parse(readFileSync(path.join(__dirname, '../../package.json'), 
   version: string;
 };
 
+// Which build is live. GIT_SHA when the deploy sets it, else the checkout this process runs from.
+function readCommit(): string {
+  if (process.env.GIT_SHA) return process.env.GIT_SHA.slice(0, 7);
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: __dirname, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+const commit = readCommit();
+
 export default async function healthRoutes(app: FastifyInstance): Promise<void> {
   app.get('/health', async () => {
     let db: 'up' | 'down' = 'up';
@@ -19,6 +31,6 @@ export default async function healthRoutes(app: FastifyInstance): Promise<void> 
     } catch {
       db = 'down';
     }
-    return { ok: db === 'up', db, version: pkg.version };
+    return { ok: db === 'up', db, version: pkg.version, commit };
   });
 }
