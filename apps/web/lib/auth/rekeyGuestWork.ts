@@ -46,3 +46,19 @@ export function rekeyGuestWork(
   }
   return { profile, rows: out };
 }
+
+/** What a "Save my work" press leaves in kv: the guest's ids, plus the account once the server has made it (so a retry reuses it). */
+export interface CarryOver {
+  guest: { user_id: string; account_id: string; profile_id: string };
+  account_id?: string;
+}
+
+/**
+ * Pure: whether the guest's work may move into this signed-in user's account. Only a brand-new user
+ * (no profile yet, at most the account an earlier attempt made) gets it; signing in to an account that
+ * already has people in it would mix a throwaway trial into real data, so that trial is dropped instead.
+ */
+export function canCarryOver(carry: CarryOver, me: { accounts: { account: { id: string } }[]; profiles: unknown[] }): boolean {
+  if (carry.account_id) return me.accounts.some((a) => a.account.id === carry.account_id);
+  return me.profiles.length === 0 && me.accounts.length <= 1;
+}

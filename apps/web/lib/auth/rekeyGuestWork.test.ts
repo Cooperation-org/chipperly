@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildSeed, defaultAnswers } from '@chipperly/shared/constants/setup';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { buildSeedRows } from '../profile/seedLocal';
-import { rekeyGuestWork } from './rekeyGuestWork';
+import { canCarryOver, rekeyGuestWork } from './rekeyGuestWork';
 
 const GUEST_PROFILE = '0190a000-0000-7000-8000-000000000001';
 const GUEST_USER = '0190a000-0000-7000-8000-000000000002';
@@ -104,5 +104,25 @@ describe('rekeyGuestWork', () => {
     const before = JSON.stringify(rows);
     rekeyGuestWork(guestProfile, rows, target);
     expect(JSON.stringify(rows)).toBe(before);
+  });
+});
+
+describe('canCarryOver', () => {
+  const carry = { guest: { user_id: 'u', account_id: 'a', profile_id: 'p' } };
+  const account = (id: string) => ({ account: { id } });
+
+  it('lets a brand-new user, or one with only the empty account an earlier attempt made, keep the work', () => {
+    expect(canCarryOver(carry, { accounts: [], profiles: [] })).toBe(true);
+    expect(canCarryOver(carry, { accounts: [account('x')], profiles: [] })).toBe(true);
+  });
+
+  it('refuses an account that already has a profile or several accounts', () => {
+    expect(canCarryOver(carry, { accounts: [account('x')], profiles: [{}] })).toBe(false);
+    expect(canCarryOver(carry, { accounts: [account('x'), account('y')], profiles: [] })).toBe(false);
+  });
+
+  it('once an account was made, only that account counts', () => {
+    expect(canCarryOver({ ...carry, account_id: 'x' }, { accounts: [account('x')], profiles: [{}] })).toBe(true);
+    expect(canCarryOver({ ...carry, account_id: 'x' }, { accounts: [account('y')], profiles: [] })).toBe(false);
   });
 });

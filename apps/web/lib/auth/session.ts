@@ -14,6 +14,8 @@ import { newId } from '../ids';
 import { seedProfileLocally } from '../profile/seedLocal';
 import { GUEST_IDS_KEY, GUEST_STARTED_AT_KEY, isGuestMode, setGuestMode, wipeLocalData, type GuestIds } from './guest';
 import { isGuestExpired } from './guestExpiry';
+import { CARRY_NOTICE_KEY, CARRY_OVER_KEY, GUEST_KV_KEYS, runCarryOver, setCarryOverPhase } from './carryOver';
+import { canCarryOver, type CarryOver } from './rekeyGuestWork';
 
 export type SessionStatus = 'loading' | 'signed_out' | 'signed_in';
 
@@ -84,28 +86,38 @@ const PER_USER_KV_KEYS = [
  * not inherit it: their account and profiles never showed up until the site
  * data was cleared by hand, because the old active ids and rows won.
  */
-async function resetLocalDataIfNewUser(me: MeResponse): Promise<void> {
+async function resetLocalDataIfNewUser(me: MeResponse, keepGuest: boolean, droppedTrial: boolean): Promise<void> {
   const owner = await getKv<string>(DATA_OWNER_KEY);
   const wasGuest = (await getKv<number>(GUEST_STARTED_AT_KEY)) !== undefined;
   // Devices from before this key existed: an active account the user isn't in means someone else's data.
   const activeAccount = owner ? null : await getKv<string>(ACTIVE_ACCOUNT_KEY);
-  // A guest's sample data belongs to nobody who can sign in.
+  // A guest's sample data belongs to nobody who can sign in, unless "Save my work" is moving it into this new account.
   const foreign =
-    wasGuest || (owner ? owner !== me.user.id : activeAccount != null && !me.accounts.some((a) => a.account.id === activeAccount));
+    !keepGuest &&
+    (wasGuest || (owner ? owner !== me.user.id : activeAccount != null && !me.accounts.some((a) => a.account.id === activeAccount)));
   if (foreign) {
-    await db.transaction('rw', db.tables, async () => {
-      // By name: inside a transaction db.tables can hand back different Table objects than db.kv,
-      // and clearing kv would take the just-issued tokens with it.
-      await Promise.all(db.tables.filter((table) => table.name !== 'kv').map((table) => table.clear()));
-      await db.kv.bulkDelete([...PER_USER_KV_KEYS, GUEST_STARTED_AT_KEY, GUEST_IDS_KEY]);
-    });
+    await clearLocalUserData();
+    // Said once, so signing in to an existing account instead of creating one doesn't look like the trial vanished by accident.
+    if (droppedTrial) await setKv(CARRY_NOTICE_KEY, 'discarded');
   }
   setGuestMode(false);
   await setKv(DATA_OWNER_KEY, me.user.id);
 }
 
+/** Every table but kv, and the kv entries that describe the previous user or a guest. */
+async function clearLocalUserData(): Promise<void> {
+  await db.transaction('rw', db.tables, async () => {
+    // By name: inside a transaction db.tables can hand back different Table objects than db.kv,
+    // and clearing kv would take the just-issued tokens with it.
+    await Promise.all(db.tables.filter((table) => table.name !== 'kv').map((table) => table.clear()));
+    await db.kv.bulkDelete([...PER_USER_KV_KEYS, ...GUEST_KV_KEYS]);
+  });
+}
+
 async function applyMe(me: MeResponse): Promise<void> {
-  await resetLocalDataIfNewUser(me);
+  const flag = await getKv<CarryOver>(CARRY_OVER_KEY);
+  const carrying = flag !== undefined && canCarryOver(flag, me);
+  await resetLocalDataIfNewUser(me, carrying, flag !== undefined && !carrying);
   await setKv<MeResponse>(ME_KEY, me);
   await setKv<string>(CURRENT_USER_KEY, me.user.id);
   if (me.profiles.length > 0) {
@@ -127,6 +139,13 @@ async function applyMe(me: MeResponse): Promise<void> {
   if (!activeProfile && me.profiles[0]) await setKv(ACTIVE_PROFILE_KEY, me.profiles[0].id);
 
   setState({ status: 'signed_in', user: me.user, accounts: me.accounts, profiles: me.profiles, guest: false });
+
+  if (!carrying) {
+    setCarryOverPhase('idle');
+  } else if (await runCarryOver(me)) {
+    // Picks up the account and profile the move just made (the flag is gone, so this doesn't come back here).
+    await refreshMe();
+  }
 }
 
 /** Also called by lib/sync/engine.ts on an unrecoverable 401: session is invalid, drop back to signed-out. */
@@ -284,6 +303,39 @@ export async function endGuestSession(): Promise<void> {
   setState({ status: 'signed_out', user: null, accounts: [], profiles: [], guest: false });
 }
 
+/**
+ * "Create account" / "Save my work": leaves guest mode but keeps the guest's data, with a flag naming it.
+ * Sign-up then moves it into the new account (lib/auth/carryOver.ts). Until then the data just sits in
+ * Dexie: a reload goes back to being a guest (bootstrap), and the 48 hours still run.
+ */
+export async function startSaveWork(): Promise<void> {
+  const ids = await getKv<GuestIds>(GUEST_IDS_KEY);
+  if (!ids) {
+    await endGuestSession();
+    return;
+  }
+  await setKv<CarryOver>(CARRY_OVER_KEY, { guest: ids });
+  setGuestMode(false);
+  setState({ status: 'signed_out', user: null, accounts: [], profiles: [], guest: false });
+}
+
+/** "Try again" on the saving screen: the same `/me` fetch that starts the move, so it resumes wherever it stopped. */
+export async function retryCarryOver(): Promise<void> {
+  setCarryOverPhase('saving');
+  try {
+    await refreshMe();
+  } catch {
+    setCarryOverPhase('failed');
+  }
+}
+
+/** "Start without it" on the saving screen: gives up on the trial's work and carries on with an empty new account. */
+export async function skipCarryOver(): Promise<void> {
+  await clearLocalUserData();
+  setCarryOverPhase('idle');
+  await refreshMe().catch(() => undefined);
+}
+
 /** Run on a timer and when the tab becomes visible again: a guest left open past 48 hours is erased. */
 export async function expireGuestIfDue(): Promise<void> {
   if (!isGuestMode()) return;
@@ -297,9 +349,17 @@ async function bootstrap(): Promise<void> {
   // the app still sitting there, unlocked, next time anyone opens it.
   await exitParentMode();
 
-  if (await bootstrapGuest()) return;
-
   const tokens = await getTokens();
+  const signedIn = Boolean(tokens?.access_token);
+  const carryFlag = await getKv<CarryOver>(CARRY_OVER_KEY);
+  // Signed in with a move still pending (closed mid-way, or it failed): finish it, even past the 48 hours.
+  if (carryFlag && signedIn) setCarryOverPhase('saving');
+  else {
+    // The visitor never signed up: back to being a guest, so the flag is spent.
+    if (carryFlag) await db.kv.delete(CARRY_OVER_KEY);
+    if (await bootstrapGuest()) return;
+  }
+
   const cachedMe = await getKv<MeResponse>(ME_KEY);
 
   if (tokens?.access_token && cachedMe) {
@@ -312,7 +372,10 @@ async function bootstrap(): Promise<void> {
   try {
     await refreshMe();
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) await clearSession();
+    if (err instanceof ApiError && err.status === 401) {
+      await clearSession();
+      setCarryOverPhase('idle');
+    } else if (carryFlag) setCarryOverPhase('failed');
     // Any other error (offline, 5xx): keep the cached signed_in state.
   }
 }
