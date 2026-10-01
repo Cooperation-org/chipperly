@@ -123,6 +123,15 @@ export function SettingsMenu() {
               trailing={<Icon name="chevron" size={20} />}
               onTap={() => router.push('/chipper-chart/')}
             />
+            {Object.keys(profile.settings.image_credits ?? {}).length === 0 ? null : (
+              <ListRow
+                tile={<Icon name="image" size={20} />}
+                name="Image credits"
+                secondary="Where found pictures came from"
+                trailing={<Icon name="chevron" size={20} />}
+                onTap={() => router.push('/settings/credits/')}
+              />
+            )}
             {guest ? null : (
               <ListRow
                 tile={<Icon name="share" size={20} />}
