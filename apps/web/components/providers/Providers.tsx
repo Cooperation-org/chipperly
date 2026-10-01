@@ -8,6 +8,7 @@ import { startSync, stopSync } from '@/lib/sync/engine';
 import { useKv } from '@/lib/db/kv';
 import { SheetHost } from '@/components/ui/Sheet';
 import { ToastHost } from '@/lib/toast';
+import { reportError } from '@/lib/reportError';
 import { SwRegister } from '@/components/pwa/SwRegister';
 import { BackButtonHandler } from '@/components/native/BackButtonHandler';
 import { TimerKioskGuard } from '@/components/native/TimerKioskGuard';
@@ -47,11 +48,35 @@ function ReducedMotion(): null {
   return null;
 }
 
+/**
+ * Uncaught errors and rejected promises go to the server log (lib/reportError.ts).
+ * Only for a signed-in account: a guest's device sends nothing, and neither does a signed-out visitor.
+ */
+function ErrorReporter(): null {
+  const { status, guest } = useSession();
+  const on = status === 'signed_in' && !guest;
+
+  useEffect(() => {
+    if (!on) return;
+    const onError = (event: ErrorEvent): void => reportError(event.error ?? event.message);
+    const onRejection = (event: PromiseRejectionEvent): void => reportError(event.reason);
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
+  }, [on]);
+
+  return null;
+}
+
 export function Providers({ children }: { children: ReactNode }): ReactNode {
   return (
     <SessionProvider>
       <SyncProvider>
         <ReducedMotion />
+        <ErrorReporter />
         {children}
         <SheetHost />
         <ToastHost />

@@ -54,6 +54,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   basePath,
   assetPrefix: basePath,
+  // The build's commit, sent with error reports (lib/reportError.ts). Empty on a local dev build.
+  env: { NEXT_PUBLIC_GIT_SHA: (process.env.GIT_SHA ?? '').slice(0, 7) },
 };
 
 const withSerwist = withSerwistInit({
