@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { startGuestSession } from '@/lib/auth/session';
 import { db } from '@/lib/db/db';
+import { useKv } from '@/lib/db/kv';
+import { CARRY_OVER_KEY } from '@/lib/auth/carryOver';
 import { Button } from '@/components/ui/Button';
 import styles from './GuestEntry.module.css';
 
@@ -15,6 +17,15 @@ export function GuestEntry() {
   const [error, setError] = useState(false);
   // Sign-out keeps unsent edits on the device; starting a guest wipes the device, so don't offer it over them.
   const unsent = useLiveQuery(() => db.outbox.count(), []);
+  // A trial waiting to be saved would be erased by starting a new one.
+  const saving = useKv<unknown>(CARRY_OVER_KEY, null);
+  if (saving) {
+    return (
+      <div className={styles.wrap}>
+        <p className={styles.note}>Your trial work is saved when you create a new account here. Signing in to an account you already have erases it.</p>
+      </div>
+    );
+  }
   if (unsent !== 0) return null;
 
   async function start(): Promise<void> {

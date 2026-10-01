@@ -2,6 +2,8 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { SessionProvider, useSession } from '@/lib/auth/session';
+import { useCarryOverPhase } from '@/lib/auth/carryOver';
+import { CarryOverScreen } from '@/components/auth/CarryOverScreen';
 import { startSync, stopSync } from '@/lib/sync/engine';
 import { useKv } from '@/lib/db/kv';
 import { SheetHost } from '@/components/ui/Sheet';
@@ -21,12 +23,14 @@ interface DeviceSettings {
 /** Starts/stops the sync loop with the session: nothing to sync while signed out. */
 function SyncProvider({ children }: { children: ReactNode }): ReactNode {
   const { status } = useSession();
+  // Holds sync back while a guest's work is being moved into the new account: the old guest profile would 403 on pull.
+  const carry = useCarryOverPhase();
 
   useEffect(() => {
-    if (status !== 'signed_in') return;
+    if (status !== 'signed_in' || carry !== 'idle') return;
     startSync();
     return () => stopSync();
-  }, [status]);
+  }, [status, carry]);
 
   return children;
 }
@@ -51,6 +55,7 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
         {children}
         <SheetHost />
         <ToastHost />
+        <CarryOverScreen />
         <SwRegister />
         <BackButtonHandler />
         <TimerKioskGuard />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { endGuestSession, useSession } from '@/lib/auth/session';
+import { startSaveWork, useSession } from '@/lib/auth/session';
 import { GUEST_STARTED_AT_KEY } from '@/lib/auth/guest';
 import { guestTimeLeftLabel } from '@/lib/auth/guestExpiry';
 import { setKv, useKv, useKvLoaded } from '@/lib/db/kv';
@@ -29,9 +29,9 @@ export function GuestBanner() {
   // Wait for the saved choice, or a dismissed banner would flash on every load.
   if (!guest || startedAt === null || !dismissedLoaded || dismissed) return null;
 
-  // Erases the sample data first: a guest's rows can't move into an account (they'd count as foreign on sign-in anyway).
+  // Keeps the guest's work: sign-up moves it into the new account.
   async function createAccount(): Promise<void> {
-    await endGuestSession();
+    await startSaveWork();
     router.push('/sign-up/');
   }
 
@@ -40,7 +40,7 @@ export function GuestBanner() {
       <p className={styles.text}>
         Trying Chipperly. Erased in {guestTimeLeftLabel(startedAt, now)}.{' '}
         <button type="button" className={styles.create} onClick={() => void createAccount()}>
-          Create account
+          Save my work
         </button>
       </p>
       <IconButton icon="close" aria-label="Dismiss" onClick={() => void setKv<boolean>(DISMISSED_KEY, true)} />

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { endGuestSession, useSession } from '@/lib/auth/session';
+import { startSaveWork, useSession } from '@/lib/auth/session';
 import { GUEST_MESSAGE } from '@/lib/auth/guest';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -19,7 +19,7 @@ export function GuestGate({ children }: { children: ReactNode }) {
   if (!guest) return children;
 
   async function createAccount(): Promise<void> {
-    await endGuestSession();
+    await startSaveWork();
     router.push('/sign-up/');
   }
 
