@@ -108,3 +108,9 @@
 .confirmActions > * {
   flex: 1;
 }
+
+/* High contrast: the sheet is black on a black page and has no shadow there, so it gets an edge. */
+:global(html[data-contrast='cvi']) .panel {
+  border: 2px solid var(--color-border);
+  border-bottom: 0;
+}
