@@ -6,7 +6,7 @@
  * what was made, so both always agree. Skipping the interview keeps the old
  * fixed lists in defaults.ts.
  */
-import type { AgeBand, SetupAnswers } from '../schemas/profile.js';
+import type { AgeBand, FocusRoutine, SetupAnswers } from '../schemas/profile.js';
 
 export interface SeedStep {
   readonly name: string;
@@ -334,6 +334,64 @@ const ROUTINE_PACKS: Record<Exclude<SetupAnswers['routines'][number], 'dressed' 
   },
 };
 
+/** The "just one goal" choices, in the order the interview shows them. */
+export const FOCUS_TILES: readonly Tile<FocusRoutine>[] = [
+  { key: 'toilet', name: 'Toilet training', emoji: '🚽' },
+  { key: 'morning', name: 'Morning routine', emoji: '☀️' },
+  { key: 'bedtime', name: 'Bedtime', emoji: '🌙' },
+  { key: 'dressed', name: 'Getting dressed', emoji: '👕' },
+  { key: 'teeth', name: 'Brushing teeth', emoji: '🪥' },
+  { key: 'speech', name: 'Speech practice', emoji: '🗣️' },
+  { key: 'other', name: 'Something else', emoji: '🎯' },
+];
+
+/** Goals with no routine pack of their own. */
+const FOCUS_STEPS: Record<'dressed' | 'teeth', RoutinePack> = {
+  dressed: {
+    name: 'Getting Dressed',
+    emoji: '👕',
+    young: [
+      { name: 'Pick Clothes', emoji: '👚' },
+      { name: 'Pants', emoji: '👖' },
+      { name: 'Shirt', emoji: '👕' },
+      { name: 'Socks', emoji: '🧦' },
+      { name: 'Shoes', emoji: '👟' },
+    ],
+    older: [
+      { name: 'Pick Clothes', emoji: '👚' },
+      { name: 'Get Dressed', emoji: '👕' },
+      { name: 'Shoes', emoji: '👟' },
+    ],
+  },
+  teeth: {
+    name: 'Brushing Teeth',
+    emoji: '🪥',
+    young: [
+      { name: 'Toothpaste on Brush', emoji: '🪥' },
+      { name: 'Brush Teeth', emoji: '😁', duration_minutes: 2 },
+      { name: 'Spit and Rinse', emoji: '💧' },
+      { name: 'Put Brush Away', emoji: '🧼' },
+    ],
+    older: [
+      { name: 'Brush Teeth', emoji: '😁', duration_minutes: 2 },
+      { name: 'Rinse', emoji: '💧' },
+    ],
+  },
+};
+
+/** The one activity a "just one goal" profile starts with: a daily routine from the packs, or an empty one for "Something else". */
+function focusActivity(focus: NonNullable<SetupAnswers['focus']>, age_band: AgeBand, young: boolean): SeedActivity {
+  if (focus.routine === 'other') return { name: focus.name?.trim() || 'My goal', emoji: '🎯', recurrence: 'daily' };
+  const pack = focus.routine === 'dressed' || focus.routine === 'teeth' ? FOCUS_STEPS[focus.routine] : ROUTINE_PACKS[focus.routine];
+  return {
+    name: pack.name,
+    emoji: pack.emoji,
+    recurrence: 'daily',
+    recurrence_time: focus.routine === 'bedtime' ? BEDTIME_TIME[age_band] : pack.recurrence_time,
+    steps: young ? pack.young : pack.older,
+  };
+}
+
 const SCREEN_TIME_REWARDS: readonly SeedReward[] = [
   { name: 'Screen Time - 15 min', emoji: '📱', chip_cost: 5, screen_time_minutes: 15 },
   { name: 'Screen Time - 30 min', emoji: '📱', chip_cost: 5, screen_time_minutes: 30 },
@@ -359,6 +417,9 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
   const hasMorning = MORNING_KEYS.some((key) => answers.routines.includes(key));
 
   // Every activity here is for Home; the other places start empty.
+  if (answers.focus && !baby) {
+    return { locations, activities: [focusActivity(answers.focus, age_band, young)], rewards: rewardsFor(answers) };
+  }
   const activities: SeedActivity[] = baby
     ? [...BABY_DAY]
     : [
@@ -425,14 +486,18 @@ export function buildSeed(answers: SetupAnswers): SeedPlan {
     });
   }
 
+  return { locations, activities, rewards: rewardsFor(answers) };
+}
+
+/** Guided setup seeds none (the client creates them); otherwise the loved things, plus the always-available Free Choice. */
+function rewardsFor(answers: SetupAnswers): SeedReward[] {
+  if (answers.guided) return [];
   const rewards: SeedReward[] = [];
-  if (answers.guided) return { locations, activities, rewards };
   for (const love of answers.loves) {
     if (love.name === 'Screen time') rewards.push(...SCREEN_TIME_REWARDS);
     else rewards.push({ name: love.name, emoji: love.emoji, chip_cost: 5 });
   }
   // The free-time choice board needs at least one always-available choice.
   rewards.push({ name: 'Free Choice', emoji: '✨', chip_cost: 1, always_available: true });
-
-  return { locations, activities, rewards };
+  return rewards;
 }
