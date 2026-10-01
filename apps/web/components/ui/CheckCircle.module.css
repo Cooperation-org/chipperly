@@ -6,7 +6,8 @@
   flex-shrink: 0;
   padding: 0;
   border-radius: var(--radius-full);
-  border: 2px solid var(--color-border);
+  /* The muted text colour, not the border colour: an empty circle has to be seen on a white card. */
+  border: 2px solid var(--color-text-muted);
   background: var(--color-surface);
   color: transparent;
   cursor: pointer;
