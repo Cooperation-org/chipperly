@@ -1,6 +1,6 @@
 # Roadmap: the owner's notes, line by line
 
-The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned into a checklist, in her order and her words, with what the rebuild does about each line. Status as of 25 Sept 2026. Legend: **built** (in the app and covered by tests), **partly** (some of it), **not built**, **skipped on purpose** (with the reason). Screen numbers (S6, S32...) are `docs/ux-plan.md`.
+The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned into a checklist, in her order and her words, with what the rebuild does about each line. Status as of 26 Sept 2026 for her notes; the last section was updated on 1 Oct 2026. The feedback rounds of 30 Sept and 1 Oct (32 points, then the two beta testers) are not in this file. Legend: **built** (in the app and covered by tests), **partly** (some of it), **not built**, **skipped on purpose** (with the reason). Screen numbers (S6, S32...) are `docs/ux-plan.md`.
 
 ## Dashboard
 
@@ -124,5 +124,6 @@ The owner's "Notes on App So Far" (Google Doc, link in the team channel) turned 
 - Licensed Altone / Code Pro LC web fonts, or keep Alegreya (shipped now).
 - Google client id for Google sign-in; Apple only if store apps happen.
 - Counsel review of the privacy and terms drafts; HIPAA expectations, if any.
-- Hosting decision for production (our dedicated VM or her account).
+- Hosting: decided. The app runs on its own Contabo VPS at app.chipperlyapp.com since 29 Sept 2026.
+- Stripe keys, a price per account kind and the platform fee, to switch billing and community selling on.
 - The attitude-bonus reward (proposal in the 18 Sept meeting note): not started. The whole-routine bonus (25 Sept, 9) is a different reward.

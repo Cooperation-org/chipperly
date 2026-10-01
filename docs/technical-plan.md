@@ -1,5 +1,12 @@
 # Chipperly rebuild: technical plan
 
+> **Read this first (1 Oct 2026).** This is the plan as written on 17 Sept 2026. It still explains why
+> the system is shaped the way it is, but four decisions in it have changed since:
+> the app is live on its own Contabo VPS, not VM 200 (`deploy/contabo/README.md`);
+> billing is built (Stripe subscriptions and community selling, off until the keys are set);
+> a marketing site with a blog exists in `apps/site` on Cloudflare; and the community feature
+> was added (`docs/COMMUNITY.md`). Where this plan and `MAIN.md` disagree, `MAIN.md` is current.
+
 Status: plan only. Nothing deployed. Written 17 Sept 2026.
 
 Inputs: the reference Rails app at `reference-lovable/` (graph in `reference-lovable/graphify-out/`), the client feedback in `reference-lovable/PLAN-9-16.md`, the live features page, and the Cooperation-org cobox conventions (`shared-dev-vm-best-practices.md`, `app-vm-best-practices.md`, `platform-vm-best-practices.md`, `new-app-checklist.md`, `postgres-access.md`, `oauth-login-pattern.md`, `backup-strategy.md`).

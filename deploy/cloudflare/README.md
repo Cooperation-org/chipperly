@@ -1,5 +1,10 @@
 # Cloudflare deploy
 
+**Not in use.** The app went live on a Contabo VPS on 29 Sept 2026 (`deploy/contabo/`), and
+`app.chipperlyapp.com` points there. What follows is the Cloudflare design that was drafted
+first, kept in case hosting moves. The marketing site (`apps/site`) does run on Cloudflare and
+has its own README.
+
 `app.chipperlyapp.com` is one Worker. It serves the web export as static
 assets and sends `/api/*` to a single Cloudflare Container running the
 unchanged Fastify API. Postgres is on Neon's free tier. Media is in R2, served

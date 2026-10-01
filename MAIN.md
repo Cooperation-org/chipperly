@@ -1,6 +1,6 @@
 # Chipperly: start here
 
-One page with every link. Written 19 Sept 2026; keep it current when something moves.
+One page with every link. Written 19 Sept 2026, last updated 1 Oct 2026; keep it current when something moves.
 
 ## What it is
 
@@ -11,13 +11,15 @@ Visual supports for neurodivergent children (Today schedule, chip board, timer, 
 | What | Where |
 | --- | --- |
 | Code | <https://github.com/Cooperation-org/chipperly> (`main` is the only branch; every push runs CI) |
-| Demo | <https://demos.linkedtrust.us/chipperly-next/> on the shared dev VM 200 (`/home/mhany/chipperly`, units `tmp-chipperly-next` + `tmp-chipperly-next-db`, nginx `/etc/nginx/app-proxies/chipperly-next.conf`). Registry row `chipperly-next` in `Cooperation-org/cobox/app-registry.md`. Not the old Rails demo (`chipperly`, golda's) |
-| Demo sign-in | invite code for new accounts is `chipper-demo` (`BETA_INVITE_CODE`); the shared test login is in the team channel, not here |
+| Live app | <https://app.chipperlyapp.com> on Chipperly's own Contabo VPS since 29 Sept 2026 (`~/chipperly`, systemd unit `chipperly`, Caddy, system PostgreSQL 18, uploads on disk). Setup, update, backups and restore are in `deploy/contabo/README.md`. `/api/health` names the running commit |
+| Marketing site | <https://chipperlyapp.com>, `apps/site` (Next.js + Payload on a Cloudflare Worker, D1 and R2, with the blog). Deployed by hand from the Actions tab, workflow "Deploy site" |
+| Old demo | `demos.linkedtrust.us/chipperly-next/` on the shared dev VM 200 was switched off on 29 Sept 2026 and redirects to the live app. `deploy/vm200/` is kept for reference. Not the old Rails demo (`chipperly`, golda's) |
+| Sign-in | sign-up is open and there is a no-account guest mode; the shared test login is in the team channel, not here |
 | Owner's feedback doc | "Notes on App So Far", Google Doc (link in the team channel); turned into [ROADMAP.md](ROADMAP.md) |
 | Owner's brand files | `brand/` (logo SVGs, lockups, favicon package); the brand kit PDF is in her Drive share |
 | Old Rails app | <https://github.com/samplep182/chipperly> (`db/schema.rb` copied to `docs/reference/rails-schema.rb`; notes in `docs/reference/rails-app-analysis.md`); the importer is `docs/import-rails.md` |
 | Docs | `docs/CONTRACTS.md` (names, shapes, env vars, sync rules: read before changing code), `docs/technical-plan.md` (why the system is shaped this way, production layout), `docs/ux-plan.md` (every screen), `docs/brand.md` (colours, fonts) |
-| CI | GitHub Actions, `.github/workflows/ci.yml`: typecheck, lint, unit tests, build, then Playwright at phone / tablet / desktop |
+| CI | GitHub Actions, `.github/workflows/ci.yml`: typecheck, lint, unit tests, build, then Playwright at phone / tablet / desktop / iPad (WebKit) |
 
 ## Run it locally
 
@@ -32,26 +34,28 @@ pnpm -F @chipperly/web dev                  # http://localhost:3000
 
 Checks: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`, then `pnpm e2e` (needs the build; `pnpm e2e --project=phone e2e/specs/today.spec.ts` for one spec). `e2e/README.md` has the details.
 
-## Deploy the demo
+## Deploy
 
 ```bash
-ssh linkedtrust                                              # VM 200, user mhany
-bash /home/mhany/chipperly/deploy/vm200/deploy.sh            # pull main, install, build, migrate
-sudo systemctl restart tmp-chipperly-next                    # pick up the new API build
-curl -s http://127.0.0.1:8064/chipperly-next/api/health
+ssh mhany@89.117.20.203                          # the Contabo VPS, key only
+bash ~/chipperly/deploy/contabo/deploy.sh        # pull main, install, build, migrate, restart
+curl -s https://app.chipperlyapp.com/api/health  # "commit" is the build that is live
 ```
 
-`deploy/vm200/README.md` covers the root steps, removal and the database. Production is not set up: it goes on a dedicated app VM once the client approves our hosting (`docs/technical-plan.md` section 10; `scripts/deploy.sh` is the reference sequence).
+The script only moves forward from `main` (`git pull --ff-only`), so going back means reverting on `main`, pushing, and running it again. A database and uploads backup runs every night at 03:17 server time and can be run by hand before a risky deploy (`~/bin/chipperly-backup.sh`).
 
-## Things to know before demoing
+## Things to know about the live app
 
-- Email is off on the demo (no `RESEND_API_KEY`), so verification, password-reset and invite mails only print to the API log. Invites still work: the sheet shows the accept link to copy and send by hand, and says so. Set the key in `apps/api/.env` and restart to turn mail on.
+- Real families use it. The database is not a throwaway.
+- Email is on (Resend). Invites also show the accept link to copy and send by hand.
 - Google and Apple sign-in are built but hidden until their client ids are set.
-- Sign-up is closed behind the invite code; care-team invitees never need it.
-- The demo database is a throwaway embedded Postgres; anything typed in can vanish on a rebuild.
+- Billing and community selling are built but return 404 until the Stripe keys are set. Nothing locks anyone out meanwhile.
+- In-app image search (Openverse) and push notifications (Firebase) are configured.
+- The backups are on the same disk as the data. A copy somewhere else is not set up yet.
+- There is no error reporting: server errors go to `journalctl -u chipperly`, browser errors go nowhere.
 
 ## People
 
 - Build and this doc: Muhammad Hany (`mhany` on the VM).
-- VM and org infra: golda.
+- Shared dev VM and org infra: golda. The Contabo server is ours.
 - Client: Taymar Pixley, Chipperly LLC.

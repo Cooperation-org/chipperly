@@ -61,9 +61,9 @@ npx playwright install webkit     # ipad-webkit
   and back, then reconnect and confirm Sync now catches up.
 - `photo-upload.spec.ts` — pick a photo for an activity and for a profile
   avatar (Settings > Edit profile), confirm the tile updates and the row
-  shows the image, and that sync completes. Also carries two `test.fail()`
-  cases that assert the *correct* behaviour for a confirmed app bug (see
-  History) so they stay visibly red without failing the run.
+  shows the image, and that sync completes. Two more tests check that the id
+  a synced row references resolves through the API (the media id bug in
+  History).
 
 Every spec file runs its tests `serial` against one shared `page` (tokens
 live in IndexedDB, not cookies, so `storageState` doesn't carry auth —
@@ -111,19 +111,12 @@ coverage impossible on this project, so the affected tests use
 The first full run of this suite found four app bugs through the UI (invite accept rejected on an empty JSON body, PIN hashes that differed between server and client, sync pushes rejected as stale right after a row was created, and a first pull that ran before the new profile existed). All four are fixed with regression tests; the flows are ordinary passing tests now.
 
 `photo-upload.spec.ts` found a fifth: `POST /media`
-(`apps/api/src/routes/media.ts`) ignores the client's `media_id` multipart
-field and mints its own `randomUUID()` for the stored row, and
-`uploadPending()` (`apps/web/lib/media/upload.ts`) never reads the response
-body to learn that id. So the id a synced record actually references
-(`photo_id` / `avatar_photo_id`, assigned client-side before the upload
-even starts) never matches any media row the server holds — confirmed by
-intercepting the `POST /media` response, which 201s with a fresh id nothing
-ever reconciles back onto the row. `GET /api/media/<photo_id>` 404s
-forever, for every client that doesn't already hold the original local
-blob (any other caregiver device, or this one after its IndexedDB cache is
-cleared). Not fixed yet: the two `photo-upload.spec.ts` tests that assert
-the correct behaviour are marked `test.fail()` so they document this
-without failing the run.
+(`apps/api/src/routes/media.ts`) ignored the client's `media_id` multipart
+field and minted its own id, so the `photo_id` a synced row carried never
+matched a media row on the server and `GET /api/media/<photo_id>` returned 404
+on every other device. Fixed: the route now stores the upload under the
+client's id, and the two tests that were marked `test.fail()` are ordinary
+passing tests.
 
 ## The one API route this suite owns
 
