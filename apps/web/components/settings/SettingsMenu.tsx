@@ -136,6 +136,18 @@ export function SettingsMenu() {
       ) : null}
 
       <div className={styles.section}>
+        <span className={styles.sectionTitle}>Help</span>
+        <div className={styles.card}>
+          <ListRow
+            tile={<Icon name="book" size={20} />}
+            name="How to use Chipperly"
+            trailing={<Icon name="chevron" size={20} />}
+            onTap={() => router.push('/settings/guide/')}
+          />
+        </div>
+      </div>
+
+      <div className={styles.section}>
         <span className={styles.sectionTitle}>Library</span>
         <div className={styles.card}>
           <ListRow tile={<Icon name="star" size={20} />} name="Activities" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/library/activities/')} />
