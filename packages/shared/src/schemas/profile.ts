@@ -61,6 +61,13 @@ export const SetupAnswersSchema = z.object({
 });
 export type SetupAnswers = z.infer<typeof SetupAnswersSchema>;
 
+/** Attribution text for one openly licensed picture, and the page it came from. */
+export const ImageCreditSchema = z.object({
+  text: z.string().min(1).max(600),
+  url: z.string().max(600).nullable(),
+});
+export type ImageCredit = z.infer<typeof ImageCreditSchema>;
+
 /**
  * Per-profile settings (technical-plan.md section 5). Existing rows still
  * hold `{}`; every field here is optional so old rows keep parsing.
@@ -128,6 +135,12 @@ export const ProfileSettingsSchema = z
     allowed_app_packages: z.array(z.string()).optional(),
     /** Apps allowed for a caregiver-granted window (e.g. "YouTube for 1 hour"), see TimedAppAllowanceSchema. */
     timed_app_allowances: z.array(TimedAppAllowanceSchema).optional(),
+    /**
+     * Credits for openly licensed pictures found with in-app image search (Openverse), keyed by
+     * media id. Shown on Settings > Image credits. Stored here, not on the media row, so no
+     * migration is needed and it syncs with the profile like every other setting.
+     */
+    image_credits: z.record(z.string(), ImageCreditSchema).optional(),
     /** From the setup interview; picks seed packs now, copy tone later. Absent on profiles made before it existed or with setup skipped. */
     age_band: AgeBandSchema.optional(),
     /** The full setup interview answers, kept for reruns and the planned AI setup. */

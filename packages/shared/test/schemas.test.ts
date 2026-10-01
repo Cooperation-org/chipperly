@@ -30,7 +30,7 @@ import { ChipLedgerSchema } from '../src/schemas/chips.js';
 import { hhmmSchema, isoDateSchema, SyncColumnsSchema, uuidSchema } from '../src/schemas/common.js';
 import { LocationSchema } from '../src/schemas/location.js';
 import { MediaSchema } from '../src/schemas/media.js';
-import { ProfileSchema } from '../src/schemas/profile.js';
+import { ProfileSchema, ProfileSettingsSchema } from '../src/schemas/profile.js';
 import { RewardSchema } from '../src/schemas/reward.js';
 import { ScheduleItemSchema, StepCompletionSchema } from '../src/schemas/schedule.js';
 import { ShareViewSchema } from '../src/schemas/share.js';
@@ -527,5 +527,15 @@ describe('share schema', () => {
       working_for_reward: { name: 'Movie Time', emoji: '🎬', chip_cost: 5 },
       updated_at: now,
     });
+  });
+});
+
+describe('ProfileSettingsSchema image_credits', () => {
+  it('is optional, so old settings still parse', () => {
+    expect(ProfileSettingsSchema.parse({})).toEqual({});
+  });
+  it('keeps a credit per media id', () => {
+    const settings = { image_credits: { abc: { text: '"Cat" by Jo (CC BY 4.0)', url: 'https://example.org/cat' } } };
+    expect(ProfileSettingsSchema.parse(settings)).toEqual(settings);
   });
 });
