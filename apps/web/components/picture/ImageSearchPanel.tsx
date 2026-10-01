@@ -96,7 +96,7 @@ export function ImageSearchPanel({ initialQuery, onPick }: ImageSearchPanelProps
         {loading && page === 0 ? 'Searching...' : null}
         {error}
         {!loading && !error && searched && results.length === 0 ? `No images found for "${searched}". Try another word.` : null}
-        {!error && results.length > 0 ? `${total.toLocaleString('en-US')} images found. Tap one to use it.` : null}
+        {!error && results.length > 0 ? `${total.toLocaleString('en-US')} ${total === 1 ? 'image' : 'images'} found. Tap one to use it.` : null}
       </div>
       {results.length > 0 ? (
         <ul className={styles.grid}>
