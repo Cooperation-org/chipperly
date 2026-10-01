@@ -13,3 +13,10 @@
   margin: 0;
   padding: 0;
 }
+
+.heading {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}

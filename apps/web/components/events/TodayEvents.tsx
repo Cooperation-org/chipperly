@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo } from 'react';
+import { todayIso } from '@chipperly/shared/helpers/date';
 import { daysUntilLabel, dismissReminder, eventsOnDate, remindersOnDate, useDayEvents } from '@/lib/data/events';
 import { IconButton } from '@/components/ui/IconButton';
 import { useSheet } from '@/components/ui/Sheet';
+import { weekdayName } from '@/components/schedule/todayModel';
 import { EventLine } from './EventLine';
 import { EventSheet } from './EventSheet';
 import styles from './TodayEvents.module.css';
@@ -26,15 +28,20 @@ export function TodayEvents({ profileId, isoDate }: TodayEventsProps) {
   const reminders = useMemo(() => remindersOnDate(events, isoDate), [events, isoDate]);
 
   if (happening.length === 0 && reminders.length === 0) return null;
+  const isToday = isoDate === todayIso();
 
   return (
     <section className={styles.band} aria-label="Events">
       {happening.length > 0 ? (
-        <ul className={styles.list}>
+        <h2 className={styles.heading}>{isToday ? "Today's events" : `Events on ${weekdayName(isoDate)}`}</h2>
+      ) : null}
+      {happening.length > 0 ? (
+        <ul className={styles.list} aria-label="Happening">
           {happening.map((event) => (
             <EventLine
               key={event.id}
               event={event}
+              kicker={isToday ? 'Today' : undefined}
               actions={
                 <IconButton
                   icon="edit"
