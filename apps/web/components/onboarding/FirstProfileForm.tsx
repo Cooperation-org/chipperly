@@ -64,7 +64,7 @@ export function FirstProfileForm() {
       await refreshMe().catch(() => undefined);
       setActiveProfileId(profile.id);
       // The server made no locations or rewards for guided answers; they are created here, with their photos.
-      if (picks) await saveGuidedSetup(profile.id, picks).catch(() => toast("Couldn't save the places and rewards. Add them in settings."));
+      if (picks) await saveGuidedSetup(profile.id, picks).catch(() => toast("Couldn't save the places and rewards. Add them in settings.", { carry: true }));
       router.push('/onboarding/ready/');
     } catch (err) {
       setError(err instanceof TimeoutError ? TIMEOUT_MESSAGE : "Couldn't save that. Try again.");

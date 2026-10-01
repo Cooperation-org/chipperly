@@ -122,7 +122,7 @@ export function StoryForm() {
   async function handleDelete(): Promise<void> {
     if (!id) return;
     await deleteStory(id);
-    toast(`${title || 'Story'} deleted`, { undo: () => void restore('social_stories', id) });
+    toast(`${title || 'Story'} deleted`, { undo: () => void restore('social_stories', id), carry: true });
     router.push('/stories/');
   }
 

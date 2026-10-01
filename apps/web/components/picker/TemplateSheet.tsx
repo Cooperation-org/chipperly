@@ -48,7 +48,7 @@ function TemplateDetail({ template }: { template: RoutineTemplate }) {
     setSaving(true);
     const id = await addTemplate(template, profile.id);
     close();
-    toast('Added. Change anything you like.');
+    toast('Added. Change anything you like.', { carry: true });
     router.push(`/activity/edit/?id=${id}`);
   }
 

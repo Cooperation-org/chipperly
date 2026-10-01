@@ -11,6 +11,8 @@ export interface ToastOptions {
   action?: string;
   onAction?: () => void;
   duration_ms?: number;
+  /** Fired just before a navigation and meant for the screen being opened: survives that one route change. */
+  carry?: boolean;
 }
 
 interface ToastState {
@@ -18,6 +20,7 @@ interface ToastState {
   message: string;
   actionLabel?: string;
   onAction?: () => void;
+  carry?: boolean;
 }
 
 // Module singleton: one toast at a time, read via useSyncExternalStore so any
@@ -45,13 +48,13 @@ function getServerSnapshot() {
 }
 
 export function toast(message: string, opts: ToastOptions = {}): void {
-  const { undo, action, onAction, duration_ms = 5000 } = opts;
+  const { undo, action, onAction, duration_ms = 5000, carry } = opts;
   const actionLabel = action ?? (undo ? 'Undo' : undefined);
   const handler = onAction ?? undo;
 
   if (hideTimer) clearTimeout(hideTimer);
   counter += 1;
-  current = { id: counter, message, actionLabel, onAction: handler };
+  current = { id: counter, message, actionLabel, onAction: handler, carry };
   emit();
   hideTimer = setTimeout(() => {
     current = null;
@@ -71,9 +74,10 @@ export function ToastHost() {
   const pathname = usePathname();
 
   // A toast fired on one screen must never bleed onto the next screen the
-  // caregiver navigates to.
+  // caregiver navigates to, unless it was fired for that screen (`carry`).
   useEffect(() => {
-    dismiss();
+    if (current?.carry) current.carry = false;
+    else dismiss();
   }, [pathname]);
 
   if (!state) return null;
