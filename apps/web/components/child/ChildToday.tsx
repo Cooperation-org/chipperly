@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Capacitor } from '@capacitor/core';
-import { todayIso } from '@chipperly/shared/helpers/date';
+import { useTodayIso } from '@/lib/useTodayIso';
 import { exitParentMode, useLock, useSavedLockOptions } from '@/lib/device/settings';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -87,7 +87,7 @@ export function ChildToday() {
   const savedOptions = useSavedLockOptions(profileId ?? '');
   const celebrationsOn = locked_profile_id ? options.celebrations !== false : savedOptions.celebrations;
   const { celebrate, layer: celebrationLayer } = useCelebrate(celebrationsOn);
-  const [isoDate] = useState(() => todayIso());
+  const isoDate = useTodayIso();
 
   const profile = useLiveQuery(() => (profileId ? db.profiles.get(profileId) : undefined), [profileId]);
   // Same order as the caregiver's Today (groupByPartOfDay): untimed first, then morning/afternoon/evening.
