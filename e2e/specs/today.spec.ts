@@ -150,7 +150,9 @@ test.describe('today', () => {
   });
 
   test('S9 create a new activity and add it to today', async () => {
-    await page.getByRole('button', { name: 'Add activity', exact: true }).click();
+    // The floating button by its aria-label: while the day reloads after the date nav above, the empty state
+    // briefly shows a second button with the same name.
+    await page.locator('button[aria-label="Add activity"]').click();
     const sheet = page.getByRole('dialog');
     await sheet.getByRole('button', { name: 'Daily task or routine', exact: true }).click();
     await page.waitForURL('**/activity/edit/**');
