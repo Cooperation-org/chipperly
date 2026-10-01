@@ -47,6 +47,7 @@ import { useCanSpeak } from '@/lib/useCanSpeak';
 import { DateNav } from './DateNav';
 import { DayNote, DayNoteAddButton } from './DayNote';
 import { ComingUp } from '@/components/events/ComingUp';
+import { EventSheet } from '@/components/events/EventSheet';
 import { TodayEvents } from '@/components/events/TodayEvents';
 import { TeamCheckupSheet } from '@/components/feelings/FeelingSheets';
 import { ItemSheet } from './ItemSheet';
@@ -187,6 +188,7 @@ export function TodayScreen() {
           close();
           router.push(`/activity/edit/?add_to=${isoDate}&routine=1`);
         }}
+        onCreateEvent={() => open(<EventSheet profileId={profileId} isoDate={isoDate} />, { title: 'Add an event' })}
       />,
       { title },
     );

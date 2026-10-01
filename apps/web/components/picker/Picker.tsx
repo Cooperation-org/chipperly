@@ -25,12 +25,14 @@ export interface PickerProps {
   routines?: boolean;
   /** kind 'activity' only: the dashed "New routine" tile at the end of the Routines section. Omit to not show that tile (e.g. callers with nowhere sensible to send it). */
   onCreateRoutine?: () => void;
+  /** kind 'activity' only: when set, the top of the sheet offers two big choices (daily task or routine, one-off event) instead of one create button. */
+  onCreateEvent?: () => void;
 }
 
 const SEARCH_THRESHOLD = 12;
 
 /** Sheet content for adding an activity to the day or picking a working-for reward. One component, two data sources. */
-export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routines = true, onCreateRoutine }: PickerProps) {
+export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routines = true, onCreateRoutine, onCreateEvent }: PickerProps) {
   const [query, setQuery] = useState('');
   const showRoutines = kind === 'activity' && routines;
 
@@ -82,9 +84,22 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
         />
       ) : null}
 
-      <Button fullWidth icon="plus" onClick={onCreateNew}>
-        {`Create a new ${kind}`}
-      </Button>
+      {kind === 'activity' && onCreateEvent ? (
+        <div className={styles.choices}>
+          <button type="button" className={styles.choice} aria-label="Daily task or routine" onClick={onCreateNew}>
+            <span className={styles.choiceTitle}>Daily task or routine</span>
+            <span className={styles.choiceHint}>Repeats on days you choose. Has steps and chips.</span>
+          </button>
+          <button type="button" className={styles.choice} aria-label="One-off event or appointment" onClick={onCreateEvent}>
+            <span className={styles.choiceTitle}>One-off event or appointment</span>
+            <span className={styles.choiceHint}>Happens on a date, like a doctor visit or a lesson. Can repeat weekly.</span>
+          </button>
+        </div>
+      ) : (
+        <Button fullWidth icon="plus" onClick={onCreateNew}>
+          {`Create a new ${kind}`}
+        </Button>
+      )}
 
       {kind === 'activity' ? (
         <>
