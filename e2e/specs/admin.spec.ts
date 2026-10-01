@@ -22,8 +22,9 @@ test('a super admin sees the dashboard, sets the early access discount, and exte
   await people.getByLabel('Search name or email').fill(`admin-${testInfo.project.name}`);
   // Wait for the search to narrow the list to just them (it runs a beat after typing).
   await expect(people.getByText(/@example\.com$/)).toHaveCount(1);
-  // They signed up inside EARLYCHIPPER's dates, so they already have their own code.
-  await expect(people.getByText(/^Trial: 21 days left · EARLY-/)).toBeVisible();
+  // Signed up inside EARLYCHIPPER's dates, they already have their own code. The offer ends on 24 Oct 2026; after that there is no code.
+  const offerOpen = Date.now() <= Date.UTC(2026, 9, 24, 23, 59, 59);
+  await expect(people.getByText(offerOpen ? /^Trial: 21 days left · EARLY-/ : /^Trial: 21 days left$/)).toBeVisible();
   await people.getByRole('button', { name: '+7 days', exact: true }).click();
   await expect(people.getByText(/^Trial: 28 days left/)).toBeVisible();
   await expectNoOverflow(page, 'admin dashboard');
