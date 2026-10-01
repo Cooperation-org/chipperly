@@ -155,7 +155,13 @@ export function SheetHost() {
   if (!isOpen || !top) return null;
 
   return (
-    <div className={[styles.overlay, styles.visible].join(' ')} onClick={() => close()}>
+    <div
+      className={[styles.overlay, styles.visible].join(' ')}
+      onClick={() => {
+        // In the person's view a stray tap beside the sheet must not throw away a half-done reorder or check-up; the X still closes it.
+        if (document.documentElement.dataset.mode !== 'child') close();
+      }}
+    >
       <div
         ref={panelRef}
         className={styles.panel}
