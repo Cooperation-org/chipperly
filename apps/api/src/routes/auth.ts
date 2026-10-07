@@ -19,6 +19,7 @@ import { hashPassword, verifyPassword } from '../lib/password.js';
 import { linkBase } from '../lib/links.js';
 import { requireUser } from '../plugins/auth.js';
 import { sendMail } from '../lib/mailer.js';
+import { renderEmail } from '../lib/emailTemplate.js';
 import { verifyGoogleIdToken, type VerifiedIdentity } from '../lib/google.js';
 import { verifyAppleIdToken } from '../lib/apple.js';
 import { issueTokens, revokeByRefreshToken, revokeSession, rotateRefreshToken } from '../lib/tokens.js';
@@ -72,7 +73,11 @@ async function sendVerificationEmail(userId: string, email: string, request: Fas
   const sent = await sendMail({
     to: email,
     subject: 'Verify your Chipperly email',
-    text: `Welcome to Chipperly! Verify your email address: ${link}`,
+    ...renderEmail({
+      heading: 'Welcome to Chipperly',
+      paragraphs: ['Please confirm your email address to finish setting up your account.'],
+      action: { label: 'Verify my email', url: link },
+    }),
   });
   if (!sent) await db.delete(email_verifications).where(eq(email_verifications.id, id));
   return sent;
@@ -274,7 +279,11 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       await sendMail({
         to: email,
         subject: 'Reset your Chipperly password',
-        text: `Reset your password: ${link}`,
+        ...renderEmail({
+          heading: 'Reset your password',
+          paragraphs: ['We got a request to reset the password for your Chipperly account. If that was not you, you can ignore this email.'],
+          action: { label: 'Choose a new password', url: link },
+        }),
       });
     }
 

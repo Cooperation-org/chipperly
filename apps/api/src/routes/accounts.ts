@@ -32,6 +32,7 @@ import { AppError } from '../plugins/errors.js';
 import { assertCanCreate } from '../lib/trial.js';
 import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
+import { renderEmail } from '../lib/emailTemplate.js';
 import { sendDataMessage, sendPush, sendWebPush } from '../lib/push.js';
 import { seedProfile } from '../seed/seedProfile.js';
 import { env } from '../env.js';
@@ -87,7 +88,12 @@ async function sendInviteEmail(params: {
   await sendMail({
     to: params.to,
     subject: `${params.inviterName} invited you to ${params.accountName} on Chipperly`,
-    text: `${params.inviterName} invited you to join ${params.accountName} on Chipperly.\n\nAccept the invite: ${link}\n\nThis link expires in 7 days.`,
+    ...renderEmail({
+      heading: `Join ${params.accountName} on Chipperly`,
+      paragraphs: [`${params.inviterName} invited you to join ${params.accountName} on Chipperly.`],
+      action: { label: 'Accept the invite', url: link },
+      note: 'This link expires in 7 days.',
+    }),
   });
   return link;
 }

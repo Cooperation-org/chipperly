@@ -7,6 +7,7 @@ import { db } from '../db/client.js';
 import { account_members, promo_codes, users } from '../db/schema/accounts.js';
 import { stripe_events, subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
+import { renderEmail, siteOrigin } from './emailTemplate.js';
 import { sendMail } from './mailer.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -200,25 +201,53 @@ export function subscriptionNotice(prev: SubState | undefined, next: SubState): 
 const fmtDate = (ms: number | null): string =>
   ms === null ? 'the end of the current period' : new Date(ms).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
 
-export function noticeMail(notice: Notice, periodEnd: number | null): { subject: string; text: string } {
-  const manage = `${env.APP_ORIGIN ?? 'https://app.chipperlyapp.com'}/settings/billing/`;
+export function noticeMail(notice: Notice, periodEnd: number | null): { subject: string; text: string; html: string } {
+  const manage = `${siteOrigin()}/settings/billing/`;
+  const end = fmtDate(periodEnd);
   switch (notice) {
     case 'started':
-      return { subject: 'Your Chipperly subscription is active', text: `Thanks for subscribing to Chipperly. Your subscription is active and renews on ${fmtDate(periodEnd)}.
-
-You can manage or cancel it any time: ${manage}` };
+      return {
+        subject: 'Your Chipperly subscription is active',
+        ...renderEmail({
+          heading: 'Your subscription is active',
+          paragraphs: ['Thanks for subscribing to Chipperly.', `Your subscription renews on ${end}. You can manage or cancel it any time.`],
+          action: { label: 'Manage subscription', url: manage },
+        }),
+      };
     case 'cancel_scheduled':
-      return { subject: 'Your Chipperly subscription will end', text: `You cancelled your Chipperly subscription. It stays active until ${fmtDate(periodEnd)}, and you will not be charged again. No refund is due, because you keep access for the period you paid for.
-
-Changed your mind? You can keep it from ${manage}` };
+      return {
+        subject: 'Your Chipperly subscription will end',
+        ...renderEmail({
+          heading: 'Your subscription will end',
+          paragraphs: [
+            `You cancelled your Chipperly subscription. It stays active until ${end}, and you will not be charged again.`,
+            'No refund is due, because you keep access for the period you paid for.',
+          ],
+          action: { label: 'Keep my subscription', url: manage },
+          note: 'Changed your mind? Use the button before the end date and nothing changes.',
+        }),
+      };
     case 'payment_failed':
-      return { subject: 'We could not charge your card for Chipperly', text: `Your latest Chipperly payment did not go through. Your access continues while Stripe retries the card.
-
-Please update your payment method: ${manage}` };
+      return {
+        subject: 'We could not charge your card for Chipperly',
+        ...renderEmail({
+          heading: 'Your payment did not go through',
+          paragraphs: ['Your latest Chipperly payment failed. Your access continues while Stripe tries the card again.', 'Please check or replace your payment method.'],
+          action: { label: 'Update payment method', url: manage },
+        }),
+      };
     case 'ended':
-      return { subject: 'Your Chipperly subscription has ended', text: `Your Chipperly subscription ended. Everything you made is still there to read, edit and export. After a short grace period, creating new routines pauses until you subscribe again.
-
-Resubscribe any time: ${manage}` };
+      return {
+        subject: 'Your Chipperly subscription has ended',
+        ...renderEmail({
+          heading: 'Your subscription has ended',
+          paragraphs: [
+            'Everything you made is still there to read, edit and export.',
+            'After a short grace period, creating new routines pauses until you subscribe again.',
+          ],
+          action: { label: 'Subscribe again', url: manage },
+        }),
+      };
   }
 }
 
@@ -228,8 +257,8 @@ async function mailAccountAdmins(accountId: string, notice: Notice, periodEnd: n
     .from(account_members)
     .innerJoin(users, eq(users.id, account_members.user_id))
     .where(and(eq(account_members.account_id, accountId), eq(account_members.role, 'admin')));
-  const { subject, text } = noticeMail(notice, periodEnd);
-  for (const { email } of admins) await sendMail({ to: email, subject, text });
+  const { subject, text, html } = noticeMail(notice, periodEnd);
+  for (const { email } of admins) await sendMail({ to: email, subject, text, html });
 }
 
 // ---- promo codes as Stripe discounts ----

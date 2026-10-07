@@ -13,6 +13,7 @@ import { rewards } from '../db/schema/rewards.js';
 import { chip_ledger } from '../db/schema/chips.js';
 import { social_stories, story_pages } from '../db/schema/stories.js';
 import { sendMail } from '../lib/mailer.js';
+import { renderEmail, siteOrigin } from '../lib/emailTemplate.js';
 import { openRailsSource, type RailsSource } from './source.js';
 import { railsId, railsLocationId } from './ids.js';
 import { excludedSet } from './upsert.js';
@@ -81,11 +82,15 @@ async function sendPasswordResetLink(userId: string, email: string): Promise<voi
     expires_at: Date.now() + PASSWORD_RESET_TTL_MS,
     used_at: null,
   });
-  const link = `${env.APP_ORIGIN ?? ''}${env.BASE_PATH}/reset-password/?token=${rawToken}`;
+  const link = `${siteOrigin()}/reset-password/?token=${rawToken}`;
   await sendMail({
     to: email,
     subject: 'Set your Chipperly password',
-    text: `Your Chipperly account was moved over from the beta. Set a password to sign in: ${link}`,
+    ...renderEmail({
+      heading: 'Your Chipperly account has moved',
+      paragraphs: ['Your Chipperly account was moved over from the beta. Set a password to sign in.'],
+      action: { label: 'Set my password', url: link },
+    }),
   });
 }
 
