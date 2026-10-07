@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { and, eq, lte } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AccountKind } from '@chipperly/shared/schemas/account';
-import { SubscriptionStatus } from '@chipperly/shared/schemas/billing';
+import { SubscriptionStatus, type BillingPlan } from '@chipperly/shared/schemas/billing';
 import { db } from '../db/client.js';
 import { account_members, promo_codes, users } from '../db/schema/accounts.js';
 import { stripe_events, subscriptions } from '../db/schema/subscriptions.js';
@@ -54,6 +54,18 @@ export function verifyStripeSignature(
 }
 
 /** The env price id for an account kind; undefined = the owner has not set one, so that kind cannot check out. */
+/** Every price this kind can be bought at: the default one first, then the yearly one if the owner set it. */
+export function priceIdsForKind(kind: AccountKind): Array<{ plan: BillingPlan; id: string }> {
+  const yearly: Record<AccountKind, string | undefined> = {
+    individual: env.STRIPE_PRICE_INDIVIDUAL_YEARLY,
+    household: env.STRIPE_PRICE_HOUSEHOLD_YEARLY,
+    agency: env.STRIPE_PRICE_AGENCY_YEARLY,
+    supported: env.STRIPE_PRICE_SUPPORTED_YEARLY,
+  };
+  const base = priceIdForKind(kind);
+  return [...(base ? [{ plan: 'default' as const, id: base }] : []), ...(yearly[kind] && base ? [{ plan: 'yearly' as const, id: yearly[kind]! }] : [])];
+}
+
 export function priceIdForKind(kind: AccountKind): string | undefined {
   const byKind: Record<AccountKind, string | undefined> = {
     individual: env.STRIPE_PRICE_INDIVIDUAL,

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import type { BillingStatus } from '@chipperly/shared/schemas/billing';
+import { BillingCheckoutBodySchema, type BillingStatus } from '@chipperly/shared/schemas/billing';
 import { db } from '../db/client.js';
 import { account_members, accounts, users } from '../db/schema/accounts.js';
 import { subscriptions } from '../db/schema/subscriptions.js';
@@ -14,6 +14,7 @@ import {
   loadPersonalDiscount,
   parseStripeEvent,
   priceIdForKind,
+  priceIdsForKind,
   stripeRequest,
   verifyStripeSignature,
 } from '../lib/stripe.js';
@@ -75,26 +76,29 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     const { accountId, userId } = caller(request);
     const { kind, isAdmin, sub } = await accountContext(accountId, userId);
     const priceId = priceIdForKind(kind);
-    let price: BillingStatus['price'] = null;
-    if (priceId) {
+    const prices: BillingStatus['prices'] = [];
+    for (const { plan, id } of priceIdsForKind(kind)) {
       try {
-        price = await readPrice(priceId);
+        const read = await readPrice(id);
+        if (read) prices.push({ plan, ...read });
       } catch (err) {
         request.log.warn({ err }, 'could not read the Stripe price');
       }
     }
+    const price: BillingStatus['price'] = prices[0] ? { amount: prices[0].amount, currency: prices[0].currency, interval: prices[0].interval } : null;
     // Checkout only applies it to a first subscription, so stop advertising it once one exists.
     const held = sub ? null : await loadPersonalDiscount(userId);
     return {
       kind,
       checkout_available: Boolean(priceId),
       price,
+      prices,
       subscription: sub
         ? { status: sub.status, current_period_end: sub.current_period_end, cancel_at_period_end: sub.cancel_at_period_end }
         : null,
       can_manage: isAdmin,
       access: await accountAccess(accountId),
-      discount: held ? { ...held, applicable: discountApplies(held, price?.interval ?? null) } : null,
+      discount: held ? { ...held, applicable: (prices.length > 0 ? prices : [{ interval: null }]).some((p) => discountApplies(held, p.interval)) } : null,
     };
   });
 
@@ -103,7 +107,8 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     const { kind, isAdmin, sub } = await accountContext(accountId, userId);
     if (!isAdmin) throw new AppError(403, 'forbidden', 'Admin role required');
     const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
-    const priceId = priceIdForKind(kind);
+    const { plan } = BillingCheckoutBodySchema.parse(request.body ?? {});
+    const priceId = priceIdsForKind(kind).find((p) => p.plan === plan)?.id;
     if (!priceId) throw new AppError(409, 'price_not_set', 'No price is set for this kind of account yet');
     if (sub && LIVE_STATES.has(sub.status)) throw new AppError(409, 'already_subscribed', 'This account already has a subscription');
 

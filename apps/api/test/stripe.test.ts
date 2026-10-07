@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { eq } from 'drizzle-orm';
@@ -13,6 +13,7 @@ import { env } from '../src/env.js';
 import { promo_codes, users } from '../src/db/schema/accounts.js';
 import {
   applyStripeEvent,
+  priceIdsForKind,
   subscriptionNotice,
   couponIdFor,
   discountApplies,
@@ -434,5 +435,68 @@ describe('accessState: a failed first payment', () => {
     const trialEnd = Date.UTC(2026, 9, 28);
     const input = { billingOn: true, canCheckout: true, exempt: false, trialEnd, sub: { status: 'incomplete', current_period_end: trialEnd + 10 * 24 * 60 * 60 * 1000 } } as const;
     expect(accessState(input, trialEnd + 8 * 24 * 60 * 60 * 1000)).toMatchObject({ state: 'lapsed', ended_at: trialEnd });
+  });
+});
+
+describe('a monthly and a yearly price for one kind', () => {
+  const saved = { enabled: env.stripeEnabled, key: env.STRIPE_SECRET_KEY, m: env.STRIPE_PRICE_HOUSEHOLD, y: env.STRIPE_PRICE_HOUSEHOLD_YEARLY };
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+  afterAll(async () => {
+    env.stripeEnabled = saved.enabled;
+    env.STRIPE_SECRET_KEY = saved.key;
+    env.STRIPE_PRICE_HOUSEHOLD = saved.m;
+    env.STRIPE_PRICE_HOUSEHOLD_YEARLY = saved.y;
+    await app.close();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('lists the yearly price only when it is set, default first', () => {
+    env.STRIPE_PRICE_HOUSEHOLD = 'price_m';
+    env.STRIPE_PRICE_HOUSEHOLD_YEARLY = undefined;
+    expect(priceIdsForKind('household')).toEqual([{ plan: 'default', id: 'price_m' }]);
+    env.STRIPE_PRICE_HOUSEHOLD_YEARLY = 'price_y';
+    expect(priceIdsForKind('household')).toEqual([{ plan: 'default', id: 'price_m' }, { plan: 'yearly', id: 'price_y' }]);
+    env.STRIPE_PRICE_HOUSEHOLD = undefined;
+    expect(priceIdsForKind('household')).toEqual([]);
+  });
+
+  it('shows both prices and checks out with the plan that was asked for', async () => {
+    env.stripeEnabled = true;
+    env.STRIPE_SECRET_KEY = 'sk_test_x';
+    env.STRIPE_PRICE_HOUSEHOLD = 'price_month_t';
+    env.STRIPE_PRICE_HOUSEHOLD_YEARLY = 'price_year_t';
+    const sessions: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: { body?: URLSearchParams }) => {
+        const json = (o: unknown) => new Response(JSON.stringify(o), { headers: { 'content-type': 'application/json' } });
+        if (url.includes('/prices/price_month_t')) return json({ unit_amount: 1000, currency: 'usd', recurring: { interval: 'month' } });
+        if (url.includes('/prices/price_year_t')) return json({ unit_amount: 10000, currency: 'usd', recurring: { interval: 'year' } });
+        if (url.endsWith('/checkout/sessions')) {
+          sessions.push(String(init?.body?.get('line_items[0][price]')));
+          return json({ url: 'https://checkout.stripe.com/c/pay/test' });
+        }
+        return new Response('{}', { status: 404 });
+      }),
+    );
+    const admin = await createUser();
+    const accountId = await createAccount(admin.id, 'household');
+    await addMember(accountId, admin.id, 'admin');
+    const headers = { authorization: `Bearer ${admin.token}`, 'x-account-id': accountId };
+
+    const status = (await request(app, { method: 'GET', url: `${env.BASE_PATH}/api/billing`, headers })).json() as { prices: { plan: string; amount: number; interval: string }[]; price: { amount: number } };
+    expect(status.prices.map((p) => [p.plan, p.amount, p.interval])).toEqual([['default', 1000, 'month'], ['yearly', 10000, 'year']]);
+    expect(status.price.amount).toBe(1000);
+
+    const yearly = await request(app, { method: 'POST', url: `${env.BASE_PATH}/api/billing/checkout`, headers, payload: { plan: 'yearly' } });
+    expect(yearly.statusCode).toBe(200);
+    const plain = await request(app, { method: 'POST', url: `${env.BASE_PATH}/api/billing/checkout`, headers });
+    expect(plain.statusCode).toBe(200);
+    expect(sessions).toEqual(['price_year_t', 'price_month_t']);
   });
 });

@@ -133,10 +133,18 @@ export type SubscriptionStatus = z.infer<typeof SubscriptionStatus>;
  * owner sets it there); it is null when no price is configured for this
  * account kind, in which case `checkout_available` is false.
  */
+/** A kind can have two prices in Stripe: the default one, and a yearly one beside it. */
+export const BillingPlan = z.enum(['default', 'yearly']);
+export type BillingPlan = z.infer<typeof BillingPlan>;
+
+const PriceShape = z.object({ amount: z.number().int(), currency: z.string(), interval: z.string().nullable() });
+
 export const BillingStatusSchema = z.object({
   kind: AccountKind,
   checkout_available: z.boolean(),
-  price: z.object({ amount: z.number().int(), currency: z.string(), interval: z.string().nullable() }).nullable(),
+  /** The default price. Kept for older screens; `prices` lists every plan that can be bought. */
+  price: PriceShape.nullable(),
+  prices: z.array(PriceShape.extend({ plan: BillingPlan })).default([]),
   subscription: z
     .object({
       status: SubscriptionStatus,
@@ -150,6 +158,10 @@ export const BillingStatusSchema = z.object({
   discount: BillingDiscountSchema.nullable(),
 });
 export type BillingStatus = z.infer<typeof BillingStatusSchema>;
+
+/** POST /billing/checkout. No body means the default plan. */
+export const BillingCheckoutBodySchema = z.object({ plan: BillingPlan.default('default') });
+export type BillingCheckoutBody = z.infer<typeof BillingCheckoutBodySchema>;
 
 /** POST /billing/checkout and POST /billing/portal: send the browser here. */
 export const BillingRedirectSchema = z.object({ url: z.string().url() });

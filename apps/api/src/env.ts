@@ -40,6 +40,11 @@ const EnvSchema = z.object({
   STRIPE_PRICE_HOUSEHOLD: z.string().min(1).optional(),
   STRIPE_PRICE_AGENCY: z.string().min(1).optional(),
   STRIPE_PRICE_SUPPORTED: z.string().min(1).optional(),
+  /** Optional second price per kind, offered beside the one above (usually the yearly one). */
+  STRIPE_PRICE_INDIVIDUAL_YEARLY: z.string().min(1).optional(),
+  STRIPE_PRICE_HOUSEHOLD_YEARLY: z.string().min(1).optional(),
+  STRIPE_PRICE_AGENCY_YEARLY: z.string().min(1).optional(),
+  STRIPE_PRICE_SUPPORTED_YEARLY: z.string().min(1).optional(),
   /** Signing secret of the SEPARATE "connected accounts" webhook endpoint; Stripe signs Connect events with their own secret. Unset = account.updated is not accepted. */
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().min(1).optional(),
   /** Chipperly's cut of a community sale, 0-100. Unset = nothing can be priced or bought; there is deliberately no default. */
