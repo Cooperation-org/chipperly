@@ -83,7 +83,8 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
         request.log.warn({ err }, 'could not read the Stripe price');
       }
     }
-    const held = await loadPersonalDiscount(userId);
+    // Checkout only applies it to a first subscription, so stop advertising it once one exists.
+    const held = sub ? null : await loadPersonalDiscount(userId);
     return {
       kind,
       checkout_available: Boolean(priceId),
