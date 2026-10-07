@@ -153,6 +153,13 @@ export function SettingsMenu() {
             trailing={<Icon name="chevron" size={20} />}
             onTap={() => router.push('/settings/guide/')}
           />
+          <ListRow
+            tile={<Icon name="edit" size={20} />}
+            name="Send feedback"
+            secondary="Tell us what is working and what is not"
+            trailing={<Icon name="chevron" size={20} />}
+            onTap={() => router.push('/settings/feedback/')}
+          />
         </div>
       </div>
 
@@ -250,6 +257,15 @@ export function SettingsMenu() {
                   secondary="Sign-ups, trials, early access codes"
                   trailing={<Icon name="chevron" size={20} />}
                   onTap={() => router.push('/settings/admin/')}
+                />
+              ) : null}
+              {user?.is_super_admin ? (
+                <ListRow
+                  tile={<Icon name="clipboard" size={20} />}
+                  name="Feedback inbox"
+                  secondary="What beta testers have sent"
+                  trailing={<Icon name="chevron" size={20} />}
+                  onTap={() => router.push('/settings/admin/feedback/')}
                 />
               ) : null}
               <ListRow
