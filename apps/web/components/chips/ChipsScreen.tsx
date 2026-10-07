@@ -182,20 +182,25 @@ export function ChipsScreen() {
             />
           ) : null}
 
-          {/* Two tap targets, one action: the reward and the chips beneath it both open the picker. */}
+          {/* Two tap targets, one action: the big picture and the chips beneath it both open the picker. */}
           <div className={styles.workingFor}>
             <button type="button" className={styles.workingForButton} onClick={openRewardPicker}>
               <span className={styles.workingForLabel}>Working for</span>
               {working.reward ? (
-                <span className={styles.workingForRow}>
-                  <Picture emoji={working.reward.emoji} photo_id={working.reward.photo_id} name={working.reward.name} size="grid" />
+                <>
+                  <Picture emoji={working.reward.emoji} photo_id={working.reward.photo_id} name={working.reward.name} size="hero" />
                   <span className={styles.workingForName}>{working.reward.name}</span>
-                </span>
+                </>
               ) : (
-                <span className={styles.choose}>Choose a reward</span>
+                <>
+                  <span className={styles.heroEmpty} aria-hidden="true">
+                    <span className={styles.heroEmptyEmoji}>🎁</span>
+                  </span>
+                  <span className={styles.choose}>Choose a reward</span>
+                </>
               )}
             </button>
-            {working.reward ? <ChipStrip filled={working.filled} total={working.goal} onTap={openRewardPicker} size="lg" /> : null}
+            <ChipStrip filled={working.filled} total={working.goal} onTap={openRewardPicker} size="lg" />
           </div>
 
           {working.reward ? (

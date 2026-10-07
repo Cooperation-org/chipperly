@@ -24,6 +24,14 @@
   height: var(--tile-child);
 }
 
+/* The picture a child is working for: as large as the screen allows, never taller than it is wide. */
+.hero {
+  --tile-hero: min(70vw, 260px);
+  width: var(--tile-hero);
+  height: var(--tile-hero);
+  border-radius: var(--radius-lg);
+}
+
 .img {
   width: 100%;
   height: 100%;
@@ -45,6 +53,10 @@
 
 .child .emoji {
   font-size: calc(var(--tile-child) * 0.6);
+}
+
+.hero .emoji {
+  font-size: calc(min(70vw, 260px) * 0.6);
 }
 
 .placeholder {

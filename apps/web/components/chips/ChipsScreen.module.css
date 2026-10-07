@@ -8,7 +8,7 @@
 .workingFor {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-2);
   padding: var(--space-4);
   background: var(--color-surface);
@@ -19,14 +19,30 @@
 .workingForButton {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-2);
   padding: 0;
   background: transparent;
   border: none;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   min-height: var(--tap);
+}
+
+.heroEmpty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: min(70vw, 260px);
+  height: min(70vw, 260px);
+  border: 3px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+}
+
+.heroEmptyEmoji {
+  font-size: min(42vw, 156px);
+  line-height: 1;
 }
 
 .workingForButton:focus-visible {
@@ -40,13 +56,6 @@
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
-
-.workingForRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
 }
 
 .workingForName {

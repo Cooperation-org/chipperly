@@ -5,7 +5,7 @@ import { Icon } from './Icon';
 import { Skeleton } from './Skeleton';
 import styles from './PictureTile.module.css';
 
-export type PictureTileSize = 'list' | 'grid' | 'child';
+export type PictureTileSize = 'list' | 'grid' | 'child' | 'hero';
 
 export interface PictureTileProps {
   emoji?: string;
@@ -27,7 +27,7 @@ export function PictureTile({ emoji, photo_id, photoUrl, name, size, className }
   if (photo_id) {
     return (
       <span className={classes} role="img" aria-label={name}>
-        <Skeleton width="100%" height="100%" radius={size === 'grid' ? 'lg' : 'md'} />
+        <Skeleton width="100%" height="100%" radius={size === 'grid' || size === 'hero' ? 'lg' : 'md'} />
       </span>
     );
   }
@@ -76,7 +76,7 @@ function PhotoImg({ url, name, size, classes }: { url: string; name: string; siz
     <span className={classes}>
       {/* Not rendered at all while waiting to retry: .img sets display:block, which overrides the `hidden` attribute. */}
       {failed ? (
-        <Skeleton width="100%" height="100%" radius={size === 'grid' ? 'lg' : 'md'} />
+        <Skeleton width="100%" height="100%" radius={size === 'grid' || size === 'hero' ? 'lg' : 'md'} />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element -- static export, images served by our API
         <img key={src} src={src} alt={name} className={styles.img} onError={() => setFailed(true)} />
