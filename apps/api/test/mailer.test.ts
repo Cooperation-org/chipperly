@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../src/env.js';
-import { getLastMailMessage, sendMail } from '../src/lib/mailer.js';
+import { getLastMailMessage, sendMail, textToHtml } from '../src/lib/mailer.js';
 
 describe('mailer console transport (sec-3: token redaction)', () => {
   afterEach(() => {
@@ -44,5 +44,12 @@ describe('mailer Resend transport failure (never blocks the caller)', () => {
     ).resolves.toBe(false);
 
     expect(errorSpy).toHaveBeenCalled();
+  });
+});
+
+describe('textToHtml', () => {
+  it('keeps paragraphs, makes links clickable and escapes markup', () => {
+    const html = textToHtml('Hi <b>there</b>\n\nOpen https://app.example.com/x?a=1&b=2 now');
+    expect(html).toContain('<p>Hi &lt;b&gt;there&lt;/b&gt;</p><p>Open <a href="https://app.example.com/x?a=1&amp;b=2">');
   });
 });

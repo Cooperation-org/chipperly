@@ -26,6 +26,19 @@ function sendViaConsole(message: MailMessage): void {
   console.log(lines.join('\n'));
 }
 
+const escapeHtml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** The HTML part for a plain-text message: blank lines become paragraphs, single newlines <br>, links clickable. */
+export function textToHtml(text: string): string {
+  const body = text
+    .split(/\n{2,}/)
+    .map((para) =>
+      `<p>${escapeHtml(para).replace(/https?:\/\/[^\s<]+/g, (url) => `<a href="${url}">${url}</a>`).replace(/\n/g, '<br>')}</p>`,
+    )
+    .join('');
+  return `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#2b2b2b">${body}</div>`;
+}
+
 async function sendViaResend(message: MailMessage): Promise<void> {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -38,7 +51,7 @@ async function sendViaResend(message: MailMessage): Promise<void> {
       to: message.to,
       subject: message.subject,
       text: message.text,
-      html: message.html ?? message.text,
+      html: message.html ?? textToHtml(message.text),
     }),
   });
   if (!response.ok) {
