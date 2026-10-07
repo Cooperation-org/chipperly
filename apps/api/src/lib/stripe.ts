@@ -1,12 +1,13 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { eq, lte } from 'drizzle-orm';
+import { and, eq, lte } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AccountKind } from '@chipperly/shared/schemas/account';
 import { SubscriptionStatus } from '@chipperly/shared/schemas/billing';
 import { db } from '../db/client.js';
-import { promo_codes, users } from '../db/schema/accounts.js';
+import { account_members, promo_codes, users } from '../db/schema/accounts.js';
 import { stripe_events, subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
+import { sendMail } from './mailer.js';
 import { AppError } from '../plugins/errors.js';
 
 // No Stripe SDK on purpose (keeps the lockfile clean): REST via fetch, webhook
@@ -156,14 +157,15 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
     updated_at: nowMs,
   };
 
-  return db.transaction(async (tx) => {
+  const { result, notice } = await db.transaction(async (tx) => {
     const claimed = await tx
       .insert(stripe_events)
       .values({ id: event.id, type: event.type, received_at: nowMs })
       .onConflictDoNothing()
       .returning({ id: stripe_events.id });
-    if (claimed.length === 0) return 'duplicate';
+    if (claimed.length === 0) return { result: 'duplicate' as const, notice: null };
 
+    const [prev] = await tx.select().from(subscriptions).where(eq(subscriptions.account_id, accountId)).limit(1);
     const { account_id: _id, ...changes } = row;
     await tx
       .insert(subscriptions)
@@ -173,8 +175,61 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
         set: changes,
         setWhere: lte(subscriptions.last_event_at, row.last_event_at),
       });
-    return 'applied';
+    const stale = prev !== undefined && prev.last_event_at > row.last_event_at;
+    return { result: 'applied' as const, notice: stale ? null : subscriptionNotice(prev, row) };
   });
+  if (notice) await mailAccountAdmins(accountId, notice, row.current_period_end);
+  return result;
+}
+
+// ---- billing emails ----
+
+type Notice = 'started' | 'cancel_scheduled' | 'payment_failed' | 'ended';
+type SubState = { status: string; cancel_at_period_end: boolean };
+const PAID = new Set(['active', 'trialing']);
+
+/** What changed for the customer, if anything worth an email. Pure. */
+export function subscriptionNotice(prev: SubState | undefined, next: SubState): Notice | null {
+  if (next.status === 'canceled') return prev?.status === 'canceled' ? null : 'ended';
+  if (next.status === 'past_due') return prev?.status === 'past_due' ? null : 'payment_failed';
+  if (PAID.has(next.status) && !(prev && PAID.has(prev.status))) return 'started';
+  if (next.cancel_at_period_end && !prev?.cancel_at_period_end) return 'cancel_scheduled';
+  return null;
+}
+
+const fmtDate = (ms: number | null): string =>
+  ms === null ? 'the end of the current period' : new Date(ms).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+
+export function noticeMail(notice: Notice, periodEnd: number | null): { subject: string; text: string } {
+  const manage = `${env.APP_ORIGIN ?? 'https://app.chipperlyapp.com'}/settings/billing/`;
+  switch (notice) {
+    case 'started':
+      return { subject: 'Your Chipperly subscription is active', text: `Thanks for subscribing to Chipperly. Your subscription is active and renews on ${fmtDate(periodEnd)}.
+
+You can manage or cancel it any time: ${manage}` };
+    case 'cancel_scheduled':
+      return { subject: 'Your Chipperly subscription will end', text: `You cancelled your Chipperly subscription. It stays active until ${fmtDate(periodEnd)}, and you will not be charged again. No refund is due, because you keep access for the period you paid for.
+
+Changed your mind? You can keep it from ${manage}` };
+    case 'payment_failed':
+      return { subject: 'We could not charge your card for Chipperly', text: `Your latest Chipperly payment did not go through. Your access continues while Stripe retries the card.
+
+Please update your payment method: ${manage}` };
+    case 'ended':
+      return { subject: 'Your Chipperly subscription has ended', text: `Your Chipperly subscription ended. Everything you made is still there to read, edit and export. After a short grace period, creating new routines pauses until you subscribe again.
+
+Resubscribe any time: ${manage}` };
+  }
+}
+
+async function mailAccountAdmins(accountId: string, notice: Notice, periodEnd: number | null): Promise<void> {
+  const admins = await db
+    .select({ email: users.email })
+    .from(account_members)
+    .innerJoin(users, eq(users.id, account_members.user_id))
+    .where(and(eq(account_members.account_id, accountId), eq(account_members.role, 'admin')));
+  const { subject, text } = noticeMail(notice, periodEnd);
+  for (const { email } of admins) await sendMail({ to: email, subject, text });
 }
 
 // ---- promo codes as Stripe discounts ----

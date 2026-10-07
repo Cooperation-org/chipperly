@@ -13,6 +13,7 @@ import { env } from '../src/env.js';
 import { promo_codes, users } from '../src/db/schema/accounts.js';
 import {
   applyStripeEvent,
+  subscriptionNotice,
   couponIdFor,
   discountApplies,
   ensureCoupon,
@@ -412,6 +413,19 @@ describe('promo codes become Stripe coupons', () => {
     expect(await loadPersonalDiscount(user.id)).toBeNull();
     await db.update(promo_codes).set({ active: true, percent_off: null }).where(eq(promo_codes.code, offer));
     expect(await loadPersonalDiscount(user.id)).toBeNull();
+  });
+});
+
+describe('subscriptionNotice', () => {
+  const s = (status: string, cancel = false) => ({ status, cancel_at_period_end: cancel });
+  it('picks the email for each change and stays quiet otherwise', () => {
+    expect(subscriptionNotice(undefined, s('active'))).toBe('started');
+    expect(subscriptionNotice(s('active'), s('active', true))).toBe('cancel_scheduled');
+    expect(subscriptionNotice(s('active', true), s('active', true))).toBeNull();
+    expect(subscriptionNotice(s('active'), s('past_due'))).toBe('payment_failed');
+    expect(subscriptionNotice(s('past_due'), s('past_due'))).toBeNull();
+    expect(subscriptionNotice(s('active', true), s('canceled'))).toBe('ended');
+    expect(subscriptionNotice(s('past_due'), s('active'))).toBe('started');
   });
 });
 
