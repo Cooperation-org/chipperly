@@ -21,6 +21,7 @@ import billingRoutes from './routes/billing.js';
 import communityRoutes from './routes/community.js';
 import imagesRoutes from './routes/images.js';
 import clientErrorRoutes from './routes/clientErrors.js';
+import feedbackRoutes from './routes/feedback.js';
 
 export interface BuildAppOptions {
   readonly env: Env;
@@ -40,6 +41,7 @@ const routePlugins: FastifyPluginAsync[] = [
   communityRoutes,
   imagesRoutes,
   clientErrorRoutes,
+  feedbackRoutes,
 ];
 
 // Test-only route, never registered outside e2e (see routes/testing.ts).

@@ -29,6 +29,8 @@ const EnvSchema = z.object({
   BETA_INVITE_CODE: z.string().min(1).optional(),
   /** Comma-separated emails that see the super admin dashboard (routes/admin.ts). */
   SUPER_ADMIN_EMAILS: z.string().min(1).optional(),
+  /** Comma-separated emails that get a copy of every piece of feedback (routes/feedback.ts). Unset = it is only stored. */
+  FEEDBACK_EMAIL_TO: z.string().min(1).optional(),
   /** Stripe secret key. Unset = every /billing route 404s and the web hides the upgrade path. */
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   /** Signing secret of the Stripe webhook endpoint (whsec_...). Billing stays off without it: an unverifiable webhook is not accepted. */

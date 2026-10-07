@@ -20,7 +20,7 @@ import { AppError } from '../plugins/errors.js';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Only people in SUPER_ADMIN_EMAILS, and never from a device locked to a child. */
-async function requireSuperAdmin(request: FastifyRequest): Promise<void> {
+export async function requireSuperAdmin(request: FastifyRequest): Promise<void> {
   if (!request.user) throw new AppError(401, 'unauthorized', 'Sign-in required');
   const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, request.user.id)).limit(1);
   if (!user || !isSuperAdmin(user.email) || request.locked) throw new AppError(403, 'forbidden', 'Super admins only');
