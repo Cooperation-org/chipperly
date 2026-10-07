@@ -1,4 +1,4 @@
-import type { Access, BillingDiscount, BillingStatus } from '@chipperly/shared/schemas/billing';
+import type { Access, BillingDiscount, BillingPlan, BillingStatus } from '@chipperly/shared/schemas/billing';
 
 /** "12.50 per month" style text from what the server reports; never a number of our own. */
 export function priceLabel(price: NonNullable<BillingStatus['price']>, locale?: string): string {
@@ -6,6 +6,27 @@ export function priceLabel(price: NonNullable<BillingStatus['price']>, locale?: 
   const digits = fmt.resolvedOptions().maximumFractionDigits ?? 2;
   const amount = fmt.format(price.amount / 10 ** digits);
   return price.interval ? `${amount} per ${price.interval}` : amount;
+}
+
+export interface PlanChoice {
+  plan: BillingPlan;
+  label: string;
+}
+
+/**
+ * The buttons for the plans that can be bought. One price: a plain "Subscribe". Two: each says what it
+ * costs, and the yearly one says what it saves against twelve months at the monthly price.
+ */
+export function planChoices(prices: BillingStatus['prices'], locale?: string): PlanChoice[] {
+  if (prices.length < 2) return [{ plan: 'default', label: 'Subscribe' }];
+  const monthly = prices.find((p) => p.interval === 'month');
+  return prices.map((p) => {
+    const name = p.interval === 'year' ? 'Yearly' : p.interval === 'month' ? 'Monthly' : 'Subscribe';
+    let label = `${name}: ${priceLabel(p, locale)}`;
+    const saves = monthly && p.interval === 'year' && monthly.currency === p.currency ? monthly.amount * 12 - p.amount : 0;
+    if (saves > 0) label += `, saves ${priceLabel({ amount: saves, currency: p.currency, interval: null }, locale)}`;
+    return { plan: p.plan, label };
+  });
 }
 
 export function formatDate(ms: number, locale?: string, timeZone?: string): string {

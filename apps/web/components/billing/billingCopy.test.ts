@@ -1,5 +1,6 @@
+import type { BillingStatus } from '@chipperly/shared/schemas/billing';
 import { describe, expect, it } from 'vitest';
-import { accessNotice, discountLine, isLive, planLine, priceLabel, subscriptionLine } from './billingCopy';
+import { accessNotice, discountLine, isLive, planChoices, planLine, priceLabel, subscriptionLine } from './billingCopy';
 
 describe('billingCopy', () => {
   it('formats whatever price the server reports', () => {
@@ -51,8 +52,29 @@ describe('billingCopy', () => {
   });
 
   it('plan line follows the access state', () => {
-    const base = { kind: 'household', checkout_available: true, price: null, subscription: null, can_manage: true, discount: null } as const;
+    const base: Omit<BillingStatus, 'access'> = { kind: 'household', checkout_available: true, price: null, prices: [], subscription: null, can_manage: true, discount: null };
     expect(planLine({ ...base, access: { state: 'trial', ...at, write_paused: false } }, 'en-US', 'UTC')).toBe('Free trial. Ends on October 1, 2026.');
     expect(planLine({ ...base, access: { state: 'lapsed', ...at, write_paused: true } })).toBe('No active subscription.');
+  });
+});
+
+describe('planChoices', () => {
+  const month = { plan: 'default', amount: 1000, currency: 'usd', interval: 'month' } as const;
+  const year = { plan: 'yearly', amount: 10000, currency: 'usd', interval: 'year' } as const;
+
+  it('is a plain Subscribe for one price or none', () => {
+    expect(planChoices([])).toEqual([{ plan: 'default', label: 'Subscribe' }]);
+    expect(planChoices([month])).toEqual([{ plan: 'default', label: 'Subscribe' }]);
+  });
+
+  it('names both plans and says what the yearly one saves', () => {
+    expect(planChoices([month, year], 'en-US')).toEqual([
+      { plan: 'default', label: 'Monthly: $10.00 per month' },
+      { plan: 'yearly', label: 'Yearly: $100.00 per year, saves $20.00' },
+    ]);
+  });
+
+  it('does not claim a saving when the yearly price is not cheaper', () => {
+    expect(planChoices([month, { ...year, amount: 12000 }], 'en-US')[1]?.label).toBe('Yearly: $120.00 per year');
   });
 });

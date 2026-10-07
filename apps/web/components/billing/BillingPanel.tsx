@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { BillingRedirectSchema } from '@chipperly/shared/schemas/billing';
+import { BillingRedirectSchema, type BillingPlan } from '@chipperly/shared/schemas/billing';
 import { api } from '@/lib/api/client';
 import { useBillingStatus } from '@/lib/billing/useBillingStatus';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
-import { accessNotice, discountLine, isLive, planLine, priceLabel } from './billingCopy';
+import { accessNotice, discountLine, isLive, planChoices, planLine, priceLabel } from './billingCopy';
 import styles from './BillingPanel.module.css';
 
 /**
@@ -21,11 +21,12 @@ export function BillingPanel() {
   if (!status) return null;
   const sub = status.subscription;
   const notice = accessNotice(status.access, status.can_manage);
+  const choices = planChoices(status.prices);
 
-  async function go(path: '/billing/checkout' | '/billing/portal'): Promise<void> {
+  async function go(path: '/billing/checkout' | '/billing/portal', plan?: BillingPlan): Promise<void> {
     setBusy(true);
     try {
-      const { url } = await api.post<{ url: string }>(path, undefined, { schema: BillingRedirectSchema });
+      const { url } = await api.post<{ url: string }>(path, plan ? { plan } : undefined, { schema: BillingRedirectSchema });
       window.location.assign(url);
     } catch {
       toast('Could not open billing. Try again in a moment.');
@@ -43,18 +44,21 @@ export function BillingPanel() {
         </div>
       )}
       {status.discount && <p className={styles.muted}>{discountLine(status.discount)}</p>}
-      {!isLive(sub) && status.price && <p className={styles.muted}>{priceLabel(status.price)}</p>}
+      {!isLive(sub) && status.price && choices.length === 1 && <p className={styles.muted}>{priceLabel(status.price)}</p>}
       {!status.can_manage && <p className={styles.muted}>Only an account admin can change the subscription.</p>}
       {status.can_manage && sub && (
         <Button variant="secondary" loading={busy} onClick={() => void go('/billing/portal')}>
           Manage billing
         </Button>
       )}
-      {status.can_manage && !isLive(sub) && status.checkout_available && (
-        <Button loading={busy} onClick={() => void go('/billing/checkout')}>
-          Subscribe
-        </Button>
-      )}
+      {status.can_manage &&
+        !isLive(sub) &&
+        status.checkout_available &&
+        choices.map((choice, i) => (
+          <Button key={choice.plan} variant={i === 0 ? 'primary' : 'secondary'} loading={busy} onClick={() => void go('/billing/checkout', choice.plan)}>
+            {choice.label}
+          </Button>
+        ))}
     </section>
   );
 }
