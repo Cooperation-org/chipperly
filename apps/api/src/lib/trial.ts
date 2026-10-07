@@ -49,7 +49,9 @@ export function accessState(input: AccessInput, now: number = Date.now()): Acces
   const open: Access = { state: 'open', ended_at: null, pauses_at: null, write_paused: false };
   if (!input.billingOn || !input.canCheckout || input.exempt) return open;
   if (input.sub && LIVE.has(input.sub.status)) return { ...open, state: 'subscribed', ended_at: input.sub.current_period_end };
-  const endedAt = Math.max(input.trialEnd, input.sub?.current_period_end ?? 0);
+  // A subscription whose first payment never went through bought no time: its period end must not extend the trial.
+  const paid = input.sub && input.sub.status !== 'incomplete' && input.sub.status !== 'incomplete_expired' ? input.sub.current_period_end : null;
+  const endedAt = Math.max(input.trialEnd, paid ?? 0);
   const pausesAt = endedAt + GRACE_DAYS * DAY_MS;
   if (now < endedAt) return { state: 'trial', ended_at: endedAt, pauses_at: pausesAt, write_paused: false };
   if (now < pausesAt) return { state: 'grace', ended_at: endedAt, pauses_at: pausesAt, write_paused: false };

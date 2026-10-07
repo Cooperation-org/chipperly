@@ -414,3 +414,11 @@ describe('promo codes become Stripe coupons', () => {
     expect(await loadPersonalDiscount(user.id)).toBeNull();
   });
 });
+
+describe('accessState: a failed first payment', () => {
+  it('does not extend the trial', () => {
+    const trialEnd = Date.UTC(2026, 9, 28);
+    const input = { billingOn: true, canCheckout: true, exempt: false, trialEnd, sub: { status: 'incomplete', current_period_end: trialEnd + 10 * 24 * 60 * 60 * 1000 } } as const;
+    expect(accessState(input, trialEnd + 8 * 24 * 60 * 60 * 1000)).toMatchObject({ state: 'lapsed', ended_at: trialEnd });
+  });
+});
