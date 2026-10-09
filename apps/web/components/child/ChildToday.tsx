@@ -675,6 +675,13 @@ export function ChildToday() {
                   </BigButton>
                 ) : null}
 
+                {/* A routine with steps: finish it all in one tap (same chips as ticking every step). */}
+                {hasSteps && !dimmed ? (
+                  <BigButton variant="primary" icon="check" aria-label={`Mark all done, ${day.activity.name}`} onClick={() => void handleToggle(day, true)}>
+                    Mark all done
+                  </BigButton>
+                ) : null}
+
                 {expanded ? <ul className={styles.steps}>{topSteps.map((node) => renderStepNode(day, node))}</ul> : null}
 
                 {promptIds.has(day.item.id) ? (

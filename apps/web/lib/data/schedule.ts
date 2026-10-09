@@ -252,6 +252,8 @@ async function nextDayPosition(profileId: string, isoDate: string): Promise<numb
 export async function setCompleted(itemId: string, done: boolean, userId: string): Promise<void> {
   const item = await db.schedule_items.get(itemId);
   if (!item) return;
+  // Already done: a second "all done" tap must not append a second chip award.
+  if (done && item.completed_at !== null) return;
   await markItemCompletion(item, done, userId);
 
   const steps = (await db.activity_steps.where('activity_id').equals(item.activity_id).toArray()).filter(
