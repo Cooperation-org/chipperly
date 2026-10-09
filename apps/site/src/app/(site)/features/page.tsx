@@ -53,7 +53,7 @@ export default function Features() {
           <div className="section-head">
             <p className="eyebrow">For the whole care team</p>
             <h2 id="team-title">Everyone works from the same plan</h2>
-            <p>Chipperly is multi-user from the ground up. Families, teachers and therapists share the same dashboard.</p>
+            <p>Chipperly™ is multi-user from the ground up. Families, teachers and therapists share the same dashboard.</p>
           </div>
           <div className="cards">
             {CARE_TEAM.map((c) => (

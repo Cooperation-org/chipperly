@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BRAND } from '../lib/site';
 import { Icon } from './Icon';
 
 // Every <Link> on the site has prefetch={false}: on 27-28 Sept open tabs
@@ -19,7 +20,7 @@ export function Header({ launched, appUrl }: { launched: boolean; appUrl: string
         <Link prefetch={false} href="/" className="brand" aria-label="Chipperly home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/mark.svg" alt="" width={36} height={36} />
-          <span>Chipperly</span>
+          <span>{BRAND}</span>
         </Link>
         <nav aria-label="Main" className="nav-desktop">
           {NAV.map(([label, href]) => (

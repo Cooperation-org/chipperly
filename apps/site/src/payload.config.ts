@@ -18,7 +18,7 @@ import { Posts } from './collections/Posts';
 import { Users } from './collections/Users';
 import { Waitlist } from './collections/Waitlist';
 import { Settings } from './globals/Settings';
-import { SITE_NAME, SITE_URL } from './lib/site';
+import { BRAND, SITE_URL } from './lib/site';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -98,7 +98,7 @@ export default buildConfig({
   plugins: [
     r2Storage({ bucket: cloudflare.env.R2, collections: { media: true } }),
     seoPlugin({
-      generateTitle: ({ doc }) => ((doc as SeoDoc)?.title ? `${(doc as SeoDoc).title} | ${SITE_NAME}` : SITE_NAME),
+      generateTitle: ({ doc }) => ((doc as SeoDoc)?.title ? `${(doc as SeoDoc).title} | ${BRAND}` : BRAND),
       generateDescription: ({ doc }) => (doc as SeoDoc)?.excerpt || (doc as SeoDoc)?.intro || '',
       generateURL: ({ doc, collectionSlug }) => `${SITE_URL}${collectionSlug === 'posts' ? '/blog' : ''}/${(doc as SeoDoc)?.slug ?? ''}`,
     }),

@@ -7,13 +7,13 @@ import { Header } from '../../components/Header';
 import { JsonLd } from '../../components/JsonLd';
 import { organization, website } from '../../lib/jsonld';
 import { getSettings } from '../../lib/payload';
-import { APP_URL, CONTACT_EMAIL, DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from '../../lib/site';
+import { APP_URL, BRAND, CONTACT_EMAIL, DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from '../../lib/site';
 import { body, heading } from '../fonts';
 import './site.css';
 
 const baseMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: `${SITE_NAME} - Visual Supports for Neurodivergent Individuals`, template: `%s | ${SITE_NAME}` },
+  title: { default: `${BRAND} - Visual Supports for Neurodivergent Individuals`, template: `%s | ${BRAND}` },
   description: DEFAULT_DESCRIPTION,
   applicationName: SITE_NAME,
   icons: {

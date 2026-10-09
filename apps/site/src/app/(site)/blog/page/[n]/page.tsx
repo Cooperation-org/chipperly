@@ -1,6 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { BlogList } from '../../../../../components/BlogList';
-import { BLOG_INTRO, BLOG_TITLE, getCategories } from '../../../../../lib/blog';
+import { BLOG_INTRO, BLOG_INTRO_VISIBLE, BLOG_TITLE, getCategories } from '../../../../../lib/blog';
 import { getPosts } from '../../../../../lib/payload';
 import { buildMetadata } from '../../../../../lib/seo';
 
@@ -25,7 +25,7 @@ export default async function BlogPage({ params }: Props) {
   return (
     <BlogList
       title={BLOG_TITLE}
-      intro={BLOG_INTRO}
+      intro={BLOG_INTRO_VISIBLE}
       posts={posts.docs}
       categories={categories}
       page={page}

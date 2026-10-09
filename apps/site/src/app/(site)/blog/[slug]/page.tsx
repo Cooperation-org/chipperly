@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: Props) {
   const post = await getPost((await params).slug);
   if (!post) return {};
   return buildMetadata({
-    title: post.meta?.title?.replace(/ \| Chipperly$/, '') || post.title,
+    title: post.meta?.title?.replace(/ \| Chipperly™?$/, '') || post.title,
     description: post.meta?.description || post.excerpt,
     path: `/blog/${post.slug}`,
     image: post.meta?.image || post.heroImage,

@@ -48,7 +48,7 @@ export const POSTS = [
       p('Start small. Pick one part of the day that is often hard, like the morning, and break it into four to six steps. Use a picture for each step, whether that is a photo of your own bathroom sink or a simple icon. Go through the steps together the first few times and mark each one done as you go.'),
       p('Once that routine feels easy, add another part of the day. Keep the pictures the same from day to day so they become familiar.'),
       h2('Paper or app?'),
-      p('Paper schedules work, but pieces get lost and every change means printing and laminating again. In Chipperly, a schedule is built from pictures in a few taps, a routine can be broken into smaller steps, and everyone on the care team sees the same plan on their own device.'),
+      p('Paper schedules work, but pieces get lost and every change means printing and laminating again. In Chipperly™, a schedule is built from pictures in a few taps, a routine can be broken into smaller steps, and everyone on the care team sees the same plan on their own device.'),
     ),
   },
   {
@@ -76,7 +76,7 @@ export const POSTS = [
     ),
   },
   {
-    title: 'Why we built Chipperly',
+    title: 'Why we built Chipperly™',
     slug: 'why-we-built-chipperly',
     faqs: [
       { question: "Who made Chipperly?", answer: "Taymar Pixleysmith, a mom in Tucson, Arizona, built Chipperly for her son Benny after finding no single app with all the visual supports he needed." },
@@ -86,7 +86,7 @@ export const POSTS = [
     categories: ['news'],
     publishedAt: '2026-09-24T09:00:00.000Z',
     content: doc(
-      p('Chipperly began with Taymar Pixleysmith and her son Benny. Visual supports helped Benny, but the tools did not help Taymar: laminated cards got lost, crafting new ones took evenings, and the apps she tried were expensive and each covered only one or two pieces of what he needed.'),
+      p('Chipperly™ began with Taymar Pixleysmith and her son Benny. Visual supports helped Benny, but the tools did not help Taymar: laminated cards got lost, crafting new ones took evenings, and the apps she tried were expensive and each covered only one or two pieces of what he needed.'),
       p('One day she realized the problem was not her. The tools were failing both of them. So she set out to build one app with everything in it: a visual schedule, a chip board with screen time built in, a visual timer, first-then boards and social stories, shared with everyone who supports Benny.'),
       h2('What comes next'),
       p('Chipperly is launching soon. If you want to hear the moment it opens, join the waitlist at the bottom of this page.'),

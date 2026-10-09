@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { TAGLINE } from '../lib/site';
+import { BRAND, TAGLINE } from '../lib/site';
 import type { SocialPlatform } from '../lib/social';
 import { SocialLinks } from './SocialLinks';
 
@@ -11,7 +11,7 @@ export function Footer({ email, social, appUrl }: { email: string; social: { pla
           <Link prefetch={false} href="/" className="brand brand-light">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/mark.svg" alt="" width={32} height={32} />
-            <span>Chipperly</span>
+            <span>{BRAND}</span>
           </Link>
           <p>{TAGLINE}</p>
           <p className="muted-light">Chipperly LLC · Founded in Tucson, Arizona</p>

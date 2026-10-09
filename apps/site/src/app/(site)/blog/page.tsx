@@ -1,6 +1,6 @@
 import { BlogList } from '../../../components/BlogList';
 import { JsonLd } from '../../../components/JsonLd';
-import { BLOG_INTRO, BLOG_TITLE, getCategories } from '../../../lib/blog';
+import { BLOG_INTRO, BLOG_INTRO_VISIBLE, BLOG_TITLE, getCategories } from '../../../lib/blog';
 import { breadcrumbs, ORG_ID } from '../../../lib/jsonld';
 import { getPosts } from '../../../lib/payload';
 import { buildMetadata } from '../../../lib/seo';
@@ -14,7 +14,7 @@ export default async function Blog() {
   const [posts, categories] = await Promise.all([getPosts(), getCategories()]);
   return (
     <>
-      <BlogList title={BLOG_TITLE} intro={BLOG_INTRO} posts={posts.docs} categories={categories} page={1} totalPages={posts.totalPages} crumbs={[['Blog']]} />
+      <BlogList title={BLOG_TITLE} intro={BLOG_INTRO_VISIBLE}posts={posts.docs} categories={categories} page={1} totalPages={posts.totalPages} crumbs={[['Blog']]} />
       <JsonLd
         graph={[
           {

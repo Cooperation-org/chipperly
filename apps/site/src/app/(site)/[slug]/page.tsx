@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props) {
   const page = await getPage((await params).slug);
   if (!page) return {};
   return buildMetadata({
-    title: page.meta?.title?.replace(/ \| Chipperly$/, '') || page.title,
+    title: page.meta?.title?.replace(/ \| Chipperly™?$/, '') || page.title,
     description: page.meta?.description || page.intro,
     path: `/${page.slug}`,
     image: page.meta?.image,

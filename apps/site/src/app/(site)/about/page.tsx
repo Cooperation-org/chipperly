@@ -23,7 +23,7 @@ const STORY = [
   },
   {
     title: 'The solution',
-    text: 'Chipperly puts every visual support tool in one app that is easy to create, customize and share with the whole care team. No more hunting for lost pieces or juggling four different subscriptions.',
+    text: 'Chipperly™ puts every visual support tool in one app that is easy to create, customize and share with the whole care team. No more hunting for lost pieces or juggling four different subscriptions.',
   },
 ];
 

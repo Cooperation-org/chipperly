@@ -9,13 +9,13 @@ import { TOOLS } from '../../lib/content';
 import { softwareApp } from '../../lib/jsonld';
 import { getPosts, getSettings } from '../../lib/payload';
 import { buildMetadata } from '../../lib/seo';
-import { APP_URL, SITE_NAME } from '../../lib/site';
+import { APP_URL, BRAND } from '../../lib/site';
 
 export const revalidate = 3600;
 
 export const metadata = {
   ...buildMetadata({ path: '/' }),
-  title: { absolute: `${SITE_NAME} - Visual Supports for Neurodivergent Individuals` },
+  title: { absolute: `${BRAND} - Visual Supports for Neurodivergent Individuals` },
 };
 
 export default async function Home() {
@@ -75,7 +75,7 @@ export default async function Home() {
               <figcaption>Taymar Pixleysmith, Founder &amp; CEO</figcaption>
             </figure>
             <p className="lede" style={{ marginTop: 24 }}>
-              Chipperly was created by a mom who couldn&rsquo;t find a single app that brought all the visual support
+              Chipperly™ was created by a mom who couldn&rsquo;t find a single app that brought all the visual support
               tools her son needed into one place. So she built it.
             </p>
             <Link prefetch={false} className="link-arrow" href="/about">

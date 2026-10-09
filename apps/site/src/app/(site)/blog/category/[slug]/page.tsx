@@ -38,7 +38,7 @@ export default async function CategoryPage({ params }: Props) {
     <>
       <BlogList
         title={cat.title}
-        intro={cat.description || `Articles about ${cat.title.toLowerCase()} from the Chipperly team.`}
+        intro={cat.description || `Articles about ${cat.title.toLowerCase()} from the Chipperly™ team.`}
         posts={posts.docs}
         categories={categories}
         activeCategory={cat.slug ?? undefined}
