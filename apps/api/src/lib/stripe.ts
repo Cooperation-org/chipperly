@@ -233,7 +233,7 @@ export function noticeMail(notice: Notice, periodEnd: number | null): { subject:
           heading: 'Your subscription will end',
           paragraphs: [
             `You cancelled your Chipperly subscription. It stays active until ${end}, and you will not be charged again.`,
-            'No refund is due, because you keep access for the period you paid for.',
+            `You keep full access until ${end}. If you would like a refund for the unused part, just write to support@chipperlyapp.com and we will take care of it.`,
           ],
           action: { label: 'Keep my subscription', url: manage },
           note: 'Changed your mind? Use the button before the end date and nothing changes.',

@@ -47,6 +47,14 @@ export default function TermsPage() {
         account. You can delete your account at any time from Settings, Account.
       </p>
 
+      <h2>Subscriptions and refunds</h2>
+      <p>
+        If you cancel, your plan stays active until the end of the period you paid for. If you
+        would like a refund for the unused part, write to{' '}
+        <a href="mailto:support@chipperlyapp.com">support@chipperlyapp.com</a> and we&apos;ll
+        sort it out.
+      </p>
+
       <h2>What you can&apos;t do</h2>
       <p>
         Don&apos;t use Chipperly to store data about a person you don&apos;t have the right to
