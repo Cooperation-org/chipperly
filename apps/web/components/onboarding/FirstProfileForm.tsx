@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Profile, SetupAnswers } from '@chipperly/shared/schemas/profile';
 import { AVATAR_EMOJI } from '@chipperly/shared/constants/emoji';
-import { api, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
+import { api, ApiError, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
 import { setKv, useKv } from '@/lib/db/kv';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -32,7 +32,7 @@ export const SETUP_ANSWERS_KEY = 'onboarding_setup';
 export function FirstProfileForm() {
   const router = useRouter();
   const accountId = useKv<string | null>(ACTIVE_ACCOUNT_KEY, null);
-  const { user, accounts } = useSession();
+  const { status, user, accounts, profiles: sessionProfiles } = useSession();
   const { setActiveProfileId } = useActiveProfile();
   const account = accounts.find((a) => a.account.id === accountId)?.account;
   const selfMode = account?.kind === 'individual';
@@ -43,12 +43,30 @@ export function FirstProfileForm() {
   const [usesApp, setUsesApp] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitted = useRef(false);
+
+  // The profile already exists (Back from the ready screen, or a reload after finishing): creating another is refused, so go on to ready.
+  const hasProfile = Boolean(accountId) && sessionProfiles.some((p) => p.account_id === accountId);
+  useEffect(() => {
+    if (status === 'signed_in' && hasProfile && !submitted.current) router.replace('/onboarding/ready/');
+  }, [status, hasProfile, router]);
+
+  // The name form and the questions are two history entries, so the browser Back button returns to the form.
+  useEffect(() => {
+    function onPop(): void {
+      const at = window.history.state as { setupPhase?: boolean; setupStep?: number } | null;
+      setPhase(at?.setupPhase || typeof at?.setupStep === 'number' ? 'setup' : 'details');
+    }
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   async function create(setup: SetupAnswers | null, picks?: GuidedPicks): Promise<void> {
     if (!accountId) {
       setError('Something went wrong. Start over.');
       return;
     }
+    submitted.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -67,6 +85,12 @@ export function FirstProfileForm() {
       if (picks) await saveGuidedSetup(profile.id, picks).catch(() => toast("Couldn't save the places and rewards. Add them in settings.", { carry: true }));
       router.push('/onboarding/ready/');
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'profile_limit') {
+        // An earlier attempt got through (a slow reply, then a retry): the profile is there, so carry on.
+        await refreshMe().catch(() => undefined);
+        router.replace('/onboarding/ready/');
+        return;
+      }
       setError(err instanceof TimeoutError ? TIMEOUT_MESSAGE : "Couldn't save that. Try again.");
     } finally {
       setLoading(false);
@@ -76,6 +100,7 @@ export function FirstProfileForm() {
   function handleSubmit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault();
     setPhase('setup');
+    window.history.pushState({ setupPhase: true }, '');
   }
 
   const errorLine = error ? (
@@ -104,7 +129,7 @@ export function FirstProfileForm() {
           selfMode={selfMode}
           busy={loading}
           onDone={(answers, picks) => void create(answers, picks)}
-          onBack={selfMode ? undefined : () => setPhase('details')}
+          onBack={selfMode ? undefined : () => window.history.back()}
         />
         {errorLine}
       </div>

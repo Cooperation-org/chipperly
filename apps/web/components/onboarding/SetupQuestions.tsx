@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AgeBand, FocusRoutine, SetupAnswers } from '@chipperly/shared/schemas/profile';
 import { AGE_BAND_TILES, FOCUS_TILES, LOVE_TILES, ROUTINE_TILES, WEEK_TILES, defaultAnswers } from '@chipperly/shared/constants/setup';
 import { newId } from '@/lib/ids';
@@ -46,13 +46,29 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
   const order = (answers.age_band === '0-2' ? [0, 3, 4, 5] : [0, 1, 2, 3, 4, 5]).filter((s) => s >= firstStep);
   const pos = order.indexOf(step);
   const nextStep = order[pos + 1] ?? step;
-  const prevStep = order[pos - 1] ?? step;
   const stepLabel = `Step ${pos + 1} of ${order.length}`;
+
+  // Each forward move is a history entry, so the browser Back button (and Back below) goes one step back, not off the page.
+  function go(next: number): void {
+    setStep(next);
+    window.history.pushState({ setupStep: next }, '');
+  }
+  useEffect(() => {
+    const saved: unknown = window.history.state?.setupStep;
+    // A reload keeps the entry's old step but not the answers: start over from the first question.
+    if (typeof saved === 'number' && saved !== firstStep) window.history.replaceState({ ...window.history.state, setupStep: firstStep }, '');
+    function onPop(): void {
+      const at: unknown = window.history.state?.setupStep;
+      setStep(typeof at === 'number' ? at : firstStep);
+    }
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [firstStep]);
 
   function pickBand(band: AgeBand): void {
     // A fresh band resets the pre-checks, so what is on always matches the age.
     setAnswers(defaultAnswers(band));
-    setStep(band === '0-2' ? 3 : 1);
+    go(band === '0-2' ? 3 : 1);
   }
 
   function toggle(key: MultiKey, value: string): void {
@@ -189,12 +205,12 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
             Create {name}&apos;s plan
           </Button>
         ) : step > 0 ? (
-          <Button fullWidth disabled={step === 2 && !goalReady} onClick={() => setStep(nextStep)}>
+          <Button fullWidth disabled={step === 2 && !goalReady} onClick={() => go(nextStep)}>
             Continue
           </Button>
         ) : null}
         {step > firstStep ? (
-          <button type="button" className={styles.quietButton} onClick={() => setStep(prevStep)}>
+          <button type="button" className={styles.quietButton} onClick={() => window.history.back()}>
             Back
           </button>
         ) : onBack ? (

@@ -91,6 +91,9 @@ export function Ready() {
       <BigButton fullWidth onClick={() => void goToToday()}>
         Go to Today
       </BigButton>
+      <button type="button" className={styles.link} onClick={() => void goToToday('/settings/')}>
+        Edit what we set up
+      </button>
       {/* Same setup as Go to Today (device role, parent mode) first: /settings/ sits behind the caregiver shell's gate. */}
       <button type="button" className={styles.link} onClick={() => void goToToday('/settings/guide/')}>
         New here? Read the short guide
