@@ -52,18 +52,31 @@ function useLiveProfiles(): Profile[] | undefined {
   return useLiveQuery(() => db.profiles.filter((row) => row.deleted_at === null).toArray(), []);
 }
 
+/** Accounts with a "Myself" (individual) profile: the person using the app is its admin, so there is no one to lock them out of. */
+function useIndividualAccountIds(): Set<string> | undefined {
+  return useLiveQuery(async () => new Set((await db.accounts.toArray()).filter((a) => a.kind === 'individual').map((a) => a.id)), []);
+}
+
+/** The rule behind `useCaregiverDevice`, apart from the live reads. */
+export function isCaregiverDevice(role: DeviceRole | null, profiles: readonly Profile[], individualAccountIds: ReadonlySet<string>): boolean {
+  if (role?.kind === 'caregiver') return true;
+  // No answer yet: a person managing their own day (every profile is a "Myself" one) is their own caregiver.
+  if (!role && profiles.length > 0 && profiles.every((p) => individualAccountIds.has(p.account_id))) return true;
+  return profiles.length > 0 && !profiles.some(usesApp);
+}
+
 /**
  * True when this device skips the child view: it was set up for a caregiver,
- * or no child on it uses the app. `undefined` while still loading, so guards
- * don't redirect on a half-read state.
+ * the person manages their own account, or no child on it uses the app.
+ * `undefined` while still loading, so guards don't redirect on a half-read state.
  */
 export function useCaregiverDevice(): boolean | undefined {
   const role = useDeviceRole();
   const roleLoaded = useKvLoaded(DEVICE_ROLE_KEY);
   const profiles = useLiveProfiles();
-  if (!roleLoaded || profiles === undefined) return undefined;
-  if (role?.kind === 'caregiver') return true;
-  return profiles.length > 0 && !profiles.some(usesApp);
+  const individualIds = useIndividualAccountIds();
+  if (!roleLoaded || profiles === undefined || individualIds === undefined) return undefined;
+  return isCaregiverDevice(role, profiles, individualIds);
 }
 
 /** The child the child view shows: a hard lock's target, this device's child, the active profile, else the first child who uses the app. */
