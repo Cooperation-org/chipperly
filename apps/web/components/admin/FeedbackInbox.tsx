@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FeedbackListSchema, type FeedbackItem, type FeedbackList } from '@chipperly/shared/schemas/feedback';
+import { FeedbackListSchema, SURVEY_QUESTIONS, type FeedbackItem, type FeedbackList } from '@chipperly/shared/schemas/feedback';
 import { api } from '@/lib/api/client';
 import { useSession } from '@/lib/auth/session';
 import { median } from '@/lib/feedback/median';
@@ -10,10 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
 import styles from './FeedbackInbox.module.css';
 
-const KIND_LABEL: Record<FeedbackItem['kind'], string> = { bug: 'Broken', idea: 'Idea', question: 'Question', love: 'Love it' };
-
-const answers = (items: FeedbackItem[], key: 'price_bargain' | 'price_expensive' | 'price_too_expensive'): number[] =>
-  items.map((i) => i[key]).filter((v): v is number => v !== null);
+const KIND_LABEL: Record<FeedbackItem['kind'], string> = { bug: 'Broken', idea: 'Idea', question: 'Question', love: 'Love it', nps: 'Recommend?' };
 
 const count = (n: number): string => `${n} ${n === 1 ? 'answer' : 'answers'}`;
 
@@ -38,10 +35,7 @@ export function FeedbackInbox() {
     if (user?.is_super_admin) load();
   }, [user?.is_super_admin, load]);
 
-  const pricing = useMemo(() => {
-    const all = items ?? [];
-    return { bargain: answers(all, 'price_bargain'), expensive: answers(all, 'price_expensive'), tooExpensive: answers(all, 'price_too_expensive') };
-  }, [items]);
+  const prices = useMemo(() => (items ?? []).map((i) => i.q_price_monthly).filter((v): v is number => v !== null), [items]);
 
   if (!user?.is_super_admin) return <p>Only super admins can see this.</p>;
   if (!items) return null;
@@ -61,16 +55,14 @@ export function FeedbackInbox() {
     <div className={styles.page}>
       <section className={styles.card} aria-label="What they said about price">
         <h2 className={styles.title}>Price answers</h2>
-        {pricing.bargain.length + pricing.expensive.length + pricing.tooExpensive.length === 0 ? (
-          <p className={styles.muted}>Nobody has answered the pricing questions yet.</p>
+        {prices.length === 0 ? (
+          <p className={styles.muted}>Nobody has answered the pricing question yet.</p>
         ) : (
           <ul className={styles.stats}>
-            <li><strong>${median(pricing.bargain) ?? '-'}</strong> a bargain <span>({count(pricing.bargain.length)})</span></li>
-            <li><strong>${median(pricing.expensive) ?? '-'}</strong> getting expensive <span>({count(pricing.expensive.length)})</span></li>
-            <li><strong>${median(pricing.tooExpensive) ?? '-'}</strong> too expensive <span>({count(pricing.tooExpensive.length)})</span></li>
+            <li><strong>${median(prices)}</strong> a month <span>({count(prices.length)})</span></li>
           </ul>
         )}
-        <p className={styles.muted}>Middle value of the answers so far, in dollars per month. A handful of answers says little.</p>
+        <p className={styles.muted}>Middle value of what testers would pay, in dollars per month. A handful of answers says little.</p>
       </section>
 
       <Segmented
@@ -89,19 +81,22 @@ export function FeedbackInbox() {
           <header className={styles.head}>
             <span className={styles.kind}>{KIND_LABEL[item.kind]}</span>
             {item.rating ? <span>{item.rating} of 5</span> : null}
+            {item.nps_score !== null ? <span>{item.nps_score} of 10</span> : null}
             <span className={styles.muted}>{when(item.created_at)}</span>
           </header>
-          <p className={styles.message}>{item.message}</p>
+          {item.message ? <p className={styles.message}>{item.message}</p> : null}
           <p className={styles.muted}>
             {item.signed_in ? `Signed in${item.account_kind ? `, ${item.account_kind} account` : ''}` : 'Guest'}
             {item.page ? `, on ${item.page}` : ''}
             {item.contact_email ? <>. Write back: <a href={`mailto:${item.contact_email}`}>{item.contact_email}</a></> : '. No way to write back.'}
           </p>
-          {item.price_bargain !== null || item.price_expensive !== null || item.price_too_expensive !== null ? (
-            <p className={styles.muted}>
-              Price: bargain {item.price_bargain === null ? '-' : `$${item.price_bargain}`}, expensive {item.price_expensive === null ? '-' : `$${item.price_expensive}`}, too expensive {item.price_too_expensive === null ? '-' : `$${item.price_too_expensive}`}
-            </p>
-          ) : null}
+          {SURVEY_QUESTIONS.map(({ key, label }) =>
+            item[key] === null ? null : (
+              <p key={key} className={styles.message}>
+                <strong>{label}</strong> {key === 'q_price_monthly' ? `$${item[key]} a month` : item[key]}
+              </p>
+            ),
+          )}
           <Button variant="secondary" onClick={() => void mark(item, item.status === 'new' ? 'done' : 'new')}>
             {item.status === 'new' ? 'Mark done' : 'Reopen'}
           </Button>

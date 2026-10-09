@@ -113,3 +113,21 @@
   width: 24px;
   height: 24px;
 }
+
+/* <details> does not lay its content out as a flex column, so the survey fields get their own wrapper. */
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.choiceLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}

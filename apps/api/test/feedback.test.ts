@@ -42,9 +42,9 @@ describe('feedback', () => {
     expect(row).toMatchObject({ user_id: null, kind: 'idea', contact_email: null, status: 'new' });
 
     const msg2 = `guest ok ${uuidv7()}`;
-    await send({ kind: 'love', message: msg2, rating: 5, contact_ok: true, contact_email: 'guest@example.com', price_bargain: 8 });
+    await send({ kind: 'love', message: msg2, rating: 5, contact_ok: true, contact_email: 'guest@example.com', q_price_monthly: 8 });
     const [row2] = await db.select().from(feedback).where(eq(feedback.message, msg2));
-    expect(row2).toMatchObject({ contact_email: 'guest@example.com', rating: 5, price_bargain: 8 });
+    expect(row2).toMatchObject({ contact_email: 'guest@example.com', rating: 5, q_price_monthly: 8 });
   });
 
   it('records who a signed-in person is and uses their account email', async () => {
@@ -55,8 +55,32 @@ describe('feedback', () => {
     expect(row).toMatchObject({ user_id: me.id, contact_email: me.email, page: '/chips/' });
   });
 
+  it('takes the survey with no message, and mails the answers', async () => {
+    env.FEEDBACK_EMAIL_TO = 'team@example.com';
+    const problem = `routine chaos ${uuidv7()}`;
+    expect((await send({ kind: 'idea', message: '', q_problem: problem, q_helped: 'partly', q_price_monthly: 12 })).statusCode).toBe(201);
+    const [row] = await db.select().from(feedback).where(eq(feedback.q_problem, problem));
+    expect(row).toMatchObject({ message: '', q_helped: 'partly', q_price_monthly: 12, q_liked: null });
+    const mail = getLastMailMessage();
+    expect(mail?.text).toContain(problem);
+    expect(mail?.text).toContain('12 dollars a month');
+    env.FEEDBACK_EMAIL_TO = undefined;
+  });
+
+  it('stores an nps score with its reason', async () => {
+    const why = `nps ${uuidv7()}`;
+    expect((await send({ kind: 'nps', message: why, nps_score: 9 })).statusCode).toBe(201);
+    const [row] = await db.select().from(feedback).where(eq(feedback.message, why));
+    expect(row).toMatchObject({ kind: 'nps', nps_score: 9 });
+    expect((await send({ kind: 'nps', message: '', nps_score: 0 })).statusCode).toBe(201);
+    expect((await send({ kind: 'nps', message: 'x', nps_score: 11 })).statusCode).toBe(400);
+  });
+
   it('refuses an empty message, a bad rating and an unknown kind', async () => {
     expect((await send({ kind: 'idea', message: '   ' })).statusCode).toBe(400);
+    expect((await send({ kind: 'idea', message: '', q_problem: '  ' })).statusCode).toBe(400);
+    expect((await send({ kind: 'idea', message: 'x', q_helped: 'maybe' })).statusCode).toBe(400);
+    expect((await send({ kind: 'idea', message: 'x', q_liked: 'a'.repeat(2001) })).statusCode).toBe(400);
     expect((await send({ kind: 'idea', message: 'x', rating: 9 })).statusCode).toBe(400);
     expect((await send({ kind: 'rant', message: 'x' })).statusCode).toBe(400);
   });

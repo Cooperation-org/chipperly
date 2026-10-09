@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { desc, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { z } from 'zod';
-import { FeedbackBodySchema, FeedbackStatusBodySchema, type FeedbackItem, type FeedbackList } from '@chipperly/shared/schemas/feedback';
+import { FeedbackBodySchema, FeedbackStatusBodySchema, SURVEY_QUESTIONS, type FeedbackItem, type FeedbackList } from '@chipperly/shared/schemas/feedback';
 import { db } from '../db/client.js';
 import { accounts, users } from '../db/schema/accounts.js';
 import { feedback } from '../db/schema/feedback.js';
@@ -13,7 +13,7 @@ import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { requireSuperAdmin } from './admin.js';
 
-const KIND_LABEL = { bug: 'Something is broken', idea: 'An idea', question: 'A question', love: 'Something they love' } as const;
+const KIND_LABEL = { bug: 'Something is broken', idea: 'An idea', question: 'A question', love: 'Something they love', nps: 'Would they recommend us' } as const;
 
 /**
  * Feedback from the beta, in the app. Open to guests too (a person trying the demo has opinions),
@@ -41,9 +41,14 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
       app_version: body.app_version ?? null,
       user_agent: String(request.headers['user-agent'] ?? '').slice(0, 200) || null,
       account_kind: account?.kind ?? null,
-      price_bargain: body.price_bargain ?? null,
-      price_expensive: body.price_expensive ?? null,
-      price_too_expensive: body.price_too_expensive ?? null,
+      q_problem: body.q_problem || null,
+      q_helped: body.q_helped ?? null,
+      q_easier: body.q_easier || null,
+      q_frustrated: body.q_frustrated || null,
+      q_liked: body.q_liked || null,
+      q_recommend: body.q_recommend || null,
+      q_price_monthly: body.q_price_monthly ?? null,
+      nps_score: body.nps_score ?? null,
     });
 
     const to = (env.FEEDBACK_EMAIL_TO ?? '').split(',').map((e) => e.trim()).filter(Boolean);
@@ -52,7 +57,9 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
       const mail = renderEmail({
         heading: `New feedback: ${KIND_LABEL[body.kind]}`,
         paragraphs: [
-          body.message,
+          ...(body.nps_score !== undefined ? [`Would recommend: ${body.nps_score} out of 10`] : []),
+          ...(body.message ? [body.message] : []),
+          ...SURVEY_QUESTIONS.flatMap(({ key, label }) => (body[key] !== undefined && body[key] !== '' ? [`${label} ${body[key]}${key === 'q_price_monthly' ? ' dollars a month' : ''}`] : [])),
           `${who}${body.rating ? `, rated it ${body.rating} of 5` : ''}${body.page ? `, from ${body.page}` : ''}.`,
           contactEmail ? `They said you may write back: ${contactEmail}` : 'They did not leave a way to write back.',
         ],
@@ -77,9 +84,14 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
       page: r.page,
       account_kind: r.account_kind,
       signed_in: r.user_id !== null,
-      price_bargain: r.price_bargain,
-      price_expensive: r.price_expensive,
-      price_too_expensive: r.price_too_expensive,
+      q_problem: r.q_problem,
+      q_helped: r.q_helped,
+      q_easier: r.q_easier,
+      q_frustrated: r.q_frustrated,
+      q_liked: r.q_liked,
+      q_recommend: r.q_recommend,
+      q_price_monthly: r.q_price_monthly,
+      nps_score: r.nps_score,
       status: r.status,
     }));
     return { items };

@@ -1,4 +1,4 @@
-import type { FeedbackBody, FeedbackKind } from '@chipperly/shared/schemas/feedback';
+import type { FeedbackBody, FeedbackHelped, FeedbackKind } from '@chipperly/shared/schemas/feedback';
 import { apiBase } from '../api/base';
 import { getTokens } from '../api/client';
 
@@ -8,11 +8,23 @@ export interface FeedbackDraft {
   rating: number | null;
   contactOk: boolean;
   contactEmail: string;
+  /** The optional survey. Empty string means not answered. */
+  problem: string;
+  helped: FeedbackHelped | '';
+  easier: string;
+  frustrated: string;
+  liked: string;
+  recommend: string;
   /** Dollars per month, as typed. */
-  bargain: string;
-  expensive: string;
-  tooExpensive: string;
+  price: string;
 }
+
+/** The note can go alone, or the survey can: one of them has to have something in it. */
+export function canSend(draft: FeedbackDraft): boolean {
+  return [draft.message, draft.problem, draft.easier, draft.frustrated, draft.liked, draft.recommend, draft.helped, dollars(draft.price) ?? ''].some((v) => String(v).trim() !== '');
+}
+
+const text = (typed: string): string | undefined => typed.trim() || undefined;
 
 const dollars = (typed: string): number | undefined => {
   const cleaned = typed.replace(/[^0-9.]/g, '');
@@ -30,9 +42,13 @@ export function buildFeedbackBody(draft: FeedbackDraft, page: string, appVersion
     contact_email: draft.contactOk && draft.contactEmail.trim() ? draft.contactEmail.trim() : undefined,
     page: page.slice(0, 200),
     app_version: appVersion,
-    price_bargain: dollars(draft.bargain),
-    price_expensive: dollars(draft.expensive),
-    price_too_expensive: dollars(draft.tooExpensive),
+    q_problem: text(draft.problem),
+    q_helped: draft.helped || undefined,
+    q_easier: text(draft.easier),
+    q_frustrated: text(draft.frustrated),
+    q_liked: text(draft.liked),
+    q_recommend: text(draft.recommend),
+    q_price_monthly: dollars(draft.price),
   };
 }
 
