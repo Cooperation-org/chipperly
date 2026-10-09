@@ -143,7 +143,7 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
       ) : (
         <section>
           <h3 className={styles.sectionLabel}>All</h3>
-          <div className={styles.grid}>
+          <div className={`${styles.grid} ${styles.rewardGrid}`}>
             {filteredRewards.map((reward) => (
               <RewardTile key={reward.id} reward={reward} onPick={onPick} />
             ))}
@@ -186,11 +186,11 @@ function RewardTile({ reward, onPick }: RewardTileProps) {
   return (
     <button
       type="button"
-      className={styles.tile}
+      className={`${styles.tile} ${styles.rewardTile}`}
       onClick={() => onPick(reward)}
       aria-label={`${reward.name}, ${costLabel}`}
     >
-      <Picture emoji={reward.emoji} photo_id={reward.photo_id} name={reward.name} size="grid" />
+      <Picture emoji={reward.emoji} photo_id={reward.photo_id} name={reward.name} size="fill" />
       <span className={styles.tileName} title={reward.name}>
         {reward.name}
       </span>

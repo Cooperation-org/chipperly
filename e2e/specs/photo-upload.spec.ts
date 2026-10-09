@@ -120,7 +120,7 @@ test.describe('photo upload', () => {
 
   test('reward picture via Chips > Working for > Create new: choose Photo, save, sync completes', async () => {
     await gotoTab(page, 'chips');
-    await page.getByRole('button', { name: /Working for/ }).click();
+    await page.getByRole('button', { name: /I am working for/ }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
     await sheet.getByRole('button', { name: 'Create a new reward', exact: true }).click();
@@ -139,9 +139,9 @@ test.describe('photo upload', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForURL('**/chips/');
 
-    // The photo lives in the "Working for" card (ChipsScreen.tsx), which
+    // The photo lives in the "I am working for..." card (ChipsScreen.tsx), which
     // picks it up via useWorkingFor's live query the moment the reward saves.
-    const workingForButton = page.getByRole('button', { name: /^Working for/ });
+    const workingForButton = page.getByRole('button', { name: /^I am working for/ });
     await expect(workingForButton).toContainText('E2E Photo Reward');
     await expect(workingForButton.locator('img')).toBeVisible();
 

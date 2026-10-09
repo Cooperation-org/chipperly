@@ -68,11 +68,11 @@ test.describe('rewards: how to get it, and changing the working-for reward', () 
 
   test('#21 working-for card: the picture sits above the chip strip', async () => {
     // Pick a reward first so the card has a picture and a strip (ChipsScreen.tsx:186).
-    // Reward button name is "Working for <img name> <text>" (ChipsScreen.tsx:175-181), so match the prefix.
-    await page.getByRole('button', { name: /^Working for/ }).click();
+    // Reward button name is "I am working for... <img name> <text>" (ChipsScreen.tsx:175-181), so match the prefix.
+    await page.getByRole('button', { name: /^I am working for/ }).click();
     await page.getByRole('dialog').getByRole('button', { name: /^Ice cream/ }).click(); // Picker.tsx:188 "Ice cream, 5 chips"
 
-    const rewardButton = page.getByRole('button', { name: /^Working for/ });
+    const rewardButton = page.getByRole('button', { name: /^I am working for/ });
     await expect(rewardButton).toContainText('Ice cream');
 
     // PictureTile is role="img" aria-label={name} (PictureTile.tsx:34,42,52).
@@ -94,7 +94,7 @@ test.describe('rewards: how to get it, and changing the working-for reward', () 
   });
 
   test('#12 the reward and the chip strip open the same picker', async () => {
-    const rewardButton = page.getByRole('button', { name: /^Working for/ });
+    const rewardButton = page.getByRole('button', { name: /^I am working for/ });
     const strip = page.getByRole('button', { name: /^\d+ of \d+ chips$/ });
 
     // Different names on purpose: one names the reward, the other reads the chip count.
@@ -103,7 +103,7 @@ test.describe('rewards: how to get it, and changing the working-for reward', () 
 
     // Target 1: the reward itself.
     await rewardButton.click();
-    let sheet = page.getByRole('dialog', { name: 'Working for...' }); // ChipsScreen.tsx:100 title
+    let sheet = page.getByRole('dialog', { name: 'Choose your reward' }); // ChipsScreen.tsx title
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('button', { name: /^Ice cream/ })).toBeVisible();
     await expect(sheet.getByRole('button', { name: /^Toy/ })).toBeVisible();
@@ -112,7 +112,7 @@ test.describe('rewards: how to get it, and changing the working-for reward', () 
 
     // Target 2: the chip strip. Same dialog, same options, and picking changes the reward.
     await strip.click();
-    sheet = page.getByRole('dialog', { name: 'Working for...' });
+    sheet = page.getByRole('dialog', { name: 'Choose your reward' });
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('button', { name: /^Ice cream/ })).toBeVisible();
     await sheet.getByRole('button', { name: /^Toy/ }).click();

@@ -38,13 +38,13 @@ test.describe('chips and first-then', () => {
   });
 
   test('choose a working-for reward, fill the board, redeem', async () => {
-    await page.getByRole('button', { name: /Working for/ }).click();
+    await page.getByRole('button', { name: /I am working for/ }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
     await sheet.getByRole('button', { name: /^Ice cream/ }).click();
 
     const board = page.getByRole('status', { name: /of \d+ chips/ });
-    await expect(page.getByRole('button', { name: /^Working for/ })).toContainText('Ice cream');
+    await expect(page.getByRole('button', { name: /^I am working for/ })).toContainText('Ice cream');
 
     // The chosen reward is editable right here, not only from Settings > Library > Rewards.
     await page.getByRole('button', { name: 'Edit Ice cream', exact: true }).click();
@@ -160,7 +160,7 @@ test.describe('chips and first-then', () => {
     const board = page.getByRole('status', { name: /of 5 chips/ });
     await expect(board).toHaveAttribute('aria-label', '5 of 5 chips');
 
-    await page.getByRole('button', { name: /^Working for/ }).click();
+    await page.getByRole('button', { name: /^I am working for/ }).click();
     const sheet = page.getByRole('dialog');
     await sheet.getByRole('button', { name: /^Toy/ }).click();
 

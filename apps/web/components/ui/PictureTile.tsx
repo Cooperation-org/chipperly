@@ -5,7 +5,7 @@ import { Icon } from './Icon';
 import { Skeleton } from './Skeleton';
 import styles from './PictureTile.module.css';
 
-export type PictureTileSize = 'list' | 'grid' | 'child' | 'hero';
+export type PictureTileSize = 'list' | 'grid' | 'child' | 'hero' | 'fill';
 
 export interface PictureTileProps {
   emoji?: string;

@@ -25,6 +25,23 @@
   }
 }
 
+/* Reward picker only: bigger tiles, 2 across on phones. Activities keep the compact grid. */
+.rewardGrid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 600px) {
+  .rewardGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .rewardGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 .tile {
   display: flex;
   flex-direction: column;
@@ -53,6 +70,11 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+}
+
+.rewardTile .tileName {
+  font-size: var(--text-lg);
+  font-weight: 700;
 }
 
 .badge {

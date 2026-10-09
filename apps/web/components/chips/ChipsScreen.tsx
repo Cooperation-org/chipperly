@@ -91,7 +91,7 @@ export function ChipsScreen() {
         kind="reward"
         profileId={profileId}
         locationId={location.id}
-        title="Working for..."
+        title="Choose your reward"
         onPick={(item) => {
           void setWorkingFor(location.id, item.id);
           sheet.close();
@@ -101,7 +101,7 @@ export function ChipsScreen() {
           router.push(`/reward/edit/?location_id=${location.id}&working_for=1`);
         }}
       />,
-      { title: 'Working for...' },
+      { title: 'Choose your reward' },
     );
   }
 
@@ -185,7 +185,7 @@ export function ChipsScreen() {
           {/* Two tap targets, one action: the big picture and the chips beneath it both open the picker. */}
           <div className={styles.workingFor}>
             <button type="button" className={styles.workingForButton} onClick={openRewardPicker}>
-              <span className={styles.workingForLabel}>Working for</span>
+              <span className={styles.workingForLabel}>I am working for...</span>
               {working.reward ? (
                 <>
                   <Picture emoji={working.reward.emoji} photo_id={working.reward.photo_id} name={working.reward.name} size="hero" />
@@ -199,6 +199,10 @@ export function ChipsScreen() {
                   <span className={styles.choose}>Choose a reward</span>
                 </>
               )}
+              {/* The strip below announces the count; this is the same number in words for reading. */}
+              <span className={styles.earned} aria-hidden="true">
+                {working.filled} of {working.goal} earned
+              </span>
             </button>
             <ChipStrip filled={working.filled} total={working.goal} onTap={openRewardPicker} size="lg" />
           </div>

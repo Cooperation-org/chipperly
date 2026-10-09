@@ -51,18 +51,22 @@
 }
 
 .workingForLabel {
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .workingForName {
   font-family: var(--font-heading);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
+  font-weight: 700;
   color: var(--color-text);
   word-break: break-word;
+}
+
+.earned {
+  font-size: var(--text-md);
+  color: var(--color-text-muted);
 }
 
 .choose {
