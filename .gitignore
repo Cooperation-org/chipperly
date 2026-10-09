@@ -33,3 +33,13 @@ apps/site/AGENTS.md
 apps/site/CLAUDE.md
 apps/site/media/
 deploy/cloudflare/worker-configuration.d.ts
+apps/web/out.*-backup/
+.playwright-mcp/
+# Keys and signing files: never in a public repo
+*-firebase-adminsdk-*.json
+*service-account*.json
+*.p8
+*.p12
+*.pem
+*.jks
+*.keystore
