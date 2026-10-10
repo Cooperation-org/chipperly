@@ -55,6 +55,7 @@ describe('billingCopy', () => {
     const base: Omit<BillingStatus, 'access'> = { kind: 'household', checkout_available: true, price: null, prices: [], subscription: null, can_manage: true, discount: null };
     expect(planLine({ ...base, access: { state: 'trial', ...at, write_paused: false } }, 'en-US', 'UTC')).toBe('Free trial. Ends on October 1, 2026.');
     expect(planLine({ ...base, access: { state: 'lapsed', ...at, write_paused: true } })).toBe('No active subscription.');
+    expect(planLine({ ...base, access: { state: 'subscribed', ended_at: Date.UTC(2027, 9, 1), pauses_at: null, write_paused: false } }, 'en-US', 'UTC')).toBe('You have free access until October 1, 2027.');
   });
 });
 

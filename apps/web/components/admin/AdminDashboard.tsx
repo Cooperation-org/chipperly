@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { PromoCodeSheet } from './PromoCodeSheet';
+import { PersonSheet } from './PersonSheet';
 import styles from './AdminDashboard.module.css';
 
 /** Plural label per account kind, for the counts line. Unknown kinds read as individuals. */
@@ -100,6 +101,10 @@ export function AdminDashboard() {
     );
   }
 
+  function manage(person: AdminUser): void {
+    sheet.open(<PersonSheet person={person} onChanged={() => loadPeople(query)} onClose={() => sheet.close()} />, { title: person.display_name });
+  }
+
   const peak = Math.max(1, ...(overview?.signups_by_day.map((d) => d.count) ?? [1]));
 
   return (
@@ -174,6 +179,7 @@ export function AdminDashboard() {
                   {left > 0 ? `Trial: ${left} day${left === 1 ? '' : 's'} left` : 'Trial ended'}
                   {p.personal_code ? ` · ${p.personal_code}` : ''}
                 </span>
+                {p.deactivated_at ? <span className={styles.closed}>Sign-in closed {day(p.deactivated_at)}</span> : null}
               </div>
               <div className={styles.actions}>
                 {!p.personal_code && offers.length > 0 ? (
@@ -186,6 +192,9 @@ export function AdminDashboard() {
                 </Button>
                 <Button variant="secondary" onClick={() => void extend(p, 21)}>
                   +21 days
+                </Button>
+                <Button variant="secondary" onClick={() => manage(p)}>
+                  Manage
                 </Button>
               </div>
             </div>

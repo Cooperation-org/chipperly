@@ -87,6 +87,8 @@ export function subscriptionLine(sub: NonNullable<BillingStatus['subscription']>
 export function planLine(status: BillingStatus, locale?: string, timeZone?: string): string {
   const { access, subscription } = status;
   if (subscription && access.state === 'subscribed') return subscriptionLine(subscription);
+  // Subscribed with no subscription: free access given by Chipperly's team (accounts.comp_until).
+  if (access.state === 'subscribed') return access.ended_at === null ? 'You have free access.' : `You have free access until ${formatDate(access.ended_at, locale, timeZone)}.`;
   if (access.state === 'trial' && access.ended_at !== null) return `Free trial. Ends on ${formatDate(access.ended_at, locale, timeZone)}.`;
   if (access.state === 'grace' || access.state === 'lapsed') return 'No active subscription.';
   return subscription ? subscriptionLine(subscription) : 'You are on the free trial.';
