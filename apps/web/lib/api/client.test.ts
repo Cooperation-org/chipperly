@@ -215,3 +215,104 @@ describe('request timeout', () => {
     expect(kv.get('auth_tokens')).toMatchObject({ refresh_token: 'r' });
   });
 });
+
+describe('a refresh that fails says nothing about the session unless the server refuses it', () => {
+  const stale = { access_token: 'stale', refresh_token: 'r', expires_in: 900, obtained_at: Date.now() };
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    kv.clear();
+  });
+
+  const refreshAnswers = (answer: () => Promise<Response>) =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => (String(url).includes('/auth/refresh') ? answer() : Promise.resolve(new Response('{}', { status: 401 })))),
+    );
+
+  it('keeps the tokens and does not report a 401 when the server is restarting (502)', async () => {
+    kv.set('auth_tokens', stale);
+    refreshAnswers(() => Promise.resolve(new Response('Bad Gateway', { status: 502 })));
+    const err = await api.get('/me').catch((e: unknown) => e);
+    // Not an ApiError: the sync engine signs out on ApiError 401 and waits on anything else.
+    expect(err).toBeInstanceOf(TypeError);
+    expect(err).not.toBeInstanceOf(ApiError);
+    expect(kv.get('auth_tokens')).toMatchObject({ refresh_token: 'r' });
+  });
+
+  it('does not report a 401 when the refresh cannot reach the server', async () => {
+    kv.set('auth_tokens', stale);
+    refreshAnswers(() => Promise.reject(new TypeError('offline')));
+    const err = await api.get('/me').catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(ApiError);
+    expect(kv.get('auth_tokens')).toMatchObject({ refresh_token: 'r' });
+  });
+
+  it('still signs out when the server refuses the refresh token', async () => {
+    kv.set('auth_tokens', stale);
+    refreshAnswers(() => Promise.resolve(new Response(JSON.stringify({ error: { code: 'invalid_refresh' } }), { status: 401 })));
+    const err = await api.get('/me').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(401);
+    expect(kv.get('auth_tokens')).toBeNull();
+  });
+});
+
+describe('two tabs refreshing at the same moment', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+    kv.clear();
+  });
+
+  /** A server that rotates the refresh token: `r` works once, and anything else is refused. */
+  function rotatingServer() {
+    let current = 'r';
+    const refreshCalls: string[] = [];
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: { body?: string; headers?: Record<string, string> }) => {
+      if (String(url).includes('/auth/refresh')) {
+        const sent = (JSON.parse(init?.body ?? '{}') as { refresh_token: string }).refresh_token;
+        refreshCalls.push(sent);
+        if (sent !== current) return new Response(JSON.stringify({ error: { code: 'invalid_refresh' } }), { status: 401 });
+        current = 'r2';
+        // The winner's answer takes a moment to arrive, which is when the loser used to wipe the session.
+        await new Promise((r) => setTimeout(r, 20));
+        return new Response(JSON.stringify({ access_token: 'fresh', refresh_token: 'r2', token_type: 'Bearer', expires_in: 900 }), { status: 200 });
+      }
+      return init?.headers?.Authorization === 'Bearer fresh' ? new Response(JSON.stringify({ ok: true }), { status: 200 }) : new Response('{}', { status: 401 });
+    });
+    return { fetchMock, refreshCalls };
+  }
+
+  /** Two copies of the client module stand in for two tabs: separate memory, the same stored tokens. */
+  async function twoTabs() {
+    vi.resetModules();
+    const a = await import('./client');
+    vi.resetModules();
+    const b = await import('./client');
+    return [a.api, b.api] as const;
+  }
+
+  it('takes turns with a Web Lock: one refresh, both tabs carry on, nobody is signed out', async () => {
+    let queue: Promise<unknown> = Promise.resolve();
+    vi.stubGlobal('navigator', {
+      locks: {
+        request: <T>(_name: string, run: () => Promise<T>): Promise<T> => {
+          const next = queue.then(run);
+          queue = next.catch(() => undefined);
+          return next;
+        },
+      },
+    });
+    const { fetchMock, refreshCalls } = rotatingServer();
+    vi.stubGlobal('fetch', fetchMock);
+    kv.set('auth_tokens', { access_token: 'stale', refresh_token: 'r', expires_in: 900, obtained_at: Date.now() });
+    const [tabA, tabB] = await twoTabs();
+
+    const results = await Promise.all([tabA.get('/me'), tabB.get('/me')]);
+
+    expect(results).toEqual([{ ok: true }, { ok: true }]);
+    expect(refreshCalls).toEqual(['r']);
+    expect(kv.get('auth_tokens')).toMatchObject({ refresh_token: 'r2' });
+  });
+});
+

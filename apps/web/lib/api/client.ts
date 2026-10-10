@@ -104,19 +104,40 @@ export function buildHeaders(params: {
   return headers;
 }
 
+/**
+ * What came of asking for new tokens. Only `rejected` means the session is over. `unavailable` is
+ * everything that says nothing about the session: no connection, a timeout, the server restarting
+ * during an update. Treating those as a rejection used to sign people out.
+ */
+export type RefreshOutcome = 'refreshed' | 'rejected' | 'unavailable';
+
 // Parallel requests that 401 together (every sync pull after the 15-minute
 // access token expires) used to each POST /auth/refresh with the same token;
 // the server rotates it on the first, the rest failed and signed the user out.
-let refreshInFlight: Promise<boolean> | null = null;
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
-function refreshTokens(refreshToken: string): Promise<boolean> {
-  refreshInFlight ??= doRefresh(refreshToken).finally(() => {
+function refreshTokens(refreshToken: string): Promise<RefreshOutcome> {
+  refreshInFlight ??= acrossTabs(() => doRefresh(refreshToken)).finally(() => {
     refreshInFlight = null;
   });
   return refreshInFlight;
 }
 
-async function doRefresh(refreshToken: string): Promise<boolean> {
+/**
+ * The guard above only covers one tab. Two tabs (or a tab and the home-screen app) share the stored
+ * tokens, so each sent the same refresh token; the loser was refused and signed everyone out. A Web
+ * Lock makes them take turns, and doRefresh starts by checking whether the tab before it already did
+ * the work. Without the Locks API (old browsers, tests) it runs unguarded, as before.
+ */
+function acrossTabs<T>(run: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+  return locks ? locks.request('chipperly-auth-refresh', run) : run();
+}
+
+async function doRefresh(refreshToken: string): Promise<RefreshOutcome> {
+  // Another tab refreshed while this one waited its turn: the new tokens are already saved.
+  const saved = await getTokens();
+  if (saved && saved.refresh_token !== refreshToken) return 'refreshed';
   try {
     const res = await fetch(`${apiBase}/auth/refresh`, {
       method: 'POST',
@@ -124,23 +145,24 @@ async function doRefresh(refreshToken: string): Promise<boolean> {
       body: JSON.stringify({ refresh_token: refreshToken }),
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
-    if (!res.ok) {
+    if (res.status === 401) {
       // A request that read the old token after another refresh already rotated it.
-      if ((await getTokens())?.refresh_token !== refreshToken) return true;
+      if ((await getTokens())?.refresh_token !== refreshToken) return 'refreshed';
       await setTokens(null);
-      return false;
+      return 'rejected';
     }
+    // 5xx, a proxy's 502 while the server restarts, a 404 from a half-deployed build: not an answer about the session.
+    if (!res.ok) return 'unavailable';
     const parsed = TokensResponseSchema.safeParse(await res.json());
     if (!parsed.success) {
       if (process.env.NODE_ENV === 'development') console.error('bad /auth/refresh response', parsed.error);
-      await setTokens(null);
-      return false;
+      return 'unavailable';
     }
     await setTokens(parsed.data);
-    return true;
+    return 'refreshed';
   } catch {
     // Includes a timeout: no answer isn't a rejected refresh, so the tokens stay.
-    return false;
+    return 'unavailable';
   }
 }
 
@@ -213,11 +235,14 @@ async function send<T>(
   // retry's failure wipes the working session as a side effect of an
   // unrelated login attempt.
   if (res.status === 401 && !isRetry && tokens?.refresh_token && !path.startsWith('/auth/')) {
-    const refreshed = await refreshTokens(tokens.refresh_token);
-    if (refreshed) {
+    const outcome = await refreshTokens(tokens.refresh_token);
+    if (outcome === 'refreshed') {
       stopTimer(); // the retry has its own timeout
       return request<T>(method, path, body, opts, true);
     }
+    // The session may be fine; the server just could not be asked. Throw what an offline fetch throws,
+    // so callers and the sync engine wait and try again instead of signing the person out on a 401.
+    if (outcome === 'unavailable') throw new TypeError('Could not reach the server to refresh the session');
   }
 
   if (!res.ok) {
