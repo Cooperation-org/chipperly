@@ -91,8 +91,35 @@ export const AdminUserSchema = z.object({
   children: z.number().int(),
   devices: z.number().int(),
   last_seen_at: msTimestampSchema.nullable(),
+  /** Set when a super admin closed this person's sign-in; they can be erased 30 days after it. */
+  deactivated_at: msTimestampSchema.nullable().default(null),
+  /** The accounts they belong to, so free access can be given to the right one. */
+  accounts: z
+    .array(z.object({ id: uuidSchema, name: z.string(), kind: z.string(), role: z.string(), comp_until: msTimestampSchema.nullable() }))
+    .default([]),
 });
 export type AdminUser = z.infer<typeof AdminUserSchema>;
+
+/** How long a closed sign-in is kept before it may be erased for good. */
+export const ERASE_AFTER_DAYS = 30;
+
+/** PATCH /admin/users/:id. Only what is sent changes. */
+export const AdminEditUserBodySchema = z.object({
+  display_name: z.string().trim().min(1).max(100).optional(),
+  email: z.string().trim().toLowerCase().email().max(200).optional(),
+  email_verified: z.boolean().optional(),
+});
+export type AdminEditUserBody = z.infer<typeof AdminEditUserBodySchema>;
+
+/** DELETE /admin/users/:id: the email is typed again, so the wrong row cannot be erased by a slip. */
+export const AdminEraseUserBodySchema = z.object({ confirm_email: z.string().trim().toLowerCase() });
+
+/** PUT /admin/accounts/:id/comp. `until: null` takes the free access away. */
+export const AdminCompBodySchema = z.object({
+  until: msTimestampSchema.nullable(),
+  note: z.string().trim().max(200).nullable().default(null),
+});
+export type AdminCompBody = z.infer<typeof AdminCompBodySchema>;
 
 export const AdminOverviewSchema = z.object({
   users: z.number().int(),

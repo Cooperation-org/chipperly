@@ -232,6 +232,13 @@
       "when": 1790310000000,
       "tag": "0034_feedback_survey",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790320000000,
+      "tag": "0035_admin_users",
+      "breakpoints": true
     }
   ]
 }

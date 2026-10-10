@@ -15,6 +15,10 @@ export const accounts = pgTable('accounts', {
    * them anywhere, integrity is app-enforced.
    */
   owner_user_id: uuid('owner_user_id').notNull(),
+  /** Free access given by a super admin: until this moment the account counts as subscribed, with no Stripe subscription behind it. */
+  comp_until: bigint('comp_until', { mode: 'number' }),
+  /** Why it was given, for whoever looks later. */
+  comp_note: text('comp_note'),
 });
 
 export const users = pgTable(
@@ -42,6 +46,8 @@ export const users = pgTable(
     time_zone: text('time_zone'),
     /** Works the community moderation queue without being a full super admin (migration 0026). */
     is_support: boolean('is_support').notNull().default(false),
+    /** Set by a super admin: the person cannot sign in and is hidden, but nothing is erased until the admin erases them (30 days later at the earliest). */
+    deactivated_at: bigint('deactivated_at', { mode: 'number' }),
   },
   // Belt-and-suspenders: callers should already lowercase before insert.
   (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`)],

@@ -42,6 +42,8 @@ export interface AccessInput {
   /** The latest trial end among the account's admins: one admin still in their trial keeps the account open. */
   trialEnd: number;
   sub: { status: SubscriptionStatus; current_period_end: number | null } | null;
+  /** accounts.comp_until: free access a super admin gave by hand. */
+  compUntil?: number | null;
 }
 
 /** Pure. Boundaries: `now` equal to the trial end is already grace; `now` equal to the end of grace is lapsed. */
@@ -49,6 +51,8 @@ export function accessState(input: AccessInput, now: number = Date.now()): Acces
   const open: Access = { state: 'open', ended_at: null, pauses_at: null, write_paused: false };
   if (!input.billingOn || !input.canCheckout || input.exempt) return open;
   if (input.sub && LIVE.has(input.sub.status)) return { ...open, state: 'subscribed', ended_at: input.sub.current_period_end };
+  // Given by hand: the same as a subscription until it runs out, then the usual trial and grace rules apply again.
+  if (input.compUntil && now < input.compUntil) return { ...open, state: 'subscribed', ended_at: input.compUntil };
   // A subscription whose first payment never went through bought no time: its period end must not extend the trial.
   const paid = input.sub && input.sub.status !== 'incomplete' && input.sub.status !== 'incomplete_expired' ? input.sub.current_period_end : null;
   const endedAt = Math.max(input.trialEnd, paid ?? 0);
@@ -61,7 +65,7 @@ export function accessState(input: AccessInput, now: number = Date.now()): Acces
 /** Loads what accessState needs. With Stripe unset it returns before touching the database. */
 export async function accountAccess(accountId: string, now: number = Date.now()): Promise<Access> {
   if (!env.stripeEnabled) return accessState({ billingOn: false, canCheckout: false, exempt: false, trialEnd: 0, sub: null }, now);
-  const [account] = await db.select({ kind: accounts.kind }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  const [account] = await db.select({ kind: accounts.kind, comp_until: accounts.comp_until }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
   if (!account) return accessState({ billingOn: false, canCheckout: false, exempt: false, trialEnd: 0, sub: null }, now);
   const admins = await db
     .select({ email: users.email, created_at: users.created_at, trial_ends_at: users.trial_ends_at })
@@ -80,6 +84,7 @@ export async function accountAccess(accountId: string, now: number = Date.now())
       exempt: admins.some((a) => isSuperAdmin(a.email)),
       trialEnd: Math.max(0, ...admins.map(trialEndsAt)),
       sub: sub ?? null,
+      compUntil: account.comp_until,
     },
     now,
   );

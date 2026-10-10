@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import type { TokensResponse } from '@chipperly/shared/schemas/auth';
 import { env } from '../env.js';
 import { db } from '../db/client.js';
-import { sessions } from '../db/schema/accounts.js';
+import { sessions, users } from '../db/schema/accounts.js';
 import { AppError } from '../plugins/errors.js';
 
 const ACCESS_TTL_SECONDS = 900;
@@ -60,6 +60,9 @@ export async function issueTokens(
   deviceId?: string,
   userAgent?: string,
 ): Promise<TokensResponse> {
+  // One place every sign-in passes through (password, Google, Apple, sign-up).
+  const [person] = await db.select({ deactivated_at: users.deactivated_at }).from(users).where(eq(users.id, userId)).limit(1);
+  if (person?.deactivated_at) throw new AppError(403, 'deactivated', 'This account has been closed. Write to support@chipperlyapp.com if that is a mistake.');
   const sessionId = uuidv7();
   const refreshToken = newRefreshTokenValue();
   await db.insert(sessions).values({

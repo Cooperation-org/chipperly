@@ -2,6 +2,9 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  AdminCompBodySchema,
+  AdminEditUserBodySchema,
+  AdminEraseUserBodySchema,
   ExtendTrialBodySchema,
   IssueCodeBodySchema,
   UpsertPromoCodeBodySchema,
@@ -11,7 +14,8 @@ import {
 } from '@chipperly/shared/schemas/billing';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import { db, sql } from '../db/client.js';
-import { promo_codes, users } from '../db/schema/accounts.js';
+import { accounts, promo_codes, users } from '../db/schema/accounts.js';
+import { deactivateUser, eraseAllowedAt, eraseUser, reactivateUser, type EraseResult } from '../lib/adminUsers.js';
 import { isSuperAdmin, trialEndsAt } from '../lib/trial.js';
 import { issuePersonalCode } from '../lib/earlyAccess.js';
 import { requireUser } from '../plugins/auth.js';
@@ -73,13 +77,17 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         email_verified_at: string | null;
         trial_ends_at: string | null;
         personal_code: string | null;
+        deactivated_at: string | null;
+        accounts: AdminUser['accounts'] | null;
         account_kinds: string[] | null;
         children: number;
         devices: number;
         last_seen_at: string | null;
       }[]
     >`
-      select u.id, u.email, u.display_name, u.created_at, u.email_verified_at, u.trial_ends_at, u.personal_code,
+      select u.id, u.email, u.display_name, u.created_at, u.email_verified_at, u.trial_ends_at, u.personal_code, u.deactivated_at,
+        (select json_agg(json_build_object('id', a.id, 'name', a.name, 'kind', a.kind, 'role', m.role, 'comp_until', a.comp_until) order by a.created_at)
+           from account_members m join accounts a on a.id = m.account_id where m.user_id = u.id) as accounts,
         (select array_agg(distinct a.kind) from account_members m join accounts a on a.id = m.account_id where m.user_id = u.id) as account_kinds,
         (select count(*)::int from account_members m join profiles p on p.account_id = m.account_id
            where m.user_id = u.id and m.role = 'admin' and p.deleted_at is null) as children,
@@ -98,12 +106,75 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         email_verified: r.email_verified_at !== null,
         trial_ends_at: trialEndsAt({ created_at: Number(r.created_at), trial_ends_at: r.trial_ends_at === null ? null : Number(r.trial_ends_at) }),
         personal_code: r.personal_code,
+        deactivated_at: r.deactivated_at === null ? null : Number(r.deactivated_at),
+        accounts: (r.accounts ?? []).map((a) => ({ ...a, comp_until: a.comp_until === null ? null : Number(a.comp_until) })),
         account_kinds: r.account_kinds ?? [],
         children: r.children,
         devices: r.devices,
         last_seen_at: r.last_seen_at === null ? null : Number(r.last_seen_at),
       })),
     };
+  });
+
+  /** The person being changed. A super admin cannot close or erase themselves or another super admin from here. */
+  async function target(request: FastifyRequest, protect: boolean) {
+    const { id } = z.object({ id: uuidSchema }).parse(request.params);
+    const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!user) throw new AppError(404, 'not_found', 'User not found');
+    if (protect && (id === request.user?.id || isSuperAdmin(user.email))) throw new AppError(403, 'protected', 'A super admin cannot be closed or erased here');
+    return user;
+  }
+
+  /** Name, email, and whether the email counts as verified. */
+  app.patch('/admin/users/:id', guard, async (request): Promise<{ ok: true }> => {
+    const user = await target(request, false);
+    const body = AdminEditUserBodySchema.parse(request.body);
+    if (body.email && body.email !== user.email) {
+      const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, body.email)).limit(1);
+      if (taken) throw new AppError(409, 'email_taken', 'Another person already uses that email');
+    }
+    const changes: Partial<typeof users.$inferInsert> = {};
+    if (body.display_name !== undefined) changes.display_name = body.display_name;
+    if (body.email !== undefined) changes.email = body.email;
+    // A changed email is unverified again unless the admin says otherwise in the same save.
+    if (body.email_verified !== undefined) changes.email_verified_at = body.email_verified ? (user.email_verified_at ?? Date.now()) : null;
+    else if (body.email !== undefined && body.email !== user.email) changes.email_verified_at = null;
+    if (Object.keys(changes).length > 0) await db.update(users).set(changes).where(eq(users.id, user.id));
+    return { ok: true };
+  });
+
+  /** Closes the sign-in. Nothing is removed; it can be reopened, or erased after 30 days. */
+  app.post('/admin/users/:id/deactivate', guard, async (request): Promise<{ ok: true }> => {
+    const user = await target(request, true);
+    await deactivateUser(user.id);
+    return { ok: true };
+  });
+
+  app.post('/admin/users/:id/reactivate', guard, async (request): Promise<{ ok: true }> => {
+    const user = await target(request, false);
+    await reactivateUser(user.id);
+    return { ok: true };
+  });
+
+  /** Erases for good: only a closed sign-in, only 30 days after it was closed, and only with the email typed again. */
+  app.delete('/admin/users/:id', guard, async (request): Promise<EraseResult> => {
+    const user = await target(request, true);
+    const { confirm_email } = AdminEraseUserBodySchema.parse(request.body);
+    if (confirm_email !== user.email) throw new AppError(400, 'confirm_mismatch', 'The email does not match');
+    if (user.deactivated_at === null) throw new AppError(409, 'not_closed', 'Close the sign-in first');
+    if (Date.now() < eraseAllowedAt(user.deactivated_at)) throw new AppError(409, 'too_soon', 'This person can be erased 30 days after their sign-in was closed');
+    const result = await eraseUser(user.id);
+    request.log.warn({ erased_user: user.id, by: request.user?.id, ...result }, 'user erased');
+    return result;
+  });
+
+  /** Free access for one account until a date, or `until: null` to take it away. */
+  app.put('/admin/accounts/:id/comp', guard, async (request): Promise<{ ok: true }> => {
+    const { id } = z.object({ id: uuidSchema }).parse(request.params);
+    const { until, note } = AdminCompBodySchema.parse(request.body);
+    const updated = await db.update(accounts).set({ comp_until: until, comp_note: until === null ? null : note }).where(eq(accounts.id, id)).returning({ id: accounts.id });
+    if (updated.length === 0) throw new AppError(404, 'not_found', 'Account not found');
+    return { ok: true };
   });
 
   /** Gives someone their own early access code under an offer (e.g. a person who signed up before or after its dates). */
