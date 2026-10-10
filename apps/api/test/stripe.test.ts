@@ -10,7 +10,7 @@ import { buildTestApp, request } from './helpers.js';
 import { db } from '../src/db/client.js';
 import { stripe_events, subscriptions } from '../src/db/schema/subscriptions.js';
 import { env } from '../src/env.js';
-import { promo_codes, users } from '../src/db/schema/accounts.js';
+import { accounts, promo_codes, users } from '../src/db/schema/accounts.js';
 import {
   applyStripeEvent,
   priceIdsForKind,
@@ -312,6 +312,16 @@ describe('a lapsed account against the real database', () => {
     env.STRIPE_PRICE_HOUSEHOLD = undefined;
     const { accountId } = await lapsedAccount();
     expect((await accountAccess(accountId)).write_paused).toBe(false);
+  });
+
+  it('an organization has no price but its trial still runs out, until access is given by hand', async () => {
+    env.stripeEnabled = true;
+    env.STRIPE_PRICE_AGENCY = undefined;
+    const { accountId } = await lapsedAccount();
+    await db.update(accounts).set({ kind: 'agency' }).where(eq(accounts.id, accountId));
+    expect(await accountAccess(accountId)).toMatchObject({ state: 'lapsed', write_paused: true });
+    await db.update(accounts).set({ comp_until: Date.now() + DAY }).where(eq(accounts.id, accountId));
+    expect((await accountAccess(accountId)).state).toBe('subscribed');
   });
 
   it('blocks creation with 402 but still reads and exports', async () => {

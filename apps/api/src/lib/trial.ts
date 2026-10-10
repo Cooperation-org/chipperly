@@ -35,7 +35,7 @@ const LIVE = new Set<SubscriptionStatus>(['active', 'trialing', 'past_due']);
 export interface AccessInput {
   /** env.stripeEnabled. */
   billingOn: boolean;
-  /** A price id is set for this account's kind; without one there is nothing to pay, so nothing may lock. */
+  /** There is something to pay: a price id is set for this account's kind, or it is an organization (priced by arrangement). Otherwise nothing may lock. */
   canCheckout: boolean;
   /** An admin of the account is a super admin. */
   exempt: boolean;
@@ -80,7 +80,9 @@ export async function accountAccess(accountId: string, now: number = Date.now())
   return accessState(
     {
       billingOn: true,
-      canCheckout: priceIdForKind(account.kind) !== undefined,
+      // An organization has no checkout price: it pays by arrangement, and a super admin then gives it
+      // access by hand (comp_until). Its trial still runs out like anyone's.
+      canCheckout: priceIdForKind(account.kind) !== undefined || account.kind === 'agency',
       exempt: admins.some((a) => isSuperAdmin(a.email)),
       trialEnd: Math.max(0, ...admins.map(trialEndsAt)),
       sub: sub ?? null,

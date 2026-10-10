@@ -51,6 +51,12 @@ export function BillingPanel() {
           Manage billing
         </Button>
       )}
+      {status.kind === 'agency' && !status.checkout_available && status.access.state !== 'subscribed' && (
+        <p>
+          Organization plans are priced by the number of people you support. Write to{' '}
+          <a href="mailto:support@chipperlyapp.com?subject=Organization%20plan">support@chipperlyapp.com</a> and we will set yours up.
+        </p>
+      )}
       {status.can_manage &&
         !isLive(sub) &&
         status.checkout_available &&
