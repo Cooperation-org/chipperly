@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nightly backup on the Contabo VPS: a pg_dump of the database and a tar of
-# the uploads, kept for 14 days in ~/backups/chipperly. Runs from cron
+# the uploads, kept for 30 days in ~/backups/chipperly. Runs from cron
 # (README.md, "Backups"). Run it by hand before a risky deploy too.
 #
 # The local copies sit on the same disk as the data: they cover a bad deploy
@@ -10,7 +10,8 @@ set -euo pipefail
 api="$HOME/chipperly/apps/api"
 dir="$HOME/backups/chipperly"
 stamp="$(date +%F)"
-keep_days=14
+# 30 days here as well as off-site: the app's Backups screen restores from these files.
+keep_days=30
 
 # .env is not shell syntax (MAIL_FROM has spaces and angle brackets), so read the two values by name.
 env_value() { grep -m1 "^$1=" "$api/.env" | cut -d= -f2- | sed -e 's/^["'\'']//' -e 's/["'\'']$//'; }
@@ -28,7 +29,7 @@ mv "$dir/db-$stamp.dump.tmp" "$dir/db-$stamp.dump"
 tar -czf "$dir/uploads-$stamp.tar.gz.tmp" -C "$(dirname "$uploads")" "$(basename "$uploads")"
 mv "$dir/uploads-$stamp.tar.gz.tmp" "$dir/uploads-$stamp.tar.gz"
 
-find "$dir" -type f \( -name 'db-*.dump' -o -name 'uploads-*.tar.gz' \) -mtime +"$keep_days" -delete
+find "$dir" -type f \( -name 'db-*.dump' -o -name 'uploads-*.tar.gz' -o -name 'pre-restore-*.dump' \) -mtime +"$keep_days" -delete
 
 # The copy that survives losing this server: an add-only drop box in front of
 # an R2 bucket (backup-worker/). ~/.chipperly-backup.env holds BACKUP_URL and
