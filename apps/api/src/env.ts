@@ -31,6 +31,10 @@ const EnvSchema = z.object({
   SUPER_ADMIN_EMAILS: z.string().min(1).optional(),
   /** Comma-separated emails that get a copy of every piece of feedback (routes/feedback.ts). Unset = it is only stored. */
   FEEDBACK_EMAIL_TO: z.string().min(1).optional(),
+  /** Folder of the nightly `db-YYYY-MM-DD.dump` files (deploy/contabo/backup.sh). Unset = the admin backup screen is off. */
+  BACKUP_DIR: z.string().min(1).optional(),
+  /** Path of deploy/contabo/restore.sh. Unset = one account can be restored from the screen, the whole database cannot. */
+  BACKUP_RESTORE_SCRIPT: z.string().min(1).optional(),
   /** Stripe secret key. Unset = every /billing route 404s and the web hides the upgrade path. */
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   /** Signing secret of the Stripe webhook endpoint (whsec_...). Billing stays off without it: an unverifiable webhook is not accepted. */
