@@ -47,6 +47,12 @@
     margin-left: max(var(--rail-w), calc((100% - 640px) / 2));
     margin-right: auto;
   }
+
+  /* A screen that holds a table (the super admin's) asks for more room with data-wide. */
+  .content:has([data-wide]) {
+    max-width: 1120px;
+    margin-left: max(var(--rail-w), calc((100% - 1120px) / 2));
+  }
 }
 
 .profileList {

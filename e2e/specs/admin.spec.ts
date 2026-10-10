@@ -28,6 +28,13 @@ test('a super admin sees the dashboard, sets the early access discount, and exte
   await people.getByRole('button', { name: '+7 days', exact: true }).click();
   await expect(people.getByText(/^Trial: 28 days left/)).toBeVisible();
   await expectNoOverflow(page, 'admin dashboard');
+  await page.screenshot({ path: `e2e/screenshots/admin-people-${testInfo.project.name}.png`, fullPage: true });
+
+  // The payments log is read-only; with no Stripe keys in the harness it says so and lists nothing.
+  await page.goto('/settings/admin/payments/');
+  await expect(page.getByText('Payments are switched off on this server.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Messages from Stripe' })).toContainText('Nothing has arrived yet.');
+  await expectNoOverflow(page, 'payments log');
 });
 
 test('everyone else gets no admin row and no dashboard', async ({ page }) => {

@@ -108,7 +108,7 @@ export function AdminDashboard() {
   const peak = Math.max(1, ...(overview?.signups_by_day.map((d) => d.count) ?? [1]));
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-wide>
       {overview ? (
         <>
           <div className={styles.stats}>
@@ -163,43 +163,82 @@ export function AdminDashboard() {
       <section className={styles.card} aria-label="People">
         <h2 className={styles.heading}>People</h2>
         <TextField label="Search name or email" value={query} onChange={(e) => setQuery(e.target.value)} />
-        {people?.map((p) => {
-          const left = trialDaysLeft(p.trial_ends_at);
-          return (
-            <div key={p.id} className={styles.person}>
-              <div className={styles.personMain}>
-                <span className={styles.name}>{p.display_name}</span>
-                <span className={styles.muted}>{p.email}</span>
-                <span className={styles.muted}>
-                  Joined {day(p.created_at)} · {p.children} profile{p.children === 1 ? '' : 's'} · {p.devices} device{p.devices === 1 ? '' : 's'} · seen{' '}
-                  {ago(p.last_seen_at)}
-                  {p.email_verified ? '' : ' · email not verified'}
-                </span>
-                <span>
-                  {left > 0 ? `Trial: ${left} day${left === 1 ? '' : 's'} left` : 'Trial ended'}
-                  {p.personal_code ? ` · ${p.personal_code}` : ''}
-                </span>
-                {p.deactivated_at ? <span className={styles.closed}>Sign-in closed {day(p.deactivated_at)}</span> : null}
-              </div>
-              <div className={styles.actions}>
-                {!p.personal_code && offers.length > 0 ? (
-                  <Button variant="secondary" onClick={() => void issue(p)}>
-                    Give code
-                  </Button>
-                ) : null}
-                <Button variant="secondary" onClick={() => void extend(p, 7)}>
-                  +7 days
-                </Button>
-                <Button variant="secondary" onClick={() => void extend(p, 21)}>
-                  +21 days
-                </Button>
-                <Button variant="secondary" onClick={() => manage(p)}>
-                  Manage
-                </Button>
-              </div>
-            </div>
-          );
-        })}
+        {people && people.length > 0 ? (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Person</th>
+                  <th scope="col">Accounts</th>
+                  <th scope="col">Joined</th>
+                  <th scope="col">Profiles</th>
+                  <th scope="col">Devices</th>
+                  <th scope="col">Seen</th>
+                  <th scope="col">Trial</th>
+                  <th scope="col" aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {people.map((p) => {
+                  const left = trialDaysLeft(p.trial_ends_at);
+                  return (
+                    <tr key={p.id}>
+                      <td className={styles.lead} data-label="Person">
+                        <div className={styles.cellStack}>
+                          <span className={styles.name}>{p.display_name}</span>
+                          <span className={styles.muted}>{p.email}</span>
+                          {p.email_verified ? null : <span className={styles.muted}>Email not verified</span>}
+                          {p.deactivated_at ? <span className={styles.closed}>Sign-in closed {day(p.deactivated_at)}</span> : null}
+                        </div>
+                      </td>
+                      <td data-label="Accounts">
+                        <div className={styles.cellStack}>
+                          {p.accounts.map((a) => (
+                            <span key={a.id}>
+                              {a.name} <span className={styles.muted}>({a.kind})</span>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td data-label="Joined" className={styles.nowrap}>
+                        {day(p.created_at)}
+                      </td>
+                      <td data-label="Profiles">{p.children}</td>
+                      <td data-label="Devices">{p.devices}</td>
+                      <td data-label="Seen" className={styles.nowrap}>
+                        {ago(p.last_seen_at)}
+                      </td>
+                      <td data-label="Trial">
+                        <span>
+                          {left > 0 ? `Trial: ${left} day${left === 1 ? '' : 's'} left` : 'Trial ended'}
+                          {p.personal_code ? ` · ${p.personal_code}` : ''}
+                        </span>
+                      </td>
+                      <td data-label="" className={styles.rowActions}>
+                        <div className={styles.actions}>
+                          {!p.personal_code && offers.length > 0 ? (
+                            <Button variant="secondary" onClick={() => void issue(p)}>
+                              Give code
+                            </Button>
+                          ) : null}
+                          <Button variant="secondary" onClick={() => void extend(p, 7)}>
+                            +7 days
+                          </Button>
+                          <Button variant="secondary" onClick={() => void extend(p, 21)}>
+                            +21 days
+                          </Button>
+                          <Button variant="secondary" onClick={() => manage(p)}>
+                            Manage
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
         {people?.length === 0 ? <p className={styles.muted}>Nobody matches.</p> : null}
       </section>
     </div>

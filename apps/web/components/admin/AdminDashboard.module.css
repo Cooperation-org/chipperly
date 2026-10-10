@@ -169,3 +169,103 @@
   margin: 0;
   color: var(--color-danger, #b3261e);
 }
+
+/* A real table when its box is wide enough; below that every row becomes a small
+   card with the column name beside each value, so nothing scrolls sideways. */
+.tableWrap {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2);
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--color-border);
+  overflow-wrap: anywhere;
+}
+
+.table th {
+  border-top: none;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.table tbody tr:hover {
+  background: var(--color-bg, transparent);
+}
+
+.cellStack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+@container (max-width: 46rem) {
+  /* Each value carries its column name (data-label), so the header row is not needed here. */
+  .table thead {
+    display: none;
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+  }
+
+  .table tr {
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .table td {
+    display: flex;
+    gap: var(--space-2);
+    padding: 2px 0;
+    border: none;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    flex: 0 0 6.5rem;
+    color: var(--color-text-muted);
+  }
+
+  .table td:empty,
+  .table td[data-label='']::before {
+    display: none;
+  }
+
+  .table td.lead {
+    padding-bottom: var(--space-1);
+  }
+
+  .table td.lead::before {
+    display: none;
+  }
+}
+
+@container (min-width: 46rem) {
+  .table td.lead {
+    min-width: 13rem;
+  }
+
+  /* Room for two buttons side by side, so four make a tidy two by two. */
+  .table td.rowActions {
+    width: 15.5rem;
+  }
+}
