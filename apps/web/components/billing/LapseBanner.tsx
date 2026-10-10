@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useBillingStatus } from '@/lib/billing/useBillingStatus';
-import { accessNotice } from './billingCopy';
+import { accessNotice, paysByArrangement } from './billingCopy';
 import styles from './BillingPanel.module.css';
 
 /**
@@ -12,7 +12,7 @@ import styles from './BillingPanel.module.css';
  */
 export function LapseBanner() {
   const status = useBillingStatus();
-  const notice = status ? accessNotice(status.access, status.can_manage) : null;
+  const notice = status ? accessNotice(status.access, status.can_manage, undefined, undefined, paysByArrangement(status)) : null;
   if (!status || !notice) return null;
   return (
     <div className={notice.tone === 'paused' ? styles.notice : styles.strip} role="status">

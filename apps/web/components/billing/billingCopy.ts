@@ -45,16 +45,18 @@ export interface AccessNotice {
  * (billing off, subscribed, or a trial with time left). Never blames, never says
  * data is at risk, and always says what to do next.
  */
-export function accessNotice(access: Access, canManage: boolean, locale?: string, timeZone?: string): AccessNotice | null {
+export function accessNotice(access: Access, canManage: boolean, locale?: string, timeZone?: string, byArrangement = false): AccessNotice | null {
   if (access.state !== 'grace' && access.state !== 'lapsed') return null;
   const ended = access.ended_at === null ? 'recently' : `on ${formatDate(access.ended_at, locale, timeZone)}`;
-  const next = canManage ? 'Subscribe to add new things again.' : 'Ask an account admin to subscribe to add new things again.';
+  // An organization has no price to pay in the app: its plan is agreed by email.
+  const contact = 'Write to support@chipperlyapp.com to set up your organization plan.';
+  const next = byArrangement ? contact : canManage ? 'Subscribe to add new things again.' : 'Ask an account admin to subscribe to add new things again.';
   if (access.state === 'grace') {
     const until = access.pauses_at === null ? 'soon' : formatDate(access.pauses_at, locale, timeZone);
     return {
       tone: 'heads_up',
       title: 'Your free trial has ended',
-      body: `It ended ${ended}. Everything still works. From ${until}, adding new things pauses until there is a subscription. ${canManage ? 'You can subscribe from Settings.' : 'Ask an account admin to subscribe.'}`,
+      body: `It ended ${ended}. Everything still works. From ${until}, adding new things pauses until there is a subscription. ${byArrangement ? contact : canManage ? 'You can subscribe from Settings.' : 'Ask an account admin to subscribe.'}`,
     };
   }
   return {
@@ -69,6 +71,11 @@ export function discountLine(discount: BillingDiscount): string {
   const plan = discount.applies_to === 'annual' ? 'the annual plan' : 'any plan';
   const base = `${discount.percent_off}% off ${plan} (code ${discount.code})`;
   return discount.applicable ? `${base}. It is applied at checkout.` : `${base}. Your plan is not annual, so it does not apply to it.`;
+}
+
+/** An organization with no price in the app: it pays by arrangement. */
+export function paysByArrangement(status: Pick<BillingStatus, 'kind' | 'checkout_available'>): boolean {
+  return status.kind === 'agency' && !status.checkout_available;
 }
 
 export function isLive(sub: BillingStatus['subscription']): boolean {

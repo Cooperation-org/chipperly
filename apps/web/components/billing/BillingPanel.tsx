@@ -6,7 +6,7 @@ import { api } from '@/lib/api/client';
 import { useBillingStatus } from '@/lib/billing/useBillingStatus';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
-import { accessNotice, discountLine, isLive, planChoices, planLine, priceLabel } from './billingCopy';
+import { accessNotice, discountLine, isLive, paysByArrangement, planChoices, planLine, priceLabel } from './billingCopy';
 import styles from './BillingPanel.module.css';
 
 /**
@@ -20,7 +20,7 @@ export function BillingPanel() {
 
   if (!status) return null;
   const sub = status.subscription;
-  const notice = accessNotice(status.access, status.can_manage);
+  const notice = accessNotice(status.access, status.can_manage, undefined, undefined, paysByArrangement(status));
   const choices = planChoices(status.prices);
 
   async function go(path: '/billing/checkout' | '/billing/portal', plan?: BillingPlan): Promise<void> {
@@ -51,7 +51,7 @@ export function BillingPanel() {
           Manage billing
         </Button>
       )}
-      {status.kind === 'agency' && !status.checkout_available && status.access.state !== 'subscribed' && (
+      {paysByArrangement(status) && status.access.state !== 'subscribed' && (
         <p>
           Organization plans are priced by the number of people you support. Write to{' '}
           <a href="mailto:support@chipperlyapp.com?subject=Organization%20plan">support@chipperlyapp.com</a> and we will set yours up.

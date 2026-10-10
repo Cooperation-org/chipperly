@@ -40,6 +40,7 @@ describe('billingCopy', () => {
     expect(admin?.body).toMatch(/still here/);
     expect(admin?.body).toMatch(/export/);
     expect(admin?.body).toMatch(/Subscribe/);
+    expect(accessNotice({ state: 'lapsed', ...at, write_paused: true }, true, 'en-US', 'UTC', true)?.body).toMatch(/Write to support@chipperlyapp\.com/);
     const member = accessNotice({ state: 'lapsed', ...at, write_paused: true }, false, 'en-US', 'UTC');
     expect(member?.body).toMatch(/Ask an account admin/);
     expect(`${admin?.title}${admin?.body}${member?.body}`).not.toMatch(/—|locked out|deleted|lost/i);
