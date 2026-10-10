@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GUEST_TTL_MS, guestTimeLeftLabel, isGuestExpired } from './guestExpiry';
+import { GUEST_TTL_MS, guestTimeLeftLabel, isGuestEndingSoon, isGuestExpired } from './guestExpiry';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -12,6 +12,15 @@ describe('isGuestExpired', () => {
   it('is true at exactly 48 hours and after', () => {
     expect(isGuestExpired(1000, 1000 + GUEST_TTL_MS)).toBe(true);
     expect(isGuestExpired(1000, 1000 + 49 * HOUR)).toBe(true);
+  });
+});
+
+describe('isGuestEndingSoon', () => {
+  it('is false for the first 36 hours and true for the last 12', () => {
+    expect(isGuestEndingSoon(0, 0)).toBe(false);
+    expect(isGuestEndingSoon(0, 36 * HOUR - 1)).toBe(false);
+    expect(isGuestEndingSoon(0, 36 * HOUR)).toBe(true);
+    expect(isGuestEndingSoon(0, 47 * HOUR)).toBe(true);
   });
 });
 

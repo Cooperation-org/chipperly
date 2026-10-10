@@ -5,6 +5,13 @@ export function isGuestExpired(startedAt: number, now: number): boolean {
   return now - startedAt >= GUEST_TTL_MS;
 }
 
+/** The last stretch, when the reminder comes back even if it was dismissed: someone who built a lot must not find it gone without warning. */
+export const GUEST_ENDING_SOON_MS = 12 * 60 * 60 * 1000;
+
+export function isGuestEndingSoon(startedAt: number, now: number): boolean {
+  return startedAt + GUEST_TTL_MS - now <= GUEST_ENDING_SOON_MS;
+}
+
 /** "less than an hour", "1 hour", "23 hours": what's left, rounded up so it never says 0 hours. */
 export function guestTimeLeftLabel(startedAt: number, now: number): string {
   const left = startedAt + GUEST_TTL_MS - now;

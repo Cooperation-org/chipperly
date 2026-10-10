@@ -3,6 +3,8 @@ import { db } from '../db/db';
 /** When the guest session began (ms). Its presence in kv is what makes this device a guest device. */
 export const GUEST_STARTED_AT_KEY = 'guest_started_at';
 export const GUEST_IDS_KEY = 'guest_ids';
+/** Left behind when a trial ran out and was erased, so the sign-in page can say what happened. Gone at the next sign-in or trial. */
+export const GUEST_EXPIRED_NOTICE_KEY = 'guest_expired_notice';
 export const GUEST_MESSAGE = 'Create a free account to use this.';
 
 export interface GuestIds {

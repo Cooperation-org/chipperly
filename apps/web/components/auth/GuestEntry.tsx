@@ -7,6 +7,7 @@ import { startGuestSession } from '@/lib/auth/session';
 import { db } from '@/lib/db/db';
 import { useKv } from '@/lib/db/kv';
 import { CARRY_OVER_KEY } from '@/lib/auth/carryOver';
+import { GUEST_EXPIRED_NOTICE_KEY } from '@/lib/auth/guest';
 import { Button } from '@/components/ui/Button';
 import styles from './GuestEntry.module.css';
 
@@ -19,6 +20,8 @@ export function GuestEntry() {
   const unsent = useLiveQuery(() => db.outbox.count(), []);
   // A trial waiting to be saved would be erased by starting a new one.
   const saving = useKv<unknown>(CARRY_OVER_KEY, null);
+  // The last trial on this device ran out: say so, or its erased work looks like something went wrong.
+  const expired = useKv<boolean>(GUEST_EXPIRED_NOTICE_KEY, false);
   if (saving) {
     return (
       <div className={styles.wrap}>
@@ -42,6 +45,11 @@ export function GuestEntry() {
 
   return (
     <div className={styles.wrap}>
+      {expired ? (
+        <p className={styles.note} role="status">
+          Your 48-hour trial ended, so what you made in it was erased from this device. Create an account to keep your work.
+        </p>
+      ) : null}
       <Button variant="secondary" fullWidth loading={loading} onClick={() => void start()}>
         Try it without an account
       </Button>

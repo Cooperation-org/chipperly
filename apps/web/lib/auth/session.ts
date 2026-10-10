@@ -12,7 +12,7 @@ import { applySnapshotRow } from '../sync/applyPulledRow';
 import { enterParentMode, exitParentMode } from '../device/settings';
 import { newId } from '../ids';
 import { seedProfileLocally } from '../profile/seedLocal';
-import { GUEST_IDS_KEY, GUEST_STARTED_AT_KEY, isGuestMode, setGuestMode, wipeLocalData, type GuestIds } from './guest';
+import { GUEST_EXPIRED_NOTICE_KEY, GUEST_IDS_KEY, GUEST_STARTED_AT_KEY, isGuestMode, setGuestMode, wipeLocalData, type GuestIds } from './guest';
 import { isGuestExpired } from './guestExpiry';
 import { CARRY_NOTICE_KEY, CARRY_OVER_KEY, GUEST_KV_KEYS, runCarryOver, setCarryOverPhase } from './carryOver';
 import { canCarryOver, type CarryOver } from './rekeyGuestWork';
@@ -101,6 +101,7 @@ async function resetLocalDataIfNewUser(me: MeResponse, keepGuest: boolean, dropp
     if (droppedTrial) await setKv(CARRY_NOTICE_KEY, 'discarded');
   }
   setGuestMode(false);
+  await db.kv.delete(GUEST_EXPIRED_NOTICE_KEY);
   await setKv(DATA_OWNER_KEY, me.user.id);
 }
 
@@ -241,7 +242,7 @@ async function loadGuest(): Promise<void> {
 async function bootstrapGuest(): Promise<boolean> {
   const startedAt = await getKv<number>(GUEST_STARTED_AT_KEY);
   if (startedAt === undefined) return false;
-  if (isGuestExpired(startedAt, Date.now())) await endGuestSession();
+  if (isGuestExpired(startedAt, Date.now())) await endGuestSession(true);
   else await loadGuest();
   return true;
 }
@@ -297,9 +298,11 @@ export async function startGuestSession(): Promise<void> {
 }
 
 /** Erases the guest's data and drops back to signed-out (expiry, or "Create account" from the banner). */
-export async function endGuestSession(): Promise<void> {
+export async function endGuestSession(expired = false): Promise<void> {
   setGuestMode(false);
   await wipeLocalData();
+  // After the wipe, which empties kv: an erased trial with no explanation looks like lost work.
+  if (expired) await setKv(GUEST_EXPIRED_NOTICE_KEY, true);
   setState({ status: 'signed_out', user: null, accounts: [], profiles: [], guest: false });
 }
 
@@ -340,7 +343,8 @@ export async function skipCarryOver(): Promise<void> {
 export async function expireGuestIfDue(): Promise<void> {
   if (!isGuestMode()) return;
   const startedAt = await getKv<number>(GUEST_STARTED_AT_KEY);
-  if (startedAt === undefined || isGuestExpired(startedAt, Date.now())) await endGuestSession();
+  if (startedAt === undefined) await endGuestSession();
+  else if (isGuestExpired(startedAt, Date.now())) await endGuestSession(true);
 }
 
 async function bootstrap(): Promise<void> {
