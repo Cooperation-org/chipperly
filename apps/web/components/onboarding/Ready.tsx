@@ -11,6 +11,8 @@ import { startSync } from '@/lib/sync/engine';
 import { enterParentMode } from '@/lib/device/settings';
 import { asksDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
 import { BigButton } from '@/components/ui/BigButton';
+import { useSheet } from '@/components/ui/Sheet';
+import { GuideScreen } from '@/components/guide/GuideScreen';
 import { Picture } from '@/components/media/Picture';
 import { SETUP_ANSWERS_KEY } from './FirstProfileForm';
 import styles from './Ready.module.css';
@@ -18,6 +20,7 @@ import styles from './Ready.module.css';
 /** S5: ready. */
 export function Ready() {
   const router = useRouter();
+  const { open } = useSheet();
   const { profile } = useActiveProfile();
   const name = profile?.name ?? 'them';
   const answers = useKv<SetupAnswers | null>(SETUP_ANSWERS_KEY, null);
@@ -94,8 +97,8 @@ export function Ready() {
       <button type="button" className={styles.link} onClick={() => void goToToday('/settings/')}>
         Edit what we set up
       </button>
-      {/* Same setup as Go to Today (device role, parent mode) first: /settings/ sits behind the caregiver shell's gate. */}
-      <button type="button" className={styles.link} onClick={() => void goToToday('/settings/guide/')}>
+      {/* In a sheet, so closing it comes back here: reading the guide must not enter the app. */}
+      <button type="button" className={styles.link} onClick={() => open(<GuideScreen embedded />, { title: 'How to use Chipperly' })}>
         New here? Read the short guide
       </button>
       {profile && usesApp(profile) ? (

@@ -9,8 +9,11 @@ import { Button } from '@/components/ui/Button';
 import { GUIDE_INTRO, GUIDE_SECTIONS } from './guideContent';
 import styles from './GuideScreen.module.css';
 
-/** The how-to guide: one <details> per section, content from guideContent.ts. */
-export function GuideScreen() {
+/**
+ * The how-to guide: one <details> per section, content from guideContent.ts.
+ * `embedded` is the copy shown in a sheet over the last setup screen: no links into the app, which is not entered yet.
+ */
+export function GuideScreen({ embedded = false }: { embedded?: boolean }) {
   // "More tips" links arrive as /settings/guide/#id: open that section and scroll to it.
   useEffect(() => {
     const section = document.getElementById(window.location.hash.slice(1));
@@ -57,7 +60,7 @@ export function GuideScreen() {
                 </ol>
               </figure>
             ) : null}
-            {s.action ? (
+            {s.action && !embedded ? (
               <Link className={styles.action} href={s.action.href}>
                 {s.action.label}
               </Link>
@@ -66,9 +69,11 @@ export function GuideScreen() {
         </details>
       ))}
 
-      <Button variant="secondary" onClick={() => void showTipsAgain()}>
-        Show tips again
-      </Button>
+      {embedded ? null : (
+        <Button variant="secondary" onClick={() => void showTipsAgain()}>
+          Show tips again
+        </Button>
+      )}
     </div>
   );
 }
