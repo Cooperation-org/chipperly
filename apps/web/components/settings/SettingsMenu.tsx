@@ -270,6 +270,15 @@ export function SettingsMenu() {
               ) : null}
               {user?.is_super_admin ? (
                 <ListRow
+                  tile={<Icon name="clipboard" size={20} />}
+                  name="Payments log"
+                  secondary="Subscriptions, and what Stripe has sent us"
+                  trailing={<Icon name="chevron" size={20} />}
+                  onTap={() => router.push('/settings/admin/payments/')}
+                />
+              ) : null}
+              {user?.is_super_admin ? (
+                <ListRow
                   tile={<Icon name="sync" size={20} />}
                   name="Backups"
                   secondary="See a day's backup and restore from it"

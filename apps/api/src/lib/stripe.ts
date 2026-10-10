@@ -195,6 +195,23 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
   return result;
 }
 
+const LoggedObjectSchema = z.object({ status: z.string().optional(), metadata: z.object({ account_id: z.string().uuid().optional() }).optional() });
+
+/**
+ * Notes what was done with a verified event, for the super admin's payments
+ * log. Events the app ignores are kept too, so "did Stripe reach us?" has an
+ * answer. A redelivery changes nothing.
+ */
+export async function recordStripeEvent(event: StripeEvent, result: ApplyResult, nowMs: number = Date.now()): Promise<void> {
+  if (result === 'duplicate') return;
+  const parsed = LoggedObjectSchema.safeParse(event.data.object);
+  const seen = { result, account_id: parsed.data?.metadata?.account_id ?? null, status: parsed.data?.status ?? null };
+  await db
+    .insert(stripe_events)
+    .values({ id: event.id, type: event.type, received_at: nowMs, ...seen })
+    .onConflictDoUpdate({ target: stripe_events.id, set: seen });
+}
+
 // ---- billing emails ----
 
 type Notice = 'started' | 'cancel_scheduled' | 'payment_failed' | 'ended';

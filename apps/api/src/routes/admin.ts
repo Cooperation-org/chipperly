@@ -9,6 +9,7 @@ import {
   IssueCodeBodySchema,
   UpsertPromoCodeBodySchema,
   type AdminOverview,
+  type AdminPayments,
   type AdminUser,
   type PromoCode,
 } from '@chipperly/shared/schemas/billing';
@@ -16,6 +17,7 @@ import { uuidSchema } from '@chipperly/shared/schemas/common';
 import { db, sql } from '../db/client.js';
 import { accounts, promo_codes, users } from '../db/schema/accounts.js';
 import { deactivateUser, eraseAllowedAt, eraseUser, reactivateUser, type EraseResult } from '../lib/adminUsers.js';
+import { env } from '../env.js';
 import { isSuperAdmin, trialEndsAt } from '../lib/trial.js';
 import { issuePersonalCode } from '../lib/earlyAccess.js';
 import { requireUser } from '../plugins/auth.js';
@@ -62,6 +64,21 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       promo_claims: rows.filter((r) => r.personal_code).length,
       signups_by_day: [...byDay].map(([day, count]) => ({ day, count })),
     };
+  });
+
+  /** Payments log: subscriptions as the app holds them, and the last 200 webhook events. Read-only. */
+  app.get('/admin/payments', guard, async (): Promise<AdminPayments> => {
+    const subs = await sql<AdminPayments['subscriptions']>`
+      select s.account_id, a.name as account_name, a.kind, s.status, s.current_period_end::float8 as current_period_end,
+        s.cancel_at_period_end, s.updated_at::float8 as updated_at
+      from subscriptions s left join accounts a on a.id = s.account_id
+      order by s.updated_at desc`;
+    const events = await sql<AdminPayments['events']>`
+      select e.id, e.type, e.received_at::float8 as received_at, e.result, e.status, a.name as account_name
+      from stripe_events e left join accounts a on a.id = e.account_id
+      order by e.received_at desc
+      limit 200`;
+    return { enabled: env.stripeEnabled, subscriptions: [...subs], events: [...events] };
   });
 
   app.get('/admin/users', guard, async (request): Promise<{ users: AdminUser[] }> => {

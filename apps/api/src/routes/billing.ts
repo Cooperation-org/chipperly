@@ -15,6 +15,7 @@ import {
   parseStripeEvent,
   priceIdForKind,
   priceIdsForKind,
+  recordStripeEvent,
   stripeRequest,
   verifyStripeSignature,
 } from '../lib/stripe.js';
@@ -161,7 +162,9 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
       if (!secret || !Buffer.isBuffer(raw) || !verifyStripeSignature(raw, Array.isArray(header) ? header[0] : header, secret)) {
         throw new AppError(400, 'bad_signature', 'Invalid signature');
       }
-      const result = await applyStripeEvent(parseStripeEvent(JSON.parse(raw.toString('utf8'))));
+      const event = parseStripeEvent(JSON.parse(raw.toString('utf8')));
+      const result = await applyStripeEvent(event);
+      await recordStripeEvent(event, result);
       reply.code(200);
       return { received: true, result };
     });

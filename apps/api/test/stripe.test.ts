@@ -13,6 +13,7 @@ import { env } from '../src/env.js';
 import { accounts, promo_codes, users } from '../src/db/schema/accounts.js';
 import {
   applyStripeEvent,
+  recordStripeEvent,
   priceIdsForKind,
   subscriptionNotice,
   couponIdFor,
@@ -116,6 +117,19 @@ describe('applyStripeEvent idempotency', () => {
     expect(row?.current_period_end).toBe(1_802_000_000_000);
     const marks = await db.select().from(stripe_events).where(eq(stripe_events.id, event.id));
     expect(marks).toHaveLength(1);
+  });
+
+  it('the payments log keeps what was done with an event, ignored ones too', async () => {
+    const accountId = uuidv7();
+    const applied = subEvent(accountId, { status: 'past_due' });
+    await recordStripeEvent(applied, await applyStripeEvent(applied));
+    const ignored = subEvent(accountId, { metadata: {} });
+    await recordStripeEvent(ignored, await applyStripeEvent(ignored));
+    await recordStripeEvent(applied, await applyStripeEvent(applied)); // a redelivery changes nothing
+    const [a] = await db.select().from(stripe_events).where(eq(stripe_events.id, applied.id));
+    expect(a).toMatchObject({ result: 'applied', account_id: accountId, status: 'past_due' });
+    const [i] = await db.select().from(stripe_events).where(eq(stripe_events.id, ignored.id));
+    expect(i).toMatchObject({ result: 'ignored', account_id: null });
   });
 
   it('a duplicate id does not overwrite newer state', async () => {

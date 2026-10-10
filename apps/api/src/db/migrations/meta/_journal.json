@@ -239,6 +239,13 @@
       "when": 1790320000000,
       "tag": "0035_admin_users",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790330000000,
+      "tag": "0036_stripe_event_log",
+      "breakpoints": true
     }
   ]
 }

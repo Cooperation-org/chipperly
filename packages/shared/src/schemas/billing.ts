@@ -136,6 +136,30 @@ export const AdminOverviewSchema = z.object({
 });
 export type AdminOverview = z.infer<typeof AdminOverviewSchema>;
 
+/** GET /admin/payments: every subscription, and the newest webhook events Stripe sent us. */
+export interface AdminPayments {
+  /** False when the server has no Stripe keys. */
+  enabled: boolean;
+  subscriptions: Array<{
+    account_id: string;
+    account_name: string | null;
+    kind: string | null;
+    status: string;
+    current_period_end: number | null;
+    cancel_at_period_end: boolean;
+    updated_at: number;
+  }>;
+  events: Array<{
+    id: string;
+    type: string;
+    received_at: number;
+    /** applied | ignored, or null for an event from before the log existed. */
+    result: string | null;
+    status: string | null;
+    account_name: string | null;
+  }>;
+}
+
 export const IssueCodeBodySchema = z.object({ offer: z.string().min(1) });
 
 export const ExtendTrialBodySchema = z.object({ days: z.number().int().min(1).max(365) });

@@ -14,9 +14,16 @@ export const subscriptions = pgTable('subscriptions', {
   updated_at: bigint('updated_at', { mode: 'number' }).notNull(),
 });
 
-/** Every webhook event id already applied. The primary key is the idempotency guard. */
+/**
+ * Every webhook event that passed the signature check. The primary key is the
+ * idempotency guard; the last three columns are only for the super admin's
+ * payments log (what the app did with it, and for which account).
+ */
 export const stripe_events = pgTable('stripe_events', {
   id: text('id').primaryKey(),
   type: text('type').notNull(),
   received_at: bigint('received_at', { mode: 'number' }).notNull(),
+  result: text('result'),
+  account_id: uuid('account_id'),
+  status: text('status'),
 });
