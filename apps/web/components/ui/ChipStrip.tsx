@@ -18,16 +18,23 @@ export interface ChipStripProps {
   reward?: ChipStripReward;
   onTap?: () => void;
   size?: 'md' | 'lg';
+  /** Print the count ("3/5") after the stars. */
+  showCount?: boolean;
 }
 
 /** Compact chip row plus the working-for reward: Today header, child header, share viewer. */
-export function ChipStrip({ filled, total, reward, onTap, size = 'md' }: ChipStripProps) {
+export function ChipStrip({ filled, total, reward, onTap, size = 'md', showCount }: ChipStripProps) {
   const label = `${filled} of ${total} chips${reward ? `, working for ${reward.name}` : ''}`;
   const chips = (
     <span className={styles.chips} aria-hidden="true">
       {Array.from({ length: total }).map((_, i) => (
         <ChipStar key={i} size="1em" muted={i >= filled} className={styles.chip} />
       ))}
+      {showCount ? (
+        <span className={styles.count}>
+          {filled}/{total}
+        </span>
+      ) : null}
     </span>
   );
   const tile = reward ? (

@@ -529,6 +529,7 @@ export function ChildToday() {
         {showChipStrip ? (
           <ChipStrip
             size="lg"
+            showCount
             filled={workingFor.filled}
             total={workingFor.goal}
             reward={

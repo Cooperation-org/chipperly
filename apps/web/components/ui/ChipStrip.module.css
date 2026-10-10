@@ -50,3 +50,12 @@
   max-width: 12ch;
   overflow-wrap: break-word;
 }
+
+/* Reset from the star size above: the count is text, not a chip. */
+.count {
+  align-self: center;
+  margin-left: var(--space-1);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--color-text);
+}

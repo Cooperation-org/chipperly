@@ -284,6 +284,7 @@ export function TodayScreen() {
       <div className={styles.chipStripRow}>
         {workingFor.reward || workingFor.filled > 0 ? (
           <ChipStrip
+            showCount
             filled={workingFor.filled}
             total={workingFor.goal}
             reward={
