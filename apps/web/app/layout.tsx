@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { heading, body, twemoji } from './fonts';
+import { heading, body, twemoji, twemojiAll } from './fonts';
 import { Providers } from '@/components/providers/Providers';
 import { OG_IMAGES } from './ogImage';
 import './styles/globals.css';
@@ -48,7 +48,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${heading.variable} ${body.variable} ${twemoji.variable}`}>
+    <html lang="en" className={`${heading.variable} ${body.variable} ${twemoji.variable} ${twemojiAll.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

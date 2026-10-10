@@ -35,3 +35,15 @@ export const twemoji = localFont({
   adjustFontFallback: false,
   preload: true,
 });
+
+// Every emoji the picker's search can find (lib/emoji/all.json). Not preloaded:
+// the browser fetches it the first time a page shows an emoji the small face
+// lacks. The range keeps other scripts (an Arabic name, say) from fetching it.
+export const twemojiAll = localFont({
+  src: './fonts/twemoji-all.woff2',
+  variable: '--font-emoji-all',
+  display: 'swap',
+  adjustFontFallback: false,
+  preload: false,
+  declarations: [{ prop: 'unicode-range', value: 'U+200D, U+203C-3299, U+FE0F, U+1F000-1FAFF' }],
+});

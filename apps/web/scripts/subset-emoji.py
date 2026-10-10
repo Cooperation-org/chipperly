@@ -4,9 +4,14 @@ Usage: python scripts/subset-emoji.py [path/to/Twemoji.Mozilla.ttf]
 (see app/fonts/README.md). Scans the shared constants and the web app
 source for every code point the emoji font has a glyph for, then writes
 app/fonts/twemoji-chipperly.woff2.
+
+With an emoji name list beside the font (emojibase-compact.json, see the
+README) it also writes the searchable set: lib/emoji/all.json and the font
+that draws it, app/fonts/twemoji-all.woff2.
 """
 import glob
 import io
+import json
 import os
 import subprocess
 import sys
@@ -58,3 +63,57 @@ print("wrote", OUT, os.path.getsize(OUT), "bytes")
 sub = TTFont(OUT)
 missing = [ch for ch in sorted(used) if ch not in sub.getBestCmap()]
 print("missing after subset:", missing)
+
+
+# --- The searchable set: every emoji the font can draw, with the words to find it by. ---
+NAMES = os.path.join(os.path.dirname(SRC), "emojibase-compact.json")
+if not os.path.exists(NAMES):
+    print("no", NAMES, "- searchable set left as it is")
+    sys.exit(0)
+
+# Sequences the font joins into one glyph (a ZWJ sequence it lacks would draw as its separate parts).
+ligatures = set()
+for lookup in font["GSUB"].table.LookupList.Lookup:
+    for sub in lookup.SubTable:
+        sub = getattr(sub, "ExtSubTable", sub)
+        if getattr(sub, "LookupType", None) != 4:
+            continue
+        for first, ligs in sub.ligatures.items():
+            for lig in ligs:
+                ligatures.add((first, *lig.Component))
+
+
+def drawable(emoji):
+    cps = [ord(ch) for ch in emoji]
+    if any(cp not in cmap for cp in cps if cp != 0xFE0F):
+        return False
+    bare = [cp for cp in cps if cp != 0xFE0F]
+    if len(bare) == 1:
+        return True
+    return any(tuple(cmap[cp] for cp in seq) in ligatures for seq in (cps, bare) if all(cp in cmap for cp in seq))
+
+
+# ponytail: no flags (group 9), no skin-tone variants and no loose components (group 2); add them if someone asks.
+rows = []
+for entry in json.load(io.open(NAMES, encoding="utf-8")):
+    if entry.get("group") in (None, 2, 9) or not drawable(entry["unicode"]):
+        continue
+    words = " ".join(dict.fromkeys(" ".join([entry["label"], *entry.get("tags", [])]).lower().split()))
+    rows.append([entry["unicode"], words])
+
+ALL_JSON = os.path.join(ROOT, "apps", "web", "lib", "emoji", "all.json")
+ALL_FONT = os.path.join(ROOT, "apps", "web", "app", "fonts", "twemoji-all.woff2")
+os.makedirs(os.path.dirname(ALL_JSON), exist_ok=True)
+with io.open(ALL_JSON, "w", encoding="utf-8", newline="\n") as f:
+    json.dump(rows, f, ensure_ascii=False, separators=(",", ":"))
+    f.write("\n")
+all_cps = used | {ord(ch) for emoji, _ in rows for ch in emoji}
+subprocess.check_call([
+    sys.executable, "-m", "fontTools.subset", SRC,
+    "--unicodes=" + ",".join(f"U+{cp:04X}" for cp in sorted(all_cps)),
+    "--flavor=woff2",
+    "--layout-features=*",
+    "--name-IDs=*",
+    f"--output-file={ALL_FONT}",
+])
+print("searchable emoji:", len(rows), "json", os.path.getsize(ALL_JSON), "bytes, font", os.path.getsize(ALL_FONT), "bytes")
