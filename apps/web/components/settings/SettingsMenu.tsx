@@ -268,6 +268,15 @@ export function SettingsMenu() {
                   onTap={() => router.push('/settings/admin/feedback/')}
                 />
               ) : null}
+              {user?.is_super_admin ? (
+                <ListRow
+                  tile={<Icon name="sync" size={20} />}
+                  name="Backups"
+                  secondary="See a day's backup and restore from it"
+                  trailing={<Icon name="chevron" size={20} />}
+                  onTap={() => router.push('/settings/admin/backups/')}
+                />
+              ) : null}
               <ListRow
                 tile={<span aria-hidden="true">📱</span>}
                 name="Devices"
