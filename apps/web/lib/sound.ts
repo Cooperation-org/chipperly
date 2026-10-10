@@ -49,13 +49,20 @@ function unlockOnce(): void {
     if (!audio) continue;
     // A play-then-pause on the first real gesture satisfies the mobile
     // autoplay policy for every later programmatic play() call.
+    // Muted while it happens: on a phone the pause lands late, and every sound
+    // was heard at once at full volume on the first tap. (`volume` cannot do
+    // this: iOS ignores it.)
+    audio.muted = true;
     void audio
       .play()
       .then(() => {
         audio.pause();
         audio.currentTime = 0;
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        audio.muted = false;
+      });
   }
 }
 
