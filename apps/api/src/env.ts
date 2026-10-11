@@ -31,6 +31,8 @@ const EnvSchema = z.object({
   SUPER_ADMIN_EMAILS: z.string().min(1).optional(),
   /** Comma-separated emails that get a copy of every piece of feedback (routes/feedback.ts). Unset = it is only stored. */
   FEEDBACK_EMAIL_TO: z.string().min(1).optional(),
+  /** Comma-separated emails told when a device's changes are refused or stuck (lib/syncHealth.ts). Unset = the super admins. */
+  SYNC_ALERT_EMAIL_TO: z.string().min(1).optional(),
   /** Folder of the nightly `db-YYYY-MM-DD.dump` files (deploy/contabo/backup.sh). Unset = the admin backup screen is off. */
   BACKUP_DIR: z.string().min(1).optional(),
   /** Path of deploy/contabo/restore.sh. Unset = one account can be restored from the screen, the whole database cannot. */

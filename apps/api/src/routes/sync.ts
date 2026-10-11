@@ -22,8 +22,11 @@ import { sql } from '../db/client.js';
 import { canAccessProfile, canWriteProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { isPausedCreation, writePausedForProfile } from '../lib/trial.js';
+import { materializedId } from '@chipperly/shared/helpers/recurrence';
+import { ClientRejectionReportSchema, SyncHealthReportSchema } from '@chipperly/shared/schemas/syncHealth';
+import { alertNewRejections, recordRejections, resolveRejectionsFor, type RejectionInput } from '../lib/syncHealth.js';
 
-type Sql = postgres.TransactionSql<{}>;
+export type Sql = postgres.TransactionSql<{}>;
 export type SyncRow = Record<string, unknown>;
 
 const APPEND_ONLY_TABLES = new Set<MutationTable>(['recurrence_skips', 'step_completions', 'chip_ledger', 'attitude_checks', 'mood_events']);
@@ -162,14 +165,97 @@ export default async function syncRoutes(app: FastifyInstance): Promise<void> {
       }
     });
 
+    // Kept after the push has committed: what was refused is saved with its
+    // row (so it can be put back), and a row refused earlier and accepted now
+    // is closed. `stale` is not a loss, the server simply had something newer.
+    // Never allowed to fail the push itself.
+    try {
+      const byId = new Map(body.mutations.map((m) => [m.id, m]));
+      const refused: RejectionInput[] = rejected
+        .filter((r) => r.reason !== 'stale')
+        .map((r) => {
+          const mutation = byId.get(r.id);
+          return {
+            user_id: user.id,
+            session_id: user.session_id,
+            device_id: body.device_id ?? null,
+            profile_id: body.profile_id,
+            table: r.table,
+            row_id: r.id,
+            op: mutation?.op ?? 'upsert',
+            reason: r.reason,
+            source: 'server',
+            locked: request.locked,
+            client_updated_at: mutation?.client_updated_at ?? 0,
+            row: mutation?.row ?? null,
+          };
+        });
+      await resolveRejectionsFor(applied);
+      if (refused.length > 0) {
+        request.log.warn({ profile_id: body.profile_id, refused: refused.map((r) => `${r.table}:${r.reason}`) }, 'sync push refused writes');
+        const fresh = await recordRejections(refused);
+        if (fresh > 0) void alertNewRejections().catch((err: unknown) => request.log.error(err, 'sync alert failed'));
+      }
+    } catch (err) {
+      request.log.error(err, 'recording refused sync writes failed');
+    }
+
     const [{ last_value }] = await sql`select last_value from sync_version_seq`;
 
     return { applied, rejected, version: Number(last_value) };
   });
+
+  /**
+   * A device telling us about writes it could not get here at all (the
+   * whole push failed, the write names no profile, it was left behind by a
+   * different sign-in). Stored beside the server's own refusals.
+   */
+  app.post(
+    '/sync/rejections',
+    { preHandler: requireUser, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request: FastifyRequest) => {
+      const user = request.user;
+      if (!user) throw new AppError(401, 'unauthorized', 'Sign-in required');
+      const body = ClientRejectionReportSchema.parse(request.body);
+      const fresh = await recordRejections(
+        body.items.map((item) => ({
+          user_id: user.id,
+          session_id: user.session_id,
+          device_id: body.device_id ?? null,
+          profile_id: item.profile_id,
+          table: item.table,
+          row_id: item.id,
+          op: item.op,
+          reason: item.reason,
+          source: 'client' as const,
+          locked: request.locked,
+          client_updated_at: item.client_updated_at,
+          row: item.row ?? null,
+        })),
+      );
+      request.log.warn({ count: body.items.length, reasons: [...new Set(body.items.map((i) => i.reason))] }, 'device reported unsent writes');
+      if (fresh > 0) void alertNewRejections().catch((err: unknown) => request.log.error(err, 'sync alert failed'));
+      return { ok: true };
+    },
+  );
+
+  /** A device's own count of what it has not managed to send, after each sync cycle. */
+  app.put('/me/sync-health', { preHandler: requireUser }, async (request: FastifyRequest) => {
+    const user = request.user;
+    if (!user) throw new AppError(401, 'unauthorized', 'Sign-in required');
+    const body = SyncHealthReportSchema.parse(request.body);
+    await sql`
+      update devices
+      set sync_pending = ${body.pending}, sync_oldest_at = ${body.oldest_at}, sync_held = ${body.held}, sync_dead = ${body.dead},
+          sync_reported_at = ${Date.now()}
+      where id = ${body.device_id} and user_id = ${user.id}
+    `;
+    return { ok: true };
+  });
 }
 
 /** Admin of the profile's account, or a member with no role at all (not a member/admin) -> null. */
-async function getRole(userId: string, profileId: string): Promise<'admin' | 'member' | null> {
+export async function getRole(userId: string, profileId: string): Promise<'admin' | 'member' | null> {
   const [row] = await sql`
     select m.role from account_members m
     join profiles p on p.account_id = m.account_id
@@ -179,10 +265,10 @@ async function getRole(userId: string, profileId: string): Promise<'admin' | 'me
   return (row?.role as 'admin' | 'member' | undefined) ?? null;
 }
 
-type RejectReason = 'stale' | 'locked' | 'forbidden' | 'invalid' | 'lapsed';
-type ApplyResult = { ok: true } | { ok: false; reason: RejectReason; server_row: SyncRow | null };
+export type RejectReason = 'stale' | 'locked' | 'forbidden' | 'invalid' | 'lapsed';
+export type ApplyResult = { ok: true } | { ok: false; reason: RejectReason; server_row: SyncRow | null };
 
-async function applyMutation(
+export async function applyMutation(
   tx: Sql,
   mutation: Mutation,
   profileId: string,
@@ -233,7 +319,11 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
       const parsed = ScheduleItemSchema.safeParse(mutation.row);
       if (!parsed.success) return false;
       const [stored] = await tx`select * from schedule_items where id = ${mutation.id} limit 1`;
-      if (!stored) return false;
+      // Not stored yet: the only item a locked device makes by itself is
+      // today's occurrence of a routine (lib/data/schedule.ts on the web). A
+      // phone left in the child view overnight builds the new day while
+      // locked, and refusing that left the day on that phone alone.
+      if (!stored) return isOwnRecurringOccurrence(tx, mutation.id, parsed.data as SyncRow);
       const storedRow = normalizeRow(stored);
       // The child putting today's tasks in their own order, when the team allows it.
       const movesOnly = (parsed.data as SyncRow).position !== storedRow.position;
@@ -282,6 +372,23 @@ async function lockGateAllows(tx: Sql, mutation: Mutation): Promise<boolean> {
     default:
       return false;
   }
+}
+
+/**
+ * A routine's occurrence as the device itself derives it: the id is the one
+ * `materializedId` gives for that activity and date, so it cannot be used to
+ * add anything else, and the activity is a live recurring one of this person.
+ */
+async function isOwnRecurringOccurrence(tx: Sql, id: string, row: SyncRow): Promise<boolean> {
+  if (row.source !== 'recurring' || row.deleted_at !== null) return false;
+  if (typeof row.activity_id !== 'string' || typeof row.date !== 'string' || typeof row.profile_id !== 'string') return false;
+  if (id !== materializedId(row.activity_id, row.date)) return false;
+  const [activity] = await tx`
+    select 1 as x from activities
+    where id = ${row.activity_id} and profile_id = ${row.profile_id} and deleted_at is null and recurrence is not null
+    limit 1
+  `;
+  return Boolean(activity);
 }
 
 async function applyAppendOnly(tx: Sql, mutation: Mutation, userId: string): Promise<ApplyResult> {

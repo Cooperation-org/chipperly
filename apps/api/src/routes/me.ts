@@ -590,6 +590,8 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
           await tx.delete(rewards).where(inArray(rewards.profile_id, profileIds));
           await tx.delete(locations).where(inArray(locations.profile_id, profileIds));
           await tx.delete(profile_members).where(inArray(profile_members.profile_id, profileIds));
+          // Refused writes (lib/syncHealth.ts) hold copies of these rows.
+          await tx.execute(drizzleSql`delete from sync_rejections where profile_id in ${profileIds}`);
         }
         await tx.delete(profiles).where(eq(profiles.account_id, accountId));
         await tx.delete(invites).where(eq(invites.account_id, accountId));
@@ -637,6 +639,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         .update(sessions)
         .set({ revoked_at: Date.now() })
         .where(and(eq(sessions.user_id, userId), isNull(sessions.revoked_at)));
+      await tx.execute(drizzleSql`delete from sync_rejections where user_id = ${userId}`);
       await tx.delete(users).where(eq(users.id, userId));
     });
 

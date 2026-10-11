@@ -50,6 +50,8 @@ export type Mutation = z.infer<typeof MutationSchema>;
 
 export const SyncPushRequestSchema = z.object({
   profile_id: uuidSchema,
+  /** The pushing device (lib/device/identity.ts), so a refused write can be traced to it. Older builds leave it out. */
+  device_id: uuidSchema.optional(),
   mutations: z.array(MutationSchema),
 });
 export type SyncPushRequest = z.infer<typeof SyncPushRequestSchema>;

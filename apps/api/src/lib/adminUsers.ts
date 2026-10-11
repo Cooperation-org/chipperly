@@ -78,6 +78,8 @@ export async function eraseUser(userId: string): Promise<EraseResult> {
         for (const table of [...TABLE_NAMES].reverse()) await run(tx`delete from ${tx(table)} where profile_id = any(${profileIds})`);
         await run(tx`delete from profile_members where profile_id = any(${profileIds})`);
         await run(tx`delete from review_reminders where profile_id = any(${profileIds})`);
+        // Refused writes hold copies of this person's rows.
+        await run(tx`delete from sync_rejections where profile_id = any(${profileIds})`);
         await run(tx`update devices set profile_id = null where profile_id = any(${profileIds})`);
         await run(tx`delete from profiles where id = any(${profileIds})`);
       }
@@ -113,6 +115,7 @@ export async function eraseUser(userId: string): Promise<EraseResult> {
     for (const table of ['sessions', 'devices', 'push_tokens', 'email_verifications', 'password_resets', 'review_reminders', 'event_reminder_sent', 'profile_members']) {
       await run(tx`delete from ${tx(table)} where user_id = ${userId}`);
     }
+    await run(tx`delete from sync_rejections where user_id = ${userId}`);
     // Feedback is kept, with no name on it.
     await tx`update feedback set user_id = null, contact_email = null where user_id = ${userId}`;
     await run(tx`delete from users where id = ${userId}`);

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { sendDueReminders } from '../lib/reminders.js';
+import { alertNewRejections, sendSyncHealthDigest } from '../lib/syncHealth.js';
 import { videoQueue } from '../media/queue.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -20,6 +21,9 @@ export default function internalRoutes(secret: string): FastifyPluginAsync {
     });
 
     app.post('/internal/reminders', async () => ({ sent: await sendDueReminders() }));
+
+    /** The sync health mails (lib/syncHealth.ts), for the same outside cron. */
+    app.post('/internal/sync-health', async () => ({ alerted: await alertNewRejections(), digest: await sendSyncHealthDigest() }));
 
     /** True while a video transcode is queued or running, so the container is not put to sleep mid-job. */
     app.get('/internal/busy', async () => ({ busy: videoQueue.size + videoQueue.pending > 0 }));
