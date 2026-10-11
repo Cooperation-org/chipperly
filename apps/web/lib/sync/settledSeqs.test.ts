@@ -6,7 +6,7 @@ vi.mock('../media/upload', () => ({ uploadPending: () => Promise.resolve() }));
 vi.mock('../auth/session', () => ({ clearSession: () => Promise.resolve() }));
 vi.mock('../data/rewardRequest', () => ({ flushRewardRequests: () => Promise.resolve() }));
 
-import { settledSeqs } from './engine';
+import { settledSeqs } from './settledSeqs';
 
 describe('settledSeqs', () => {
   it('settles what the push sent, not an edit made while it was in flight', () => {

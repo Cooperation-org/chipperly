@@ -1,0 +1,25 @@
+.banner {
+  background: var(--color-danger-bg, var(--color-surface-2));
+  border: 2px solid var(--color-danger, var(--color-text));
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* A plain link-style button inside the sentence, as on GuestBanner. */
+.open {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}

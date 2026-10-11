@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { BigButton } from '@/components/ui/BigButton';
+import { Button } from '@/components/ui/Button';
 import { db } from '@/lib/db/db';
-import { useSyncStatus, syncNow, type SyncState } from '@/lib/sync/engine';
+import { useSyncStatus, syncNow, retryUnsaved, type SyncState } from '@/lib/sync/engine';
+import { unsavedEntries } from '@/lib/sync/parkedStore';
+import { toast } from '@/lib/toast';
 import styles from './SyncSheet.module.css';
 
 function timeAgo(ms: number): string {
@@ -24,6 +27,8 @@ function statusText(state: SyncState, pending: number, lastSyncedAt: number | nu
   return lastSyncedAt ? `Up to date, ${timeAgo(lastSyncedAt)}.` : 'Up to date.';
 }
 
+const changes = (n: number): string => `${n} change${n === 1 ? '' : 's'}`;
+
 /** S31: sync status sheet, opened from TopBar's sync mark. */
 export function SyncSheet() {
   const status = useSyncStatus();
@@ -38,10 +43,51 @@ export function SyncSheet() {
     setSyncing(false);
   }
 
+  async function handleRetry(): Promise<void> {
+    setSyncing(true);
+    await retryUnsaved();
+    setSyncing(false);
+  }
+
+  /** Everything this device holds that the account does not, as one file: a copy that survives whatever happens to the device. */
+  async function handleSaveCopy(): Promise<void> {
+    try {
+      const data = await unsavedEntries();
+      const url = URL.createObjectURL(new Blob([JSON.stringify({ saved_at: new Date().toISOString(), ...data }, null, 2)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `chipperly-unsaved-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast("Couldn't save the copy. Try again.");
+    }
+  }
+
   return (
     <div className={styles.sheet}>
       <p className={styles.status}>{statusText(status.state, status.pending, status.last_synced_at)}</p>
       {photosWaiting > 0 ? <p className={styles.muted}>Photos waiting to upload: {photosWaiting}</p> : null}
+      {status.held > 0 ? (
+        <p className={styles.muted}>
+          {changes(status.held)} will be sent again by {status.held === 1 ? 'itself' : 'themselves'}: the account could not take {status.held === 1 ? 'it' : 'them'} just then
+          (this device was locked to the child view, or the free trial has ended).
+        </p>
+      ) : null}
+      {status.dead > 0 ? (
+        <div className={styles.unsaved} role="alert">
+          <p className={styles.status}>
+            {changes(status.dead)} could not be saved to your account. {status.dead === 1 ? 'It is' : 'They are'} still on this device, and we have been told.
+          </p>
+          <p className={styles.muted}>Do not clear this device&rsquo;s data or uninstall the app until this is sorted out.</p>
+          <Button variant="secondary" onClick={() => void handleRetry()} disabled={syncing}>
+            Try again
+          </Button>
+          <Button variant="secondary" onClick={() => void handleSaveCopy()}>
+            Save a copy to this device
+          </Button>
+        </div>
+      ) : null}
       <BigButton fullWidth onClick={() => void handleSyncNow()} disabled={syncing}>
         {syncing ? 'Syncing…' : 'Sync now'}
       </BigButton>

@@ -24,6 +24,30 @@ export interface OutboxEntry {
   created_at: number;
 }
 
+/**
+ * A write the server would not take, moved out of the outbox and kept. `held`
+ * ones go back into the outbox later (after an unlock, a subscription, or the
+ * owner signing in again); `dead` ones stay until someone acts on them
+ * (lib/sync/parkedStore.ts). Nothing is ever dropped from here silently.
+ */
+export interface ParkedEntry {
+  seq?: number;
+  id: string;
+  table: MutationTable;
+  op: 'upsert' | 'delete';
+  row?: Record<string, unknown>;
+  client_updated_at: number;
+  created_at: number;
+  /** The server's reason ('locked', 'invalid', ...) or the device's own ('http_400:...', 'no_profile', 'signed_out'). */
+  reason: string;
+  kind: 'held' | 'dead';
+  parked_at: number;
+  /** Who made the write; null when that was never known. Another person on this device neither sees nor sends it. */
+  owner: string | null;
+  /** 1 once the server knows about it: it refused the write itself, or the device has reported it. */
+  reported: 0 | 1;
+}
+
 /** Device-local settings and session state: active profile/account, tokens, lock state, ... */
 export interface KvEntry {
   key: string;
@@ -89,6 +113,7 @@ export class ChipperlyDB extends Dexie {
   users!: EntityTable<UserPublic, 'id'>;
 
   outbox!: EntityTable<OutboxEntry, 'seq'>;
+  outbox_parked!: EntityTable<ParkedEntry, 'seq'>;
   kv!: EntityTable<KvEntry, 'key'>;
   media_blobs!: EntityTable<MediaBlobEntry, 'media_id'>;
   sync_cursors!: EntityTable<SyncCursorEntry, 'profile_id'>;
@@ -220,6 +245,11 @@ export class ChipperlyDB extends Dexie {
       kv: 'key',
       media_blobs: 'media_id',
       sync_cursors: 'profile_id',
+    });
+
+    // v6: adds outbox_parked (writes the server refused, kept instead of dropped). Dexie carries every other store forward.
+    this.version(6).stores({
+      outbox_parked: '++seq, id, kind',
     });
   }
 }

@@ -18,6 +18,7 @@ import { TabBar } from '@/components/ui/TabBar';
 import { TabRail } from '@/components/ui/TabRail';
 import { TimerPill } from '@/components/timer/TimerPill';
 import { SyncSheet } from './SyncSheet';
+import { UnsavedBanner } from './UnsavedBanner';
 import { GuestBanner } from './GuestBanner';
 import styles from './CaregiverShell.module.css';
 
@@ -154,6 +155,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
       <TimerPill />
       <main className={styles.content}>
         <GuestBanner />
+        <UnsavedBanner onOpen={() => open(<SyncSheet />, { title: 'Sync' })} />
         {children}
       </main>
       <div className={styles.tabbarSlot} data-shell-tabbar>

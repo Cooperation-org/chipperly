@@ -11,6 +11,8 @@ import { useActiveProfile } from '@/lib/profile/active';
 import { verifyPin } from '@/lib/auth/pin';
 import { db } from '@/lib/db/db';
 import { upsert } from '@/lib/sync/mutate';
+import { retryHeldNow } from '@/lib/sync/engine';
+import { UnsavedBanner } from '@/components/shell/UnsavedBanner';
 import Kiosk from '@/lib/native/kiosk';
 import { PinPad } from '@/components/pin/PinPad';
 import { IconButton } from '@/components/ui/IconButton';
@@ -106,6 +108,8 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
     }
     await unlock();
     await enterParentMode();
+    // Whatever the server refused while this device was locked is sent again now, not at the next half hour.
+    void retryHeldNow();
     const next = new URLSearchParams(window.location.search).get('next');
     router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/today/');
   }
@@ -168,6 +172,8 @@ export function UnlockOverlay({ onClose }: UnlockOverlayProps) {
   const content = (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Unlock" ref={panelRef} tabIndex={-1}>
       <IconButton icon="close" aria-label="Cancel unlock" variant="solid" className={styles.close} onClick={onClose} />
+      {/* A phone kept in the child view never shows the caregiver shell: this is where its caregiver hears about unsaved work. */}
+      <UnsavedBanner />
       {mode === 'pin' ? (
         <>
           <PinPad title="Team PIN" onComplete={handlePinComplete} error={pinMessage} />

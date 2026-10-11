@@ -8,6 +8,8 @@ import { ListRow } from '@/components/ui/ListRow';
 import { Segmented } from '@/components/ui/Segmented';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { db } from '@/lib/db/db';
+import { flushOutbox } from '@/lib/sync/engine';
+import { unsavedEntries } from '@/lib/sync/parkedStore';
 import { useSession } from '@/lib/auth/session';
 import { GUEST_MESSAGE } from '@/lib/auth/guest';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -64,6 +66,33 @@ export function SettingsMenu() {
 
   // Also drops the service worker and its caches: without that, a "cleared"
   // device kept serving the old cached build.
+  /**
+   * Clearing erases writes that have not reached the account. They get one
+   * last push first, and what is still unsent is counted so the question
+   * can name it instead of erasing it unasked.
+   */
+  async function askToClearLocalData(): Promise<void> {
+    await flushOutbox().catch(() => undefined);
+    const { queued, parked } = guest ? { queued: [], parked: [] } : await unsavedEntries();
+    const unsaved = queued.length + parked.length;
+    open(
+      <Confirm
+        title="Clear local data"
+        body={
+          guest
+            ? 'Everything in this trial and the cached app will be erased from this device.'
+            : unsaved > 0
+              ? `${unsaved} change${unsaved === 1 ? '' : 's'} made on this device ${unsaved === 1 ? 'has' : 'have'} not been saved to your account. Clearing now loses ${unsaved === 1 ? 'it' : 'them'} for good. Open Sync from the top bar first if you want to keep ${unsaved === 1 ? 'it' : 'them'}.`
+              : "This device's saved data and the cached app will be cleared, then reloaded from the server. You'll need to sign in again."
+        }
+        confirmLabel={unsaved > 0 ? `Clear and lose ${unsaved} unsaved change${unsaved === 1 ? '' : 's'}` : 'Clear local data'}
+        danger
+        onConfirm={() => void clearLocalData()}
+        onCancel={close}
+      />,
+    );
+  }
+
   async function clearLocalData(): Promise<void> {
     close();
     await db.delete();
@@ -279,6 +308,15 @@ export function SettingsMenu() {
               ) : null}
               {user?.is_super_admin ? (
                 <ListRow
+                  tile={<Icon name="clipboard" size={20} />}
+                  name="Sync health"
+                  secondary="Changes a device made that are not saved yet"
+                  trailing={<Icon name="chevron" size={20} />}
+                  onTap={() => router.push('/settings/admin/sync/')}
+                />
+              ) : null}
+              {user?.is_super_admin ? (
+                <ListRow
                   tile={<Icon name="sync" size={20} />}
                   name="Backups"
                   secondary="See a day's backup and restore from it"
@@ -350,22 +388,7 @@ export function SettingsMenu() {
             tile={<Icon name="trash" size={20} />}
             name="Clear local data"
             trailing={<Icon name="chevron" size={20} />}
-            onTap={() =>
-              open(
-                <Confirm
-                  title="Clear local data"
-                  body={
-                    guest
-                      ? 'Everything in this trial and the cached app will be erased from this device.'
-                      : "This device's saved data and the cached app will be cleared, then reloaded from the server. You'll need to sign in again."
-                  }
-                  confirmLabel="Clear local data"
-                  danger
-                  onConfirm={() => void clearLocalData()}
-                  onCancel={close}
-                />,
-              )
-            }
+            onTap={() => void askToClearLocalData()}
           />
         </div>
       </div>

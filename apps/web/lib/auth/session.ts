@@ -13,6 +13,7 @@ import { enterParentMode, exitParentMode } from '../device/settings';
 import { newId } from '../ids';
 import { seedProfileLocally } from '../profile/seedLocal';
 import { GUEST_EXPIRED_NOTICE_KEY, GUEST_IDS_KEY, GUEST_STARTED_AT_KEY, isGuestMode, setGuestMode, wipeLocalData, type GuestIds } from './guest';
+import { setAsideOutbox } from '../sync/parkedStore';
 import { isGuestExpired } from './guestExpiry';
 import { CARRY_NOTICE_KEY, CARRY_OVER_KEY, GUEST_KV_KEYS, runCarryOver, setCarryOverPhase } from './carryOver';
 import { canCarryOver, type CarryOver } from './rekeyGuestWork';
@@ -96,6 +97,8 @@ async function resetLocalDataIfNewUser(me: MeResponse, keepGuest: boolean, dropp
     !keepGuest &&
     (wasGuest || (owner ? owner !== me.user.id : activeAccount != null && !me.accounts.some((a) => a.account.id === activeAccount)));
   if (foreign) {
+    // The previous person's unsent writes are set aside under their name, not cleared with their rows.
+    if (!wasGuest) await setAsideOutbox(owner ?? null);
     await clearLocalUserData();
     // Said once, so signing in to an existing account instead of creating one doesn't look like the trial vanished by accident.
     if (droppedTrial) await setKv(CARRY_NOTICE_KEY, 'discarded');
@@ -105,12 +108,12 @@ async function resetLocalDataIfNewUser(me: MeResponse, keepGuest: boolean, dropp
   await setKv(DATA_OWNER_KEY, me.user.id);
 }
 
-/** Every table but kv, and the kv entries that describe the previous user or a guest. */
+/** Every table but kv and outbox_parked (writes still owed to an account), and the kv entries that describe the previous user or a guest. */
 async function clearLocalUserData(): Promise<void> {
   await db.transaction('rw', db.tables, async () => {
     // By name: inside a transaction db.tables can hand back different Table objects than db.kv,
     // and clearing kv would take the just-issued tokens with it.
-    await Promise.all(db.tables.filter((table) => table.name !== 'kv').map((table) => table.clear()));
+    await Promise.all(db.tables.filter((table) => table.name !== 'kv' && table.name !== 'outbox_parked').map((table) => table.clear()));
     await db.kv.bulkDelete([...PER_USER_KV_KEYS, ...GUEST_KV_KEYS]);
   });
 }

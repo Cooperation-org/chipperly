@@ -15,3 +15,13 @@
   color: var(--color-text);
   margin: 0;
 }
+
+/* Changes the account refused: set apart so it is not read as the usual status line. */
+.unsaved {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 2px solid var(--color-danger, var(--color-text));
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
