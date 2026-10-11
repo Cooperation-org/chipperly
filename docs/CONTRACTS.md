@@ -167,6 +167,18 @@ Sync authorization: user may read/write profile P if P.account_id is an account 
 
 Push semantics exactly as `docs/technical-plan.md` section 6. One transaction per request. `version` from `sync_version_seq` via trigger `set_sync_version()`.
 
+One exception to the lock: a locked device may insert a `schedule_items` row that does not exist yet when it is a routine's own occurrence, that is `source === 'recurring'`, `id === materializedId(activity_id, date)` and the activity is a live recurring one of that profile. A phone left in the child view builds each new day while locked; refusing that left the day on that phone alone (Oct 2026).
+
+Nothing a device writes may vanish without a trace (`lib/syncHealth.ts`, `apps/web/lib/sync/parkedStore.ts`):
+
+- Every mutation in a push ends in `applied` or `rejected`. Every rejection other than `stale` is stored in `sync_rejections` with the row as it was sent, and closed (`resolution = 'accepted_later'`) when the same row id is later applied. The same write refused again bumps `seen_count` instead of adding a row.
+- The client removes an outbox entry only when the server applied it or answered `stale` (the server's row wins). `locked` and `lapsed` move it to `outbox_parked` as `held`: sent again after an unlock, at the start of each session and every half hour. Any other reason, a push answered 400/403/413/422 (retried one mutation at a time first), or a mutation naming no profile, moves it to `outbox_parked` as `dead`: kept, shown to the caregiver, sent again only on "Try again".
+- Once per session, after a full push and pull, the client re-queues every live local row still at `version` 0 with nothing queued or parked: the server stamps `version` on all it stores, so such a row never arrived.
+- `POST /sync/rejections` `{ device_id?, items: [{ table, id, op, reason, client_updated_at, profile_id, row? }] }`: a device reporting writes it could not send at all. `PUT /me/sync-health` `{ device_id, pending, oldest_at, held, dead }`: its own count of unsent writes, after each cycle; stored on `devices.sync_*`.
+- A different person signing in, or a guest trial starting, sets the previous person's outbox aside in `outbox_parked` (`reason: 'signed_out'`, their user id as `owner`) instead of clearing it; it goes back in the outbox when they sign in on that device again.
+- Super admins: `GET /admin/sync-health` (refused writes, devices holding writes, rows pointing at a row the server does not have), `GET /admin/sync-rejections/:id` (the saved row), `POST /admin/sync-rejections/:id/replay` (applies it without the lock or lapse gate; last-write-wins still holds), `POST /admin/sync-rejections/:id/dismiss`.
+- Mail to `SYNC_ALERT_EMAIL_TO` (else the super admins): at once for a new refusal that will not clear by itself (at most one mail per half hour), and once a day after 13:00 UTC while anything is open. Neither mail carries names or row content.
+
 Tests: vitest, `apps/api/test/*.test.ts`, `test/setup.ts` creates schema in `chipperly_test` (drops and re-migrates once per run), each test file uses its own account. Required: sync convergence test (two clients diverge, both push, both pull, identical state and chip balance), auth happy paths, locked-write rejection, LWW rejection returns server row.
 
 ## Web: `apps/web`

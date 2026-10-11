@@ -63,6 +63,20 @@ To deploy the Worker again or change the secret (then put the same value in
 Tested on 2 Oct 2026: the two files in R2 had the same SHA-256 as the files on
 the server, and the secret was refused for reading, replacing and deleting.
 
+## Sync health
+
+Super admins have a Sync health screen (Settings > Sync health). It lists every
+change a device made that is not on the server: writes the server refused (each
+kept with its row, with a Put back button), devices that report unsent writes,
+and saved rows whose parent never arrived.
+
+The server mails `SYNC_ALERT_EMAIL_TO` in `apps/api/.env` (unset: everyone in
+`SUPER_ADMIN_EMAILS`) when a write is refused for good, and once a day after
+13:00 UTC for as long as anything is open. To see the same from the shell:
+
+    journalctl -u chipperly | grep -E 'sync push refused|device reported unsent'
+    psql "$DATABASE_URL" -c "select created_at, table_name, reason, resolution from sync_rejections order by created_at desc limit 20"
+
 ## Restoring
 
 Super admins have a Backups screen in the app (Settings > Backups). It lists the
