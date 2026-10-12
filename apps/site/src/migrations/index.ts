@@ -4,6 +4,7 @@ import * as migration_20260925_163549_email_also_forward_to from './20260925_163
 import * as migration_20261012_090145_unsubscribes from './20261012_090145_unsubscribes';
 import * as migration_20261012_090436_newsletters from './20261012_090436_newsletters';
 import * as migration_20261012_090522_post_email_subscribers from './20261012_090522_post_email_subscribers';
+import * as migration_20261012_130000_support_team_wording from './20261012_130000_support_team_wording';
 
 export const migrations = [
   {
@@ -35,5 +36,10 @@ export const migrations = [
     up: migration_20261012_090522_post_email_subscribers.up,
     down: migration_20261012_090522_post_email_subscribers.down,
     name: '20261012_090522_post_email_subscribers'
+  },
+  {
+    up: migration_20261012_130000_support_team_wording.up,
+    down: migration_20261012_130000_support_team_wording.down,
+    name: '20261012_130000_support_team_wording',
   },
 ];
