@@ -1,8 +1,13 @@
-/* B9: text and picture size for the child view. Tokens are re-declared here so the scale resolves on this element. */
-.sized {
+/* B9: text and picture size for the child view. Tokens are re-declared here so the scale resolves on this element.
+   ChildToday puts these classes on <html> (so sheets follow them); :root.sized outranks tokens.css's :root.
+   The settings preview puts them on its own box. */
+.sized,
+:root.sized {
   --text-sm: calc(clamp(0.8125rem, 0.75rem + 0.5vw, 0.875rem) * var(--text-scale));
   --text-md: calc(clamp(0.9375rem, 0.875rem + 0.5vw, 1rem) * var(--text-scale));
   --text-lg: calc(clamp(1.0625rem, 0.95rem + 1.2vw, 1.25rem) * var(--text-scale));
+  --text-xl: calc(clamp(1.5rem, 1.1rem + 3.4vw, 2rem) * var(--text-scale));
+  --text-2xl: calc(clamp(2rem, 1.4rem + 5.4vw, 3rem) * var(--text-scale));
 }
 
 .text_small {

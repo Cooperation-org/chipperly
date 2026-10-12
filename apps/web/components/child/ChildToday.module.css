@@ -316,7 +316,7 @@
 }
 
 .tileEmoji {
-  font-size: clamp(2.5rem, 12vw, 3.5rem);
+  font-size: calc(clamp(2.5rem, 12vw, 3.5rem) * var(--pic-scale, 1));
   line-height: 1;
 }
 

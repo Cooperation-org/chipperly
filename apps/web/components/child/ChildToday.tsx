@@ -128,6 +128,16 @@ export function ChildToday() {
       delete document.documentElement.dataset.contrast;
     };
   }, [highContrast]);
+  // Text and picture size (B9) go on <html> for the same reason, so sheets and stories follow them too.
+  const sizeClass = profile ? displaySizeClass(profile.settings) : '';
+  useEffect(() => {
+    if (!sizeClass) return undefined;
+    const classes = sizeClass.split(' ');
+    document.documentElement.classList.add(...classes);
+    return () => {
+      document.documentElement.classList.remove(...classes);
+    };
+  }, [sizeClass]);
   // The Chipper Chart button shows today's face, so it changes as the chart does.
   const moodLevel = useMoodLevel(profileId, isoDate);
   // Stories get a button in the list view's bottom bar once there is one to read.
@@ -586,7 +596,7 @@ export function ChildToday() {
   }
 
   // Big pictures, fewer words (profile setting, the team's choice): see .pictureMode in the CSS.
-  const screenClass = [styles.screen, profile.settings.picture_mode ? styles.pictureMode : '', displaySizeClass(profile.settings)].filter(Boolean).join(' ');
+  const screenClass = [styles.screen, profile.settings.picture_mode ? styles.pictureMode : ''].filter(Boolean).join(' ');
 
   const header = (
     <header className={styles.header}>

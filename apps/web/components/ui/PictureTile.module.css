@@ -54,11 +54,11 @@
 }
 
 .list .emoji {
-  font-size: calc(var(--tile-list) * 0.6);
+  font-size: calc(var(--tile-list) * var(--pic-scale, 1) * 0.6);
 }
 
 .grid .emoji {
-  font-size: calc(var(--tile-grid) * 0.6);
+  font-size: calc(var(--tile-grid) * var(--pic-scale, 1) * 0.6);
 }
 
 .child .emoji {
