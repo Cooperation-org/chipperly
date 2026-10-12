@@ -116,6 +116,9 @@ export default async function Home() {
           <Link prefetch={false} className="link-arrow" href="/features">
             Explore all features <Icon name="arrow" size={20} />
           </Link>
+          <Link prefetch={false} className="link-arrow" href="/pricing" style={{ marginLeft: 24 }}>
+            See pricing <Icon name="arrow" size={20} />
+          </Link>
         </div>
       </section>
 

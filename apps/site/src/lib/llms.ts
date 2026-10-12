@@ -1,13 +1,14 @@
+import { pricingText } from './pricing';
 import { abs } from './site';
 
 // Shared opening of /llms.txt and /llms-full.txt (https://llmstxt.org).
-export const LLMS_INTRO = `# Chipperly
+export const LLMS_INTRO = `# Chipperly™
 
 > Visual supports app for neurodivergent individuals and their families. Visual
 > schedules, timers, chip boards, first-then boards and social stories in one
 > dashboard, shareable with a whole support team.
 
-Chipperly is made by Chipperly LLC, founded in Tucson, Arizona, by Taymar
+Chipperly™ is made by Chipperly LLC, founded in Tucson, Arizona, by Taymar
 Pixleysmith. It was built after she watched her son struggle with everyday
 routines and transitions, and found that existing tools were low-tech,
 expensive, or each solved only one piece of the problem.
@@ -32,7 +33,10 @@ offline in the browser on phones, tablets and computers.
 
 - [Home](${abs('/')}): What Chipperly is, with screens from the app.
 - [Features](${abs('/features')}): The visual support tools in detail, plus FAQ.
+- [Pricing](${abs('/pricing')}): Plans for individuals and households, and annual licences for organizations.
 - [About](${abs('/about')}): The story behind Chipperly.
 - [Blog](${abs('/blog')}): Articles on visual supports and routines.
 - [Full text](${abs('/llms-full.txt')}): Every page and blog post in one Markdown file.
+
+${pricingText(abs('/pricing'))}
 `;
