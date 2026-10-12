@@ -42,13 +42,13 @@ export const POSTS = [
       ul([
         'It answers "what now?" and "what next?" without a spoken reminder every time.',
         'It gives a sense of control: the person can check the plan themselves.',
-        'It shows the whole care team the same plan, at home and at school.',
+        'It shows the whole support team the same plan, at home and at school.',
       ]),
       h2('Starting your first schedule'),
       p('Start small. Pick one part of the day that is often hard, like the morning, and break it into four to six steps. Use a picture for each step, whether that is a photo of your own bathroom sink or a simple icon. Go through the steps together the first few times and mark each one done as you go.'),
       p('Once that routine feels easy, add another part of the day. Keep the pictures the same from day to day so they become familiar.'),
       h2('Paper or app?'),
-      p('Paper schedules work, but pieces get lost and every change means printing and laminating again. In Chipperly™, a schedule is built from pictures in a few taps, a routine can be broken into smaller steps, and everyone on the care team sees the same plan on their own device.'),
+      p('Paper schedules work, but pieces get lost and every change means printing and laminating again. In Chipperly™, a schedule is built from pictures in a few taps, a routine can be broken into smaller steps, and everyone on the support team sees the same plan on their own device.'),
     ),
   },
   {

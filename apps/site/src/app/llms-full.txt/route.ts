@@ -24,10 +24,10 @@ export async function GET() {
   const site = [
     `## Features (${abs('/features')})`,
     TOOLS.map((t) => `### ${t.title}\n\n${t.long}`).join('\n\n'),
-    `### For the whole care team\n\n${CARE_TEAM.map((c) => `- **${c.title}**: ${c.text}`).join('\n')}`,
+    `### For the whole support team\n\n${CARE_TEAM.map((c) => `- **${c.title}**: ${c.text}`).join('\n')}`,
     `### Frequently asked questions\n\n${FAQS.map((f) => `**${f.question}**\n\n${f.answer}`).join('\n\n')}`,
     `## About (${abs('/about')})`,
-    'Chipperly was created by Taymar Pixleysmith, Founder & CEO, a mom who could not find a single app that brought all the visual support tools her son Benny needed into one place. Traditional visual supports are low-tech, need crafting skills and pieces get lost; the apps she tried were expensive and each solved only one or two pieces of the puzzle. Chipperly puts every tool in one app shared with the whole care team.',
+    'Chipperly was created by Taymar Pixleysmith, Founder & CEO, a mom who could not find a single app that brought all the visual support tools her son Benny needed into one place. Traditional visual supports are low-tech, need crafting skills and pieces get lost; the apps she tried were expensive and each solved only one or two pieces of the puzzle. Chipperly puts every tool in one app shared with the whole support team.',
     `### Who it is for\n\n${AUDIENCES.map((a) => `- **${a.title}**: ${a.text}`).join('\n')}`,
   ].join('\n\n');
 

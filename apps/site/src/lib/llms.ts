@@ -5,7 +5,7 @@ export const LLMS_INTRO = `# Chipperly
 
 > Visual supports app for neurodivergent individuals and their families. Visual
 > schedules, timers, chip boards, first-then boards and social stories in one
-> dashboard, shareable with a whole care team.
+> dashboard, shareable with a whole support team.
 
 Chipperly is made by Chipperly LLC, founded in Tucson, Arizona, by Taymar
 Pixleysmith. It was built after she watched her son struggle with everyday

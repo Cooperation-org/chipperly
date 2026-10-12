@@ -34,7 +34,7 @@ export default async function Home() {
             </h1>
             <p className="lede">
               Visual schedules, chip boards, timers and social stories that give neurodivergent people of all abilities
-              more control over their day, with the whole care team working from the same plan.
+              more control over their day, with the whole support team working from the same plan.
             </p>
             <div className="hero-actions">
               {launched ? (
@@ -90,7 +90,7 @@ export default async function Home() {
           <div className="section-head center">
             <p className="eyebrow">Five tools, one dashboard</p>
             <h2 id="tools-title">Everything that used to live on laminated cards</h2>
-            <p>Replace a pile of separate apps and paper tools with one simple app, shared with the whole care team.</p>
+            <p>Replace a pile of separate apps and paper tools with one simple app, shared with the whole support team.</p>
           </div>
           <div className="tools-grid">
             {TOOLS.map((t) => (

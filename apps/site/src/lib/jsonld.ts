@@ -10,7 +10,7 @@ export const FEATURES = [
   'Visual timer',
   'First-Then board',
   'Social stories',
-  'Shared care team access',
+  'Shared support team access',
   'Works offline',
 ];
 
