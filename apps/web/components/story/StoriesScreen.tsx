@@ -18,6 +18,8 @@ import { StoryViewer } from './StoryViewer';
 import styles from './StoriesScreen.module.css';
 import { ScreenHint } from '@/components/ui/ScreenHint';
 
+const UPLOAD_NOTE = 'Pick a picture of each page. PDFs are not supported yet, so save each page as a picture first.';
+
 const TEMPLATES: { key: StoryTemplateKey; label: string }[] = [
   { key: 'haircut', label: 'Haircut' },
   { key: 'doctor', label: 'Doctor visit' },
@@ -117,9 +119,12 @@ export function StoriesScreen() {
           e.target.value = '';
         }}
       />
-      <Button variant="secondary" icon="plus" onClick={() => fileInput.current?.click()}>
-        Add a story I already have
-      </Button>
+      <div className={styles.upload}>
+        <Button variant="secondary" icon="plus" onClick={() => fileInput.current?.click()}>
+          Add a story I already have
+        </Button>
+        <p className={styles.uploadNote}>{UPLOAD_NOTE}</p>
+      </div>
 
       {stories.length === 0 ? (
         <>
