@@ -58,6 +58,7 @@ import { ReadStoryButton } from './ReadStoryButton';
 import { TomorrowBand } from './TomorrowBand';
 import { UnlockOverlay } from './UnlockOverlay';
 import { AllowedAppsSheet } from './AllowedAppsSheet';
+import { StoriesSheet } from './StoriesSheet';
 import styles from './ChildToday.module.css';
 
 /**
@@ -346,6 +347,28 @@ export function ChildToday() {
     sheet.open(<MomentSheet profileId={profileId} />, { title: 'How do I feel?' });
   }
 
+  // The check-in and the Chipper Chart behind one button; the chart only when the lock options allow it.
+  function openFeelings(): void {
+    if (!options.show_chipper_chart) return openMoment();
+    sheet.open(
+      <div className={styles.rowOptions}>
+        <BigButton variant="secondary" fullWidth onClick={() => sheet.replace(<MomentSheet profileId={profileId} />, { title: 'How do I feel?' })}>
+          <span className={styles.emojiGlyph} aria-hidden="true">
+            💭
+          </span>
+          How do I feel?
+        </BigButton>
+        <BigButton variant="secondary" fullWidth onClick={openChipperChart}>
+          <span className={styles.emojiGlyph} aria-hidden="true">
+            {levelEmoji(moodLevel)}
+          </span>
+          Chipper Chart
+        </BigButton>
+      </div>,
+      { title: 'My feelings' },
+    );
+  }
+
   function openOrder(): void {
     sheet.open(<ChildOrderSheet profileId={profileId} isoDate={isoDate} dayItems={dayItems} />, { title: 'My order' });
   }
@@ -438,6 +461,43 @@ export function ChildToday() {
 
   function openChipperChart(): void {
     sheet.open(<ChipperChartSheet profileId={profileId} userId={userId} />, { title: 'Chipper Chart' });
+  }
+
+  // Tapping a row's picture: the few things a child can do with it, as big buttons.
+  function openRowOptions(day: DayItem): void {
+    const done = day.item.completed_at !== null;
+    const hasSteps = day.steps.length > 0;
+    sheet.open(
+      <div className={styles.rowOptions}>
+        <BigButton variant="primary" icon="check" fullWidth onClick={() => { sheet.close(); void handleToggle(day, !done); }}>
+          {done ? 'Not done' : 'Done'}
+        </BigButton>
+        {readAloud ? (
+          <BigButton variant="secondary" icon="speaker" fullWidth onClick={() => speak(day.activity.name)}>
+            Read aloud
+          </BigButton>
+        ) : null}
+        {hasSteps ? (
+          <BigButton
+            variant="secondary"
+            icon="expand"
+            fullWidth
+            onClick={() => {
+              sheet.close();
+              if (options.show_visual_schedule) setScheduleItemId(day.item.id);
+              else if (!isExpanded(day.item.id)) toggleExpanded(day.item.id);
+            }}
+          >
+            Show steps
+          </BigButton>
+        ) : null}
+      </div>,
+      { title: day.activity.name },
+    );
+  }
+
+  function openStories(): void {
+    sheet.open(<StoriesSheet profileId={profileId} />, { title: 'Stories' });
   }
 
   function openApps(): void {
@@ -540,14 +600,10 @@ export function ChildToday() {
             onTap={canPickReward ? openPickReward : openWorkingFor}
           />
         ) : null}
-        {/* Up here with the chips, like the caregiver's Today, not in the bottom bar. */}
-        {options.show_chipper_chart ? (
-          <button type="button" className={styles.chipperChartButton} aria-label="Chipper Chart" onClick={openChipperChart}>
-            <span aria-hidden="true">{levelEmoji(moodLevel)}</span>
-          </button>
-        ) : null}
-        <button type="button" className={styles.chipperChartButton} aria-label="How do I feel?" onClick={openMoment}>
-          <span aria-hidden="true">💭</span>
+        {/* One labelled entry for both feelings tools (the check-in and the chart). */}
+        <button type="button" className={styles.feelingsButton} onClick={openFeelings}>
+          <span aria-hidden="true">{options.show_chipper_chart ? levelEmoji(moodLevel) : '💭'}</span>
+          My feelings
         </button>
       </div>
       <IconButton
@@ -572,6 +628,8 @@ export function ChildToday() {
         <div className={styles.tiles}>
           <HomeTile emoji="📅" label="My Day" onClick={() => setShowDay(true)} />
           {chipsTile ? <HomeTile emoji="⭐" label="Chips" onClick={canPickReward ? openPickReward : openWorkingFor} /> : null}
+          <HomeTile emoji="📖" label="Stories" onClick={openStories} />
+          {options.show_chipper_chart ? <HomeTile emoji={levelEmoji(moodLevel)} label="Chipper Chart" onClick={openChipperChart} /> : null}
           {options.show_free_time ? <HomeTile emoji="🎈" label="Free time" onClick={openFreeTime} /> : null}
           {options.show_first_then ? <HomeTile emoji="➡️" label="First, then" onClick={openFirstThen} /> : null}
           {showAllowedApps ? <HomeTile emoji="📱" label="Apps" onClick={openApps} /> : null}
@@ -613,6 +671,10 @@ export function ChildToday() {
             return (
               <div key={day.item.id} className={isNow ? `${styles.card} ${styles.now}` : styles.card} aria-current={isNow ? 'step' : undefined}>
                 <div className={styles.row}>
+                  {/* The picture opens the row's options; the check circle stays the one-tap tick. */}
+                  <button type="button" className={styles.pictureTap} aria-label={`Options, ${day.activity.name}`} onClick={() => openRowOptions(day)}>
+                    {picture}
+                  </button>
                   {hasSteps ? (
                     <button
                       type="button"
@@ -620,7 +682,6 @@ export function ChildToday() {
                       aria-expanded={expanded}
                       onClick={() => toggleExpanded(day.item.id)}
                     >
-                      {picture}
                       <span className={styles.rowText}>
                         {nameLabel}
                         {/* Progress shows even collapsed (the old beta's "0/3 steps done"); the chevron rides
@@ -641,7 +702,6 @@ export function ChildToday() {
                       aria-hidden="true"
                       onClick={() => void handleToggle(day, !dimmed)}
                     >
-                      {picture}
                       {nameLabel}
                     </button>
                   )}
@@ -677,7 +737,7 @@ export function ChildToday() {
                 ) : null}
 
                 {/* A routine with steps: finish it all in one tap (same chips as ticking every step). */}
-                {hasSteps && !dimmed ? (
+                {hasSteps && !dimmed && options.show_mark_all_done !== false ? (
                   <BigButton variant="primary" icon="check" aria-label={`Mark all done, ${day.activity.name}`} onClick={() => void handleToggle(day, true)}>
                     Mark all done
                   </BigButton>

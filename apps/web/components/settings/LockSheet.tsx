@@ -312,6 +312,14 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
               />
             </div>
             <div className={styles.toggleRow}>
+              <span className={styles.toggleLabel}>Show &ldquo;Mark all done&rdquo; on routines</span>
+              <Switch
+                label="Show Mark all done on routines"
+                checked={options.show_mark_all_done !== false}
+                onChange={(v) => setOptions((o) => ({ ...o, show_mark_all_done: v }))}
+              />
+            </div>
+            <div className={styles.toggleRow}>
               <span className={styles.toggleLabel}>{copy.can('open a step list')}</span>
               <Switch
                 label={copy.can('open a step list')}
