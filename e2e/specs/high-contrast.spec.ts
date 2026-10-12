@@ -127,7 +127,8 @@ test.describe('high contrast (CVI) child view', () => {
   });
 
   test('a sheet the child opens is high contrast too', async () => {
-    await page.getByRole('button', { name: 'How do I feel?', exact: true }).click();
+    await page.getByRole('button', { name: 'My feelings', exact: true }).click();
+    await page.getByRole('dialog', { name: 'My feelings' }).getByRole('button', { name: 'How do I feel?', exact: true }).click();
     const sheet = page.getByRole('dialog', { name: 'How do I feel?' });
     await expect(sheet).toBeVisible();
     await expect(sheet).toHaveCSS('background-color', BLACK);

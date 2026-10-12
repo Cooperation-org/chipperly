@@ -66,7 +66,7 @@ test.describe('chipper chart', () => {
     await page.waitForURL('**/today/');
   });
 
-  test('child mode: the Chipper Chart button opens the sheet, plus works, then unlock', async () => {
+  test('child mode: My feelings opens the Chipper Chart sheet, plus works, then unlock', async () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.waitForURL('**/settings/');
     await page.getByRole('button', { name: /'s view$/ }).click();
@@ -82,7 +82,9 @@ test.describe('chipper chart', () => {
     await page.getByRole('button', { name: /^Lock to / }).click();
     await page.waitForURL('**/child/');
 
-    await page.getByRole('button', { name: 'Chipper Chart', exact: true }).click();
+    // One "My feelings" button in the header holds the check-in and the chart.
+    await page.getByRole('button', { name: 'My feelings', exact: true }).click();
+    await page.getByRole('dialog', { name: 'My feelings' }).getByRole('button', { name: 'Chipper Chart', exact: true }).click();
     const sheet = page.getByRole('dialog', { name: 'Chipper Chart' });
     await expect(sheet).toBeVisible();
     await expectNoOverflow(page, 'S32 child chipper chart sheet');

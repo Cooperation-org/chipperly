@@ -44,8 +44,8 @@ test.describe('child view: picture tiles', () => {
     await expect(page.getByText('Hi Benny! What do you want to do?')).toBeVisible();
     const myDay = page.getByRole('button', { name: 'My Day', exact: true });
     await tapTarget(myDay);
-    // Lock defaults show free time, First-Then and the Chipper Chart, so those tiles are there too.
-    for (const name of ['Free time', 'First, then', 'Chipper Chart']) {
+    // Stories is always a tile; lock defaults show free time, First-Then and the Chipper Chart, so those are there too.
+    for (const name of ['Stories', 'Free time', 'First, then', 'Chipper Chart']) {
       await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
     }
     await expectNoOverflow(page, 'child tiles home');

@@ -106,8 +106,12 @@ test.describe('feelings, check-ups and the whole-routine bonus', () => {
     await expect.poll(names).toEqual([before[1], before[0], ...before.slice(2)]);
   });
 
-  test('child: "How do I feel?" any time', async () => {
-    await page.getByRole('button', { name: 'How do I feel?', exact: true }).click();
+  test('child: "How do I feel?" any time, from My feelings', async () => {
+    await page.getByRole('button', { name: 'My feelings', exact: true }).click();
+    // The Chipper Chart is on by default, so My feelings offers both.
+    const feelings = page.getByRole('dialog', { name: 'My feelings' });
+    await expect(feelings.getByRole('button', { name: 'Chipper Chart', exact: true })).toBeVisible();
+    await feelings.getByRole('button', { name: 'How do I feel?', exact: true }).click();
     const sheet = page.getByRole('dialog', { name: 'How do I feel?' });
     await expect(sheet.getByRole('button', { name: 'Very upset', exact: true })).toBeVisible();
     await expectNoOverflow(page, 'child how do I feel');
