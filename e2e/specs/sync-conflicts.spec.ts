@@ -171,7 +171,7 @@ test.describe('sync asks about conflicts, not about additions', () => {
   });
 
   test('the caregiver sees both and keeps one each way', async () => {
-    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     const unlock = page.getByRole('dialog', { name: 'Unlock' });
     await expect(unlock.getByRole('alert').filter({ hasText: '2 changes on this device differ from your account.' })).toBeVisible();
     await enterPin(page, '1234');

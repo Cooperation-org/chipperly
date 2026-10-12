@@ -552,12 +552,9 @@ export function ChildToday() {
 
   if (!profileId || !profile) return null;
 
-  // The words say what the lock does: a parent looking at the child's screen sees how to get back to editing.
-  const editModeButton = (
-    <button type="button" className={styles.lockButton} onClick={() => setUnlocking(true)}>
-      <Icon name="lock" size={24} />
-      <span className={styles.lockLabel}>Edit mode</span>
-    </button>
+  // Only the lock icon here: the child view stays minimal. The caregiver top bar keeps the "Edit mode" words.
+  const unlockButton = (
+    <IconButton icon="lock" aria-label="Team unlock" variant="solid" className={styles.lockButton} onClick={() => setUnlocking(true)} />
   );
 
   // "Phone is resting" (profile setting, or a remote Rest): nothing but this
@@ -571,7 +568,7 @@ export function ChildToday() {
         </span>
         <h1 className={styles.restingTitle}>Phone is resting</h1>
         <p className={styles.restingText}>Time for a break. Your team can wake it up.</p>
-        {editModeButton}
+        {unlockButton}
         {unlocking ? <UnlockOverlay onClose={() => setUnlocking(false)} /> : null}
       </div>
     );
@@ -588,7 +585,7 @@ export function ChildToday() {
             <Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="child" />
             <h1 className={styles.name}>{profile.name}</h1>
           </div>
-          {editModeButton}
+          {unlockButton}
         </header>
         <FirstThenPanels profileId={profileId} mode="child" onStartTimer={startStepTimer} />
         {timerOpen ? <TimerFullScreen onClose={() => setTimerOpen(false)} /> : null}
@@ -634,7 +631,7 @@ export function ChildToday() {
           My feelings
         </button>
       </div>
-      {editModeButton}
+      {unlockButton}
     </header>
   );
 

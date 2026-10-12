@@ -73,7 +73,7 @@ test.describe('child view: Stories tile and the Mark all done option', () => {
   });
 
   test('with the option off, Mark all done is hidden', async () => {
-    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -90,7 +90,7 @@ test.describe('child view: Stories tile and the Mark all done option', () => {
     await expect(page.getByRole('button', { name: /^Mark all done/ })).toHaveCount(0);
 
     // Leave the suite unlocked.
-    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
   });

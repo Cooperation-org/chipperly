@@ -78,7 +78,7 @@ test.describe('high contrast (CVI) child view', () => {
   }
 
   async function unlock(): Promise<void> {
-    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/');
   }

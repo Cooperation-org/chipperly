@@ -184,7 +184,7 @@ test.describe('changes made on a device are saved or said out loud', () => {
     expect((await localState(page, tomorrow)).saved).toBe(0);
 
     // A phone that lives in the child view never shows the caregiver screens: its caregiver hears on the unlock screen.
-    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     const unlock = page.getByRole('dialog', { name: 'Unlock' });
     await expect(unlock.getByRole('alert').filter({ hasText: NOT_SAVED })).toBeVisible();
     await unlock.getByRole('button', { name: 'Cancel unlock', exact: true }).click();
