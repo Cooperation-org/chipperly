@@ -15,6 +15,7 @@ import { EmailAddresses } from './collections/EmailAddresses';
 import { Media } from './collections/Media';
 import { Pages } from './collections/Pages';
 import { Posts } from './collections/Posts';
+import { Unsubscribes } from './collections/Unsubscribes';
 import { Users } from './collections/Users';
 import { Waitlist } from './collections/Waitlist';
 import { Settings } from './globals/Settings';
@@ -76,7 +77,7 @@ export default buildConfig({
       graphics: { Logo: '/components/admin/Logo#Logo', Icon: '/components/admin/Logo#Icon' },
     },
   },
-  collections: [Posts, Categories, Pages, Media, Waitlist, EmailAddresses, Users],
+  collections: [Posts, Categories, Pages, Media, Waitlist, Unsubscribes, EmailAddresses, Users],
   globals: [Settings],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',

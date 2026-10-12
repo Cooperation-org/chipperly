@@ -72,6 +72,7 @@ export interface Config {
     pages: Page;
     media: Media;
     waitlist: Waitlist;
+    unsubscribes: Unsubscribe;
     'email-addresses': EmailAddress;
     users: User;
     redirects: Redirect;
@@ -90,6 +91,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     waitlist: WaitlistSelect<false> | WaitlistSelect<true>;
+    unsubscribes: UnsubscribesSelect<false> | UnsubscribesSelect<true>;
     'email-addresses': EmailAddressesSelect<false> | EmailAddressesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
@@ -357,6 +359,20 @@ export interface Waitlist {
   role?: ('caregiver' | 'professional' | 'self' | 'other') | null;
   /**
    * Page the form was sent from.
+   */
+  source?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unsubscribes".
+ */
+export interface Unsubscribe {
+  id: number;
+  email: string;
+  /**
+   * How they opted out: "link" or a note.
    */
   source?: string | null;
   updatedAt: string;
@@ -633,6 +649,10 @@ export interface PayloadLockedDocument {
         value: number | Waitlist;
       } | null)
     | ({
+        relationTo: 'unsubscribes';
+        value: number | Unsubscribe;
+      } | null)
+    | ({
         relationTo: 'email-addresses';
         value: number | EmailAddress;
       } | null)
@@ -788,6 +808,16 @@ export interface WaitlistSelect<T extends boolean = true> {
   email?: T;
   name?: T;
   role?: T;
+  source?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unsubscribes_select".
+ */
+export interface UnsubscribesSelect<T extends boolean = true> {
+  email?: T;
   source?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1101,6 +1131,7 @@ export interface TaskCreateCollectionExport {
       | 'pages'
       | 'media'
       | 'waitlist'
+      | 'unsubscribes'
       | 'email-addresses'
       | 'users'
       | 'redirects'
