@@ -59,7 +59,7 @@ export function BillingPanel() {
       )}
       {sub && (
         <p className={styles.muted}>
-          If you cancel a yearly plan, we refund the part you have not used when you ask. A monthly plan is not refunded: it just runs to the end of the month you paid for.
+          If you cancel a monthly plan within 7 days after a payment, we refund that payment. After 7 days there is no refund, and the plan runs to the end of the month you paid for. If you cancel a yearly plan, we refund the part you have not used. To ask for a refund, write to support@chipperlyapp.com.
         </p>
       )}
       {paysByArrangement(status) && status.access.state !== 'subscribed' && (

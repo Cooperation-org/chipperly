@@ -57,9 +57,9 @@ export default function TermsPage() {
         <a href="mailto:support@chipperlyapp.com">support@chipperlyapp.com</a>.
       </p>
       <p>
-        Monthly plans: we don&apos;t refund them. When you cancel, you just keep your time until
-        the end of the month you paid for. This includes the first 7 days of a month: there is no
-        refund, you simply continue with the time you paid for.
+        Monthly plans: if you cancel within 7 days after a payment, we refund that payment. Write
+        to <a href="mailto:support@chipperlyapp.com">support@chipperlyapp.com</a>. After 7 days
+        there is no refund, and your plan runs to the end of the month you paid for.
       </p>
 
       <h2>What you can&apos;t do</h2>
