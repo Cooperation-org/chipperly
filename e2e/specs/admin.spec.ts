@@ -14,9 +14,9 @@ test('a super admin sees the dashboard, sets the early access discount, and exte
   const codes = page.getByRole('region', { name: 'Early access offers' });
   await codes.getByRole('button', { name: /^EARLYCHIPPER/ }).click();
   const sheet = page.getByRole('dialog');
-  await sheet.getByLabel('Discount (%)').fill('30');
+  await sheet.getByLabel('Discount (%)').fill('25');
   await sheet.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(codes.getByRole('button', { name: /^EARLYCHIPPER/ })).toContainText('30% off annual');
+  await expect(codes.getByRole('button', { name: /^EARLYCHIPPER/ })).toContainText('25% off annual');
 
   const people = page.getByRole('region', { name: 'People' });
   await people.getByLabel('Search name or email').fill(`admin-${testInfo.project.name}`);

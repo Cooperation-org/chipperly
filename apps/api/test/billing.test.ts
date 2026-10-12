@@ -65,7 +65,7 @@ describe('trial, early access codes, routine reminders, super admin', () => {
     const now = Date.now();
     // Far from any real offer's dates, so EARLYCHIPPER can't be the one that matches.
     const start = Date.UTC(2031, 0, 1);
-    await db.insert(promo_codes).values({ code: 'TESTAUTO', percent_off: 30, auto_issue: true, valid_from: start, valid_until: start + 10 * DAY, created_at: now });
+    await db.insert(promo_codes).values({ code: 'TESTAUTO', percent_off: 25, auto_issue: true, valid_from: start, valid_until: start + 10 * DAY, created_at: now });
     const inside = await createUser('inside', start + DAY);
     const alsoInside = await createUser('alsoinside', start + 2 * DAY);
     const outside = await createUser('outside', start + 20 * DAY);
@@ -74,7 +74,7 @@ describe('trial, early access codes, routine reminders, super admin', () => {
 
     const a = await promoOf(inside.token);
     expect(a?.code).toMatch(/^EARLY-[A-HJ-KM-NP-Z2-9]{6}$/);
-    expect(a?.percent_off).toBe(30);
+    expect(a?.percent_off).toBe(25);
     expect(await promoOf(inside.token)).toEqual(a); // the same code every time
     expect((await promoOf(alsoInside.token))?.code).not.toBe(a?.code);
     expect(await promoOf(outside.token)).toBeNull();

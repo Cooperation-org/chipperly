@@ -388,14 +388,14 @@ describe('promo codes become Stripe coupons', () => {
 
   it('creates the coupon on first use from the percentage it is given, and reuses it after', async () => {
     const stripe = fakeStripe(new Set());
-    const id = await ensureCoupon(30, stripe.call);
-    expect(id).toBe(couponIdFor(30));
+    const id = await ensureCoupon(25, stripe.call);
+    expect(id).toBe(couponIdFor(25));
     const create = stripe.calls.find((c) => c.method === 'POST');
     expect(create?.path).toBe('/coupons');
-    expect(create?.params).toMatchObject({ id, percent_off: '30', duration: 'repeating', duration_in_months: '12' });
-    expect(await ensureCoupon(30, stripe.call)).toBe(id);
+    expect(create?.params).toMatchObject({ id, percent_off: '25', duration: 'repeating', duration_in_months: '12' });
+    expect(await ensureCoupon(25, stripe.call)).toBe(id);
     expect(stripe.calls.filter((c) => c.method === 'POST')).toHaveLength(1);
-    expect(couponIdFor(30)).not.toBe(couponIdFor(35));
+    expect(couponIdFor(25)).not.toBe(couponIdFor(35));
   });
 
   it('survives losing a creation race, and surfaces a real Stripe failure', async () => {
