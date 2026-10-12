@@ -1,4 +1,4 @@
-import { boolean, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { syncColumns } from './_sync.js';
 
 export const rewards = pgTable(
@@ -16,6 +16,8 @@ export const rewards = pgTable(
     /** True = free-time choice-board tile, costs nothing. */
     always_available: boolean('always_available').notNull().default(false),
     position: integer('position').notNull(),
+    /** Order inside each place, keyed by place id ('all' = Every place); null or a missing key = `position`. */
+    positions: jsonb('positions').$type<Record<string, number>>(),
     /** Free choice unlocked once this activity is done today; null = no requirement. */
     requires_activity_id: uuid('requires_activity_id'),
     screen_time_minutes: integer('screen_time_minutes'),
