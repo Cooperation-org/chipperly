@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Geolocation } from '@capacitor/geolocation';
@@ -13,6 +13,7 @@ import { Picture } from '@/components/media/Picture';
 import { Field } from '@/components/ui/Field';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListRow } from '@/components/ui/ListRow';
+import { Icon } from '@/components/ui/Icon';
 import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -24,7 +25,7 @@ import { PicturePicker, type PicturePickerValue } from '@/components/picture/Pic
 import { db } from '@/lib/db/db';
 import { restore, upsert } from '@/lib/sync/mutate';
 import { useActivities, useRoutines, deleteActivity } from '@/lib/data/activities';
-import { useRewards, deleteReward } from '@/lib/data/rewards';
+import { useRewards, deleteReward, moveWithinGroup, reorderRewards } from '@/lib/data/rewards';
 import { useLocations, saveLocation, deleteLocation } from '@/lib/data/locations';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
@@ -405,6 +406,38 @@ export function LibraryList({ kind }: LibraryListProps) {
   );
   const liveSelected = useMemo(() => pruneSelection(selected, bulkIds), [selected, bulkIds]);
 
+  // Reward reorder: same handle + arrow keys + drag as the schedule, scoped to one place group.
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const dragRef = useRef<{ id: string; startY: number; groupIds: string[] } | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  function moveReward(groupIds: string[], id: string, to: number): void {
+    const from = groupIds.indexOf(id);
+    if (from === to) return;
+    void reorderRewards(moveWithinGroup(rewards.map((r) => r.id), groupIds, from, to));
+  }
+
+  function onHandleUp(e: ReactPointerEvent<HTMLButtonElement>): void {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    setDraggingId(null);
+    setDragOffset(0);
+    if (!drag) return;
+    let target = drag.groupIds.indexOf(drag.id);
+    let best = Infinity;
+    drag.groupIds.forEach((gid, idx) => {
+      const rect = rowRefs.current.get(gid)?.getBoundingClientRect();
+      if (!rect) return;
+      const dist = Math.abs(rect.top + rect.height / 2 - e.clientY);
+      if (dist < best) {
+        best = dist;
+        target = idx;
+      }
+    });
+    moveReward(drag.groupIds, drag.id, target);
+  }
+
   if (!profileId) return null;
   const pid = profileId;
 
@@ -631,9 +664,45 @@ export function LibraryList({ kind }: LibraryListProps) {
           <section key={group.key} className={styles.group}>
             {grouped ? <h2 className={styles.groupHeading}>{groupLabel(group.key)}</h2> : null}
             <div className={styles.list}>
-              {group.rows.map((row) => (
-                <ListRow
+              {group.rows.map((row, idx) => {
+                const groupIds = group.rows.map((r) => r.id);
+                const reorderable = kind === 'reward' && !selecting;
+                const isDragging = draggingId === row.id;
+                return (
+                <div
                   key={row.id}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(row.id, el);
+                    else rowRefs.current.delete(row.id);
+                  }}
+                  className={isDragging ? styles.dragging : undefined}
+                  style={isDragging ? { transform: `translateY(${dragOffset}px)` } : undefined}
+                >
+                <ListRow
+                  handle={
+                    reorderable ? (
+                      <button
+                        type="button"
+                        className={styles.dragHandle}
+                        aria-label={`Move ${row.name}`}
+                        onPointerDown={(e) => {
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                          dragRef.current = { id: row.id, startY: e.clientY, groupIds };
+                          setDraggingId(row.id);
+                        }}
+                        onPointerMove={(e) => dragRef.current && setDragOffset(e.clientY - dragRef.current.startY)}
+                        onPointerUp={onHandleUp}
+                        onPointerCancel={onHandleUp}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+                          e.preventDefault();
+                          moveReward(groupIds, row.id, idx + (e.key === 'ArrowUp' ? -1 : 1));
+                        }}
+                      >
+                        <Icon name="drag" size={20} />
+                      </button>
+                    ) : undefined
+                  }
                   tile={row.tile}
                   name={row.name}
                   secondary={row.secondary}
@@ -646,11 +715,21 @@ export function LibraryList({ kind }: LibraryListProps) {
                         onChange={() => setSelected(toggleId(liveSelected, row.id))}
                       />
                     ) : (
-                      <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />
+                      <>
+                        {reorderable ? (
+                          <>
+                            <IconButton icon="chevron" className={styles.up} aria-label={`Move ${row.name} up`} disabled={idx === 0} onClick={() => moveReward(groupIds, row.id, idx - 1)} />
+                            <IconButton icon="chevron" className={styles.down} aria-label={`Move ${row.name} down`} disabled={idx === groupIds.length - 1} onClick={() => moveReward(groupIds, row.id, idx + 1)} />
+                          </>
+                        ) : null}
+                        <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />
+                      </>
                     )
                   }
                 />
-              ))}
+                </div>
+                );
+              })}
             </div>
           </section>
         ))
