@@ -103,7 +103,7 @@ test.describe('chipper chart', () => {
     await sheet.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(sheet).toBeHidden();
 
-    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
     await enterPin(page, '2468');
     await page.waitForURL('**/today/', { timeout: 5_000 });
   });
