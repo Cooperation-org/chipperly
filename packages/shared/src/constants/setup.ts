@@ -79,7 +79,50 @@ export const PLACE_TILES: readonly Tile<SetupAnswers['places'][number]>[] = [
   { key: 'other_home', name: 'Another home', emoji: '🏡' },
 ];
 
-/** Reward tiles per age band (the guided free-choice and reward steps suggest from these); "Screen time" expands into the three timed rewards below. */
+/** Guided setup's "always there, no chips" step: everyday things, not treats, so they match its "reading, drawing, a walk" subtitle. */
+export const FREE_TILES: Readonly<Record<AgeBand, readonly { name: string; emoji: string }[]>> = {
+  '0-2': [
+    { name: 'Cuddles', emoji: '🤗' },
+    { name: 'A song', emoji: '🎵' },
+    { name: 'A story', emoji: '📖' },
+    { name: 'Bubbles', emoji: '🫧' },
+    { name: 'Toys', emoji: '🧸' },
+  ],
+  '2-7': [
+    { name: 'A story', emoji: '📖' },
+    { name: 'Drawing', emoji: '🖍️' },
+    { name: 'A walk', emoji: '🚶' },
+    { name: 'Music', emoji: '🎵' },
+    { name: 'Toys', emoji: '🧸' },
+    { name: 'Quiet corner', emoji: '🛋️' },
+  ],
+  '8-12': [
+    { name: 'Reading', emoji: '📚' },
+    { name: 'Drawing', emoji: '🎨' },
+    { name: 'A walk', emoji: '🚶' },
+    { name: 'Music', emoji: '🎵' },
+    { name: 'Building blocks', emoji: '🧱' },
+    { name: 'Quiet corner', emoji: '🛋️' },
+  ],
+  '13-17': [
+    { name: 'Reading', emoji: '📚' },
+    { name: 'Drawing', emoji: '🎨' },
+    { name: 'A walk', emoji: '🚶' },
+    { name: 'Music', emoji: '🎵' },
+    { name: 'Journal', emoji: '📓' },
+    { name: 'Quiet corner', emoji: '🛋️' },
+  ],
+  '18+': [
+    { name: 'Reading', emoji: '📚' },
+    { name: 'Drawing', emoji: '🎨' },
+    { name: 'A walk', emoji: '🚶' },
+    { name: 'Music', emoji: '🎵' },
+    { name: 'Stretching', emoji: '🧘' },
+    { name: 'Quiet time', emoji: '🛋️' },
+  ],
+};
+
+/** Reward tiles per age band (the guided earned-with-chips step suggests from these); "Screen time" expands into the three timed rewards below. */
 export const LOVE_TILES: Readonly<Record<AgeBand, readonly { name: string; emoji: string }[]>> = {
   '0-2': [
     { name: 'Cuddles', emoji: '🤗' },

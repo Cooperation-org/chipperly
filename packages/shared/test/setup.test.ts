@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSeed, defaultAnswers, FOCUS_TILES, LOVE_TILES } from '../src/constants/setup.js';
+import { buildSeed, defaultAnswers, FOCUS_TILES, FREE_TILES, LOVE_TILES } from '../src/constants/setup.js';
 import { SetupAnswersSchema } from '../src/schemas/profile.js';
 
 describe('setup interview seed', () => {
@@ -176,5 +176,15 @@ describe('setup interview: just one goal', () => {
   it('old payloads without focus are unchanged', () => {
     expect(SetupAnswersSchema.parse(defaultAnswers('8-12')).focus).toBeUndefined();
     expect(buildSeed(defaultAnswers('8-12')).activities.map((a) => a.name)).toContain('Lunch');
+  });
+
+  it('the no-chips step offers everyday things, not the treats bought with chips', () => {
+    for (const band of ['0-2', '2-7', '8-12', '13-17', '18+'] as const) {
+      const names = FREE_TILES[band].map((t) => t.name);
+      expect(new Set(names).size).toBe(names.length);
+      for (const treat of ['Screen time', 'Pocket money', 'Pizza night', 'Takeout', 'Snack']) {
+        expect(names).not.toContain(treat);
+      }
+    }
   });
 });

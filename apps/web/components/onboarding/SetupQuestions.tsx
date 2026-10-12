@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { AgeBand, FocusRoutine, SetupAnswers } from '@chipperly/shared/schemas/profile';
-import { AGE_BAND_TILES, FOCUS_TILES, LOVE_TILES, ROUTINE_TILES, WEEK_TILES, defaultAnswers } from '@chipperly/shared/constants/setup';
+import { AGE_BAND_TILES, FOCUS_TILES, FREE_TILES, LOVE_TILES, ROUTINE_TILES, WEEK_TILES, defaultAnswers } from '@chipperly/shared/constants/setup';
 import { newId } from '@/lib/ids';
 import type { GuidedItem, GuidedPicks, GuidedPlace } from '@/lib/profile/guidedSetup';
 import { Button } from '@/components/ui/Button';
@@ -191,7 +191,7 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
         <PickStep
           title={selfMode ? 'Things I can always choose' : `Things ${name} can always choose`}
           subtitle="Like reading, drawing, a walk. No chips needed."
-          tiles={LOVE_TILES[answers.age_band].filter((t) => !earned.some((e) => e.name === t.name))}
+          tiles={FREE_TILES[answers.age_band].filter((t) => !earned.some((e) => e.name === t.name))}
           items={free}
           onChange={setFree}
           places={places}
