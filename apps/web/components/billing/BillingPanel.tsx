@@ -35,7 +35,7 @@ export function BillingPanel() {
       const { url } = await api.post<{ url: string }>(path, plan ? { plan, kind: offer.kind } : undefined, { schema: BillingRedirectSchema });
       window.location.assign(url);
     } catch (err) {
-      toast(err instanceof ApiError && err.code === 'too_many_profiles' ? err.message : 'Could not open billing. Try again in a moment.');
+      toast(err instanceof ApiError && (err.code === 'too_many_profiles' || err.code === 'too_many_admins') ? err.message : 'Could not open billing. Try again in a moment.');
       setBusy(false);
     }
   }

@@ -10,7 +10,7 @@ import { buildTestApp, request } from './helpers.js';
 import { db } from '../src/db/client.js';
 import { stripe_events, subscriptions } from '../src/db/schema/subscriptions.js';
 import { env } from '../src/env.js';
-import { accounts, promo_codes, users } from '../src/db/schema/accounts.js';
+import { accounts, invites, promo_codes, users } from '../src/db/schema/accounts.js';
 import {
   applyDisputeEvent,
   applyStripeEvent,
@@ -629,6 +629,19 @@ describe('choosing a plan at checkout', () => {
     const res = await checkout(headers, { kind: 'individual' });
     expect(res.statusCode).toBe(409);
     expect((res.json() as { error: { code: string } }).error.code).toBe('too_many_profiles');
+  });
+
+  it('refuses the family plan with more than 2 admins, counting open admin invites', async () => {
+    const sessions: string[] = [];
+    stubStripe(sessions);
+    const { accountId, adminId, headers } = await setup('individual');
+    await addMember(accountId, (await createUser()).id, 'admin');
+    expect((await checkout(headers, { kind: 'household' })).statusCode).toBe(200);
+    await db.insert(invites).values({ id: uuidv7(), account_id: accountId, email: 'third@example.com', role: 'admin', token_hash: `h-${uuidv7()}`, profile_ids: [], invited_by: adminId, expires_at: Date.now() + 86_400_000 });
+    const res = await checkout(headers, { kind: 'household' });
+    expect(res.statusCode).toBe(409);
+    expect((res.json() as { error: { code: string } }).error.code).toBe('too_many_admins');
+    expect(sessions).toEqual(['price_house']);
   });
 
   it('sends a live subscription to the billing portal to change plan', async () => {
