@@ -638,3 +638,59 @@ describe('accounts routes', () => {
     expect(await isAccountOwner(coAdmin.id, account.id)).toBe(false);
   });
 });
+
+describe('household limits', () => {
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  async function makeAccount(kind: 'household' | 'agency') {
+    const admin = await createUser('limits-admin');
+    const res = await request(app, { method: 'POST', url: '/api/accounts', headers: auth(admin.token), payload: { kind, name: 'Limits' } });
+    return { admin, accountId: (res.json() as { account: { id: string } }).account.id };
+  }
+  const invite = (token: string, accountId: string, role: 'admin' | 'member', email: string) =>
+    request(app, { method: 'POST', url: `/api/accounts/${accountId}/invites`, headers: auth(token), payload: { email, role, profile_ids: [] } });
+  const codeOf = (res: { json: () => unknown }) => (res.json() as { error: { code: string } }).error.code;
+
+  it('stops at 6 profiles with profile_limit', async () => {
+    const { admin, accountId } = await makeAccount('household');
+    for (let i = 0; i < 6; i++) {
+      const res = await request(app, { method: 'POST', url: `/api/accounts/${accountId}/profiles`, headers: auth(admin.token), payload: { name: `Kid ${i}`, skip_seed: true } });
+      expect(res.statusCode).toBe(201);
+    }
+    const seventh = await request(app, { method: 'POST', url: `/api/accounts/${accountId}/profiles`, headers: auth(admin.token), payload: { name: 'Kid 7', skip_seed: true } });
+    expect(seventh.statusCode).toBe(409);
+    expect(codeOf(seventh)).toBe('profile_limit');
+  });
+
+  it('allows a second admin but not a third, counting open invites, accepts and promotions', async () => {
+    const { admin, accountId } = await makeAccount('household');
+    expect((await invite(admin.token, accountId, 'admin', 'second@example.com')).statusCode).toBe(201);
+    const rawToken = captureInviteToken();
+    const third = await invite(admin.token, accountId, 'admin', 'third@example.com');
+    expect(third.statusCode).toBe(409);
+    expect(codeOf(third)).toBe('admin_limit');
+    // Members are not limited.
+    expect((await invite(admin.token, accountId, 'member', 'member@example.com')).statusCode).toBe(201);
+
+    const second = await createUser('second');
+    expect((await request(app, { method: 'POST', url: `/api/invites/${rawToken}/accept`, headers: auth(second.token) })).statusCode).toBe(200);
+
+    // Two admins now: a member cannot be promoted to a third.
+    const member = await createUser('member');
+    await db.insert(account_members).values({ account_id: accountId, user_id: member.id, role: 'member' });
+    const promote = await request(app, { method: 'PATCH', url: `/api/accounts/${accountId}/members/${member.id}`, headers: auth(admin.token), payload: { role: 'admin' } });
+    expect(promote.statusCode).toBe(409);
+    expect(codeOf(promote)).toBe('admin_limit');
+  });
+
+  it('does not limit admins on other kinds of account', async () => {
+    const { admin, accountId } = await makeAccount('agency');
+    for (const n of ['a', 'b', 'c']) expect((await invite(admin.token, accountId, 'admin', `${n}@example.com`)).statusCode).toBe(201);
+  });
+});

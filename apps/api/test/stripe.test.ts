@@ -161,7 +161,7 @@ describe('account kind and price mapping', () => {
     expect(AccountKind.parse('supported')).toBe('supported');
     expect(PROFILE_LIMITS.supported).toBe(1);
     expect(PROFILE_LIMITS.individual).toBe(1);
-    expect(PROFILE_LIMITS.household).toBe(8);
+    expect(PROFILE_LIMITS.household).toBe(6);
     expect(PROFILE_LIMITS.agency).toBe(Infinity);
     expect(AccountKind.safeParse('nope').success).toBe(false);
   });
