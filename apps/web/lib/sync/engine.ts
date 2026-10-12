@@ -293,16 +293,18 @@ async function applyRowsToTable(table: SyncedTable, rows: Record<string, unknown
   const tbl = tableFor(table);
   const ids = rows.map((raw) => raw.id as string);
 
-  await db.transaction('rw', tbl, db.outbox, db.sync_conflicts, async () => {
+  await db.transaction('rw', tbl, db.outbox, db.outbox_parked, db.sync_conflicts, async () => {
     const locals = await tbl.bulkGet(ids);
     const outboxIds = new Set((await db.outbox.where('id').anyOf(ids).toArray()).map((entry) => entry.id));
+    // A write the server held back (a locked phone) is still an unsent change to this row.
+    const parkedIds = new Set((await db.outbox_parked.where('id').anyOf(ids).toArray()).map((entry) => entry.id));
     const nextRows: SyncedRow<typeof table>[] = [];
     for (const [i, raw] of rows.entries()) {
       const incoming = raw as unknown as SyncedRow<typeof table>;
       const local = locals[i];
       const hasOutbox = outboxIds.has(ids[i] as string);
       // An unsent change here that the account's newer copy would overwrite: ask instead.
-      const wouldOverwrite = hasOutbox && !!local && incoming.client_updated_at >= local.client_updated_at;
+      const wouldOverwrite = (hasOutbox || parkedIds.has(ids[i] as string)) && !!local && incoming.client_updated_at >= local.client_updated_at;
       if (await setAsideIfConflict(table, local as Record<string, unknown> | undefined, raw, wouldOverwrite)) continue;
       nextRows.push(applyPulledRow(local, incoming, hasOutbox));
     }

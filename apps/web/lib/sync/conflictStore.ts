@@ -20,8 +20,9 @@ export async function setAsideIfConflict(table: MutationTable, local: Row | unde
   const alreadyAsked = local ? (await db.sync_conflicts.get(local.id as string)) !== undefined : false;
   if (!isConflict(local, incoming, holdsUnsentChange || alreadyAsked)) return false;
   const id = incoming.id as string;
-  // The queued write is this conflict now; it goes back in the outbox only if "keep mine" is chosen.
+  // The queued or parked write is this conflict now; it goes back in the outbox only if "keep mine" is chosen.
   await db.outbox.where('id').equals(id).delete();
+  await db.outbox_parked.where('id').equals(id).delete();
   await db.sync_conflicts.put({ id, table, mine: local as Row, theirs: incoming, found_at: now() });
   return true;
 }
