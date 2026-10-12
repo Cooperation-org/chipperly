@@ -58,13 +58,13 @@ test.describe('onboarding setup interview', () => {
     await expectNoOverflow(page, 'setup: places');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
-    await expect(page.getByRole('heading', { name: 'Rewards I earn with chips' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Rewards Riley earns with chips' })).toBeVisible();
     await page.getByRole('button', { name: 'Pizza night', exact: true }).click();
     await expect(page.getByText('1 of 3 picked')).toBeVisible();
     await expectNoOverflow(page, 'setup: earned rewards');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
-    await expect(page.getByRole('heading', { name: 'Things I can always choose' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Things Riley can always choose' })).toBeVisible();
     await page.getByRole('button', { name: 'Music', exact: true }).click();
     await page.getByLabel('Add your own', { exact: true }).fill('Skateboarding');
     await page.getByRole('button', { name: 'Add', exact: true }).click();
