@@ -7,6 +7,7 @@ import { db } from '../db/db';
 import { newId } from '../ids';
 import { withBase } from '../api/base';
 import { localMediaBlob } from '../media/upload';
+import { PhotoDecodeError } from '../media/imageFile';
 
 export { uploadPending } from '../media/upload';
 
@@ -15,7 +16,10 @@ const JPEG_QUALITY = 0.85;
 
 /** Resizes to at most 1600px on the long edge, stores the JPEG blob locally, queues it for upload. */
 export async function pickAndStoreImage(file: File | Blob): Promise<string> {
-  const bitmap = await createImageBitmap(file);
+  // Undecodable (e.g. HEIC where the browser has no decoder): fail before anything is stored.
+  const bitmap = await createImageBitmap(file).catch(() => {
+    throw new PhotoDecodeError();
+  });
   const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));

@@ -8,6 +8,7 @@ vi.mock('./media', () => ({ pickAndStoreImage }));
 vi.mock('./stories', () => ({ saveStory }));
 
 import { createFromImages, pagesFromMedia, sortUploadFiles, titleFromFileName } from './storyUpload';
+import { PhotoDecodeError } from '../media/imageFile';
 
 describe('sortUploadFiles', () => {
   it('orders names naturally and drops non-images', () => {
@@ -17,6 +18,15 @@ describe('sortUploadFiles', () => {
       { name: 'notes.pdf', type: 'application/pdf' },
     ];
     expect(sortUploadFiles(files).map((f) => f.name)).toEqual(['page2.png', 'page10.png']);
+  });
+
+  it('keeps iPhone HEIC files that arrive with no type, by extension', () => {
+    const files = [
+      { name: 'IMG_2.HEIC', type: '' },
+      { name: 'IMG_1.heif', type: 'application/octet-stream' },
+      { name: 'readme', type: '' },
+    ];
+    expect(sortUploadFiles(files).map((f) => f.name)).toEqual(['IMG_1.heif', 'IMG_2.HEIC']);
   });
 });
 
@@ -56,8 +66,26 @@ describe('createFromImages', () => {
     );
     saveStory.mockResolvedValue('s1');
     const files = ['p1.png', 'bad.png', 'p2.png'].map((n) => new File(['x'], n, { type: 'image/png' }));
-    expect(await createFromImages('p1', files)).toEqual({ storyId: 's1', skipped: 1 });
+    expect(await createFromImages('p1', files)).toEqual({ storyId: 's1', skipped: 1, cantOpen: [] });
     expect(saveStory.mock.calls[0]?.[0].pages.map((p: { photo_id: string }) => p.photo_id)).toEqual(['m-p1.png', 'm-p2.png']);
+  });
+
+  it('names a HEIC the browser cannot decode and keeps the other pictures', async () => {
+    pickAndStoreImage.mockImplementation((f: File) =>
+      f.name === 'IMG_2.HEIC' ? Promise.reject(new PhotoDecodeError()) : Promise.resolve(`m-${f.name}`),
+    );
+    saveStory.mockClear();
+    saveStory.mockResolvedValue('s2');
+    const files = [new File(['x'], 'IMG_1.jpg', { type: 'image/jpeg' }), new File(['x'], 'IMG_2.HEIC', { type: '' })];
+    expect(await createFromImages('p1', files)).toEqual({ storyId: 's2', skipped: 1, cantOpen: ['IMG_2.HEIC'] });
+    expect(saveStory.mock.calls[0]?.[0].pages.map((p: { photo_id: string }) => p.photo_id)).toEqual(['m-IMG_1.jpg']);
+  });
+
+  it('throws the decode error when every picture is an undecodable HEIC', async () => {
+    pickAndStoreImage.mockRejectedValue(new PhotoDecodeError());
+    saveStory.mockClear();
+    await expect(createFromImages('p1', [new File(['x'], 'IMG_1.HEIC', { type: '' })])).rejects.toBeInstanceOf(PhotoDecodeError);
+    expect(saveStory).not.toHaveBeenCalled();
   });
 
   it('throws when no picture can be read', async () => {

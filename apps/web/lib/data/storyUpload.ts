@@ -1,10 +1,11 @@
 import { pickAndStoreImage } from './media';
 import { saveStory } from './stories';
+import { isImageFile, PhotoDecodeError } from '../media/imageFile';
 
-/** Image files in page order: natural filename sort, so "page2" comes before "page10". */
+/** Image files (by type, or by extension when the type is blank) in page order: natural sort, so "page2" comes before "page10". */
 export function sortUploadFiles<T extends { name: string; type: string }>(files: T[]): T[] {
   return files
-    .filter((f) => f.type.startsWith('image/'))
+    .filter(isImageFile)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
@@ -26,23 +27,26 @@ export function pagesFromMedia(mediaIds: string[]): { text: string; emoji: null;
 /**
  * Turns picked images into a new story (stored locally and queued for upload like any other picture).
  * Null when none of the files is a picture (a PDF picked through "All files"), so no empty story is made.
- * A picture that cannot be read is left out and counted in `skipped`; throws only when none could be read.
+ * A picture that cannot be read is left out and counted in `skipped`; one this browser can't decode (HEIC on
+ * Chrome desktop) is also named in `cantOpen`. Throws only when none could be read.
  */
 export async function createFromImages(
   profileId: string,
   files: File[],
-): Promise<{ storyId: string; skipped: number } | null> {
+): Promise<{ storyId: string; skipped: number; cantOpen: string[] } | null> {
   const sorted = sortUploadFiles(files);
   if (sorted.length === 0) return null;
   const ids: string[] = [];
+  const cantOpen: string[] = [];
   for (const file of sorted) {
     try {
       ids.push(await pickAndStoreImage(file));
-    } catch {
+    } catch (err) {
       // Left out; the caller says how many.
+      if (err instanceof PhotoDecodeError) cantOpen.push(file.name);
     }
   }
-  if (ids.length === 0) throw new Error('No picture could be read');
+  if (ids.length === 0) throw cantOpen.length === sorted.length ? new PhotoDecodeError() : new Error('No picture could be read');
   const storyId = await saveStory({
     profile_id: profileId,
     title: titleFromFileName(sorted[0]?.name ?? ''),
@@ -50,5 +54,5 @@ export async function createFromImages(
     cover_photo_id: ids[0] ?? null,
     pages: pagesFromMedia(ids),
   });
-  return { storyId, skipped: sorted.length - ids.length };
+  return { storyId, skipped: sorted.length - ids.length, cantOpen };
 }
