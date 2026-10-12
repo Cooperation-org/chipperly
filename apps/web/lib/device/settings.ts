@@ -38,6 +38,8 @@ export interface LockOptions {
   celebrations: boolean;
   /** On by default (missing on older saved options counts as on); off silences chip, timer, mood and celebration sounds in this person's view. */
   sounds?: boolean;
+  /** On by default (missing counts as on); off hides the "Mark all done" button on routines with steps. */
+  show_mark_all_done?: boolean;
 }
 
 export interface LockState {

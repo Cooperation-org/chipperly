@@ -684,7 +684,7 @@ export function ChildToday() {
                 ) : null}
 
                 {/* A routine with steps: finish it all in one tap (same chips as ticking every step). */}
-                {hasSteps && !dimmed ? (
+                {hasSteps && !dimmed && options.show_mark_all_done !== false ? (
                   <BigButton variant="primary" icon="check" aria-label={`Mark all done, ${day.activity.name}`} onClick={() => void handleToggle(day, true)}>
                     Mark all done
                   </BigButton>
