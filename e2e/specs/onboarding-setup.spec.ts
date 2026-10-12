@@ -78,8 +78,8 @@ test.describe('onboarding setup interview', () => {
     await expect(page.getByRole('heading', { name: 'Riley is ready.' })).toBeVisible();
     await expect(page.getByText(/Morning Routine · \d+ steps/)).toBeVisible();
     await expect(page.getByText(/Bedtime Routine · \d+ steps/)).toBeVisible();
-    await expect(page.getByText('Free choices: Music, Skateboarding')).toBeVisible();
     await expect(page.getByText('Earned with chips: Pizza night (5)')).toBeVisible();
+    await expect(page.getByText('Always there, no chips: Music, Skateboarding')).toBeVisible();
     await expectNoOverflow(page, 'setup: ready summary');
     await snap(page, 'setup-ready-summary');
     await page.getByRole('button', { name: 'Go to Today', exact: true }).click();
