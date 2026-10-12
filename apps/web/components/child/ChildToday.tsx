@@ -347,6 +347,28 @@ export function ChildToday() {
     sheet.open(<MomentSheet profileId={profileId} />, { title: 'How do I feel?' });
   }
 
+  // The check-in and the Chipper Chart behind one button; the chart only when the lock options allow it.
+  function openFeelings(): void {
+    if (!options.show_chipper_chart) return openMoment();
+    sheet.open(
+      <div className={styles.rowOptions}>
+        <BigButton variant="secondary" fullWidth onClick={() => sheet.replace(<MomentSheet profileId={profileId} />, { title: 'How do I feel?' })}>
+          <span className={styles.emojiGlyph} aria-hidden="true">
+            💭
+          </span>
+          How do I feel?
+        </BigButton>
+        <BigButton variant="secondary" fullWidth onClick={openChipperChart}>
+          <span className={styles.emojiGlyph} aria-hidden="true">
+            {levelEmoji(moodLevel)}
+          </span>
+          Chipper Chart
+        </BigButton>
+      </div>,
+      { title: 'My feelings' },
+    );
+  }
+
   function openOrder(): void {
     sheet.open(<ChildOrderSheet profileId={profileId} isoDate={isoDate} dayItems={dayItems} />, { title: 'My order' });
   }
@@ -578,14 +600,10 @@ export function ChildToday() {
             onTap={canPickReward ? openPickReward : openWorkingFor}
           />
         ) : null}
-        {/* Up here with the chips, like the caregiver's Today, not in the bottom bar. */}
-        {options.show_chipper_chart ? (
-          <button type="button" className={styles.chipperChartButton} aria-label="Chipper Chart" onClick={openChipperChart}>
-            <span aria-hidden="true">{levelEmoji(moodLevel)}</span>
-          </button>
-        ) : null}
-        <button type="button" className={styles.chipperChartButton} aria-label="How do I feel?" onClick={openMoment}>
-          <span aria-hidden="true">💭</span>
+        {/* One labelled entry for both feelings tools (the check-in and the chart). */}
+        <button type="button" className={styles.feelingsButton} onClick={openFeelings}>
+          <span aria-hidden="true">{options.show_chipper_chart ? levelEmoji(moodLevel) : '💭'}</span>
+          My feelings
         </button>
       </div>
       <IconButton
