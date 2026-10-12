@@ -19,6 +19,7 @@ import styles from './StoriesScreen.module.css';
 import { ScreenHint } from '@/components/ui/ScreenHint';
 
 const UPLOAD_NOTE = 'Pick a picture of each page. PDFs are not supported yet, so save each page as a picture first.';
+const NO_PICTURES = 'PDFs are not supported yet. Save each page as a picture and pick those.';
 
 const TEMPLATES: { key: StoryTemplateKey; label: string }[] = [
   { key: 'haircut', label: 'Haircut' },
@@ -54,6 +55,10 @@ export function StoriesScreen() {
     if (!files || files.length === 0) return;
     try {
       const storyId = await createFromImages(profileId, Array.from(files));
+      if (!storyId) {
+        toast(NO_PICTURES);
+        return;
+      }
       router.push(`/story/edit/?id=${storyId}`);
     } catch {
       toast('Could not read those pictures. Try JPG or PNG files.');

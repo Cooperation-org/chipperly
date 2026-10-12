@@ -23,9 +23,13 @@ export function pagesFromMedia(mediaIds: string[]): { text: string; emoji: null;
   return mediaIds.map((photo_id) => ({ text: '', emoji: null, photo_id }));
 }
 
-/** Turns picked images into a new story (stored locally and queued for upload like any other picture). */
-export async function createFromImages(profileId: string, files: File[]): Promise<string> {
+/**
+ * Turns picked images into a new story (stored locally and queued for upload like any other picture).
+ * Null when none of the files is a picture (a PDF picked through "All files"), so no empty story is made.
+ */
+export async function createFromImages(profileId: string, files: File[]): Promise<string | null> {
   const sorted = sortUploadFiles(files);
+  if (sorted.length === 0) return null;
   const ids: string[] = [];
   for (const file of sorted) ids.push(await pickAndStoreImage(file));
   return saveStory({

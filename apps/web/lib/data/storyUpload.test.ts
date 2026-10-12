@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { pagesFromMedia, sortUploadFiles, titleFromFileName } from './storyUpload';
+import { describe, expect, it, vi } from 'vitest';
+
+const { pickAndStoreImage, saveStory } = vi.hoisted(() => ({
+  pickAndStoreImage: vi.fn(),
+  saveStory: vi.fn(),
+}));
+vi.mock('./media', () => ({ pickAndStoreImage }));
+vi.mock('./stories', () => ({ saveStory }));
+
+import { createFromImages, pagesFromMedia, sortUploadFiles, titleFromFileName } from './storyUpload';
 
 describe('sortUploadFiles', () => {
   it('orders names naturally and drops non-images', () => {
@@ -32,5 +40,13 @@ describe('pagesFromMedia', () => {
       { text: '', emoji: null, photo_id: 'a' },
       { text: '', emoji: null, photo_id: 'b' },
     ]);
+  });
+});
+
+describe('createFromImages', () => {
+  it('makes no story when no file is a picture', async () => {
+    const pdf = new File(['%PDF'], 'story.pdf', { type: 'application/pdf' });
+    expect(await createFromImages('p1', [pdf])).toBeNull();
+    expect(saveStory).not.toHaveBeenCalled();
   });
 });
