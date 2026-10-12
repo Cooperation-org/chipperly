@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm';
+import type { AccountKind } from '@chipperly/shared/schemas/account';
 import { GRACE_DAYS, TRIAL_DAYS, type Access, type SubscriptionStatus } from '@chipperly/shared/schemas/billing';
 import { db } from '../db/client.js';
 import { account_members, accounts, users } from '../db/schema/accounts.js';
@@ -77,19 +78,25 @@ export async function accountAccess(accountId: string, now: number = Date.now())
     .from(subscriptions)
     .where(eq(subscriptions.account_id, accountId))
     .limit(1);
-  return accessState(
-    {
-      billingOn: true,
-      // An organization has no checkout price: it pays by arrangement, and a super admin then gives it
-      // access by hand (comp_until). Its trial still runs out like anyone's.
-      canCheckout: priceIdForKind(account.kind) !== undefined || account.kind === 'agency',
-      exempt: admins.some((a) => isSuperAdmin(a.email)),
-      trialEnd: Math.max(0, ...admins.map(trialEndsAt)),
-      sub: sub ?? null,
-      compUntil: account.comp_until,
-    },
-    now,
-  );
+  return accessState(accessInputFor(account, admins, sub ?? null), now);
+}
+
+/** Pure, with Stripe on. What accessState needs for one account, from its kind, its admins and its subscription row. */
+export function accessInputFor(
+  account: { kind: AccountKind; comp_until: number | null },
+  admins: { email: string; created_at: number; trial_ends_at: number | null }[],
+  sub: AccessInput['sub'],
+): AccessInput {
+  return {
+    billingOn: true,
+    // An organization has no checkout price: it pays by arrangement, and a super admin then gives it
+    // access by hand (comp_until). Its trial still runs out like anyone's.
+    canCheckout: priceIdForKind(account.kind) !== undefined || account.kind === 'agency',
+    exempt: admins.some((a) => isSuperAdmin(a.email)),
+    trialEnd: Math.max(0, ...admins.map(trialEndsAt)),
+    sub,
+    compUntil: account.comp_until,
+  };
 }
 
 export const LAPSED_MESSAGE =

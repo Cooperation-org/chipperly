@@ -8,7 +8,12 @@ export const AUDIENCES = [
 ] as const;
 export type Audience = (typeof AUDIENCES)[number]['value'];
 
-/** `trial` = still in their free trial (or its grace days): only "everyone" reaches them. */
+/**
+ * The app sets the segment per account, by the same rule that pauses an account.
+ * `trial_expired` = an admin (only admins can pay) whose account's trial and grace
+ * days are over. `trial` = everyone else who is not subscribed: in a trial or its
+ * grace days, or a member who cannot pay. Only "everyone" reaches them.
+ */
 export type Recipient = { email: string; segment: 'waitlist' | 'trial' | 'trial_expired' | 'subscribed' };
 
 /** Lowercased, valid, de-duplicated addresses for the audience, minus anyone who unsubscribed. */
