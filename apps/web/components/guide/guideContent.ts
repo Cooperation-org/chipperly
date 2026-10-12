@@ -51,7 +51,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     id: 'chips',
     title: 'Chips and rewards',
     paragraphs: [
-      'There are two kinds of rewards. Free choices are always available, like a favourite song or a quiet corner. Earned rewards cost chips, and your child collects chips by finishing steps.',
+      'There are two kinds of rewards. Things your child can always choose are always there, no chips, like a favourite song or a quiet corner. Earned rewards cost chips, and your child collects chips by finishing steps.',
       'Keep earned rewards small and quick. A reward that arrives soon after the effort is easier to connect with it. A big reward that takes weeks to reach is hard to hold on to.',
       'Let your child help pick the rewards. What they like is the best guide.',
     ],
