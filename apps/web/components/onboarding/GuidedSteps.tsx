@@ -58,7 +58,7 @@ export interface PickStepProps {
   priced: boolean;
 }
 
-/** Guided setup (b) and (c): pick up to three from suggestions or type your own; each gets a picture, a place and (earned) a price. */
+/** Guided setup (b) earned rewards and (c) free choices: pick up to three from suggestions or type your own; each gets a picture, a place and (earned) a price. */
 export function PickStep({ title, subtitle, tiles, items, onChange, places, priced }: PickStepProps) {
   const [custom, setCustom] = useState('');
   const full = items.length >= MAX_PICKS;
@@ -87,7 +87,7 @@ export function PickStep({ title, subtitle, tiles, items, onChange, places, pric
   return (
     <>
       <h1 className={setup.title}>{title}</h1>
-      <p className={setup.subtitle}>{subtitle}</p>
+      <p className={`${setup.subtitle} ${setup.subtitleLarge}`}>{subtitle}</p>
       <div className={setup.grid}>
         {shown.map((tile) => {
           const on = items.some((i) => i.name === tile.name);

@@ -28,7 +28,7 @@ const LAST_STEP = 5;
 /**
  * S4b, the setup interview: age, week and routines seed a starter plan that
  * fits the person (constants/setup.ts buildSeed); then a guided walk through
- * places, three free choices and three earned rewards, which the caller
+ * places, three earned rewards and three free choices, which the caller
  * creates locally so photos attach. Every step is skippable; skipping the whole thing keeps the old default lists.
  */
 export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQuestionsProps) {
@@ -178,24 +178,24 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
       {step === 3 ? <PlacesStep name={name} places={places} onChange={setPlaces} /> : null}
       {step === 4 ? (
         <PickStep
-          title={`Pick three things ${name} can choose anytime`}
-          subtitle="These are always there and need no chips. Pick up to three, or skip this."
+          title="Rewards I earn with chips"
+          subtitle="Pick up to three. Each costs 5 chips unless you change it."
           tiles={LOVE_TILES[answers.age_band]}
-          items={free}
-          onChange={setFree}
-          places={places}
-          priced={false}
-        />
-      ) : null}
-      {step === 5 ? (
-        <PickStep
-          title={`Pick three rewards ${name} earns with chips`}
-          subtitle={`${name} saves up chips for these. The price is 5 chips unless you change it. Skipping is fine.`}
-          tiles={LOVE_TILES[answers.age_band].filter((t) => !free.some((f) => f.name === t.name))}
           items={earned}
           onChange={setEarned}
           places={places}
           priced
+        />
+      ) : null}
+      {step === 5 ? (
+        <PickStep
+          title="Things I can always choose"
+          subtitle="Like reading, drawing, a walk. No chips needed."
+          tiles={LOVE_TILES[answers.age_band].filter((t) => !earned.some((e) => e.name === t.name))}
+          items={free}
+          onChange={setFree}
+          places={places}
+          priced={false}
         />
       ) : null}
 
