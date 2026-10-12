@@ -129,7 +129,7 @@ export async function gotoTab(page: Page, tab: TabName): Promise<void> {
  * don't need to navigate again afterward.
  */
 async function unlockIfBounced(page: Page, path: string, password: string): Promise<void> {
-  const unlockButton = page.getByRole('button', { name: 'Edit mode', exact: true });
+  const unlockButton = page.getByRole('button', { name: 'Team unlock', exact: true });
   // :visible, not just present: CaregiverShell always renders both
   // TabBar and TabRail (CSS hides one per breakpoint), so an unqualified
   // match here is two elements and .waitFor() on the wrong (hidden) one
@@ -191,7 +191,7 @@ export async function setCaregiverPin(page: Page, pin: string): Promise<void> {
  * setCaregiverPin() to have run earlier, while online.
  */
 export async function unlockPinIfBounced(page: Page, path: string, pin: string): Promise<void> {
-  const unlockButton = page.getByRole('button', { name: 'Edit mode', exact: true });
+  const unlockButton = page.getByRole('button', { name: 'Team unlock', exact: true });
   const caregiverNav = page.locator('nav[aria-label="Primary"]:visible');
   await unlockButton.or(caregiverNav).first().waitFor({ state: 'visible' });
   if (!(await unlockButton.isVisible())) return;

@@ -164,7 +164,7 @@ test.describe('child mode', () => {
   });
 
   test('S24 lock glyph -> PIN pad -> wrong then correct PIN', async () => {
-    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     const overlay = page.getByRole('dialog', { name: 'Unlock' });
     await expect(overlay).toBeVisible();
     await expectNoOverflow(page, 'S24 pin pad');
@@ -230,7 +230,7 @@ test.describe('child mode', () => {
     await expect(chipStrip).toHaveAttribute('aria-label', /^2 of 5 chips/);
 
     // Leave the suite unlocked.
-    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
+    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/', { timeout: 5_000 });
   });
