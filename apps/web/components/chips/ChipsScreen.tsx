@@ -10,6 +10,8 @@ import { useLocations, useActiveLocation, saveLocation } from '@/lib/data/locati
 import { useWorkingFor, setWorkingFor, addChip, redeem, setFilled, useBalance, useLedger, chipTones } from '@/lib/data/chips';
 import { useMaterializedDay } from '@/lib/data/schedule';
 import { useKv, setKv } from '@/lib/db/kv';
+import { db } from '@/lib/db/db';
+import { upsert } from '@/lib/sync/mutate';
 import { toast } from '@/lib/toast';
 import { playChip } from '@/lib/sound';
 import { Picture } from '@/components/media/Picture';
@@ -20,6 +22,8 @@ import { ChipStrip } from '@/components/ui/ChipStrip';
 import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { Stepper } from '@/components/ui/Stepper';
+import { DEFAULT_CHIP_SIZE, type ChipSize } from '@/components/ui/chipSize';
+import { DISPLAY_SIZE_ITEMS } from '@/components/settings/DisplayPreview';
 import { Celebration } from '@/components/ui/Celebration';
 import { useCelebrate } from '@/components/ui/CelebrationBurst';
 import { useSavedLockOptions } from '@/lib/device/settings';
@@ -60,6 +64,26 @@ function GoalStepper({ location, onSave }: { location: Location; onSave: (goal: 
   );
 }
 
+/** The child's chip size, saved on the profile as it changes. The same setting is in Settings with the other sizes. */
+function ChipSizePicker({ profileId, initial }: { profileId: string; initial: ChipSize }) {
+  const [value, setValue] = useState(initial);
+  return (
+    <div className={styles.goalSheet}>
+      <Segmented
+        label="Chip size"
+        items={DISPLAY_SIZE_ITEMS}
+        value={value}
+        onChange={(v) => {
+          setValue(v as ChipSize);
+          void db.profiles.get(profileId).then((row) => {
+            if (row) return upsert('profiles', { ...row, settings: { ...row.settings, chip_size: v as ChipSize } });
+          });
+        }}
+      />
+    </div>
+  );
+}
+
 /** S10: location, working-for card, chip board, +/-/Redeem, free time and history links. */
 export function ChipsScreen() {
   const router = useRouter();
@@ -81,6 +105,7 @@ export function ChipsScreen() {
   const { celebrate, layer: celebrationLayer } = useCelebrate(useSavedLockOptions(profileId).celebrations);
 
   if (!profile) return null;
+  const chipSize = profile.settings.chip_size ?? DEFAULT_CHIP_SIZE;
 
   const canRedeem = working.reward !== null && working.goal > 0 && working.filled >= working.goal;
 
@@ -124,6 +149,10 @@ export function ChipsScreen() {
       />,
       { title: 'Goal' },
     );
+  }
+
+  function openChipSizeSheet() {
+    sheet.open(<ChipSizePicker profileId={profileId} initial={chipSize} />, { title: 'Chip size' });
   }
 
   function openFreeTimeSheet() {
@@ -204,7 +233,7 @@ export function ChipsScreen() {
                 {working.filled} of {working.goal} earned
               </span>
             </button>
-            <ChipStrip filled={working.filled} total={working.goal} onTap={openRewardPicker} size="lg" />
+            <ChipStrip filled={working.filled} total={working.goal} onTap={openRewardPicker} size="lg" chipSize={chipSize} />
           </div>
 
           {working.reward ? (
@@ -216,7 +245,7 @@ export function ChipsScreen() {
           ) : null}
 
           <div className={styles.boardWrap}>
-            <ChipBoard filled={working.filled} total={working.goal} tones={tones} onSetFilled={(next) => void handleSetFilled(next)} />
+            <ChipBoard filled={working.filled} total={working.goal} tones={tones} chipSize={chipSize} onSetFilled={(next) => void handleSetFilled(next)} />
             {celebrateMessage ? (
               <div className={styles.celebrationWrap}>
                 <Celebration kind="redeem" message={celebrateMessage} onDone={() => setCelebrateMessage(null)} />
@@ -229,6 +258,9 @@ export function ChipsScreen() {
               Goal: {working.goal}
             </Button>
           ) : null}
+          <Button variant="ghost" onClick={openChipSizeSheet}>
+            Chip size
+          </Button>
 
           {canRedeem && working.reward ? (
             <BigButton variant="accent" fullWidth className={styles.redeemButton} onClick={handleRedeem}>
