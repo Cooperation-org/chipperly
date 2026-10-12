@@ -30,11 +30,13 @@ export interface UnsavedInput {
   pending: number;
   oldest_pending_at: number | null;
   dead: number;
+  /** Rows changed here and on the account differently, waiting for a choice. */
+  conflicts?: number;
 }
 
 export interface UnsavedNotice {
-  /** `dead`: the server will not take these as they are. `stuck`: queued for too long. */
-  level: 'dead' | 'stuck';
+  /** `conflict`: changed here and on the account, waiting for a choice. `dead`: the server will not take these as they are. `stuck`: queued for too long. */
+  level: 'conflict' | 'dead' | 'stuck';
   count: number;
   message: string;
 }
@@ -48,6 +50,14 @@ const changes = (n: number): string => `${n} change${n === 1 ? '' : 's'}`;
 
 /** Whether to tell the caregiver, in words, that this device holds work the account does not have. Null when all is well. */
 export function unsavedNotice(input: UnsavedInput, now: number): UnsavedNotice | null {
+  const conflicts = input.conflicts ?? 0;
+  if (conflicts > 0) {
+    return {
+      level: 'conflict',
+      count: conflicts,
+      message: `${changes(conflicts)} on this device ${conflicts === 1 ? 'differs' : 'differ'} from your account. Nothing has been changed. Choose which to keep.`,
+    };
+  }
   if (input.dead > 0) {
     return {
       level: 'dead',

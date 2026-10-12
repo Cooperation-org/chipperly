@@ -19,6 +19,7 @@ import { getDeviceId } from '../device/identity';
 import { isPermanentHttpFailure, rejectionOutcome, shouldReportHealth } from './parked';
 import { clearParked, markReported, parkEntry, parkedCounts, retryParked, unreportedParked } from './parkedStore';
 import { settledSeqs } from './settledSeqs';
+import { countConflicts, setAsideIfConflict } from './conflictStore';
 
 export { applyPulledRow, settledSeqs };
 
@@ -34,6 +35,8 @@ export interface SyncStatus {
   held: number;
   /** Writes the server will not take as they are. Kept on this device until someone acts. */
   dead: number;
+  /** Rows changed on this device and on the account, differently. Nothing happens to them until a caregiver chooses (lib/sync/conflictStore.ts). */
+  conflicts: number;
 }
 
 /** A big batch on a slow phone connection needs longer than the 20s a normal request gets. */
@@ -43,7 +46,7 @@ const MAX_BACKOFF_MS = 5 * 60 * 1000;
 const DEBOUNCE_MS = 500;
 const POLL_MS = 60_000;
 
-let status: SyncStatus = { state: 'offline', pending: 0, last_synced_at: null, oldest_pending_at: null, held: 0, dead: 0 };
+let status: SyncStatus = { state: 'offline', pending: 0, last_synced_at: null, oldest_pending_at: null, held: 0, dead: 0, conflicts: 0 };
 const listeners = new Set<() => void>();
 
 function setStatus(patch: Partial<SyncStatus>): void {
@@ -280,6 +283,7 @@ async function applyChanges(changes: Record<string, Record<string, unknown>[]>):
       const id = raw.id as string;
       const local = await db.profiles.get(id);
       const hasOutbox = (await db.outbox.where('id').equals(id).count()) > 0;
+      if (await setAsideIfConflict('profiles', local as Record<string, unknown> | undefined, raw, hasOutbox && !!local && incoming.client_updated_at >= local.client_updated_at)) continue;
       await db.profiles.put(applyPulledRow(local, incoming, hasOutbox));
     }
   }
@@ -289,14 +293,19 @@ async function applyRowsToTable(table: SyncedTable, rows: Record<string, unknown
   const tbl = tableFor(table);
   const ids = rows.map((raw) => raw.id as string);
 
-  await db.transaction('rw', tbl, db.outbox, async () => {
+  await db.transaction('rw', tbl, db.outbox, db.sync_conflicts, async () => {
     const locals = await tbl.bulkGet(ids);
     const outboxIds = new Set((await db.outbox.where('id').anyOf(ids).toArray()).map((entry) => entry.id));
-    const nextRows = rows.map((raw, i) => {
+    const nextRows: SyncedRow<typeof table>[] = [];
+    for (const [i, raw] of rows.entries()) {
       const incoming = raw as unknown as SyncedRow<typeof table>;
+      const local = locals[i];
       const hasOutbox = outboxIds.has(ids[i] as string);
-      return applyPulledRow(locals[i], incoming, hasOutbox);
-    });
+      // An unsent change here that the account's newer copy would overwrite: ask instead.
+      const wouldOverwrite = hasOutbox && !!local && incoming.client_updated_at >= local.client_updated_at;
+      if (await setAsideIfConflict(table, local as Record<string, unknown> | undefined, raw, wouldOverwrite)) continue;
+      nextRows.push(applyPulledRow(local, incoming, hasOutbox));
+    }
     await tbl.bulkPut(nextRows);
   });
 }
@@ -402,9 +411,13 @@ async function pushProfile(
     if (newer) continue;
     // `rejected.table` is a MutationTable (SyncedTable | 'profiles');
     // narrow explicitly so tableFor()'s SyncedTable-only signature holds.
+    if (!rejected.server_row) continue;
+    // This device's write was just settled out of the outbox, so it counts as an unsent change here.
+    const local = rejected.table === 'profiles' ? await db.profiles.get(rejected.id) : await tableFor(rejected.table).get(rejected.id);
+    if (await setAsideIfConflict(rejected.table, local as Record<string, unknown> | undefined, rejected.server_row as Record<string, unknown>, true)) continue;
     if (rejected.table === 'profiles') {
-      if (rejected.server_row) await db.profiles.put(rejected.server_row as unknown as Profile);
-    } else if (rejected.server_row) {
+      await db.profiles.put(rejected.server_row as unknown as Profile);
+    } else {
       await tableFor(rejected.table).put(rejected.server_row as SyncedRow<typeof rejected.table>);
     }
   }
@@ -458,7 +471,7 @@ async function refreshCounts(): Promise<{ pending: number }> {
   const pending = await db.outbox.count();
   const oldest = pending > 0 ? await db.outbox.orderBy('seq').first() : undefined;
   const parked = await parkedCounts();
-  setStatus({ pending, oldest_pending_at: oldest?.created_at ?? null, held: parked.held, dead: parked.dead });
+  setStatus({ pending, oldest_pending_at: oldest?.created_at ?? null, held: parked.held, dead: parked.dead, conflicts: await countConflicts() });
   return { pending };
 }
 

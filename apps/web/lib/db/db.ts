@@ -48,6 +48,19 @@ export interface ParkedEntry {
   reported: 0 | 1;
 }
 
+/**
+ * A row this device changed that the account also changed, differently. Sync
+ * keeps this device's copy and sets the account's aside here until the
+ * caregiver picks one (lib/sync/conflictStore.ts). `id` is the row's id.
+ */
+export interface ConflictEntry {
+  id: string;
+  table: MutationTable;
+  mine: Record<string, unknown>;
+  theirs: Record<string, unknown>;
+  found_at: number;
+}
+
 /** Device-local settings and session state: active profile/account, tokens, lock state, ... */
 export interface KvEntry {
   key: string;
@@ -114,6 +127,7 @@ export class ChipperlyDB extends Dexie {
 
   outbox!: EntityTable<OutboxEntry, 'seq'>;
   outbox_parked!: EntityTable<ParkedEntry, 'seq'>;
+  sync_conflicts!: EntityTable<ConflictEntry, 'id'>;
   kv!: EntityTable<KvEntry, 'key'>;
   media_blobs!: EntityTable<MediaBlobEntry, 'media_id'>;
   sync_cursors!: EntityTable<SyncCursorEntry, 'profile_id'>;
@@ -250,6 +264,11 @@ export class ChipperlyDB extends Dexie {
     // v6: adds outbox_parked (writes the server refused, kept instead of dropped). Dexie carries every other store forward.
     this.version(6).stores({
       outbox_parked: '++seq, id, kind',
+    });
+
+    // v7: adds sync_conflicts (a row changed here and on the account, waiting for the caregiver to choose).
+    this.version(7).stores({
+      sync_conflicts: 'id',
     });
   }
 }

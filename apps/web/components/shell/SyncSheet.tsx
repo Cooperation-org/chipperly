@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { db } from '@/lib/db/db';
 import { useSyncStatus, syncNow, retryUnsaved, type SyncState } from '@/lib/sync/engine';
 import { unsavedEntries } from '@/lib/sync/parkedStore';
+import { listConflicts, resolveConflicts } from '@/lib/sync/conflictStore';
+import { changedFields } from '@/lib/sync/conflict';
 import { toast } from '@/lib/toast';
 import styles from './SyncSheet.module.css';
 
@@ -36,6 +38,15 @@ export function SyncSheet() {
   // media_blobs is only indexed on media_id (lib/db/db.ts), so this is a
   // full-table filter rather than a `.where('uploaded')` index lookup.
   const photosWaiting = useLiveQuery(() => db.media_blobs.filter((row) => row.uploaded === 0).count(), [], 0);
+
+  const conflicts = useLiveQuery(() => listConflicts(), [], []);
+  const [picked, setPicked] = useState<Record<string, 'mine' | 'theirs'>>({});
+
+  async function handleResolve(ids: string[], choice: 'mine' | 'theirs'): Promise<void> {
+    await resolveConflicts(ids, choice);
+    setPicked({});
+    await syncNow();
+  }
 
   async function handleSyncNow(): Promise<void> {
     setSyncing(true);
@@ -68,6 +79,54 @@ export function SyncSheet() {
     <div className={styles.sheet}>
       <p className={styles.status}>{statusText(status.state, status.pending, status.last_synced_at)}</p>
       {photosWaiting > 0 ? <p className={styles.muted}>Photos waiting to upload: {photosWaiting}</p> : null}
+      {conflicts.length > 0 ? (
+        <div className={styles.unsaved} role="alert">
+          <p className={styles.status}>
+            {changes(conflicts.length)} differ between this device and your account. Nothing has been changed yet. Choose what to keep.
+          </p>
+          <ul>
+            {conflicts.map((entry) => {
+              const fields = changedFields(entry.mine, entry.theirs);
+              const choice = picked[entry.id];
+              return (
+                <li key={entry.id}>
+                  <p className={styles.status}>
+                    {entry.table.replace(/_/g, ' ')}: {fields.join(', ')}
+                  </p>
+                  {fields.map((field) => (
+                    <p key={field} className={styles.muted}>
+                      {field}: this device {JSON.stringify(entry.mine[field] ?? null)}, account {JSON.stringify(entry.theirs[field] ?? null)}
+                    </p>
+                  ))}
+                  <Button variant={choice === 'mine' ? 'primary' : 'secondary'} onClick={() => setPicked({ ...picked, [entry.id]: 'mine' })}>
+                    Keep this device&rsquo;s
+                  </Button>
+                  <Button variant={choice === 'theirs' ? 'primary' : 'secondary'} onClick={() => setPicked({ ...picked, [entry.id]: 'theirs' })}>
+                    Use the account&rsquo;s
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+          <Button variant="secondary" onClick={() => void handleResolve(conflicts.map((c) => c.id), 'mine')}>
+            Keep all from this device
+          </Button>
+          <Button variant="secondary" onClick={() => void handleResolve(conflicts.map((c) => c.id), 'theirs')}>
+            Use all from the account
+          </Button>
+          <Button
+            onClick={() => {
+              for (const choice of ['mine', 'theirs'] as const) {
+                const ids = Object.entries(picked).filter(([, c]) => c === choice).map(([id]) => id);
+                if (ids.length) void handleResolve(ids, choice);
+              }
+            }}
+            disabled={Object.keys(picked).length === 0}
+          >
+            Apply my choices
+          </Button>
+        </div>
+      ) : null}
       {status.held > 0 ? (
         <p className={styles.muted}>
           {changes(status.held)} will be sent again by {status.held === 1 ? 'itself' : 'themselves'}: the account could not take {status.held === 1 ? 'it' : 'them'} just then
