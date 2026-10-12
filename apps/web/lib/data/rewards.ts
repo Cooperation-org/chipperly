@@ -84,3 +84,25 @@ export async function saveReward(input: SaveRewardInput): Promise<string> {
 export async function deleteReward(id: string): Promise<void> {
   await softDelete('rewards', id);
 }
+
+/**
+ * Pure: move the reward at `from` to `to` within `groupIds` (a visible subset of `allIds`, in display order).
+ * Group members keep the slots they already had in the full list, so rewards in other groups stay put.
+ */
+export function moveWithinGroup(allIds: readonly string[], groupIds: readonly string[], from: number, to: number): string[] {
+  const clamped = Math.max(0, Math.min(to, groupIds.length - 1));
+  if (from === clamped || from < 0 || from >= groupIds.length) return [...allIds];
+  const next = [...groupIds];
+  next.splice(clamped, 0, ...next.splice(from, 1));
+  const inGroup = new Set(groupIds);
+  let i = 0;
+  return allIds.map((id) => (inGroup.has(id) ? (next[i++] as string) : id));
+}
+
+/** Writes position = index for every reward whose slot changed; synced like any other edit. */
+export async function reorderRewards(orderedIds: readonly string[]): Promise<void> {
+  for (let i = 0; i < orderedIds.length; i += 1) {
+    const row = await db.rewards.get(orderedIds[i] as string);
+    if (row && row.position !== i) await upsert('rewards', { ...row, position: i });
+  }
+}
