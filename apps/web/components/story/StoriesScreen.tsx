@@ -42,6 +42,7 @@ export function StoriesScreen() {
   const sheet = useSheet();
   const [viewingId, setViewingId] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   if (!profile) return null;
   const profileId = profile.id;
@@ -53,6 +54,7 @@ export function StoriesScreen() {
 
   async function uploadStory(files: FileList | null): Promise<void> {
     if (!files || files.length === 0) return;
+    setUploading(true);
     try {
       const made = await createFromImages(profileId, Array.from(files));
       if (!made) {
@@ -65,6 +67,8 @@ export function StoriesScreen() {
       router.push(`/story/edit/?id=${made.storyId}`);
     } catch {
       toast('Could not read those pictures. Try JPG or PNG files.');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -128,8 +132,8 @@ export function StoriesScreen() {
         }}
       />
       <div className={styles.upload}>
-        <Button variant="secondary" icon="plus" onClick={() => fileInput.current?.click()}>
-          Add a story I already have
+        <Button variant="secondary" icon="plus" loading={uploading} onClick={() => fileInput.current?.click()}>
+          {uploading ? 'Adding pictures…' : 'Add a story I already have'}
         </Button>
         <p className={styles.uploadNote}>{UPLOAD_NOTE}</p>
       </div>
