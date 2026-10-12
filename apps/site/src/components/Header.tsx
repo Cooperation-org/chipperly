@@ -8,6 +8,7 @@ import { Icon } from './Icon';
 // normal click loads them fast enough.
 const NAV = [
   ['Features', '/features'],
+  ['Pricing', '/pricing'],
   ['About', '/about'],
   ['Blog', '/blog'],
 ] as const;

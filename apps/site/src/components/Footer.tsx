@@ -20,6 +20,7 @@ export function Footer({ email, social, appUrl }: { email: string; social: { pla
         <nav aria-label="Product">
           <h2>Product</h2>
           <Link prefetch={false} href="/features">Features</Link>
+          <Link prefetch={false} href="/pricing">Pricing</Link>
           <Link prefetch={false} href="/features#faq">FAQ</Link>
           <a href={`${appUrl}/`}>Sign in</a>
           <a href={`${appUrl}/sign-up/`}>Try the app</a>

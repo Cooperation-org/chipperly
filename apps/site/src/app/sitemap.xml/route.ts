@@ -26,6 +26,7 @@ export async function GET() {
   const entries: Entry[] = [
     { loc: abs('/'), title: 'Home', lastmod: day(newest), changefreq: 'weekly', priority: 1 },
     { loc: abs('/features'), title: 'Features', changefreq: 'monthly', priority: 0.8 },
+    { loc: abs('/pricing'), title: 'Pricing', changefreq: 'monthly', priority: 0.7 },
     { loc: abs('/about'), title: 'Our story', changefreq: 'monthly', priority: 0.6 },
     { loc: abs('/blog'), title: 'Blog', lastmod: day(newest), changefreq: 'weekly', priority: 0.7 },
     ...posts.docs.map((d) => ({ loc: abs(`/blog/${d.slug}`), title: d.title, lastmod: day(d.updatedAt), priority: 0.6 })),
