@@ -41,6 +41,8 @@ import 'leaflet/dist/leaflet.css';
 
 export type LibraryKind = 'activity' | 'reward' | 'location' | 'routine';
 
+type ReorderControl = 'handle' | 'up' | 'down';
+
 export interface LibraryListProps {
   kind: LibraryKind;
 }
@@ -413,11 +415,36 @@ export function LibraryList({ kind }: LibraryListProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
 
-  function moveReward(groupIds: string[], id: string, to: number): void {
+  // Moving a row can make React re-insert its DOM node, or disable the arrow that was used, and the browser
+  // then drops focus to the page. Remember the control and put focus back once the new order is live.
+  const listRef = useRef<HTMLDivElement>(null);
+  const refocusRef = useRef<{ key: string; control: ReorderControl; order: string } | null>(null);
+
+  function moveReward(groupIds: string[], id: string, to: number, refocus?: { groupKey: string; control: ReorderControl }): void {
     const from = groupIds.indexOf(id);
     if (from === to) return;
-    void reorderRewards(moveWithinGroup(rewards.map((r) => r.id), groupIds, from, to));
+    const next = moveWithinGroup(rewards.map((r) => r.id), groupIds, from, to);
+    refocusRef.current = refocus ? { key: `${refocus.groupKey}:${id}`, control: refocus.control, order: next.join() } : null;
+    void reorderRewards(next);
   }
+
+  useEffect(() => {
+    const pending = refocusRef.current;
+    if (!pending || rewards.map((r) => r.id).join() !== pending.order) return;
+    refocusRef.current = null;
+    const active = document.activeElement;
+    const lost = !active || active === document.body || !active.isConnected || (active as HTMLButtonElement).disabled;
+    if (!lost) return;
+    const controls = [...(listRef.current?.querySelectorAll<HTMLButtonElement>('[data-reorder]') ?? [])].filter(
+      (el) => el.dataset.reorder?.startsWith(`${pending.key}:`) && !el.disabled && el.offsetParent !== null,
+    );
+    // The control that was used, else the other arrow (the used one is disabled at the top or bottom), else the handle.
+    const target =
+      controls.find((el) => el.dataset.reorder === `${pending.key}:${pending.control}`) ??
+      controls.find((el) => !el.dataset.reorder?.endsWith(':handle')) ??
+      controls[0];
+    target?.focus();
+  }, [rewards]);
 
   function onHandleUp(e: ReactPointerEvent<HTMLButtonElement>): void {
     const drag = dragRef.current;
@@ -622,7 +649,7 @@ export function LibraryList({ kind }: LibraryListProps) {
           : 'No locations yet.';
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} ref={listRef}>
       <BigButton fullWidth icon="plus" onClick={addNew}>
         {addLabel}
       </BigButton>
@@ -686,9 +713,11 @@ export function LibraryList({ kind }: LibraryListProps) {
                       <button
                         type="button"
                         className={styles.dragHandle}
+                        data-reorder={`${rowKey}:handle`}
                         aria-label={`Move ${row.name}`}
                         onPointerDown={(e) => {
                           e.currentTarget.setPointerCapture(e.pointerId);
+                          refocusRef.current = null;
                           dragRef.current = { id: row.id, groupKey: group.key, startY: e.clientY, groupIds };
                           setDraggingId(rowKey);
                         }}
@@ -698,7 +727,7 @@ export function LibraryList({ kind }: LibraryListProps) {
                         onKeyDown={(e) => {
                           if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
                           e.preventDefault();
-                          moveReward(groupIds, row.id, idx + (e.key === 'ArrowUp' ? -1 : 1));
+                          moveReward(groupIds, row.id, idx + (e.key === 'ArrowUp' ? -1 : 1), { groupKey: group.key, control: 'handle' });
                         }}
                       >
                         <Icon name="drag" size={20} />
@@ -720,8 +749,8 @@ export function LibraryList({ kind }: LibraryListProps) {
                       <>
                         {reorderable ? (
                           <>
-                            <IconButton icon="chevron" className={styles.up} aria-label={`Move ${row.name} up`} disabled={idx === 0} onClick={() => moveReward(groupIds, row.id, idx - 1)} />
-                            <IconButton icon="chevron" className={styles.down} aria-label={`Move ${row.name} down`} disabled={idx === groupIds.length - 1} onClick={() => moveReward(groupIds, row.id, idx + 1)} />
+                            <IconButton icon="chevron" className={styles.up} data-reorder={`${rowKey}:up`} aria-label={`Move ${row.name} up`} disabled={idx === 0} onClick={() => moveReward(groupIds, row.id, idx - 1, { groupKey: group.key, control: 'up' })} />
+                            <IconButton icon="chevron" className={styles.down} data-reorder={`${rowKey}:down`} aria-label={`Move ${row.name} down`} disabled={idx === groupIds.length - 1} onClick={() => moveReward(groupIds, row.id, idx + 1, { groupKey: group.key, control: 'down' })} />
                           </>
                         ) : null}
                         <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />
