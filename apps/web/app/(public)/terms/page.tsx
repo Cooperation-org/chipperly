@@ -48,11 +48,18 @@ export default function TermsPage() {
       </p>
 
       <h2>Subscriptions and refunds</h2>
+      {/* Wording not yet approved by the owner and the lawyer. */}
       <p>
-        If you cancel, your plan stays active until the end of the period you paid for. If you
-        would like a refund for the unused part, write to{' '}
-        <a href="mailto:support@chipperlyapp.com">support@chipperlyapp.com</a> and we&apos;ll
-        sort it out.
+        If you cancel, your plan stays active until the end of the period you paid for.
+      </p>
+      <p>
+        Yearly plans: if you ask, we refund the unused part of the year. Write to{' '}
+        <a href="mailto:support@chipperlyapp.com">support@chipperlyapp.com</a>.
+      </p>
+      <p>
+        Monthly plans: we don&apos;t refund them. When you cancel, you just keep your time until
+        the end of the month you paid for. This includes the first 7 days of a month: there is no
+        refund, you simply continue with the time you paid for.
       </p>
 
       <h2>What you can&apos;t do</h2>

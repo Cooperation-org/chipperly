@@ -74,7 +74,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       from subscriptions s left join accounts a on a.id = s.account_id
       order by s.updated_at desc`;
     const events = await sql<AdminPayments['events']>`
-      select e.id, e.type, e.received_at::float8 as received_at, e.result, e.status, a.name as account_name
+      select e.id, e.type, e.received_at::float8 as received_at, e.result, e.status, e.detail, a.name as account_name
       from stripe_events e left join accounts a on a.id = e.account_id
       order by e.received_at desc
       limit 200`;

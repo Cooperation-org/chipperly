@@ -12,6 +12,7 @@ import { stripe_events, subscriptions } from '../src/db/schema/subscriptions.js'
 import { env } from '../src/env.js';
 import { accounts, promo_codes, users } from '../src/db/schema/accounts.js';
 import {
+  applyDisputeEvent,
   applyStripeEvent,
   recordStripeEvent,
   priceIdsForKind,
@@ -82,6 +83,7 @@ interface EventOptions {
   status?: string;
   type?: string;
   metadata?: object;
+  customer?: string;
 }
 
 function subEvent(accountId: string, o: EventOptions = {}): StripeEvent {
@@ -92,7 +94,7 @@ function subEvent(accountId: string, o: EventOptions = {}): StripeEvent {
     data: {
       object: {
         id: 'sub_1',
-        customer: 'cus_1',
+        customer: o.customer ?? 'cus_1',
         status: o.status ?? 'active',
         cancel_at_period_end: false,
         current_period_end: 1_802_000_000,
@@ -179,6 +181,35 @@ describe('account kind and price mapping', () => {
       env.STRIPE_PRICE_SUPPORTED = savedSupported;
       env.STRIPE_PRICE_HOUSEHOLD = savedHousehold;
     }
+  });
+});
+
+describe('applyDisputeEvent', () => {
+  const dispute = (customerCharge: string, type = 'charge.dispute.created'): StripeEvent => ({
+    id: `evt_${uuidv7()}`,
+    type,
+    created: 1_800_000_000,
+    data: { object: { id: 'dp_1', amount: 1999, currency: 'usd', reason: 'product_not_received', status: 'needs_response', charge: customerCharge } },
+  });
+  const fakeCall = (customer: string | null) => (async () => ({ customer })) as unknown as typeof import('../src/lib/stripe.js').stripeRequest;
+
+  it('logs the amount, reason, status and account, once, and touches no subscription', async () => {
+    const accountId = uuidv7();
+    const customer = `cus_${uuidv7()}`;
+    await applyStripeEvent(subEvent(accountId, { customer }));
+    const event = dispute('ch_1');
+    expect(await applyDisputeEvent(event, fakeCall(customer))).toBe('applied');
+    expect(await applyDisputeEvent(event, fakeCall(customer))).toBe('duplicate');
+    const [row] = await db.select().from(stripe_events).where(eq(stripe_events.id, event.id));
+    expect(row).toMatchObject({ result: 'applied', account_id: accountId, status: 'needs_response', detail: '19.99 USD, product not received' });
+    expect((await rowFor(accountId))?.status).toBe('active');
+  });
+
+  it('still logs a dispute whose account cannot be found', async () => {
+    const event = dispute('ch_2', 'charge.dispute.closed');
+    expect(await applyDisputeEvent(event, fakeCall(null))).toBe('applied');
+    const [row] = await db.select().from(stripe_events).where(eq(stripe_events.id, event.id));
+    expect(row?.account_id).toBeNull();
   });
 });
 

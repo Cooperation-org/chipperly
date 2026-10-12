@@ -20,6 +20,9 @@ const EVENT_WORDS: Record<string, string> = {
   'customer.subscription.created': 'Subscription started',
   'customer.subscription.updated': 'Subscription changed',
   'customer.subscription.deleted': 'Subscription ended',
+  'charge.dispute.created': 'Dispute opened',
+  'charge.dispute.updated': 'Dispute updated',
+  'charge.dispute.closed': 'Dispute closed',
 };
 
 const RESULT_WORDS: Record<string, string> = {
@@ -121,7 +124,7 @@ export function PaymentsLog() {
                     {EVENT_WORDS[e.type] ?? e.type}
                   </td>
                   <td data-label="Account">{e.account_name ?? ''}</td>
-                  <td data-label="Status">{e.status ?? ''}</td>
+                  <td data-label="Status">{[e.status, e.detail].filter(Boolean).join(', ')}</td>
                   <td data-label="What we did">{e.result ? (RESULT_WORDS[e.result] ?? e.result) : 'Saved'}</td>
                 </tr>
               ))}

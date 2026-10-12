@@ -11,6 +11,7 @@ import { subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
 import { linkBase } from '../lib/links.js';
 import {
+  applyDisputeEvent,
   applyStripeEvent,
   discountApplies,
   ensureCoupon,
@@ -182,6 +183,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
         throw new AppError(400, 'bad_signature', 'Invalid signature');
       }
       const event = parseStripeEvent(JSON.parse(raw.toString('utf8')));
+      if (event.type.startsWith('charge.dispute.')) return { received: true, result: await applyDisputeEvent(event) }; // logs itself
       const result = await applyStripeEvent(event);
       await recordStripeEvent(event, result);
       reply.code(200);

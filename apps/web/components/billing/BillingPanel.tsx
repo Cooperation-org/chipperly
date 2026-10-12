@@ -56,6 +56,11 @@ export function BillingPanel() {
           Change plan or manage billing
         </Button>
       )}
+      {sub && (
+        <p className={styles.muted}>
+          If you cancel a yearly plan, we refund the part you have not used when you ask. A monthly plan is not refunded: it just runs to the end of the month you paid for.
+        </p>
+      )}
       {paysByArrangement(status) && status.access.state !== 'subscribed' && (
         <p>
           Organization plans are priced by the number of people you support. Write to{' '}

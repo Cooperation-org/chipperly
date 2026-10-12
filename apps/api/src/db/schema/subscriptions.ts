@@ -26,4 +26,6 @@ export const stripe_events = pgTable('stripe_events', {
   result: text('result'),
   account_id: uuid('account_id'),
   status: text('status'),
+  /** Free text for the log, e.g. a dispute's amount and reason. */
+  detail: text('detail'),
 });

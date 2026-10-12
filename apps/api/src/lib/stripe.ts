@@ -147,6 +147,8 @@ export const SUBSCRIPTION_EVENTS = [
   'customer.subscription.deleted',
 ] as const;
 
+export const DISPUTE_EVENTS = ['charge.dispute.created', 'charge.dispute.updated', 'charge.dispute.closed'] as const;
+
 export type ApplyResult = 'applied' | 'duplicate' | 'ignored';
 
 /**
@@ -201,6 +203,70 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
   });
   if (notice) await mailAccountAdmins(accountId, notice, row.current_period_end);
   return result;
+}
+
+const DisputeSchema = z.object({
+  id: z.string(),
+  amount: z.number().int(),
+  currency: z.string(),
+  reason: z.string().default('unknown'),
+  status: z.string(),
+  charge: z.string().nullish(),
+});
+type StripeCall = typeof stripeRequest;
+
+/**
+ * Logs a dispute (amount, reason, status, and the account when the charge's
+ * customer is one we know) and emails the super admins when it opens or closes.
+ * It never cancels or refunds anything: that is a person's call.
+ * The Stripe webhook endpoint must also be subscribed to charge.dispute.created,
+ * charge.dispute.updated and charge.dispute.closed in the Stripe dashboard, or
+ * these events never arrive.
+ */
+export async function applyDisputeEvent(event: StripeEvent, call: StripeCall = stripeRequest, nowMs: number = Date.now()): Promise<ApplyResult> {
+  if (!(DISPUTE_EVENTS as readonly string[]).includes(event.type)) return 'ignored';
+  const dispute = DisputeSchema.parse(event.data.object);
+
+  let accountId: string | null = null;
+  let accountName: string | null = null;
+  try {
+    const charge = dispute.charge ? await call('GET', `/charges/${encodeURIComponent(dispute.charge)}`, z.object({ customer: z.string().nullish() })) : null;
+    if (charge?.customer) {
+      const [row] = await db
+        .select({ id: subscriptions.account_id, name: accounts.name })
+        .from(subscriptions)
+        .leftJoin(accounts, eq(accounts.id, subscriptions.account_id))
+        .where(eq(subscriptions.stripe_customer_id, charge.customer))
+        .limit(1);
+      accountId = row?.id ?? null;
+      accountName = row?.name ?? null;
+    }
+  } catch {
+    // The dispute is still worth logging without its account.
+  }
+
+  const detail = `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}, ${dispute.reason.replace(/_/g, ' ')}`;
+  const claimed = await db
+    .insert(stripe_events)
+    .values({ id: event.id, type: event.type, received_at: nowMs, result: 'applied', account_id: accountId, status: dispute.status, detail })
+    .onConflictDoNothing()
+    .returning({ id: stripe_events.id });
+  if (claimed.length === 0) return 'duplicate';
+
+  if (event.type !== 'charge.dispute.updated') {
+    const verb = event.type === 'charge.dispute.created' ? 'opened' : 'closed';
+    const mail = renderEmail({
+      heading: `A payment dispute was ${verb}`,
+      paragraphs: [
+        `${detail}. Status: ${dispute.status.replace(/_/g, ' ')}.`,
+        accountName ? `Account: ${accountName}.` : 'We could not match it to an account.',
+        'Nothing was cancelled or refunded. Respond to it in the Stripe dashboard.',
+      ],
+      action: { label: 'Open the payments log', url: `${siteOrigin()}/settings/admin/payments/` },
+    });
+    for (const to of env.superAdminEmails) await sendMail({ to, subject: `Chipperly payment dispute ${verb}`, ...mail });
+  }
+  return 'applied';
 }
 
 const LoggedObjectSchema = z.object({ status: z.string().optional(), metadata: z.object({ account_id: z.string().uuid().optional() }).optional() });
@@ -258,7 +324,7 @@ export function noticeMail(notice: Notice, periodEnd: number | null): { subject:
           heading: 'Your subscription will end',
           paragraphs: [
             `You cancelled your Chipperly subscription. It stays active until ${end}, and you will not be charged again.`,
-            `You keep full access until ${end}. If you would like a refund for the unused part, just write to support@chipperlyapp.com and we will take care of it.`,
+            `You keep full access until ${end}. If this is a yearly plan and you would like a refund for the unused part, write to support@chipperlyapp.com and we will take care of it. Monthly plans are not refunded: you just keep your time until that date.`,
           ],
           action: { label: 'Keep my subscription', url: manage },
           note: 'Changed your mind? Use the button before the end date and nothing changes.',
@@ -332,7 +398,6 @@ export function discountApplies(discount: Pick<PersonalDiscount, 'applies_to'>, 
 export const couponIdFor = (percentOff: number): string => `chipperly-early-${percentOff}pct-12mo`;
 
 const CouponSchema = z.object({ id: z.string() });
-type StripeCall = typeof stripeRequest;
 
 /**
  * Finds the coupon for this percentage in Stripe, creating it on first use, so
