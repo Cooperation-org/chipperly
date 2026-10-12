@@ -7,7 +7,7 @@ import { breadcrumbs, faqPage } from '../../../lib/jsonld';
 import { followRedirect, getPage } from '../../../lib/payload';
 import { buildMetadata } from '../../../lib/seo';
 import { abs } from '../../../lib/site';
-import { firstMention } from '../../../lib/trademark';
+import { firstMention, tmHeading } from '../../../lib/trademark';
 
 // Pages written in the CMS (Pages collection), e.g. /press or /resources.
 export const revalidate = 3600;
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props) {
   const page = await getPage((await params).slug);
   if (!page) return {};
   return buildMetadata({
-    title: page.meta?.title?.replace(/ \| Chipperly™?$/, '') || page.title,
+    title: tmHeading(page.meta?.title?.replace(/ \| Chipperly™?$/, '') || page.title),
     description: page.meta?.description || page.intro,
     path: `/${page.slug}`,
     image: page.meta?.image,
@@ -42,7 +42,7 @@ export default async function CmsPage({ params }: Props) {
       <section className="page-hero">
         <div className="narrow">
           <Crumbs items={[[page.title]]} />
-          <h1>{page.title}</h1>
+          <h1>{tmHeading(page.title)}</h1>
           {page.intro ? <p className="lede">{tm.text(page.intro)}</p> : null}
         </div>
       </section>
