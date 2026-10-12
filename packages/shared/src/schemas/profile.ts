@@ -123,6 +123,8 @@ export const ProfileSettingsSchema = z
     /** Child view text size and picture size (B9). Absent: medium, today's look. */
     text_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
     picture_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
+    /** Size of this child's chips (the star strip on the Chips tab and the child view header). Absent: large, the size before this setting. */
+    chip_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
     /** Extra chips (reason 'routine') when a routine is finished in one go from its own row, without ticking the steps one by one. Null/absent: off. */
     routine_bonus_chips: z.number().int().positive().max(10).nullable().optional(),
     /**
