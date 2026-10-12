@@ -441,6 +441,39 @@ export function ChildToday() {
     sheet.open(<ChipperChartSheet profileId={profileId} userId={userId} />, { title: 'Chipper Chart' });
   }
 
+  // Tapping a row's picture: the few things a child can do with it, as big buttons.
+  function openRowOptions(day: DayItem): void {
+    const done = day.item.completed_at !== null;
+    const hasSteps = day.steps.length > 0;
+    sheet.open(
+      <div className={styles.rowOptions}>
+        <BigButton variant="primary" icon="check" fullWidth onClick={() => { sheet.close(); void handleToggle(day, !done); }}>
+          {done ? 'Not done' : 'Done'}
+        </BigButton>
+        {readAloud ? (
+          <BigButton variant="secondary" icon="speaker" fullWidth onClick={() => speak(day.activity.name)}>
+            Read aloud
+          </BigButton>
+        ) : null}
+        {hasSteps ? (
+          <BigButton
+            variant="secondary"
+            icon="expand"
+            fullWidth
+            onClick={() => {
+              sheet.close();
+              if (options.show_visual_schedule) setScheduleItemId(day.item.id);
+              else if (!isExpanded(day.item.id)) toggleExpanded(day.item.id);
+            }}
+          >
+            Show steps
+          </BigButton>
+        ) : null}
+      </div>,
+      { title: day.activity.name },
+    );
+  }
+
   function openStories(): void {
     sheet.open(<StoriesSheet profileId={profileId} />, { title: 'Stories' });
   }
@@ -620,6 +653,10 @@ export function ChildToday() {
             return (
               <div key={day.item.id} className={isNow ? `${styles.card} ${styles.now}` : styles.card} aria-current={isNow ? 'step' : undefined}>
                 <div className={styles.row}>
+                  {/* The picture opens the row's options; the check circle stays the one-tap tick. */}
+                  <button type="button" className={styles.pictureTap} aria-label={`Options, ${day.activity.name}`} onClick={() => openRowOptions(day)}>
+                    {picture}
+                  </button>
                   {hasSteps ? (
                     <button
                       type="button"
@@ -627,7 +664,6 @@ export function ChildToday() {
                       aria-expanded={expanded}
                       onClick={() => toggleExpanded(day.item.id)}
                     >
-                      {picture}
                       <span className={styles.rowText}>
                         {nameLabel}
                         {/* Progress shows even collapsed (the old beta's "0/3 steps done"); the chevron rides
@@ -648,7 +684,6 @@ export function ChildToday() {
                       aria-hidden="true"
                       onClick={() => void handleToggle(day, !dimmed)}
                     >
-                      {picture}
                       {nameLabel}
                     </button>
                   )}
