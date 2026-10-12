@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { SocialStory } from '@chipperly/shared/schemas/story';
 import type { StoryTemplateKey } from '@chipperly/shared/constants/storyTemplates';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useStories, useStory, deleteStory, duplicateStory, createFromTemplate } from '@/lib/data/stories';
+import { createFromImages } from '@/lib/data/storyUpload';
 import { restore } from '@/lib/sync/mutate';
 import { toast } from '@/lib/toast';
 import { useSheet } from '@/components/ui/Sheet';
@@ -37,6 +38,7 @@ export function StoriesScreen() {
   const stories = useStories(profile?.id ?? '');
   const sheet = useSheet();
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   if (!profile) return null;
   const profileId = profile.id;
@@ -44,6 +46,16 @@ export function StoriesScreen() {
   async function startTemplate(key: StoryTemplateKey): Promise<void> {
     const storyId = await createFromTemplate(profileId, key);
     router.push(`/story/edit/?id=${storyId}`);
+  }
+
+  async function uploadStory(files: FileList | null): Promise<void> {
+    if (!files || files.length === 0) return;
+    try {
+      const storyId = await createFromImages(profileId, Array.from(files));
+      router.push(`/story/edit/?id=${storyId}`);
+    } catch {
+      toast('Could not read those pictures. Try JPG or PNG files.');
+    }
   }
 
   async function handleDelete(story: SocialStory): Promise<void> {
@@ -93,6 +105,21 @@ export function StoriesScreen() {
     <div className={styles.screen}>
       <h1 className={styles.heading}>Stories</h1>
       <ScreenHint id="stories" title="Writing social stories" body="A short story with pictures helps someone get ready for something new. Read it together on a calm day." section="stories" />
+
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          void uploadStory(e.target.files);
+          e.target.value = '';
+        }}
+      />
+      <Button variant="secondary" icon="plus" onClick={() => fileInput.current?.click()}>
+        Add a story I already have
+      </Button>
 
       {stories.length === 0 ? (
         <>
