@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
+import { Button } from '@/components/ui/Button';
 import { ListRow } from '@/components/ui/ListRow';
 import { Segmented } from '@/components/ui/Segmented';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
@@ -181,13 +182,6 @@ export function SettingsMenu() {
             name="How to use Chipperly"
             trailing={<Icon name="chevron" size={20} />}
             onTap={() => router.push('/settings/guide/')}
-          />
-          <ListRow
-            tile={<Icon name="edit" size={20} />}
-            name="Send feedback"
-            secondary="Tell us what is working and what is not"
-            trailing={<Icon name="chevron" size={20} />}
-            onTap={() => router.push('/settings/feedback/')}
           />
         </div>
       </div>
@@ -392,6 +386,10 @@ export function SettingsMenu() {
           />
         </div>
       </div>
+
+      <Button fullWidth onClick={() => router.push('/settings/feedback/')}>
+        Send feedback
+      </Button>
     </div>
   );
 }
