@@ -150,6 +150,18 @@
   border-radius: var(--radius-sm);
 }
 
+.arrows {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* On narrow phones the name needs the room; the drag handle still moves rewards by touch and arrow keys. */
+@media (max-width: 400px) {
+  .arrows {
+    display: none;
+  }
+}
+
 .up {
   transform: rotate(-90deg);
 }

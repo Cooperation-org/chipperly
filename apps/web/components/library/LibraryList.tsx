@@ -748,10 +748,10 @@ export function LibraryList({ kind }: LibraryListProps) {
                     ) : (
                       <>
                         {reorderable ? (
-                          <>
+                          <span className={styles.arrows}>
                             <IconButton icon="chevron" className={styles.up} data-reorder={`${rowKey}:up`} aria-label={`Move ${row.name} up`} disabled={idx === 0} onClick={() => moveReward(groupIds, row.id, idx - 1, { groupKey: group.key, control: 'up' })} />
                             <IconButton icon="chevron" className={styles.down} data-reorder={`${rowKey}:down`} aria-label={`Move ${row.name} down`} disabled={idx === groupIds.length - 1} onClick={() => moveReward(groupIds, row.id, idx + 1, { groupKey: group.key, control: 'down' })} />
-                          </>
+                          </span>
                         ) : null}
                         <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />
                       </>
