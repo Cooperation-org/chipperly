@@ -578,6 +578,7 @@ export function ChildToday() {
           <HomeTile emoji="📅" label="My Day" onClick={() => setShowDay(true)} />
           {chipsTile ? <HomeTile emoji="⭐" label="Chips" onClick={canPickReward ? openPickReward : openWorkingFor} /> : null}
           <HomeTile emoji="📖" label="Stories" onClick={openStories} />
+          {options.show_chipper_chart ? <HomeTile emoji={levelEmoji(moodLevel)} label="Chipper Chart" onClick={openChipperChart} /> : null}
           {options.show_free_time ? <HomeTile emoji="🎈" label="Free time" onClick={openFreeTime} /> : null}
           {options.show_first_then ? <HomeTile emoji="➡️" label="First, then" onClick={openFirstThen} /> : null}
           {showAllowedApps ? <HomeTile emoji="📱" label="Apps" onClick={openApps} /> : null}
