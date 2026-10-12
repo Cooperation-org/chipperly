@@ -407,8 +407,9 @@ export function LibraryList({ kind }: LibraryListProps) {
   const liveSelected = useMemo(() => pruneSelection(selected, bulkIds), [selected, bulkIds]);
 
   // Reward reorder: same handle + arrow keys + drag as the schedule, scoped to one place group.
+  // A reward can sit in several place groups, so rows and drag state are keyed by `${groupKey}:${id}`.
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
-  const dragRef = useRef<{ id: string; startY: number; groupIds: string[] } | null>(null);
+  const dragRef = useRef<{ id: string; groupKey: string; startY: number; groupIds: string[] } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
 
@@ -427,7 +428,7 @@ export function LibraryList({ kind }: LibraryListProps) {
     let target = drag.groupIds.indexOf(drag.id);
     let best = Infinity;
     drag.groupIds.forEach((gid, idx) => {
-      const rect = rowRefs.current.get(gid)?.getBoundingClientRect();
+      const rect = rowRefs.current.get(`${drag.groupKey}:${gid}`)?.getBoundingClientRect();
       if (!rect) return;
       const dist = Math.abs(rect.top + rect.height / 2 - e.clientY);
       if (dist < best) {
@@ -667,13 +668,14 @@ export function LibraryList({ kind }: LibraryListProps) {
               {group.rows.map((row, idx) => {
                 const groupIds = group.rows.map((r) => r.id);
                 const reorderable = kind === 'reward' && !selecting;
-                const isDragging = draggingId === row.id;
+                const rowKey = `${group.key}:${row.id}`;
+                const isDragging = draggingId === rowKey;
                 return (
                 <div
                   key={row.id}
                   ref={(el) => {
-                    if (el) rowRefs.current.set(row.id, el);
-                    else rowRefs.current.delete(row.id);
+                    if (el) rowRefs.current.set(rowKey, el);
+                    else rowRefs.current.delete(rowKey);
                   }}
                   className={isDragging ? styles.dragging : undefined}
                   style={isDragging ? { transform: `translateY(${dragOffset}px)` } : undefined}
@@ -687,8 +689,8 @@ export function LibraryList({ kind }: LibraryListProps) {
                         aria-label={`Move ${row.name}`}
                         onPointerDown={(e) => {
                           e.currentTarget.setPointerCapture(e.pointerId);
-                          dragRef.current = { id: row.id, startY: e.clientY, groupIds };
-                          setDraggingId(row.id);
+                          dragRef.current = { id: row.id, groupKey: group.key, startY: e.clientY, groupIds };
+                          setDraggingId(rowKey);
                         }}
                         onPointerMove={(e) => dragRef.current && setDragOffset(e.clientY - dragRef.current.startY)}
                         onPointerUp={onHandleUp}
