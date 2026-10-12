@@ -54,12 +54,15 @@ export function StoriesScreen() {
   async function uploadStory(files: FileList | null): Promise<void> {
     if (!files || files.length === 0) return;
     try {
-      const storyId = await createFromImages(profileId, Array.from(files));
-      if (!storyId) {
+      const made = await createFromImages(profileId, Array.from(files));
+      if (!made) {
         toast(NO_PICTURES);
         return;
       }
-      router.push(`/story/edit/?id=${storyId}`);
+      if (made.skipped > 0) {
+        toast(made.skipped === 1 ? '1 picture could not be read and was left out.' : `${made.skipped} pictures could not be read and were left out.`);
+      }
+      router.push(`/story/edit/?id=${made.storyId}`);
     } catch {
       toast('Could not read those pictures. Try JPG or PNG files.');
     }

@@ -49,4 +49,21 @@ describe('createFromImages', () => {
     expect(await createFromImages('p1', [pdf])).toBeNull();
     expect(saveStory).not.toHaveBeenCalled();
   });
+
+  it('leaves out a picture that cannot be read and keeps the rest', async () => {
+    pickAndStoreImage.mockImplementation((f: File) =>
+      f.name === 'bad.png' ? Promise.reject(new Error('decode')) : Promise.resolve(`m-${f.name}`),
+    );
+    saveStory.mockResolvedValue('s1');
+    const files = ['p1.png', 'bad.png', 'p2.png'].map((n) => new File(['x'], n, { type: 'image/png' }));
+    expect(await createFromImages('p1', files)).toEqual({ storyId: 's1', skipped: 1 });
+    expect(saveStory.mock.calls[0]?.[0].pages.map((p: { photo_id: string }) => p.photo_id)).toEqual(['m-p1.png', 'm-p2.png']);
+  });
+
+  it('throws when no picture can be read', async () => {
+    pickAndStoreImage.mockRejectedValue(new Error('decode'));
+    saveStory.mockClear();
+    await expect(createFromImages('p1', [new File(['x'], 'a.png', { type: 'image/png' })])).rejects.toThrow();
+    expect(saveStory).not.toHaveBeenCalled();
+  });
 });

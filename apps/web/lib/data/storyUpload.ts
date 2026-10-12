@@ -26,17 +26,29 @@ export function pagesFromMedia(mediaIds: string[]): { text: string; emoji: null;
 /**
  * Turns picked images into a new story (stored locally and queued for upload like any other picture).
  * Null when none of the files is a picture (a PDF picked through "All files"), so no empty story is made.
+ * A picture that cannot be read is left out and counted in `skipped`; throws only when none could be read.
  */
-export async function createFromImages(profileId: string, files: File[]): Promise<string | null> {
+export async function createFromImages(
+  profileId: string,
+  files: File[],
+): Promise<{ storyId: string; skipped: number } | null> {
   const sorted = sortUploadFiles(files);
   if (sorted.length === 0) return null;
   const ids: string[] = [];
-  for (const file of sorted) ids.push(await pickAndStoreImage(file));
-  return saveStory({
+  for (const file of sorted) {
+    try {
+      ids.push(await pickAndStoreImage(file));
+    } catch {
+      // Left out; the caller says how many.
+    }
+  }
+  if (ids.length === 0) throw new Error('No picture could be read');
+  const storyId = await saveStory({
     profile_id: profileId,
     title: titleFromFileName(sorted[0]?.name ?? ''),
     emoji: null,
     cover_photo_id: ids[0] ?? null,
     pages: pagesFromMedia(ids),
   });
+  return { storyId, skipped: sorted.length - ids.length };
 }
