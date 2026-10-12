@@ -689,6 +689,16 @@ describe('household limits', () => {
     expect(codeOf(promote)).toBe('admin_limit');
   });
 
+  it('a promotion cannot take the seat an open admin invite holds', async () => {
+    const { admin, accountId } = await makeAccount('household');
+    expect((await invite(admin.token, accountId, 'admin', 'held@example.com')).statusCode).toBe(201);
+    const member = await createUser('member');
+    await db.insert(account_members).values({ account_id: accountId, user_id: member.id, role: 'member' });
+    const promote = await request(app, { method: 'PATCH', url: `/api/accounts/${accountId}/members/${member.id}`, headers: auth(admin.token), payload: { role: 'admin' } });
+    expect(promote.statusCode).toBe(409);
+    expect(codeOf(promote)).toBe('admin_limit');
+  });
+
   it('does not limit admins on other kinds of account', async () => {
     const { admin, accountId } = await makeAccount('agency');
     for (const n of ['a', 'b', 'c']) expect((await invite(admin.token, accountId, 'admin', `${n}@example.com`)).statusCode).toBe(201);
