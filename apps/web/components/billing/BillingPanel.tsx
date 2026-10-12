@@ -8,7 +8,7 @@ import { useBillingStatus } from '@/lib/billing/useBillingStatus';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
-import { accessNotice, checkoutOffer, discountLine, isLive, KIND_LABEL, paysByArrangement, planChoices, planLine, priceLabel } from './billingCopy';
+import { accessNotice, billingErrorText, checkoutOffer, discountLine, isLive, KIND_LABEL, paysByArrangement, planChoices, planLine, priceLabel } from './billingCopy';
 import styles from './BillingPanel.module.css';
 
 /**
@@ -35,7 +35,7 @@ export function BillingPanel() {
       const { url } = await api.post<{ url: string }>(path, plan ? { plan, kind: offer.kind } : undefined, { schema: BillingRedirectSchema });
       window.location.assign(url);
     } catch (err) {
-      toast(err instanceof ApiError && (err.code === 'too_many_profiles' || err.code === 'too_many_admins') ? err.message : 'Could not open billing. Try again in a moment.');
+      toast(err instanceof ApiError ? billingErrorText(err.code, err.message) : billingErrorText(null, ''));
       setBusy(false);
     }
   }

@@ -1,6 +1,6 @@
 import type { BillingStatus } from '@chipperly/shared/schemas/billing';
 import { describe, expect, it } from 'vitest';
-import { accessNotice, checkoutOffer, discountLine, isLive, planChoices, planLine, priceLabel, subscriptionLine } from './billingCopy';
+import { accessNotice, billingErrorText, checkoutOffer, discountLine, isLive, planChoices, planLine, priceLabel, subscriptionLine } from './billingCopy';
 
 describe('billingCopy', () => {
   it('formats whatever price the server reports', () => {
@@ -105,5 +105,14 @@ describe('checkoutOffer', () => {
     const agency = { ...base, kind: 'agency' as const, prices: [year] };
     expect(checkoutOffer(agency, null)).toEqual({ kind: undefined, prices: [year], picker: false, canBuy: true });
     expect(checkoutOffer({ ...agency, checkout_available: false, price: null, prices: [] }, 'household').canBuy).toBe(false);
+  });
+});
+
+describe('billingErrorText', () => {
+  it('passes the plan limit text through and words the rest for the person', () => {
+    expect(billingErrorText('too_many_admins', 'A family plan can have 2 admins.')).toBe('A family plan can have 2 admins.');
+    expect(billingErrorText('pay_by_arrangement', 'x')).toMatch(/support@chipperlyapp\.com/);
+    expect(billingErrorText('already_subscribed', 'x')).not.toMatch(/Try again/);
+    expect(billingErrorText(null, '')).toMatch(/Try again/);
   });
 });

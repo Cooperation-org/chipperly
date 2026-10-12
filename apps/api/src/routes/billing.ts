@@ -131,7 +131,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     // Changing plan on a live subscription happens in the Stripe portal; its webhook switches the kind.
     if (sub && LIVE_STATES.has(sub.status)) throw new AppError(409, 'already_subscribed', 'This account already has a subscription. Change plan in the billing portal.');
     const misfit = await planMisfit(db, accountId, target, true);
-    if (misfit === 'too_many_profiles') throw new AppError(409, misfit, `The ${target} plan is limited to ${PROFILE_LIMITS[target]} profile${PROFILE_LIMITS[target] === 1 ? '' : 's'}. Remove some profiles first.`);
+    if (misfit === 'too_many_profiles') throw new AppError(409, misfit, `This plan allows ${PROFILE_LIMITS[target]} profile${PROFILE_LIMITS[target] === 1 ? '' : 's'}. Remove some profiles first, then subscribe.`);
     if (misfit === 'too_many_admins') throw new AppError(409, misfit, `A family plan can have ${HOUSEHOLD_ADMIN_LIMIT} admins. Change the other admins to members, or cancel open admin invites, first.`);
 
     // The early-access discount rides along on a first subscription only, and

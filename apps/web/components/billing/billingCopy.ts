@@ -103,6 +103,23 @@ export function checkoutOffer(status: BillingStatus, picked: AccountKind | null)
   return { kind: chosen.kind, prices: chosen.prices, picker: status.kinds.length > 1, canBuy: chosen.prices.length > 0 };
 }
 
+/** What to say when checkout or the billing portal does not open. The plan limits come with their own plain text. */
+export function billingErrorText(code: string | null, message: string): string {
+  switch (code) {
+    case 'too_many_profiles':
+    case 'too_many_admins':
+      return message;
+    case 'already_subscribed':
+      return 'This account already has a subscription. Reload the page to manage it.';
+    case 'price_not_set':
+      return 'This plan cannot be bought yet. Pick another plan.';
+    case 'pay_by_arrangement':
+      return 'Organization plans are set up by email. Write to support@chipperlyapp.com.';
+    default:
+      return 'Could not open billing. Try again in a moment.';
+  }
+}
+
 export function isLive(sub: BillingStatus['subscription']): boolean {
   return sub !== null && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due');
 }
