@@ -196,6 +196,8 @@ export const BillingStatusSchema = z.object({
   /** The default price. Kept for older screens; `prices` lists every plan that can be bought. */
   price: PriceShape.nullable(),
   prices: z.array(PriceShape.extend({ plan: BillingPlan })).default([]),
+  /** Every self-serve account kind that can be bought, with its prices, so the screen can offer a choice. */
+  kinds: z.array(z.object({ kind: AccountKind, prices: z.array(PriceShape.extend({ plan: BillingPlan })) })).default([]),
   subscription: z
     .object({
       status: SubscriptionStatus,
@@ -210,8 +212,11 @@ export const BillingStatusSchema = z.object({
 });
 export type BillingStatus = z.infer<typeof BillingStatusSchema>;
 
-/** POST /billing/checkout. No body means the default plan. */
-export const BillingCheckoutBodySchema = z.object({ plan: BillingPlan.default('default') });
+/** The kinds that can be bought in the app; an organization pays by arrangement. */
+export const PurchasableKind = z.enum(['individual', 'supported', 'household']);
+
+/** POST /billing/checkout. No body means the account's current kind at the default plan. */
+export const BillingCheckoutBodySchema = z.object({ plan: BillingPlan.default('default'), kind: PurchasableKind.optional() });
 export type BillingCheckoutBody = z.infer<typeof BillingCheckoutBodySchema>;
 
 /** POST /billing/checkout and POST /billing/portal: send the browser here. */

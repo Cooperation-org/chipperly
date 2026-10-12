@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import {
@@ -13,7 +13,7 @@ import {
 } from '@chipperly/shared/schemas/account';
 import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema } from '@chipperly/shared/schemas/auth';
 import { LocationChangedBodySchema, RewardRequestBodySchema, type RewardRequestSource } from '@chipperly/shared/schemas/push';
-import { PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
+import { HOUSEHOLD_ADMIN_LIMIT, PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { FirstThenProgressBodySchema } from '@chipperly/shared/schemas/profile';
 import { db } from '../db/client.js';
 import { push_tokens } from '../db/schema/push.js';
@@ -63,6 +63,28 @@ async function requireAdmin(accountId: string, userId: string) {
   const membership = await requireMember(accountId, userId);
   if (membership.role !== 'admin') throw new AppError(403, 'forbidden', 'Admin role required');
   return membership;
+}
+
+/**
+ * A household has at most HOUSEHOLD_ADMIN_LIMIT admins. `pending` also counts admin invites not yet
+ * accepted, so an admin cannot send more invites than there are seats. Other kinds are unlimited.
+ */
+async function assertAdminSeat(accountId: string, pending = false): Promise<void> {
+  const [account] = await db.select({ kind: accounts.kind }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  if (account?.kind !== 'household') return;
+  const admins = await db
+    .select({ id: account_members.user_id })
+    .from(account_members)
+    .where(and(eq(account_members.account_id, accountId), eq(account_members.role, 'admin')));
+  const open = pending
+    ? await db
+        .select({ id: invites.id })
+        .from(invites)
+        .where(and(eq(invites.account_id, accountId), eq(invites.role, 'admin'), isNull(invites.accepted_at), gt(invites.expires_at, Date.now())))
+    : [];
+  if (admins.length + open.length >= HOUSEHOLD_ADMIN_LIMIT) {
+    throw new AppError(409, 'admin_limit', `A household can have at most ${HOUSEHOLD_ADMIN_LIMIT} admins`);
+  }
 }
 
 /** Every profile id in this account, regardless of `deleted_at` (removed-member reassignment must reach them all). */
@@ -194,6 +216,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     await requireAdmin(accountId, userId);
     await assertCanCreate(accountId);
 
+    if (body.role === 'admin') await assertAdminSeat(accountId, true);
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
     if (!account) throw new AppError(404, 'not_found', 'Account not found');
     const [inviter] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -372,6 +395,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     await db.transaction(async (tx) => {
       const already = await getMembership(invite.account_id, userId);
       if (!already) {
+        if (invite.role === 'admin') await assertAdminSeat(invite.account_id);
         await tx.insert(account_members).values({ account_id: invite.account_id, user_id: userId, role: invite.role });
       }
       for (const profileId of invite.profile_ids) {
@@ -398,6 +422,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const target = await getMembership(accountId, targetId);
     if (!target) throw new AppError(404, 'not_found', 'Member not found');
 
+    if (body.role === 'admin' && target.role !== 'admin') await assertAdminSeat(accountId);
     if (body.role && body.role !== 'admin' && target.role === 'admin') {
       const admins = await db
         .select()

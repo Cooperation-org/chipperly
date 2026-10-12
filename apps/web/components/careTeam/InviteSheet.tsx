@@ -71,7 +71,8 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
       onSent();
       setIssued(result);
     } catch (err) {
-      setError(err instanceof ApiError ? "Couldn't send the invite. Check the email address and try again." : "Couldn't send the invite. Try again.");
+      if (err instanceof ApiError && err.code === 'admin_limit') setError('A household can have 2 admins. Invite them as a member instead, or remove an admin first.');
+      else setError(err instanceof ApiError ? "Couldn't send the invite. Check the email address and try again." : "Couldn't send the invite. Try again.");
     } finally {
       setSending(false);
     }

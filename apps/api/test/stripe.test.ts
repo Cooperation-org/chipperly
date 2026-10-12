@@ -20,6 +20,7 @@ import {
   discountApplies,
   ensureCoupon,
   loadPersonalDiscount,
+  kindForPriceId,
   priceIdForKind,
   StripeApiError,
   verifyStripeSignature,
@@ -161,7 +162,7 @@ describe('account kind and price mapping', () => {
     expect(AccountKind.parse('supported')).toBe('supported');
     expect(PROFILE_LIMITS.supported).toBe(1);
     expect(PROFILE_LIMITS.individual).toBe(1);
-    expect(PROFILE_LIMITS.household).toBe(8);
+    expect(PROFILE_LIMITS.household).toBe(6);
     expect(PROFILE_LIMITS.agency).toBe(Infinity);
     expect(AccountKind.safeParse('nope').success).toBe(false);
   });
@@ -522,5 +523,105 @@ describe('a monthly and a yearly price for one kind', () => {
     const plain = await request(app, { method: 'POST', url: `${env.BASE_PATH}/api/billing/checkout`, headers });
     expect(plain.statusCode).toBe(200);
     expect(sessions).toEqual(['price_year_t', 'price_month_t']);
+  });
+});
+
+describe('choosing a plan at checkout', () => {
+  const saved = { enabled: env.stripeEnabled, key: env.STRIPE_SECRET_KEY, i: env.STRIPE_PRICE_INDIVIDUAL, h: env.STRIPE_PRICE_HOUSEHOLD, hy: env.STRIPE_PRICE_HOUSEHOLD_YEARLY };
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    app = await buildTestApp();
+    env.stripeEnabled = true;
+    env.STRIPE_SECRET_KEY = 'sk_test_x';
+    env.STRIPE_PRICE_INDIVIDUAL = 'price_ind';
+    env.STRIPE_PRICE_HOUSEHOLD = 'price_house';
+    env.STRIPE_PRICE_HOUSEHOLD_YEARLY = 'price_house_y';
+  });
+  afterAll(async () => {
+    env.stripeEnabled = saved.enabled;
+    env.STRIPE_SECRET_KEY = saved.key;
+    env.STRIPE_PRICE_INDIVIDUAL = saved.i;
+    env.STRIPE_PRICE_HOUSEHOLD = saved.h;
+    env.STRIPE_PRICE_HOUSEHOLD_YEARLY = saved.hy;
+    await app.close();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function setup(kind: AccountKind) {
+    const admin = await createUser();
+    const accountId = await createAccount(admin.id, kind);
+    await addMember(accountId, admin.id, 'admin');
+    return { accountId, adminId: admin.id, headers: { authorization: `Bearer ${admin.token}`, 'x-account-id': accountId } };
+  }
+  const checkout = (headers: Record<string, string>, payload: object) => request(app, { method: 'POST', url: `${env.BASE_PATH}/api/billing/checkout`, headers, payload });
+  const stubStripe = (sessions: string[] = []) =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: { body?: URLSearchParams }) => {
+        const json = (o: unknown) => new Response(JSON.stringify(o), { headers: { 'content-type': 'application/json' } });
+        if (url.includes('/prices/')) return json({ unit_amount: 1000, currency: 'usd', recurring: { interval: 'month' } });
+        if (url.endsWith('/checkout/sessions')) {
+          sessions.push(String(init?.body?.get('line_items[0][price]')));
+          return json({ url: 'https://checkout.stripe.com/c/pay/test' });
+        }
+        return new Response('{}', { status: 404 });
+      }),
+    );
+
+  it('maps a price id back to its kind, monthly or yearly, and ignores unknown ones', () => {
+    expect(kindForPriceId('price_house')).toBe('household');
+    expect(kindForPriceId('price_house_y')).toBe('household');
+    expect(kindForPriceId('price_ind')).toBe('individual');
+    expect(kindForPriceId('price_other')).toBeUndefined();
+  });
+
+  it('buys the kind that was asked for, from our own price ids, and lists what can be bought', async () => {
+    const sessions: string[] = [];
+    stubStripe(sessions);
+    const { headers } = await setup('individual');
+    const status = (await request(app, { method: 'GET', url: `${env.BASE_PATH}/api/billing`, headers })).json() as { kinds: { kind: string; prices: unknown[] }[] };
+    expect(status.kinds.map((k) => [k.kind, k.prices.length])).toEqual([['individual', 1], ['household', 2]]);
+
+    expect((await checkout(headers, { kind: 'household', plan: 'yearly' })).statusCode).toBe(200);
+    expect(sessions).toEqual(['price_house_y']);
+    expect((await checkout(headers, { kind: 'agency' })).statusCode).toBe(400); // organizations pay by arrangement
+    expect((await checkout(headers, { kind: 'supported' })).statusCode).toBe(409); // no price set for it
+  });
+
+  it('refuses a plan that is too small for the profiles already there', async () => {
+    stubStripe();
+    const { accountId, adminId, headers } = await setup('household');
+    await createProfile(accountId, adminId, 'One');
+    await createProfile(accountId, adminId, 'Two');
+    const res = await checkout(headers, { kind: 'individual' });
+    expect(res.statusCode).toBe(409);
+    expect((res.json() as { error: { code: string } }).error.code).toBe('too_many_profiles');
+  });
+
+  it('sends a live subscription to the billing portal to change plan', async () => {
+    stubStripe();
+    const { accountId, headers } = await setup('individual');
+    await db.insert(subscriptions).values({ account_id: accountId, stripe_customer_id: 'cus_x', stripe_subscription_id: 'sub_x', status: 'active', current_period_end: null, cancel_at_period_end: false, last_event_at: 1, updated_at: 1 });
+    const res = await checkout(headers, { kind: 'household' });
+    expect(res.statusCode).toBe(409);
+    expect((res.json() as { error: { message: string } }).error.message).toMatch(/billing portal/);
+  });
+
+  it('the webhook moves the account to the plan that was paid for, but not on a failed payment', async () => {
+    const { accountId } = await setup('individual');
+    const withPrice = (status: string, price: string, n: number) => {
+      const e = subEvent(accountId, { status, created: 1_800_000_000 + n });
+      (e.data.object as { items: unknown }).items = { data: [{ price: { id: price } }] };
+      return e;
+    };
+    const kindNow = async () => (await db.select().from(accounts).where(eq(accounts.id, accountId)))[0]!.kind;
+    await applyStripeEvent(withPrice('incomplete', 'price_house', 1));
+    expect(await kindNow()).toBe('individual');
+    await applyStripeEvent(withPrice('active', 'price_house', 2));
+    expect(await kindNow()).toBe('household');
+    await applyStripeEvent(withPrice('active', 'price_ind', 3)); // downgrade in the portal
+    expect(await kindNow()).toBe('individual');
   });
 });

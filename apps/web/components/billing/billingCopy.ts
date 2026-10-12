@@ -1,3 +1,4 @@
+import type { AccountKind } from '@chipperly/shared/schemas/account';
 import type { Access, BillingDiscount, BillingPlan, BillingStatus } from '@chipperly/shared/schemas/billing';
 
 /** "12.50 per month" style text from what the server reports; never a number of our own. */
@@ -7,6 +8,9 @@ export function priceLabel(price: NonNullable<BillingStatus['price']>, locale?: 
   const amount = fmt.format(price.amount / 10 ** digits);
   return price.interval ? `${amount} per ${price.interval}` : amount;
 }
+
+/** What each plan is called on the subscription screen (same words as the "Who is Chipperly for?" step). */
+export const KIND_LABEL: Record<AccountKind, string> = { individual: 'Myself', household: 'My family', supported: 'Someone I support', agency: 'My organization' };
 
 export interface PlanChoice {
   plan: BillingPlan;
