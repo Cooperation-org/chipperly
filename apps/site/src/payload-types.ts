@@ -72,6 +72,7 @@ export interface Config {
     pages: Page;
     media: Media;
     waitlist: Waitlist;
+    newsletters: Newsletter;
     unsubscribes: Unsubscribe;
     'email-addresses': EmailAddress;
     users: User;
@@ -91,6 +92,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     waitlist: WaitlistSelect<false> | WaitlistSelect<true>;
+    newsletters: NewslettersSelect<false> | NewslettersSelect<true>;
     unsubscribes: UnsubscribesSelect<false> | UnsubscribesSelect<true>;
     'email-addresses': EmailAddressesSelect<false> | EmailAddressesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
@@ -361,6 +363,53 @@ export interface Waitlist {
    * Page the form was sent from.
    */
   source?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "newsletters".
+ */
+export interface Newsletter {
+  id: number;
+  subject: string;
+  /**
+   * Plain text. A blank line starts a new paragraph. Links become clickable. The unsubscribe footer is added for you.
+   */
+  body: string;
+  /**
+   * App segments need the app connected (NEWSLETTER_API_SECRET); until then they say "not connected yet".
+   */
+  audience: 'all' | 'waitlist' | 'trial_expired' | 'subscribed';
+  status?: ('draft' | 'scheduled' | 'sent') | null;
+  /**
+   * Goes out with the daily send, the next morning after this time.
+   */
+  scheduledFor?: string | null;
+  sendTest?: boolean | null;
+  sendNow?: boolean | null;
+  sentAt?: string | null;
+  /**
+   * The blog post this was made from.
+   */
+  sourcePost?: (number | null) | Post;
+  /**
+   * Every test and send, newest last.
+   */
+  sendLog?:
+    | {
+        at?: string | null;
+        kind?: ('test' | 'send') | null;
+        audience?: string | null;
+        sent?: number | null;
+        /**
+         * Unsubscribed, not emailed.
+         */
+        skipped?: number | null;
+        failed?: number | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -649,6 +698,10 @@ export interface PayloadLockedDocument {
         value: number | Waitlist;
       } | null)
     | ({
+        relationTo: 'newsletters';
+        value: number | Newsletter;
+      } | null)
+    | ({
         relationTo: 'unsubscribes';
         value: number | Unsubscribe;
       } | null)
@@ -809,6 +862,34 @@ export interface WaitlistSelect<T extends boolean = true> {
   name?: T;
   role?: T;
   source?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "newsletters_select".
+ */
+export interface NewslettersSelect<T extends boolean = true> {
+  subject?: T;
+  body?: T;
+  audience?: T;
+  status?: T;
+  scheduledFor?: T;
+  sendTest?: T;
+  sendNow?: T;
+  sentAt?: T;
+  sourcePost?: T;
+  sendLog?:
+    | T
+    | {
+        at?: T;
+        kind?: T;
+        audience?: T;
+        sent?: T;
+        skipped?: T;
+        failed?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1131,6 +1212,7 @@ export interface TaskCreateCollectionExport {
       | 'pages'
       | 'media'
       | 'waitlist'
+      | 'newsletters'
       | 'unsubscribes'
       | 'email-addresses'
       | 'users'
