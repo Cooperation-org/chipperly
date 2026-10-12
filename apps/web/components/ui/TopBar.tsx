@@ -51,6 +51,7 @@ export function TopBar({ profile, onProfileTap, title, sync, onSyncTap, onSettin
       <div className={styles.trailing}>
         <SyncMark state={sync.state} pending={sync.pending} onTap={onSyncTap} />
         {onLockPhoneTap ? <IconButton icon="phoneLock" aria-label="Lock phone" onClick={onLockPhoneTap} /> : null}
+        {onLockTap ? <span className={styles.modeLabel}>Edit mode</span> : null}
         {onLockTap ? <IconButton icon="lock" aria-label={lockLabel ?? 'Lock'} onClick={onLockTap} /> : null}
         <IconButton icon="gear" aria-label="Settings" onClick={onSettingsTap} />
       </div>

@@ -11,7 +11,7 @@ import { abs } from '../../../lib/site';
 export const metadata = buildMetadata({
   title: 'Features: All Your Visual Supports in One App',
   description:
-    'Visual schedules, a chip board with screen time control, a visual timer, social stories and first-then boards in one app the whole care team shares.',
+    'Visual schedules, a chip board with screen time control, a visual timer, social stories and first-then boards in one app the whole support team shares.',
   path: '/features',
 });
 
@@ -24,7 +24,7 @@ export default function Features() {
           <p className="eyebrow">What&rsquo;s inside</p>
           <h1>All of your visual supports, one dashboard</h1>
           <p className="lede">
-            Replace three or four separate apps or laminated tools with one simple app, shareable with the whole care team.
+            Replace three or four separate apps or laminated tools with one simple app, shareable with the whole support team.
           </p>
         </div>
       </section>
@@ -51,7 +51,7 @@ export default function Features() {
       <section className="section sand" aria-labelledby="team-title">
         <div className="wrap">
           <div className="section-head">
-            <p className="eyebrow">For the whole care team</p>
+            <p className="eyebrow">For the whole support team</p>
             <h2 id="team-title">Everyone works from the same plan</h2>
             <p>Chipperly™ is multi-user from the ground up. Families, teachers and therapists share the same dashboard.</p>
           </div>

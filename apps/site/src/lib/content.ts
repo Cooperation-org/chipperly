@@ -83,7 +83,7 @@ export const FAQS = [
     answer: 'Pictures and visual tools that show what is happening, what comes next and how long something lasts: picture schedules, token boards, timers, first-then boards and social stories. Chipperly puts all of them in one app instead of a stack of laminated cards.',
   },
   {
-    question: 'Can the whole care team use the same schedules?',
+    question: 'Can the whole support team use the same schedules?',
     answer: 'Yes. Invite family members, teachers and therapists to a household so everyone works from the same schedules, chips and rewards. You can also send a read-only share link that needs no account.',
   },
   {
