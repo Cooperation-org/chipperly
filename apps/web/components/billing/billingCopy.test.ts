@@ -1,6 +1,6 @@
 import type { BillingStatus } from '@chipperly/shared/schemas/billing';
 import { describe, expect, it } from 'vitest';
-import { accessNotice, discountLine, isLive, planChoices, planLine, priceLabel, subscriptionLine } from './billingCopy';
+import { accessNotice, checkoutOffer, discountLine, isLive, planChoices, planLine, priceLabel, subscriptionLine } from './billingCopy';
 
 describe('billingCopy', () => {
   it('formats whatever price the server reports', () => {
@@ -78,5 +78,32 @@ describe('planChoices', () => {
 
   it('does not claim a saving when the yearly price is not cheaper', () => {
     expect(planChoices([month, { ...year, amount: 12000 }], 'en-US')[1]?.label).toBe('Yearly: $120.00 per year');
+  });
+});
+
+describe('checkoutOffer', () => {
+  const access = { state: 'trial' as const, ended_at: null, pauses_at: null, write_paused: false };
+  const month = { plan: 'default' as const, amount: 1000, currency: 'usd', interval: 'month' };
+  const year = { plan: 'yearly' as const, amount: 10000, currency: 'usd', interval: 'year' };
+  const kinds: BillingStatus['kinds'] = [
+    { kind: 'individual', prices: [month] },
+    { kind: 'household', prices: [month, year] },
+  ];
+  const base: BillingStatus = { kind: 'individual', checkout_available: true, price: month, prices: [month], kinds, subscription: null, can_manage: true, access, discount: null };
+
+  it('lets anyone pick a plan and sends the kind picked', () => {
+    expect(checkoutOffer(base, null)).toEqual({ kind: 'individual', prices: [month], picker: true, canBuy: true });
+    expect(checkoutOffer(base, 'household')).toEqual({ kind: 'household', prices: [month, year], picker: true, canBuy: true });
+  });
+
+  it('falls back to the first plan with a price when the own kind has none', () => {
+    const supported = { ...base, kind: 'supported' as const, checkout_available: false, price: null, prices: [] };
+    expect(checkoutOffer(supported, null)).toMatchObject({ kind: 'individual', canBuy: true });
+  });
+
+  it('an organization buys its own price, with no picker and no kind sent', () => {
+    const agency = { ...base, kind: 'agency' as const, prices: [year] };
+    expect(checkoutOffer(agency, null)).toEqual({ kind: undefined, prices: [year], picker: false, canBuy: true });
+    expect(checkoutOffer({ ...agency, checkout_available: false, price: null, prices: [] }, 'household').canBuy).toBe(false);
   });
 });

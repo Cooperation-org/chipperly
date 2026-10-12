@@ -82,6 +82,27 @@ export function paysByArrangement(status: Pick<BillingStatus, 'kind' | 'checkout
   return status.kind === 'agency' && !status.checkout_available;
 }
 
+export interface CheckoutOffer {
+  /** The kind to send at checkout; undefined sends none, and the server uses the account's own kind. */
+  kind: AccountKind | undefined;
+  prices: BillingStatus['prices'];
+  /** Show the plan picker. */
+  picker: boolean;
+  /** Show the subscribe buttons. */
+  canBuy: boolean;
+}
+
+/**
+ * What the subscribe part of the card offers. An organization buys its own price, if it has one, with
+ * no picker. Everyone else can pick any plan that has a price: the one picked, else their own, else the first.
+ */
+export function checkoutOffer(status: BillingStatus, picked: AccountKind | null): CheckoutOffer {
+  if (status.kind === 'agency') return { kind: undefined, prices: status.prices, picker: false, canBuy: status.checkout_available };
+  const chosen = status.kinds.find((k) => k.kind === (picked ?? status.kind)) ?? status.kinds[0];
+  if (!chosen) return { kind: undefined, prices: status.prices, picker: false, canBuy: status.checkout_available };
+  return { kind: chosen.kind, prices: chosen.prices, picker: status.kinds.length > 1, canBuy: chosen.prices.length > 0 };
+}
+
 export function isLive(sub: BillingStatus['subscription']): boolean {
   return sub !== null && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due');
 }
