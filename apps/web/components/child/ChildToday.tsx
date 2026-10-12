@@ -643,7 +643,7 @@ export function ChildToday() {
   if (profile.settings.child_layout === 'tiles' && !showDay) {
     const chipsTile = workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation);
     return (
-      <div className={screenClass}>
+      <div className={`${screenClass} ${styles.tilesScreen}`}>
         {header}
         <p className={styles.greeting}>Hi {profile.name}! What do you want to do?</p>
         <div className={styles.tiles}>

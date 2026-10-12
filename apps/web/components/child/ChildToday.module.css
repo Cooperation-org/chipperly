@@ -308,6 +308,11 @@
 
 
 /* Picture-tiles home (profile setting child_layout = 'tiles'). */
+/* No bottom bar on the tiles home, so no room kept for one: six tiles fit a phone without scrolling. */
+.tilesScreen {
+  padding-bottom: var(--space-4);
+}
+
 .greeting {
   margin: 0;
   font-family: var(--font-heading);
