@@ -359,6 +359,29 @@ describe('sync', () => {
     ActivityStepSchema.parse(pulledStep);
   });
 
+  it('stores a reward order per place and pulls it back, on insert and on update', async () => {
+    const { admin, profileId } = await setupProfile();
+    const rewardId = uuidv7();
+    const placeA = uuidv7();
+    const placeB = uuidv7();
+    const t0 = Date.now();
+    const row = (positions: Record<string, number>, at: number) => ({
+      id: rewardId, profile_id: profileId, version: 0, client_updated_at: at, updated_by: admin.id, deleted_at: null,
+      name: 'Ice cream', emoji: null, photo_id: null, chip_cost: 3, location_id: null, location_ids: [placeA, placeB],
+      always_available: false, position: 4, positions,
+    });
+    const pulled = async () => {
+      const body = expectShape(await pullRequest(app, admin.token, profileId, 0), SyncPullResponseSchema);
+      return (body.changes.rewards ?? []).find((r) => r.id === rewardId);
+    };
+
+    await pushRequest(app, admin.token, profileId, [{ table: 'rewards', id: rewardId, op: 'upsert', row: row({ [placeA]: 0, [placeB]: 2 }, t0), client_updated_at: t0 }]);
+    expect((await pulled())?.positions).toEqual({ [placeA]: 0, [placeB]: 2 });
+
+    await pushRequest(app, admin.token, profileId, [{ table: 'rewards', id: rewardId, op: 'upsert', row: row({ [placeA]: 1, [placeB]: 2 }, t0 + 1), client_updated_at: t0 + 1 }]);
+    expect((await pulled())?.positions).toEqual({ [placeA]: 1, [placeB]: 2 });
+  });
+
   it('pushes a nested step (parent_step_id) and pulls it back on the tree', async () => {
     const { admin, profileId } = await setupProfile();
 

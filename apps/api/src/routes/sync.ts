@@ -529,6 +529,8 @@ async function applyUpsert(
     }
     row.settings = JSON.stringify(settings);
   }
+  // Same jsonb passthrough as `settings` above.
+  if (mutation.table === 'rewards' && row.positions != null) row.positions = JSON.stringify(row.positions);
 
   if (mutation.table === 'profiles') {
     const incomingShareToken = row.share_token ?? null;

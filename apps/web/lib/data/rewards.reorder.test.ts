@@ -1,46 +1,53 @@
 import { describe, expect, it } from 'vitest';
-import { moveWithinGroup } from './rewards';
+import type { Reward } from '@chipperly/shared/schemas/reward';
+import { filterRewards } from './rewards';
 
-describe('moveWithinGroup', () => {
-  it('moves inside the full list', () => {
-    expect(moveWithinGroup(['a', 'b', 'c'], ['a', 'b', 'c'], 0, 2)).toEqual(['b', 'c', 'a']);
-    expect(moveWithinGroup(['a', 'b', 'c'], ['a', 'b', 'c'], 2, 1)).toEqual(['a', 'c', 'b']);
+const HOME = '00000000-0000-7000-8000-000000000001';
+const PARK = '00000000-0000-7000-8000-000000000002';
+
+function reward(name: string, places: string[], position: number, positions?: Record<string, number>): Reward {
+  return {
+    id: name,
+    profile_id: 'p',
+    version: 0,
+    client_updated_at: 0,
+    updated_by: '',
+    deleted_at: null,
+    name,
+    emoji: null,
+    photo_id: null,
+    chip_cost: 1,
+    location_id: places.length === 1 ? (places[0] as string) : null,
+    location_ids: places,
+    always_available: false,
+    position,
+    positions,
+  };
+}
+
+const names = (rows: Reward[]) => rows.map((r) => r.name);
+
+describe('filterRewards order per place', () => {
+  it('uses position when no place order was saved, place rewards before Every place ones', () => {
+    const rows = [reward('e1', [], 0), reward('h1', [HOME], 1), reward('e2', [], 2), reward('h2', [HOME], 3)];
+    expect(names(filterRewards(rows, { location_id: HOME }))).toEqual(['h1', 'h2', 'e1', 'e2']);
+    expect(names(filterRewards(rows, {}))).toEqual(['e1', 'h1', 'e2', 'h2']);
   });
 
-  it('only moves the one reward, so other groups keep their order', () => {
-    // x and y belong to another place; their order against a and b must not change.
-    expect(moveWithinGroup(['a', 'x', 'b', 'y', 'c'], ['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'x', 'b', 'y']);
-    expect(moveWithinGroup(['a', 'x', 'b', 'y', 'c'], ['a', 'b', 'c'], 0, 1)).toEqual(['x', 'b', 'y', 'a', 'c']);
+  it('a reward in two places keeps a separate spot in each', () => {
+    const rows = [
+      reward('both', [HOME, PARK], 0, { [HOME]: 1, [PARK]: 0 }),
+      reward('h', [HOME], 1, { [HOME]: 0 }),
+      reward('p', [PARK], 2, { [PARK]: 1 }),
+    ];
+    expect(names(filterRewards(rows, { location_id: HOME }))).toEqual(['h', 'both']);
+    expect(names(filterRewards(rows, { location_id: PARK }))).toEqual(['both', 'p']);
   });
 
-  it('ignores no-op and out-of-range moves', () => {
-    expect(moveWithinGroup(['a', 'b'], ['a', 'b'], 1, 1)).toEqual(['a', 'b']);
-    expect(moveWithinGroup(['a', 'b'], ['a', 'b'], 5, 0)).toEqual(['a', 'b']);
-    expect(moveWithinGroup(['a', 'b'], ['a', 'b'], 0, 9)).toEqual(['b', 'a']);
-  });
-
-  describe('with Every place rewards mixed in', () => {
-    // e1, e2: Every place. h1, h2, h3: Home. p1: Park.
-    const all = ['e1', 'h1', 'p1', 'e2', 'h2', 'h3'];
-    const home = ['h1', 'h2', 'h3'];
-    const homeMerged = ['e1', 'h1', 'e2', 'h2', 'h3'];
-
-    it('top of the place group is the top of what the child sees there', () => {
-      expect(moveWithinGroup(all, home, 2, 0, homeMerged)).toEqual(['h3', 'e1', 'h1', 'p1', 'e2', 'h2']);
-    });
-
-    it('bottom of the place group is the bottom of what the child sees there', () => {
-      expect(moveWithinGroup(all, home, 0, 2, homeMerged)).toEqual(['e1', 'p1', 'e2', 'h2', 'h3', 'h1']);
-    });
-
-    it('a step up also passes the Every place rewards before the reward it jumps', () => {
-      const order = ['h1', 'e1', 'h2', 'e2', 'h3'];
-      expect(moveWithinGroup(order, home, 2, 1, order)).toEqual(['h1', 'h3', 'e1', 'h2', 'e2']);
-    });
-
-    it('a step down also passes the Every place rewards after the reward it jumps', () => {
-      const order = ['h1', 'e1', 'h2', 'e2', 'h3'];
-      expect(moveWithinGroup(order, home, 0, 1, order)).toEqual(['e1', 'h2', 'e2', 'h1', 'h3']);
-    });
+  it('Every place rewards follow the Every place order, in every place', () => {
+    const rows = [reward('e1', [], 0, { all: 1 }), reward('e2', [], 1, { all: 0 }), reward('h', [HOME], 2)];
+    expect(names(filterRewards(rows, { location_id: null }))).toEqual(['e2', 'e1']);
+    expect(names(filterRewards(rows, { location_id: HOME }))).toEqual(['h', 'e2', 'e1']);
+    expect(names(filterRewards(rows, { location_id: PARK }))).toEqual(['e2', 'e1']);
   });
 });

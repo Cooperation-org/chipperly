@@ -14,6 +14,11 @@ export const RewardSchema = SyncColumnsSchema.extend({
   always_available: z.boolean(),
   position: z.number().int(),
   /**
+   * The order inside each place, keyed by place id ('all' for Every place), so moving a reward in one place
+   * leaves its spot in the others alone. A place missing here falls back to `position`.
+   */
+  positions: z.record(z.string(), z.number().int()).nullable().optional(),
+  /**
    * Earned free choice: the activity that must be done today before this reward
    * can be picked (the owner's "after homework"). null/absent = no requirement.
    */
