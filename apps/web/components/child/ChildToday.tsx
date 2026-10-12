@@ -617,6 +617,7 @@ export function ChildToday() {
           <ChipStrip
             size="lg"
             showCount
+            chipSize={profile.settings.chip_size}
             filled={workingFor.filled}
             total={workingFor.goal}
             reward={

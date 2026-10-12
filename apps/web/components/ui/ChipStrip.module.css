@@ -34,13 +34,19 @@
   font-size: clamp(16px, 5.5vw, 22px);
 }
 
-/* Child view (owner: "a bit larger"), and they follow the picture size setting. */
-:global(html[data-mode='child']) .lg .chips {
-  font-size: calc(clamp(20px, 7vw, 28px) * var(--pic-scale, 1));
+/* The child's chip size setting (chipSize.ts): whole-pixel stars in even rows. */
+.grid {
+  display: grid;
+  align-items: center;
 }
 
 .chip {
   display: block;
+}
+
+/* A soft edge lifts an earned chip off the page, so it reads apart from a grey empty one. */
+.grid .earned {
+  filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.3));
 }
 
 .reward {
