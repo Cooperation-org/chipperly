@@ -9,19 +9,19 @@
 }
 
 .list {
-  width: var(--tile-list);
-  height: var(--tile-list);
+  width: calc(var(--tile-list) * var(--pic-scale, 1));
+  height: calc(var(--tile-list) * var(--pic-scale, 1));
 }
 
 .grid {
-  width: var(--tile-grid);
-  height: var(--tile-grid);
+  width: calc(var(--tile-grid) * var(--pic-scale, 1));
+  height: calc(var(--tile-grid) * var(--pic-scale, 1));
   border-radius: var(--radius-lg);
 }
 
 .child {
-  width: var(--tile-child);
-  height: var(--tile-child);
+  width: calc(var(--tile-child) * var(--pic-scale, 1));
+  height: calc(var(--tile-child) * var(--pic-scale, 1));
 }
 
 /* The picture a child is working for: as large as the screen allows, never taller than it is wide. */
