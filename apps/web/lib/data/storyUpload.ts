@@ -12,7 +12,7 @@ export function sortUploadFiles<T extends { name: string; type: string }>(files:
 export function titleFromFileName(name: string): string {
   const base = name
     .replace(/\.[^.]+$/, '')
-    .replace(/[\s_-]*(page|p)?[\s_-]*\d+$/i, '')
+    .replace(/(?:^|[\s_-]+)(?:page|p)?[\s_-]*\d+$/i, '')
     .replace(/[_-]+/g, ' ')
     .trim();
   return base || 'Uploaded story';

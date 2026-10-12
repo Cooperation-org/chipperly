@@ -16,6 +16,13 @@ describe('titleFromFileName', () => {
   it('drops the extension and page number', () => {
     expect(titleFromFileName('Going to the dentist_page1.jpg')).toBe('Going to the dentist');
     expect(titleFromFileName('1.png')).toBe('Uploaded story');
+    expect(titleFromFileName('page3.png')).toBe('Uploaded story');
+  });
+
+  it('keeps a word that ends in p', () => {
+    expect(titleFromFileName('Trip 1.png')).toBe('Trip');
+    expect(titleFromFileName('Shop2.jpg')).toBe('Shop2');
+    expect(titleFromFileName('Sleep1.png')).toBe('Sleep1');
   });
 });
 
