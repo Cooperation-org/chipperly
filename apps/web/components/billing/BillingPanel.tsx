@@ -26,6 +26,8 @@ export function BillingPanel() {
   const notice = accessNotice(status.access, status.can_manage, undefined, undefined, paysByArrangement(status));
   const offer = checkoutOffer(status, picked);
   const choices = planChoices(offer.prices);
+  // One price: say what the picked plan costs, not the account's current one.
+  const shown = offer.prices[0] ?? status.price;
 
   async function go(path: '/billing/checkout' | '/billing/portal', plan?: BillingPlan): Promise<void> {
     setBusy(true);
@@ -48,7 +50,7 @@ export function BillingPanel() {
         </div>
       )}
       {status.discount && <p className={styles.muted}>{discountLine(status.discount)}</p>}
-      {!isLive(sub) && status.price && choices.length === 1 && <p className={styles.muted}>{priceLabel(status.price)}</p>}
+      {!isLive(sub) && shown && choices.length === 1 && <p className={styles.muted}>{priceLabel(shown)}</p>}
       {!status.can_manage && <p className={styles.muted}>Only an account admin can change the subscription.</p>}
       {status.can_manage && sub && (
         <Button variant="secondary" loading={busy} onClick={() => void go('/billing/portal')}>
