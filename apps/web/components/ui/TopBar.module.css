@@ -71,3 +71,10 @@
   color: var(--color-text-muted);
   white-space: nowrap;
 }
+
+/* Phones: the words would squeeze the child's name out of the bar. */
+@media (max-width: 400px) {
+  .modeLabel {
+    display: none;
+  }
+}
