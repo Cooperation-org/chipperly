@@ -26,6 +26,7 @@ import { useWorkingFor } from '@/lib/data/chips';
 import { levelEmoji, useMoodLevel } from '@/lib/data/mood';
 import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { useMediaUrl } from '@/lib/data/media';
+import { useStories } from '@/lib/data/stories';
 import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
 import { now } from '@/lib/clock';
@@ -129,6 +130,8 @@ export function ChildToday() {
   }, [highContrast]);
   // The Chipper Chart button shows today's face, so it changes as the chart does.
   const moodLevel = useMoodLevel(profileId, isoDate);
+  // Stories get a button in the list view's bottom bar once there is one to read.
+  const hasStories = useStories(profileId).length > 0;
 
   // Best-effort back-gesture trap: every back navigation just re-pushes the
   // same entry, so there is nowhere for "back" to go while hard-locked. Only
@@ -533,7 +536,7 @@ export function ChildToday() {
   const hasTimedApps = (profile?.settings.timed_app_allowances ?? []).some((a) => a.allowed_until > now());
   const showAllowedApps =
     Boolean(profile?.settings.child_mode_active) && (allowedApps.length > 0 || hasTimedApps) && Capacitor.getPlatform() === 'android';
-  const showBottomBar = options.show_free_time || options.show_first_then || showAllowedApps || running;
+  const showBottomBar = options.show_free_time || options.show_first_then || showAllowedApps || hasStories || running;
   const canPickReward = profile?.settings.child_picks_reward !== false;
   const showChipStrip = Boolean(workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation));
 
@@ -823,6 +826,14 @@ export function ChildToday() {
               onClick={openFirstThen}
             >
               First, then
+            </BigButton>
+          ) : null}
+          {hasStories ? (
+            <BigButton variant="secondary" onClick={openStories}>
+              <span className={styles.emojiGlyph} aria-hidden="true">
+                📖
+              </span>
+              Stories
             </BigButton>
           ) : null}
           {showAllowedApps ? (
