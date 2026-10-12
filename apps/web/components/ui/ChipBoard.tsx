@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChipStar } from './ChipStar';
 import { VisuallyHidden } from './VisuallyHidden';
+import { chipLayout, type ChipSize } from './chipSize';
 import styles from './ChipBoard.module.css';
 
 export type ChipTone = 'positive' | 'neutral' | 'negative';
@@ -20,13 +21,15 @@ export interface ChipBoardProps {
    * how each chip was already earned, not something a tap should rewrite.
    */
   onSetFilled?: (next: number) => void;
+  /** The child's chip size setting: star size and even rows. Omitted: 44px chips that wrap. */
+  chipSize?: ChipSize;
 }
 
 const TONE_WORD: Record<ChipTone, string> = { positive: 'positive', neutral: 'neutral', negative: 'negative' };
 
 /** The brand-star chips for the Chips tab: read-only, or tappable when `onSetFilled` is given.
  * The most recently earned chip pops in on increase either way. */
-export function ChipBoard({ filled, total, tones, onSetFilled }: ChipBoardProps) {
+export function ChipBoard({ filled, total, tones, onSetFilled, chipSize }: ChipBoardProps) {
   const prevFilled = useRef(filled);
   const [poppedIndex, setPoppedIndex] = useState<number | null>(null);
 
@@ -41,6 +44,9 @@ export function ChipBoard({ filled, total, tones, onSetFilled }: ChipBoardProps)
   // is a group (not one flattened "img") and unfilled chips stay decorative.
   const toned = tones !== undefined;
   const interactive = Boolean(onSetFilled) && !toned;
+  const layout = chipSize ? chipLayout(chipSize, total, 'board') : null;
+  const boardStyle = layout ? { display: 'grid', gridTemplateColumns: `repeat(${layout.cols}, ${layout.px}px)`, gap: layout.gap } : undefined;
+  const chipStyle = layout ? { width: layout.px, height: layout.px } : undefined;
 
   return (
     <>
@@ -56,6 +62,7 @@ export function ChipBoard({ filled, total, tones, onSetFilled }: ChipBoardProps)
       ) : null}
       <div
         className={styles.board}
+        style={boardStyle}
         role={toned || interactive ? 'group' : 'img'}
         aria-label={toned || interactive ? undefined : `${filled} of ${total} chips`}
       >
@@ -75,6 +82,7 @@ export function ChipBoard({ filled, total, tones, onSetFilled }: ChipBoardProps)
                 key={i}
                 type="button"
                 className={[chipClassName, styles.chipButton].filter(Boolean).join(' ')}
+                style={chipStyle}
                 onAnimationEnd={onPopEnd}
                 aria-label={`Set chips to ${next} of ${total}`}
                 onClick={() => onSetFilled?.(next)}
@@ -88,6 +96,7 @@ export function ChipBoard({ filled, total, tones, onSetFilled }: ChipBoardProps)
             <span
               key={i}
               className={chipClassName}
+              style={chipStyle}
               onAnimationEnd={onPopEnd}
               role={tone ? 'img' : undefined}
               aria-label={tone ? `chip ${i + 1}, earned with a ${TONE_WORD[tone]} attitude` : undefined}

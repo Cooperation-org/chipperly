@@ -21,6 +21,7 @@ import { firstThenReadiness, FIRST_THEN_SETUP_PATH } from '@/components/firstThe
 import { needsBothConfirm, setExclusive, type ExclusiveKey } from './lockOptionRules';
 import { DisplayPreview, DISPLAY_SIZE_ITEMS } from './DisplayPreview';
 import type { DisplaySize } from '@/components/child/displaySize';
+import { DEFAULT_CHIP_SIZE, type ChipSize } from '@/components/ui/chipSize';
 import { isSelfManaged, settingsCopy } from './settingsCopy';
 
 export interface LockSheetProps {
@@ -71,6 +72,7 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
   const [highContrast, setHighContrast] = useState(false);
   const [textSize, setTextSize] = useState<DisplaySize>('medium');
   const [pictureSize, setPictureSize] = useState<DisplaySize>('medium');
+  const [chipSize, setChipSize] = useState<ChipSize>(DEFAULT_CHIP_SIZE);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   if (row && loadedFor !== row.id) {
     setChildLayout(row.settings.child_layout ?? 'list');
@@ -82,6 +84,7 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
     setHighContrast(row.settings.high_contrast ?? false);
     setTextSize(row.settings.text_size ?? 'medium');
     setPictureSize(row.settings.picture_size ?? 'medium');
+    setChipSize(row.settings.chip_size ?? DEFAULT_CHIP_SIZE);
     setLoadedFor(row.id);
   }
 
@@ -155,6 +158,7 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
           high_contrast: highContrast,
           text_size: textSize,
           picture_size: pictureSize,
+          chip_size: chipSize,
         },
       });
     }
@@ -295,7 +299,11 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
           <span className={styles.toggleLabel}>Picture size</span>
           <Segmented label="Picture size" items={DISPLAY_SIZE_ITEMS} value={pictureSize} onChange={(v) => setPictureSize(v as DisplaySize)} />
         </div>
-        <DisplayPreview textSize={textSize} pictureSize={pictureSize} pictureMode={pictureMode} />
+        <div className={styles.settingRow}>
+          <span className={styles.toggleLabel}>Chip size</span>
+          <Segmented label="Chip size" items={DISPLAY_SIZE_ITEMS} value={chipSize} onChange={(v) => setChipSize(v as ChipSize)} />
+        </div>
+        <DisplayPreview textSize={textSize} pictureSize={pictureSize} pictureMode={pictureMode} chipSize={chipSize} />
 
         <p className={styles.sectionTitle}>{copy.canTitle}</p>
         <div className={styles.toggleRow}>
