@@ -70,11 +70,11 @@ export function accessNotice(access: Access, canManage: boolean, locale?: string
   };
 }
 
-/** "25% off the annual plan" (and why it may not apply), from what the server reports. */
+/** "25% off a yearly plan" (and when it applies), from what the server reports. */
 export function discountLine(discount: BillingDiscount): string {
-  const plan = discount.applies_to === 'annual' ? 'the annual plan' : 'any plan';
-  const base = `${discount.percent_off}% off ${plan} (code ${discount.code})`;
-  return discount.applicable ? `${base}. It is applied at checkout.` : `${base}. Your plan is not annual, so it does not apply to it.`;
+  if (discount.applies_to === 'any') return `${discount.percent_off}% off any plan (code ${discount.code}). It is applied at checkout.`;
+  const base = `${discount.percent_off}% off a yearly plan (code ${discount.code})`;
+  return discount.applicable ? `${base}. Pick a yearly plan and it is applied at checkout.` : `${base}. There is no yearly plan to pick yet.`;
 }
 
 /** An organization with no price in the app: it pays by arrangement. */

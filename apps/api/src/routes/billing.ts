@@ -102,6 +102,8 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     const price: BillingStatus['price'] = prices[0] ? { amount: prices[0].amount, currency: prices[0].currency, interval: prices[0].interval } : null;
     // Checkout only applies it to a first subscription, so stop advertising it once one exists.
     const held = sub ? null : await loadPersonalDiscount(userId);
+    // It applies if any plan that can be bought here fits it, since the person can pick another plan.
+    const buyable = kind === 'agency' ? prices : kinds.flatMap((k) => k.prices);
     return {
       kind,
       checkout_available: Boolean(priceId),
@@ -113,7 +115,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
         : null,
       can_manage: isAdmin,
       access: await accountAccess(accountId),
-      discount: held ? { ...held, applicable: (prices.length > 0 ? prices : [{ interval: null }]).some((p) => discountApplies(held, p.interval)) } : null,
+      discount: held ? { ...held, applicable: (buyable.length > 0 ? buyable : [{ interval: null }]).some((p) => discountApplies(held, p.interval)) } : null,
     };
   });
 

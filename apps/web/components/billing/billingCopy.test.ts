@@ -47,8 +47,8 @@ describe('billingCopy', () => {
   });
 
   it('describes the discount and when it does not apply', () => {
-    expect(discountLine({ code: 'EARLY-ABC234', percent_off: 25, applies_to: 'annual', applicable: true })).toContain('applied at checkout');
-    expect(discountLine({ code: 'EARLY-ABC234', percent_off: 25, applies_to: 'annual', applicable: false })).toContain('not annual');
+    expect(discountLine({ code: 'EARLY-ABC234', percent_off: 25, applies_to: 'annual', applicable: true })).toBe('25% off a yearly plan (code EARLY-ABC234). Pick a yearly plan and it is applied at checkout.');
+    expect(discountLine({ code: 'EARLY-ABC234', percent_off: 25, applies_to: 'annual', applicable: false })).toContain('no yearly plan');
     expect(discountLine({ code: 'X', percent_off: 10, applies_to: 'any', applicable: true })).toContain('any plan');
   });
 

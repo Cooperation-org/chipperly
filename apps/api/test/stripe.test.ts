@@ -592,7 +592,7 @@ describe('choosing a plan at checkout', () => {
       'fetch',
       vi.fn(async (url: string, init?: { body?: URLSearchParams }) => {
         const json = (o: unknown) => new Response(JSON.stringify(o), { headers: { 'content-type': 'application/json' } });
-        if (url.includes('/prices/')) return json({ unit_amount: 1000, currency: 'usd', recurring: { interval: 'month' } });
+        if (url.includes('/prices/')) return json({ unit_amount: 1000, currency: 'usd', recurring: { interval: url.endsWith('_y') ? 'year' : 'month' } });
         if (url.endsWith('/checkout/sessions')) {
           sessions.push(String(init?.body?.get('line_items[0][price]')));
           return json({ url: 'https://checkout.stripe.com/c/pay/test' });
@@ -600,6 +600,18 @@ describe('choosing a plan at checkout', () => {
         return new Response('{}', { status: 404 });
       }),
     );
+
+  it('an annual-only discount applies when any plan on offer is yearly, not just the current one', async () => {
+    stubStripe();
+    const { adminId, headers } = await setup('individual');
+    const offer = `TEST-${uuidv7().slice(-8)}`;
+    const now = Date.now();
+    await db.insert(promo_codes).values({ code: offer, percent_off: 25, applies_to: 'annual', valid_from: now, valid_until: now, active: true, auto_issue: false, note: null, created_at: now });
+    await db.update(users).set({ promo_code: offer, personal_code: `EARLY-${uuidv7().slice(-6).toUpperCase()}`, promo_code_at: now }).where(eq(users.id, adminId));
+    const status = (await request(app, { method: 'GET', url: `${env.BASE_PATH}/api/billing`, headers })).json() as { prices: { interval: string }[]; discount: { applicable: boolean } };
+    expect(status.prices.map((p) => p.interval)).toEqual(['month']);
+    expect(status.discount.applicable).toBe(true);
+  });
 
   it('maps a price id back to its kind, monthly or yearly, and ignores unknown ones', () => {
     expect(kindForPriceId('price_house')).toBe('household');

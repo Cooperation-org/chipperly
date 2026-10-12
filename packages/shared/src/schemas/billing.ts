@@ -30,7 +30,7 @@ export const BillingDiscountSchema = z.object({
   code: z.string(),
   percent_off: z.number().int().min(1).max(100),
   applies_to: z.enum(['annual', 'any']),
-  /** False when the offer is annual-only and this account's price is not yearly. */
+  /** False when the offer is annual-only and no plan that can be bought here is yearly. */
   applicable: z.boolean(),
 });
 export type BillingDiscount = z.infer<typeof BillingDiscountSchema>;
