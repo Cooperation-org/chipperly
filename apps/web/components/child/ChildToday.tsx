@@ -31,6 +31,7 @@ import { playChip } from '@/lib/sound';
 import { now } from '@/lib/clock';
 import { Picture } from '@/components/media/Picture';
 import { displaySizeClass } from './displaySize';
+import { canTickInOneTap } from './oneTap';
 import { ChipStrip } from '@/components/ui/ChipStrip';
 import { CheckCircle } from '@/components/ui/CheckCircle';
 import { StepRow } from '@/components/ui/StepRow';
@@ -465,14 +466,24 @@ export function ChildToday() {
   }
 
   // Tapping a row's picture: the few things a child can do with it, as big buttons.
-  function openRowOptions(day: DayItem): void {
+  function openRowOptions(day: DayItem, stepsDone: number): void {
     const done = day.item.completed_at !== null;
     const hasSteps = day.steps.length > 0;
+    // Same one-tap rules as the row itself, so a hidden "Mark all done" stays hidden here too.
+    const showTick = canTickInOneTap({
+      hasSteps,
+      done,
+      stepsDone,
+      showMarkAllDone: options.show_mark_all_done !== false,
+      routineBonus: Boolean(profile?.settings.routine_bonus_chips),
+    });
     sheet.open(
       <div className={styles.rowOptions}>
-        <BigButton variant="primary" icon="check" fullWidth onClick={() => { sheet.close(); void handleToggle(day, !done); }}>
-          {done ? 'Not done' : 'Done'}
-        </BigButton>
+        {showTick ? (
+          <BigButton variant="primary" icon="check" fullWidth onClick={() => { sheet.close(); void handleToggle(day, !done); }}>
+            {done ? 'Not done' : 'Done'}
+          </BigButton>
+        ) : null}
         {readAloud ? (
           <BigButton variant="secondary" icon="speaker" fullWidth onClick={() => speak(day.activity.name)}>
             Read aloud
@@ -673,7 +684,7 @@ export function ChildToday() {
               <div key={day.item.id} className={isNow ? `${styles.card} ${styles.now}` : styles.card} aria-current={isNow ? 'step' : undefined}>
                 <div className={styles.row}>
                   {/* The picture opens the row's options; the check circle stays the one-tap tick. */}
-                  <button type="button" className={styles.pictureTap} aria-label={`Options, ${day.activity.name}`} onClick={() => openRowOptions(day)}>
+                  <button type="button" className={styles.pictureTap} aria-label={`Options, ${day.activity.name}`} onClick={() => openRowOptions(day, stepsDone)}>
                     {picture}
                   </button>
                   {hasSteps ? (
