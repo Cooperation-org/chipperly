@@ -1,10 +1,12 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { and, eq, lte, ne } from 'drizzle-orm';
+import { and, eq, gt, isNull, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AccountKind } from '@chipperly/shared/schemas/account';
 import { PurchasableKind, SubscriptionStatus, type BillingPlan } from '@chipperly/shared/schemas/billing';
+import { HOUSEHOLD_ADMIN_LIMIT, PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { db } from '../db/client.js';
-import { account_members, accounts, promo_codes, users } from '../db/schema/accounts.js';
+import { account_members, accounts, invites, promo_codes, users } from '../db/schema/accounts.js';
+import { profiles } from '../db/schema/profiles.js';
 import { stripe_events, subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
 import { renderEmail, siteOrigin } from './emailTemplate.js';
@@ -151,6 +153,29 @@ export const DISPUTE_EVENTS = ['charge.dispute.created', 'charge.dispute.updated
 
 export type ApplyResult = 'applied' | 'duplicate' | 'ignored';
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type PlanMisfit = 'too_many_profiles' | 'too_many_admins';
+
+/**
+ * Why an account does not fit a plan, or null when it does: more live profiles than the plan allows,
+ * or, for a family plan, more than HOUSEHOLD_ADMIN_LIMIT admins. `pending` also counts admin invites
+ * not yet accepted, the way inviting does.
+ */
+export async function planMisfit(q: Pick<Tx, 'select'>, accountId: string, kind: AccountKind, pending = false): Promise<PlanMisfit | null> {
+  const count = sql<number>`count(*)::int`;
+  const [live] = await q.select({ n: count }).from(profiles).where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at)));
+  if ((live?.n ?? 0) > PROFILE_LIMITS[kind]) return 'too_many_profiles';
+  if (kind !== 'household') return null;
+  const [admins] = await q.select({ n: count }).from(account_members).where(and(eq(account_members.account_id, accountId), eq(account_members.role, 'admin')));
+  const [open] = pending
+    ? await q
+        .select({ n: count })
+        .from(invites)
+        .where(and(eq(invites.account_id, accountId), eq(invites.role, 'admin'), isNull(invites.accepted_at), gt(invites.expires_at, Date.now())))
+    : [{ n: 0 }];
+  return (admins?.n ?? 0) + (open?.n ?? 0) > HOUSEHOLD_ADMIN_LIMIT ? 'too_many_admins' : null;
+}
+
 /**
  * Applies a verified event exactly once. The event id is inserted into
  * `stripe_events` in the same transaction as the subscription write: a
@@ -177,13 +202,13 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
     updated_at: nowMs,
   };
 
-  const { result, notice } = await db.transaction(async (tx) => {
+  const { result, notice, misfit } = await db.transaction(async (tx) => {
     const claimed = await tx
       .insert(stripe_events)
       .values({ id: event.id, type: event.type, received_at: nowMs })
       .onConflictDoNothing()
       .returning({ id: stripe_events.id });
-    if (claimed.length === 0) return { result: 'duplicate' as const, notice: null };
+    if (claimed.length === 0) return { result: 'duplicate' as const, notice: null, misfit: null };
 
     const [prev] = await tx.select().from(subscriptions).where(eq(subscriptions.account_id, accountId)).limit(1);
     const { account_id: _id, ...changes } = row;
@@ -196,13 +221,37 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
         setWhere: lte(subscriptions.last_event_at, row.last_event_at),
       });
     const stale = prev !== undefined && prev.last_event_at > row.last_event_at;
-    // The plan that was paid for (at checkout or later in the portal) becomes the account's kind.
+    // The plan that was paid for (at checkout or later in the portal) becomes the account's kind,
+    // unless the account does not fit it (a portal downgrade skips checkout's checks): then a person sorts it out.
     const paidKind = sub.items?.data[0]?.price && kindForPriceId(sub.items.data[0].price.id);
-    if (!stale && paidKind && PAID.has(row.status)) await tx.update(accounts).set({ kind: paidKind }).where(and(eq(accounts.id, accountId), ne(accounts.kind, 'agency')));
-    return { result: 'applied' as const, notice: stale ? null : subscriptionNotice(prev, row) };
+    let misfit: { name: string; from: AccountKind; to: AccountKind; why: PlanMisfit } | null = null;
+    if (!stale && paidKind && PAID.has(row.status)) {
+      const [account] = await tx.select({ kind: accounts.kind, name: accounts.name }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
+      if (account && account.kind !== 'agency' && account.kind !== paidKind) {
+        const why = await planMisfit(tx, accountId, paidKind);
+        if (why) misfit = { name: account.name, from: account.kind, to: paidKind, why };
+        else await tx.update(accounts).set({ kind: paidKind }).where(eq(accounts.id, accountId));
+      }
+    }
+    return { result: 'applied' as const, notice: stale ? null : subscriptionNotice(prev, row), misfit };
   });
   if (notice) await mailAccountAdmins(accountId, notice, row.current_period_end);
+  if (misfit) await mailPlanMisfit(accountId, misfit);
   return result;
+}
+
+async function mailPlanMisfit(accountId: string, m: { name: string; from: AccountKind; to: AccountKind; why: PlanMisfit }): Promise<void> {
+  const has = m.why === 'too_many_profiles' ? 'more profiles' : 'more admins';
+  console.warn(`stripe: account ${accountId} paid for ${m.to} but has ${has} than it allows; kind left as ${m.from}`);
+  const mail = renderEmail({
+    heading: 'A plan change needs a look',
+    paragraphs: [
+      `${m.name} now pays for the ${m.to} plan, but it has ${has} than that plan allows.`,
+      `Its account type was left as ${m.from}. Check the subscription in Stripe and talk to the account admin.`,
+    ],
+    action: { label: 'Open the payments log', url: `${siteOrigin()}/settings/admin/payments/` },
+  });
+  for (const to of env.superAdminEmails) await sendMail({ to, subject: 'Chipperly plan change needs a look', ...mail });
 }
 
 const DisputeSchema = z.object({

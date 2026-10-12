@@ -655,4 +655,24 @@ describe('choosing a plan at checkout', () => {
     await applyStripeEvent(withPrice('active', 'price_ind', 3)); // downgrade in the portal
     expect(await kindNow()).toBe('individual');
   });
+
+  it('a portal downgrade the account does not fit keeps the kind it has', async () => {
+    const { accountId, adminId } = await setup('household');
+    await createProfile(accountId, adminId, 'One');
+    await createProfile(accountId, adminId, 'Two');
+    const e = subEvent(accountId, { status: 'active', created: 1_800_000_100 });
+    (e.data.object as { items: unknown }).items = { data: [{ price: { id: 'price_ind' } }] };
+    expect(await applyStripeEvent(e)).toBe('applied');
+    expect((await db.select().from(accounts).where(eq(accounts.id, accountId)))[0]!.kind).toBe('household');
+    expect((await db.select().from(subscriptions).where(eq(subscriptions.account_id, accountId)))[0]!.status).toBe('active');
+  });
+
+  it('a portal upgrade to the family plan with 3 admins keeps the kind it has', async () => {
+    const { accountId } = await setup('individual');
+    for (let i = 0; i < 2; i++) await addMember(accountId, (await createUser()).id, 'admin');
+    const e = subEvent(accountId, { status: 'active', created: 1_800_000_200 });
+    (e.data.object as { items: unknown }).items = { data: [{ price: { id: 'price_house' } }] };
+    await applyStripeEvent(e);
+    expect((await db.select().from(accounts).where(eq(accounts.id, accountId)))[0]!.kind).toBe('individual');
+  });
 });
