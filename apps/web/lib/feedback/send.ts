@@ -1,4 +1,4 @@
-import type { FeedbackBody, FeedbackHelped, FeedbackKind } from '@chipperly/shared/schemas/feedback';
+import type { FeedbackBilling, FeedbackBody, FeedbackFairPrice, FeedbackHelped, FeedbackKind } from '@chipperly/shared/schemas/feedback';
 import { apiBase } from '../api/base';
 import { getTokens } from '../api/client';
 
@@ -17,11 +17,14 @@ export interface FeedbackDraft {
   recommend: string;
   /** Dollars per month, as typed. */
   price: string;
+  fairPrice: FeedbackFairPrice | '';
+  billing: FeedbackBilling | '';
+  wouldPay: string;
 }
 
 /** The note can go alone, or the survey can: one of them has to have something in it. */
 export function canSend(draft: FeedbackDraft): boolean {
-  return [draft.message, draft.problem, draft.easier, draft.frustrated, draft.liked, draft.recommend, draft.helped, dollars(draft.price) ?? ''].some((v) => String(v).trim() !== '');
+  return [draft.message, draft.problem, draft.easier, draft.frustrated, draft.liked, draft.recommend, draft.helped, draft.fairPrice, draft.billing, draft.wouldPay, dollars(draft.price) ?? ''].some((v) => String(v).trim() !== '');
 }
 
 const text = (typed: string): string | undefined => typed.trim() || undefined;
@@ -49,6 +52,9 @@ export function buildFeedbackBody(draft: FeedbackDraft, page: string, appVersion
     q_liked: text(draft.liked),
     q_recommend: text(draft.recommend),
     q_price_monthly: dollars(draft.price),
+    q_fair_price: draft.fairPrice || undefined,
+    q_billing: draft.billing || undefined,
+    q_would_pay: text(draft.wouldPay),
   };
 }
 

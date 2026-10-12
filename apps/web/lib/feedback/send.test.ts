@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildFeedbackBody, canSend, type FeedbackDraft } from './send';
 
-const draft: FeedbackDraft = { kind: 'idea', message: '  Add a dark mode  ', rating: null, contactOk: false, contactEmail: '', problem: '', helped: '', easier: '', frustrated: '', liked: '', recommend: '', price: '' };
+const draft: FeedbackDraft = { kind: 'idea', message: '  Add a dark mode  ', rating: null, contactOk: false, contactEmail: '', problem: '', helped: '', easier: '', frustrated: '', liked: '', recommend: '', price: '', fairPrice: '', billing: '', wouldPay: '' };
 
 describe('buildFeedbackBody', () => {
   it('trims the message and leaves out what was not filled in', () => {
@@ -22,6 +22,13 @@ describe('buildFeedbackBody', () => {
     const body = buildFeedbackBody({ ...draft, message: '', problem: ' too many tabs ', helped: 'partly', liked: '   ' }, '/');
     expect(body).toMatchObject({ message: '', q_problem: 'too many tabs', q_helped: 'partly' });
     expect(body.q_liked).toBeUndefined();
+  });
+
+  it('sends the optional pricing answers', () => {
+    const body = buildFeedbackBody({ ...draft, message: '', fairPrice: 'too much', billing: 'yearly', wouldPay: ' more tabs ' }, '/');
+    expect(body).toMatchObject({ q_fair_price: 'too much', q_billing: 'yearly', q_would_pay: 'more tabs' });
+    expect(canSend({ ...draft, message: '', billing: 'monthly' })).toBe(true);
+    expect(buildFeedbackBody(draft, '/').q_billing).toBeUndefined();
   });
 
   it('needs a message or at least one survey answer', () => {

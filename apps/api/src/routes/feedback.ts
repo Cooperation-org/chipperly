@@ -48,6 +48,9 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
       q_liked: body.q_liked || null,
       q_recommend: body.q_recommend || null,
       q_price_monthly: body.q_price_monthly ?? null,
+      q_fair_price: body.q_fair_price ?? null,
+      q_billing: body.q_billing ?? null,
+      q_would_pay: body.q_would_pay || null,
       nps_score: body.nps_score ?? null,
     });
 
@@ -91,6 +94,9 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
       q_liked: r.q_liked,
       q_recommend: r.q_recommend,
       q_price_monthly: r.q_price_monthly,
+      q_fair_price: r.q_fair_price,
+      q_billing: r.q_billing,
+      q_would_pay: r.q_would_pay,
       nps_score: r.nps_score,
       status: r.status,
     }));

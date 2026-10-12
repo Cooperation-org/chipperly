@@ -67,6 +67,17 @@ describe('feedback', () => {
     env.FEEDBACK_EMAIL_TO = undefined;
   });
 
+  it('stores and mails the optional pricing answers', async () => {
+    env.FEEDBACK_EMAIL_TO = 'team@example.com';
+    const why = `pay ${uuidv7()}`;
+    expect((await send({ kind: 'idea', message: '', q_fair_price: 'too much', q_billing: 'yearly', q_would_pay: why })).statusCode).toBe(201);
+    const [row] = await db.select().from(feedback).where(eq(feedback.q_would_pay, why));
+    expect(row).toMatchObject({ q_fair_price: 'too much', q_billing: 'yearly', q_helped: null });
+    expect(getLastMailMessage()?.text).toContain(why);
+    env.FEEDBACK_EMAIL_TO = undefined;
+    expect((await send({ kind: 'idea', message: 'x', q_billing: 'weekly' })).statusCode).toBe(400);
+  });
+
   it('stores an nps score with its reason', async () => {
     const why = `nps ${uuidv7()}`;
     expect((await send({ kind: 'nps', message: why, nps_score: 9 })).statusCode).toBe(201);
