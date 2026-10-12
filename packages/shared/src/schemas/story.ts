@@ -12,7 +12,8 @@ export type SocialStory = z.infer<typeof SocialStorySchema>;
 export const StoryPageSchema = SyncColumnsSchema.extend({
   story_id: uuidSchema,
   position: z.number().int(),
-  text: z.string().min(1),
+  /** Empty when the picture already holds the words (an uploaded story page). */
+  text: z.string(),
   emoji: z.string().nullable(),
   photo_id: uuidSchema.nullable(),
   /** The page read aloud in a team member's own voice (media kind 'audio'). Optional so older rows still parse. */

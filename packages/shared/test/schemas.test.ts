@@ -329,6 +329,17 @@ describe('story schemas', () => {
       photo_id: null,
     });
   });
+
+  it('accepts a picture page with no text (an uploaded story)', () => {
+    expectRoundTrip(StoryPageSchema, {
+      ...syncCols,
+      story_id: id2,
+      position: 0,
+      text: '',
+      emoji: null,
+      photo_id: id2,
+    });
+  });
 });
 
 describe('attitude schema', () => {
