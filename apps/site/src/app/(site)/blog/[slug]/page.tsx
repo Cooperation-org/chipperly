@@ -14,7 +14,7 @@ import { breadcrumbs, faqPage, ORG_ID } from '../../../../lib/jsonld';
 import { followRedirect, getPost, getSettings, payload } from '../../../../lib/payload';
 import { buildMetadata, ogImageUrl } from '../../../../lib/seo';
 import { abs } from '../../../../lib/site';
-import { firstMention } from '../../../../lib/trademark';
+import { firstMention, tmHeading } from '../../../../lib/trademark';
 import type { Media, Post } from '../../../../payload-types';
 
 export const revalidate = 3600;
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: Props) {
   const post = await getPost((await params).slug);
   if (!post) return {};
   return buildMetadata({
-    title: post.meta?.title?.replace(/ \| Chipperly™?$/, '') || post.title,
+    title: tmHeading(post.meta?.title?.replace(/ \| Chipperly™?$/, '') || post.title),
     description: post.meta?.description || post.excerpt,
     path: `/blog/${post.slug}`,
     image: post.meta?.image || post.heroImage,
@@ -75,7 +75,7 @@ export default async function PostPage({ params }: Props) {
             {c.title}
           </Link>
         ))}
-        <h1>{post.title}</h1>
+        <h1>{tmHeading(post.title)}</h1>
         <p className="lede">{tm.text(post.excerpt)}</p>
         <p className="meta">
           {byline.length > 0 && <span>By {byline.map((a) => a.name).join(', ')}</span>}

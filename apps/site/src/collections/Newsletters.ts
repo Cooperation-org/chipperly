@@ -69,7 +69,9 @@ export const Newsletters: CollectionConfig = {
     {
       name: 'scheduledFor',
       type: 'date',
-      admin: { position: 'sidebar', date: { pickerAppearance: 'dayAndTime' }, condition: (d) => d.status === 'scheduled', description: 'Goes out with the daily send, the next morning after this time.' },
+      // Without a date the daily send never picks it up.
+      validate: (v: unknown, { siblingData }: { siblingData: Partial<Doc> }) => siblingData.status !== 'scheduled' || !!v || 'Pick a date and time to send.',
+      admin: { position: 'sidebar', date: { pickerAppearance: 'dayAndTime' }, condition: (d) => d.status === 'scheduled', description: 'Goes out at the next daily send (9am Arizona time) after this time.' },
     },
     { name: 'sendTest', label: 'Send a test to me when I save', type: 'checkbox', defaultValue: false },
     { name: 'sendNow', label: 'Send to the audience when I save', type: 'checkbox', defaultValue: false },

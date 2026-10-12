@@ -384,7 +384,7 @@ export interface Newsletter {
   /**
    * App segments need the app connected (NEWSLETTER_API_SECRET); until then they say "not connected yet".
    */
-  audience: 'all' | 'waitlist' | 'trial_expired' | 'subscribed';
+  audience: 'all' | 'waitlist' | 'app_users' | 'trial_expired' | 'subscribed';
   status?: ('draft' | 'scheduled' | 'sent') | null;
   /**
    * Goes out with the daily send, the next morning after this time.

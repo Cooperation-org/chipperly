@@ -14,10 +14,11 @@ export function firstMention() {
     const end = m.index + 'Chipperly'.length;
     return m[1] ? s : `${s.slice(0, end)}™${s.slice(end)}`;
   };
-  type Node = { text?: unknown; children?: Node[] };
-  const walk = (n: Node) => {
-    if (typeof n.text === 'string') n.text = text(n.text);
-    n.children?.forEach(walk);
+  type Node = { type?: string; text?: unknown; children?: Node[] };
+  // A heading is marked on its own, so it does not use up the body's first mention.
+  const walk = (n: Node, mark: (s: string) => string = text) => {
+    if (typeof n.text === 'string') n.text = mark(n.text);
+    n.children?.forEach((c) => walk(c, n.type === 'heading' ? tmHeading : mark));
   };
   const lexical = (data: SerializedEditorState): SerializedEditorState => {
     const copy = structuredClone(data);
@@ -26,3 +27,6 @@ export function firstMention() {
   };
   return { text, lexical };
 }
+
+/** Headings and page titles carry the ™ on every "Chipperly", not just the first. */
+export const tmHeading = (s: string) => s.replace(/Chipperly(?!™)/g, 'Chipperly™');

@@ -1,4 +1,5 @@
 import { payload } from '../../lib/payload';
+import { CONTACT_EMAIL } from '../../lib/site';
 import { readUnsubscribeToken } from '../../lib/unsubscribe';
 
 // The link in every newsletter. GET shows one button (so a mail scanner that
@@ -11,7 +12,7 @@ const page = (title: string, body: string, status = 200) =>
     { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } },
   );
 
-const bad = () => page('This link does not work', '<p>It may have been cut short. Reply to any of our emails and we will remove you by hand.</p>', 400);
+const bad = () => page('This link does not work', `<p>It may have been cut short. Write to <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a> and we will remove you by hand.</p>`, 400);
 
 export async function GET(req: Request) {
   const t = new URL(req.url).searchParams.get('t') ?? '';

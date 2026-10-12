@@ -19,6 +19,10 @@ describe('pickAudience', () => {
     expect(pickAudience('trial_expired', people, new Set())).toEqual(['x@example.com']);
     expect(pickAudience('subscribed', people, new Set()).sort()).toEqual(['s@example.com', 'w@example.com']);
   });
+  it('app users only: every app segment, no waitlist', () => {
+    expect(pickAudience('app_users', people, new Set()).sort()).toEqual(['s@example.com', 't@example.com', 'w@example.com', 'x@example.com']);
+    expect(pickAudience('app_users', people.slice(0, 1), new Set())).toEqual([]);
+  });
   it('never includes an unsubscribed address, in any audience', () => {
     const gone = new Set(['w@example.com', 't@example.com']);
     expect(pickAudience('all', people, gone).sort()).toEqual(['s@example.com', 'x@example.com']);

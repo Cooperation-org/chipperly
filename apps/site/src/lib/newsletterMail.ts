@@ -1,4 +1,4 @@
-import { SITE_URL } from './site';
+import { CONTACT_EMAIL, SITE_URL } from './site';
 import { unsubscribeToken } from './unsubscribe';
 
 export type Mail = { to: string; subject: string; text: string; html: string; headers: Record<string, string> };
@@ -37,7 +37,8 @@ export async function sendBatch(mails: Mail[], o: { apiKey: string; from: string
       const res = await fetchImpl('https://api.resend.com/emails/batch', {
         method: 'POST',
         headers: { Authorization: `Bearer ${o.apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(chunk.map((m) => ({ from: o.from, ...m }))),
+        // Newsletters come from no-reply, so a reply goes to the inbox someone reads.
+        body: JSON.stringify(chunk.map((m) => ({ from: o.from, reply_to: CONTACT_EMAIL, ...m }))),
       });
       if (res.ok) sent += chunk.length;
       else throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);

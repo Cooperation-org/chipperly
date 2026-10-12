@@ -27,6 +27,7 @@ describe('sendBatch', () => {
     const f = vi.fn(async () => new Response('{}'));
     expect(await sendBatch(mails, { apiKey: 'k', from: 'a@b.c' }, f as never)).toEqual({ sent: 250, failed: 0 });
     expect(f).toHaveBeenCalledTimes(3);
+    expect(JSON.parse((f.mock.calls[0] as unknown as [string, { body: string }])[1].body)[0]).toMatchObject({ from: 'a@b.c', reply_to: 'info@chipperlyapp.com' });
   });
   it('counts a refused batch as failed and carries on', async () => {
     const f = vi.fn().mockResolvedValueOnce(new Response('no', { status: 422 })).mockResolvedValue(new Response('{}'));

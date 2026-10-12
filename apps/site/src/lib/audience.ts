@@ -3,12 +3,18 @@
 export const AUDIENCES = [
   { label: 'Everyone (waitlist and app users)', value: 'all' },
   { label: 'Waitlist only', value: 'waitlist' },
+  { label: 'App users only', value: 'app_users' },
   { label: 'Expired trials', value: 'trial_expired' },
   { label: 'Active subscribers', value: 'subscribed' },
 ] as const;
 export type Audience = (typeof AUDIENCES)[number]['value'];
 
-/** `trial` = still in their free trial (or its grace days): only "everyone" reaches them. */
+/**
+ * The app sets the segment per account, by the same rule that pauses an account.
+ * `trial_expired` = an admin (only admins can pay) whose account's trial and grace
+ * days are over. `trial` = everyone else who is not subscribed: in a trial or its
+ * grace days, or a member who cannot pay. "Everyone" and "App users only" reach them.
+ */
 export type Recipient = { email: string; segment: 'waitlist' | 'trial' | 'trial_expired' | 'subscribed' };
 
 /** Lowercased, valid, de-duplicated addresses for the audience, minus anyone who unsubscribed. */
@@ -16,7 +22,8 @@ export function pickAudience(audience: Audience, recipients: Recipient[], unsubs
   const out = new Set<string>();
   for (const r of recipients) {
     const email = r.email.trim().toLowerCase();
-    if (audience !== 'all' && r.segment !== audience) continue;
+    const wanted = audience === 'all' || r.segment === audience || (audience === 'app_users' && r.segment !== 'waitlist');
+    if (!wanted) continue;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || unsubscribed.has(email)) continue;
     out.add(email);
   }
