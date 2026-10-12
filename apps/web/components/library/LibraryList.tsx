@@ -43,6 +43,13 @@ export type LibraryKind = 'activity' | 'reward' | 'location' | 'routine';
 
 type ReorderControl = 'handle' | 'up' | 'down';
 
+/** One place group of the reward list: its ids, and what the child sees in that place (Every place plus this place). */
+interface ReorderGroup {
+  key: string;
+  ids: string[];
+  mergedIds: string[];
+}
+
 export interface LibraryListProps {
   kind: LibraryKind;
 }
@@ -411,7 +418,7 @@ export function LibraryList({ kind }: LibraryListProps) {
   // Reward reorder: same handle + arrow keys + drag as the schedule, scoped to one place group.
   // A reward can sit in several place groups, so rows and drag state are keyed by `${groupKey}:${id}`.
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
-  const dragRef = useRef<{ id: string; groupKey: string; startY: number; groupIds: string[] } | null>(null);
+  const dragRef = useRef<{ id: string; group: ReorderGroup; startY: number } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
 
@@ -420,11 +427,11 @@ export function LibraryList({ kind }: LibraryListProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const refocusRef = useRef<{ key: string; control: ReorderControl; order: string } | null>(null);
 
-  function moveReward(groupIds: string[], id: string, to: number, refocus?: { groupKey: string; control: ReorderControl }): void {
-    const from = groupIds.indexOf(id);
+  function moveReward(group: ReorderGroup, id: string, to: number, control?: ReorderControl): void {
+    const from = group.ids.indexOf(id);
     if (from === to) return;
-    const next = moveWithinGroup(rewards.map((r) => r.id), groupIds, from, to);
-    refocusRef.current = refocus ? { key: `${refocus.groupKey}:${id}`, control: refocus.control, order: next.join() } : null;
+    const next = moveWithinGroup(rewards.map((r) => r.id), group.ids, from, to, group.mergedIds);
+    refocusRef.current = control ? { key: `${group.key}:${id}`, control, order: next.join() } : null;
     void reorderRewards(next);
   }
 
@@ -452,10 +459,10 @@ export function LibraryList({ kind }: LibraryListProps) {
     setDraggingId(null);
     setDragOffset(0);
     if (!drag) return;
-    let target = drag.groupIds.indexOf(drag.id);
+    let target = drag.group.ids.indexOf(drag.id);
     let best = Infinity;
-    drag.groupIds.forEach((gid, idx) => {
-      const rect = rowRefs.current.get(`${drag.groupKey}:${gid}`)?.getBoundingClientRect();
+    drag.group.ids.forEach((gid, idx) => {
+      const rect = rowRefs.current.get(`${drag.group.key}:${gid}`)?.getBoundingClientRect();
       if (!rect) return;
       const dist = Math.abs(rect.top + rect.height / 2 - e.clientY);
       if (dist < best) {
@@ -463,7 +470,7 @@ export function LibraryList({ kind }: LibraryListProps) {
         target = idx;
       }
     });
-    moveReward(drag.groupIds, drag.id, target);
+    moveReward(drag.group, drag.id, target);
   }
 
   if (!profileId) return null;
@@ -694,6 +701,16 @@ export function LibraryList({ kind }: LibraryListProps) {
             <div className={styles.list}>
               {group.rows.map((row, idx) => {
                 const groupIds = group.rows.map((r) => r.id);
+                // The child sees Every place rewards mixed in with each place's own, so a move in a place group is
+                // placed against that merged list (see moveWithinGroup).
+                const reorderGroup: ReorderGroup = {
+                  key: group.key,
+                  ids: groupIds,
+                  mergedIds:
+                    group.key === 'all'
+                      ? rows.map((r) => r.id)
+                      : rows.filter((r) => r.groupKeys.includes(group.key) || r.groupKeys.includes('all')).map((r) => r.id),
+                };
                 const reorderable = kind === 'reward' && !selecting;
                 const rowKey = `${group.key}:${row.id}`;
                 const isDragging = draggingId === rowKey;
@@ -718,7 +735,7 @@ export function LibraryList({ kind }: LibraryListProps) {
                         onPointerDown={(e) => {
                           e.currentTarget.setPointerCapture(e.pointerId);
                           refocusRef.current = null;
-                          dragRef.current = { id: row.id, groupKey: group.key, startY: e.clientY, groupIds };
+                          dragRef.current = { id: row.id, group: reorderGroup, startY: e.clientY };
                           setDraggingId(rowKey);
                         }}
                         onPointerMove={(e) => dragRef.current && setDragOffset(e.clientY - dragRef.current.startY)}
@@ -727,7 +744,7 @@ export function LibraryList({ kind }: LibraryListProps) {
                         onKeyDown={(e) => {
                           if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
                           e.preventDefault();
-                          moveReward(groupIds, row.id, idx + (e.key === 'ArrowUp' ? -1 : 1), { groupKey: group.key, control: 'handle' });
+                          moveReward(reorderGroup, row.id, idx + (e.key === 'ArrowUp' ? -1 : 1), 'handle');
                         }}
                       >
                         <Icon name="drag" size={20} />
@@ -749,8 +766,8 @@ export function LibraryList({ kind }: LibraryListProps) {
                       <>
                         {reorderable ? (
                           <span className={styles.arrows}>
-                            <IconButton icon="chevron" className={styles.up} data-reorder={`${rowKey}:up`} aria-label={`Move ${row.name} up`} disabled={idx === 0} onClick={() => moveReward(groupIds, row.id, idx - 1, { groupKey: group.key, control: 'up' })} />
-                            <IconButton icon="chevron" className={styles.down} data-reorder={`${rowKey}:down`} aria-label={`Move ${row.name} down`} disabled={idx === groupIds.length - 1} onClick={() => moveReward(groupIds, row.id, idx + 1, { groupKey: group.key, control: 'down' })} />
+                            <IconButton icon="chevron" className={styles.up} data-reorder={`${rowKey}:up`} aria-label={`Move ${row.name} up`} disabled={idx === 0} onClick={() => moveReward(reorderGroup, row.id, idx - 1, 'up')} />
+                            <IconButton icon="chevron" className={styles.down} data-reorder={`${rowKey}:down`} aria-label={`Move ${row.name} down`} disabled={idx === groupIds.length - 1} onClick={() => moveReward(reorderGroup, row.id, idx + 1, 'down')} />
                           </span>
                         ) : null}
                         <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />

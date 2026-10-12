@@ -86,17 +86,35 @@ export async function deleteReward(id: string): Promise<void> {
 }
 
 /**
- * Pure: move the reward at `from` to `to` within `groupIds` (a visible subset of `allIds`, in display order).
- * Group members keep the slots they already had in the full list, so rewards in other groups stay put.
+ * Pure: move the reward at `from` to `to` within `groupIds` (a visible group, in display order) and return the new
+ * full order. Only the moved reward changes slot, so every other group keeps its order.
+ *
+ * `mergedIds` is what the child sees for that group, in full-list order: Every place rewards plus this place's own.
+ * The library shows a place group without the Every place rewards, so the move is placed against the merged list:
+ * the top or bottom of the group is the top or bottom of the merged list, and any other move goes as far as it can
+ * in its direction without passing the next reward of its own group. `mergedIds` must contain `groupIds`.
  */
-export function moveWithinGroup(allIds: readonly string[], groupIds: readonly string[], from: number, to: number): string[] {
+export function moveWithinGroup(
+  allIds: readonly string[],
+  groupIds: readonly string[],
+  from: number,
+  to: number,
+  mergedIds: readonly string[] = groupIds,
+): string[] {
   const clamped = Math.max(0, Math.min(to, groupIds.length - 1));
   if (from === clamped || from < 0 || from >= groupIds.length) return [...allIds];
+  const id = groupIds[from] as string;
   const next = [...groupIds];
   next.splice(clamped, 0, ...next.splice(from, 1));
-  const inGroup = new Set(groupIds);
-  let i = 0;
-  return allIds.map((id) => (inGroup.has(id) ? (next[i++] as string) : id));
+  const rest = allIds.filter((x) => x !== id);
+  const merged = mergedIds.filter((x) => x !== id);
+  let at: number;
+  if (clamped === 0) at = rest.indexOf(merged[0] as string);
+  else if (clamped === next.length - 1) at = rest.indexOf(merged[merged.length - 1] as string) + 1;
+  else if (clamped < from) at = rest.indexOf(next[clamped - 1] as string) + 1;
+  else at = rest.indexOf(next[clamped + 1] as string);
+  rest.splice(at, 0, id);
+  return rest;
 }
 
 /** Writes position = index for every reward whose slot changed; synced like any other edit. */
