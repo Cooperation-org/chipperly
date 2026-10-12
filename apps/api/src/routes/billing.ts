@@ -1,9 +1,12 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { BillingCheckoutBodySchema, type BillingStatus } from '@chipperly/shared/schemas/billing';
+import type { AccountKind } from '@chipperly/shared/schemas/account';
+import { BillingCheckoutBodySchema, PurchasableKind, type BillingStatus } from '@chipperly/shared/schemas/billing';
+import { PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { db } from '../db/client.js';
 import { account_members, accounts, users } from '../db/schema/accounts.js';
+import { profiles } from '../db/schema/profiles.js';
 import { subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
 import { linkBase } from '../lib/links.js';
@@ -77,14 +80,23 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     const { accountId, userId } = caller(request);
     const { kind, isAdmin, sub } = await accountContext(accountId, userId);
     const priceId = priceIdForKind(kind);
-    const prices: BillingStatus['prices'] = [];
-    for (const { plan, id } of priceIdsForKind(kind)) {
-      try {
-        const read = await readPrice(id);
-        if (read) prices.push({ plan, ...read });
-      } catch (err) {
-        request.log.warn({ err }, 'could not read the Stripe price');
+    const pricesFor = async (k: AccountKind): Promise<BillingStatus['prices']> => {
+      const out: BillingStatus['prices'] = [];
+      for (const { plan, id } of priceIdsForKind(k)) {
+        try {
+          const read = await readPrice(id);
+          if (read) out.push({ plan, ...read });
+        } catch (err) {
+          request.log.warn({ err }, 'could not read the Stripe price');
+        }
       }
+      return out;
+    };
+    const prices = await pricesFor(kind);
+    const kinds: BillingStatus['kinds'] = [];
+    for (const k of PurchasableKind.options) {
+      const p = k === kind ? prices : await pricesFor(k);
+      if (p.length > 0) kinds.push({ kind: k, prices: p });
     }
     const price: BillingStatus['price'] = prices[0] ? { amount: prices[0].amount, currency: prices[0].currency, interval: prices[0].interval } : null;
     // Checkout only applies it to a first subscription, so stop advertising it once one exists.
@@ -94,6 +106,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
       checkout_available: Boolean(priceId),
       price,
       prices,
+      kinds,
       subscription: sub
         ? { status: sub.status, current_period_end: sub.current_period_end, cancel_at_period_end: sub.cancel_at_period_end }
         : null,
@@ -108,10 +121,16 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     const { kind, isAdmin, sub } = await accountContext(accountId, userId);
     if (!isAdmin) throw new AppError(403, 'forbidden', 'Admin role required');
     const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
-    const { plan } = BillingCheckoutBodySchema.parse(request.body ?? {});
-    const priceId = priceIdsForKind(kind).find((p) => p.plan === plan)?.id;
+    const { plan, kind: chosen } = BillingCheckoutBodySchema.parse(request.body ?? {});
+    // The price id always comes from our env for the chosen kind, never from the client.
+    const target = chosen ?? kind;
+    if (kind === 'agency' && target !== 'agency') throw new AppError(409, 'pay_by_arrangement', 'Organization plans are set up by email');
+    const priceId = priceIdsForKind(target).find((p) => p.plan === plan)?.id;
     if (!priceId) throw new AppError(409, 'price_not_set', 'No price is set for this kind of account yet');
-    if (sub && LIVE_STATES.has(sub.status)) throw new AppError(409, 'already_subscribed', 'This account already has a subscription');
+    // Changing plan on a live subscription happens in the Stripe portal; its webhook switches the kind.
+    if (sub && LIVE_STATES.has(sub.status)) throw new AppError(409, 'already_subscribed', 'This account already has a subscription. Change plan in the billing portal.');
+    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(profiles).where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at)));
+    if (count! > PROFILE_LIMITS[target]) throw new AppError(409, 'too_many_profiles', `The ${target} plan is limited to ${PROFILE_LIMITS[target]} profile${PROFILE_LIMITS[target] === 1 ? '' : 's'}. Remove some profiles first.`);
 
     // The early-access discount rides along on a first subscription only, and
     // only when its plan restriction fits the price being bought. A Stripe

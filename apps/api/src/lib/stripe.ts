@@ -1,10 +1,10 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { and, eq, lte } from 'drizzle-orm';
+import { and, eq, lte, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AccountKind } from '@chipperly/shared/schemas/account';
-import { SubscriptionStatus, type BillingPlan } from '@chipperly/shared/schemas/billing';
+import { PurchasableKind, SubscriptionStatus, type BillingPlan } from '@chipperly/shared/schemas/billing';
 import { db } from '../db/client.js';
-import { account_members, promo_codes, users } from '../db/schema/accounts.js';
+import { account_members, accounts, promo_codes, users } from '../db/schema/accounts.js';
 import { stripe_events, subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
 import { renderEmail, siteOrigin } from './emailTemplate.js';
@@ -64,6 +64,11 @@ export function priceIdsForKind(kind: AccountKind): Array<{ plan: BillingPlan; i
   };
   const base = priceIdForKind(kind);
   return [...(base ? [{ plan: 'default' as const, id: base }] : []), ...(yearly[kind] && base ? [{ plan: 'yearly' as const, id: yearly[kind]! }] : [])];
+}
+
+/** The self-serve kind a price id (monthly or yearly) belongs to; undefined for an unknown price or an organization. */
+export function kindForPriceId(id: string): AccountKind | undefined {
+  return PurchasableKind.options.find((k) => priceIdsForKind(k).some((p) => p.id === id));
 }
 
 export function priceIdForKind(kind: AccountKind): string | undefined {
@@ -132,7 +137,7 @@ const SubscriptionObjectSchema = z.object({
   cancel_at_period_end: z.boolean().default(false),
   // Older API versions put the period on the subscription, newer ones on its items.
   current_period_end: z.number().int().optional(),
-  items: z.object({ data: z.array(z.object({ current_period_end: z.number().int().optional() })) }).optional(),
+  items: z.object({ data: z.array(z.object({ current_period_end: z.number().int().optional(), price: z.object({ id: z.string() }).optional() })) }).optional(),
   metadata: z.object({ account_id: z.string().uuid().optional() }).passthrough(),
 });
 
@@ -189,6 +194,9 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
         setWhere: lte(subscriptions.last_event_at, row.last_event_at),
       });
     const stale = prev !== undefined && prev.last_event_at > row.last_event_at;
+    // The plan that was paid for (at checkout or later in the portal) becomes the account's kind.
+    const paidKind = sub.items?.data[0]?.price && kindForPriceId(sub.items.data[0].price.id);
+    if (!stale && paidKind && PAID.has(row.status)) await tx.update(accounts).set({ kind: paidKind }).where(and(eq(accounts.id, accountId), ne(accounts.kind, 'agency')));
     return { result: 'applied' as const, notice: stale ? null : subscriptionNotice(prev, row) };
   });
   if (notice) await mailAccountAdmins(accountId, notice, row.current_period_end);
