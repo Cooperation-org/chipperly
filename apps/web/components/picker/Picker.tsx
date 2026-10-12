@@ -61,10 +61,8 @@ export function Picker({ kind, profileId, locationId, onPick, onCreateNew, routi
     () => filterAndSection(activities, query).slice().sort((a, b) => a.name.localeCompare(b.name)),
     [activities, query],
   );
-  const filteredRewards = useMemo(
-    () => filterAndSection(rewards, query).slice().sort((a, b) => a.name.localeCompare(b.name)),
-    [rewards, query],
-  );
+  // Rewards keep the order the parent set in the library (useRewards sorts by position).
+  const filteredRewards = useMemo(() => filterAndSection(rewards, query), [rewards, query]);
   const plainActivities = useMemo(
     () => filteredActivities.filter((a) => (stepCountByActivity.get(a.id) ?? 0) === 0),
     [filteredActivities, stepCountByActivity],
