@@ -58,6 +58,7 @@ import { ReadStoryButton } from './ReadStoryButton';
 import { TomorrowBand } from './TomorrowBand';
 import { UnlockOverlay } from './UnlockOverlay';
 import { AllowedAppsSheet } from './AllowedAppsSheet';
+import { StoriesSheet } from './StoriesSheet';
 import styles from './ChildToday.module.css';
 
 /**
@@ -440,6 +441,10 @@ export function ChildToday() {
     sheet.open(<ChipperChartSheet profileId={profileId} userId={userId} />, { title: 'Chipper Chart' });
   }
 
+  function openStories(): void {
+    sheet.open(<StoriesSheet profileId={profileId} />, { title: 'Stories' });
+  }
+
   function openApps(): void {
     sheet.open(<AllowedAppsSheet profileId={profileId} />, { title: 'Apps' });
   }
@@ -572,6 +577,7 @@ export function ChildToday() {
         <div className={styles.tiles}>
           <HomeTile emoji="📅" label="My Day" onClick={() => setShowDay(true)} />
           {chipsTile ? <HomeTile emoji="⭐" label="Chips" onClick={canPickReward ? openPickReward : openWorkingFor} /> : null}
+          <HomeTile emoji="📖" label="Stories" onClick={openStories} />
           {options.show_free_time ? <HomeTile emoji="🎈" label="Free time" onClick={openFreeTime} /> : null}
           {options.show_first_then ? <HomeTile emoji="➡️" label="First, then" onClick={openFirstThen} /> : null}
           {showAllowedApps ? <HomeTile emoji="📱" label="Apps" onClick={openApps} /> : null}
