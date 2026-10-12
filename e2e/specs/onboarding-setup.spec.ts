@@ -155,4 +155,42 @@ test.describe('onboarding setup interview', () => {
     await page.waitForURL('**/today/');
     await page.close();
   });
+
+  test('chip rewards come before free choices, and Back goes one step at a time', async ({ browser }) => {
+    const page = await browser.newPage();
+    await createAccount(page, 'Order Tester');
+    await page.getByRole('button', { name: /Myself/ }).click();
+    await page.waitForURL('**/onboarding/profile/');
+
+    await expect(page.getByRole('heading', { name: "What's in a typical week?" })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Which routines should we start with?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    const places = page.getByRole('heading', { name: /^Where will .+ use Chipperly\?$/ });
+    await expect(places).toBeVisible();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+    const rewards = page.getByRole('heading', { name: 'Rewards I earn with chips' });
+    await expect(rewards).toBeVisible();
+    await page.locator('button[aria-pressed="false"]').first().click();
+    await expect(page.getByText('1 of 3 picked')).toBeVisible();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+    await expect(page.getByRole('heading', { name: 'Things I can always choose' })).toBeVisible();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(rewards).toBeVisible();
+    await expect(page.getByText('1 of 3 picked')).toBeVisible();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(places).toBeVisible();
+
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(rewards).toBeVisible();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByRole('button', { name: "Create Order Tester's plan", exact: true }).click();
+    await page.waitForURL('**/onboarding/ready/');
+    await expect(page.getByText(/Earned with chips: .+ \(5\)/)).toBeVisible();
+    await page.getByRole('button', { name: 'Go to Today', exact: true }).click();
+    await page.waitForURL('**/today/');
+    await page.close();
+  });
 });
