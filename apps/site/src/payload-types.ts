@@ -201,6 +201,10 @@ export interface Post {
     noindex?: boolean | null;
   };
   publishedAt?: string | null;
+  /**
+   * When published, makes a draft in Newsletters. Nothing is sent until you send it there.
+   */
+  emailSubscribers?: boolean | null;
   authors?: (number | User)[] | null;
   categories?: (number | Category)[] | null;
   relatedPosts?: (number | Post)[] | null;
@@ -784,6 +788,7 @@ export interface PostsSelect<T extends boolean = true> {
         noindex?: T;
       };
   publishedAt?: T;
+  emailSubscribers?: T;
   authors?: T;
   categories?: T;
   relatedPosts?: T;
