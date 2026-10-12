@@ -1,6 +1,5 @@
 'use client';
 
-import { ListRow } from '@/components/ui/ListRow';
 import { PictureTile } from '@/components/ui/PictureTile';
 import { displaySizeClass, type DisplaySize } from '@/components/child/displaySize';
 import styles from './LockSheet.module.css';
@@ -12,11 +11,27 @@ export const DISPLAY_SIZE_ITEMS = [
   { value: 'xl', label: 'Extra large' },
 ];
 
-/** A sample card at the chosen sizes, so the change can be seen before saving. */
-export function DisplayPreview({ textSize, pictureSize }: { textSize: DisplaySize; pictureSize: DisplaySize }) {
+/** A sample task as the child's view shows it, at the chosen sizes, so the change can be seen before saving. */
+export function DisplayPreview({
+  textSize,
+  pictureSize,
+  pictureMode,
+}: {
+  textSize: DisplaySize;
+  pictureSize: DisplaySize;
+  pictureMode: boolean;
+}) {
+  const className = [
+    styles.preview,
+    pictureMode ? styles.previewPictures : '',
+    displaySizeClass({ text_size: textSize, picture_size: pictureSize }),
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
-    <div className={[styles.preview, displaySizeClass({ text_size: textSize, picture_size: pictureSize })].join(' ')} aria-label="Preview">
-      <ListRow tile={<PictureTile emoji="🪥" name="Brush teeth" size="child" />} name="Brush teeth" secondary="Morning" />
+    <div className={className} role="group" aria-label="Preview">
+      <PictureTile emoji="🪥" name="Brush teeth" size="child" />
+      <span className={styles.previewName}>Brush teeth</span>
     </div>
   );
 }

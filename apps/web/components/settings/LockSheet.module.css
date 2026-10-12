@@ -58,10 +58,43 @@
 }
 
 .preview {
+  /* The child view's root font size and tile sizes (tokens.css child mode, ChildToday.module.css),
+     so the sample matches what the child sees. ponytail: copied values; keep them in step. */
+  --child-rem: clamp(16px, 3.6px + 4.1vw, 20px);
+  display: flex;
+  align-items: center;
+  gap: clamp(var(--space-2), 3vw, var(--space-3));
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface-2);
   border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+.previewPictures {
+  --tile-child: clamp(64px, 26vw, 112px);
+}
+
+@media (min-width: 768px) {
+  .preview {
+    --tile-child: 120px;
+  }
+
+  .preview.previewPictures {
+    --tile-child: 160px;
+  }
+}
+
+.previewName {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  /* --text-lg, in the child's rem. */
+  font-size: calc(clamp(1.0625 * var(--child-rem), 0.95 * var(--child-rem) + 1.2vw, 1.25 * var(--child-rem)) * var(--text-scale, 1));
+}
+
+/* --text-md, as .pictureMode .rowName uses. */
+.previewPictures .previewName {
+  font-size: calc(clamp(0.9375 * var(--child-rem), 0.875 * var(--child-rem) + 0.5vw, var(--child-rem)) * var(--text-scale, 1));
 }
 
 .bothAsk {
