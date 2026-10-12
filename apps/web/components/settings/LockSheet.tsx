@@ -294,8 +294,8 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
         <div className={styles.settingRow}>
           <span className={styles.toggleLabel}>Picture size</span>
           <Segmented label="Picture size" items={DISPLAY_SIZE_ITEMS} value={pictureSize} onChange={(v) => setPictureSize(v as DisplaySize)} />
-          <DisplayPreview textSize={textSize} pictureSize={pictureSize} />
         </div>
+        <DisplayPreview textSize={textSize} pictureSize={pictureSize} pictureMode={pictureMode} />
 
         <p className={styles.sectionTitle}>{copy.canTitle}</p>
         <div className={styles.toggleRow}>

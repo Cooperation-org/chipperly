@@ -20,8 +20,10 @@
 }
 
 .child {
-  width: calc(var(--tile-child) * var(--pic-scale, 1));
-  height: calc(var(--tile-child) * var(--pic-scale, 1));
+  /* Capped so a large picture size still leaves the task name room on a phone. */
+  --tile-child-size: min(calc(var(--tile-child) * var(--pic-scale, 1)), 30vw);
+  width: var(--tile-child-size);
+  height: var(--tile-child-size);
 }
 
 /* The picture a child is working for: as large as the screen allows, never taller than it is wide. */
@@ -52,15 +54,15 @@
 }
 
 .list .emoji {
-  font-size: calc(var(--tile-list) * 0.6);
+  font-size: calc(var(--tile-list) * var(--pic-scale, 1) * 0.6);
 }
 
 .grid .emoji {
-  font-size: calc(var(--tile-grid) * 0.6);
+  font-size: calc(var(--tile-grid) * var(--pic-scale, 1) * 0.6);
 }
 
 .child .emoji {
-  font-size: calc(var(--tile-child) * 0.6);
+  font-size: calc(var(--tile-child-size) * 0.6);
 }
 
 .hero .emoji {

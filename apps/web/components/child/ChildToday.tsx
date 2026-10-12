@@ -26,11 +26,13 @@ import { useWorkingFor } from '@/lib/data/chips';
 import { levelEmoji, useMoodLevel } from '@/lib/data/mood';
 import { sendRewardRequest } from '@/lib/data/rewardRequest';
 import { useMediaUrl } from '@/lib/data/media';
+import { useStories } from '@/lib/data/stories';
 import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } from '@/lib/timer/store';
 import { playChip } from '@/lib/sound';
 import { now } from '@/lib/clock';
 import { Picture } from '@/components/media/Picture';
 import { displaySizeClass } from './displaySize';
+import { canTickInOneTap } from './oneTap';
 import { ChipStrip } from '@/components/ui/ChipStrip';
 import { CheckCircle } from '@/components/ui/CheckCircle';
 import { StepRow } from '@/components/ui/StepRow';
@@ -126,8 +128,20 @@ export function ChildToday() {
       delete document.documentElement.dataset.contrast;
     };
   }, [highContrast]);
+  // Text and picture size (B9) go on <html> for the same reason, so sheets and stories follow them too.
+  const sizeClass = profile ? displaySizeClass(profile.settings) : '';
+  useEffect(() => {
+    if (!sizeClass) return undefined;
+    const classes = sizeClass.split(' ');
+    document.documentElement.classList.add(...classes);
+    return () => {
+      document.documentElement.classList.remove(...classes);
+    };
+  }, [sizeClass]);
   // The Chipper Chart button shows today's face, so it changes as the chart does.
   const moodLevel = useMoodLevel(profileId, isoDate);
+  // Stories get a button in the list view's bottom bar once there is one to read.
+  const hasStories = useStories(profileId).length > 0;
 
   // Best-effort back-gesture trap: every back navigation just re-pushes the
   // same entry, so there is nowhere for "back" to go while hard-locked. Only
@@ -465,14 +479,24 @@ export function ChildToday() {
   }
 
   // Tapping a row's picture: the few things a child can do with it, as big buttons.
-  function openRowOptions(day: DayItem): void {
+  function openRowOptions(day: DayItem, stepsDone: number): void {
     const done = day.item.completed_at !== null;
     const hasSteps = day.steps.length > 0;
+    // Same one-tap rules as the row itself, so a hidden "Mark all done" stays hidden here too.
+    const showTick = canTickInOneTap({
+      hasSteps,
+      done,
+      stepsDone,
+      showMarkAllDone: options.show_mark_all_done !== false,
+      routineBonus: Boolean(profile?.settings.routine_bonus_chips),
+    });
     sheet.open(
       <div className={styles.rowOptions}>
-        <BigButton variant="primary" icon="check" fullWidth onClick={() => { sheet.close(); void handleToggle(day, !done); }}>
-          {done ? 'Not done' : 'Done'}
-        </BigButton>
+        {showTick ? (
+          <BigButton variant="primary" icon="check" fullWidth onClick={() => { sheet.close(); void handleToggle(day, !done); }}>
+            {done ? 'Not done' : 'Done'}
+          </BigButton>
+        ) : null}
         {readAloud ? (
           <BigButton variant="secondary" icon="speaker" fullWidth onClick={() => speak(day.activity.name)}>
             Read aloud
@@ -522,7 +546,7 @@ export function ChildToday() {
   const hasTimedApps = (profile?.settings.timed_app_allowances ?? []).some((a) => a.allowed_until > now());
   const showAllowedApps =
     Boolean(profile?.settings.child_mode_active) && (allowedApps.length > 0 || hasTimedApps) && Capacitor.getPlatform() === 'android';
-  const showBottomBar = options.show_free_time || options.show_first_then || showAllowedApps || running;
+  const showBottomBar = options.show_free_time || options.show_first_then || showAllowedApps || hasStories || running;
   const canPickReward = profile?.settings.child_picks_reward !== false;
   const showChipStrip = Boolean(workingFor.reward || workingFor.filled > 0 || (canPickReward && activeLocation));
 
@@ -572,7 +596,7 @@ export function ChildToday() {
   }
 
   // Big pictures, fewer words (profile setting, the team's choice): see .pictureMode in the CSS.
-  const screenClass = [styles.screen, profile.settings.picture_mode ? styles.pictureMode : '', displaySizeClass(profile.settings)].filter(Boolean).join(' ');
+  const screenClass = [styles.screen, profile.settings.picture_mode ? styles.pictureMode : ''].filter(Boolean).join(' ');
 
   const header = (
     <header className={styles.header}>
@@ -673,7 +697,7 @@ export function ChildToday() {
               <div key={day.item.id} className={isNow ? `${styles.card} ${styles.now}` : styles.card} aria-current={isNow ? 'step' : undefined}>
                 <div className={styles.row}>
                   {/* The picture opens the row's options; the check circle stays the one-tap tick. */}
-                  <button type="button" className={styles.pictureTap} aria-label={`Options, ${day.activity.name}`} onClick={() => openRowOptions(day)}>
+                  <button type="button" className={styles.pictureTap} aria-label={`Options, ${day.activity.name}`} onClick={() => openRowOptions(day, stepsDone)}>
                     {picture}
                   </button>
                   {hasSteps ? (
@@ -812,6 +836,14 @@ export function ChildToday() {
               onClick={openFirstThen}
             >
               First, then
+            </BigButton>
+          ) : null}
+          {hasStories ? (
+            <BigButton variant="secondary" onClick={openStories}>
+              <span className={styles.emojiGlyph} aria-hidden="true">
+                📖
+              </span>
+              Stories
             </BigButton>
           ) : null}
           {showAllowedApps ? (
