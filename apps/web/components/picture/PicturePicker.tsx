@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { Picture } from '@/components/media/Picture';
 import { Icon } from '@/components/ui/Icon';
 import { pickAndStoreImage } from '@/lib/data/media';
+import { CANT_OPEN_PHOTO, PhotoDecodeError } from '@/lib/media/imageFile';
 import { saveImageCredit } from '@/lib/data/imageCredits';
 import { importImage, imageSearchEnabled, type ImageResult } from '@/lib/imageSearch';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -84,9 +85,9 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
       onChange({ emoji: value.emoji ?? null, photo_id });
       setCredit(found);
       setMessage('Picture added.');
-    } catch {
+    } catch (err) {
       setMessage(null);
-      toast("Couldn't add that photo. Try again.");
+      toast(err instanceof PhotoDecodeError ? CANT_OPEN_PHOTO : "Couldn't add that photo. Try again.");
     }
   }
 
@@ -208,7 +209,7 @@ export function PicturePicker({ value, onChange, name, choices, defaultEmojiOpen
       <input
         ref={photoInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         className={styles.hiddenInput}
         tabIndex={-1}
         onChange={onFileChange}

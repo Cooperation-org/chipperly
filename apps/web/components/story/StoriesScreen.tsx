@@ -7,6 +7,7 @@ import type { StoryTemplateKey } from '@chipperly/shared/constants/storyTemplate
 import { useActiveProfile } from '@/lib/profile/active';
 import { useStories, useStory, deleteStory, duplicateStory, createFromTemplate } from '@/lib/data/stories';
 import { createFromImages } from '@/lib/data/storyUpload';
+import { CANT_OPEN_PHOTO, PhotoDecodeError } from '@/lib/media/imageFile';
 import { restore } from '@/lib/sync/mutate';
 import { toast } from '@/lib/toast';
 import { useSheet } from '@/components/ui/Sheet';
@@ -61,12 +62,17 @@ export function StoriesScreen() {
         toast(NO_PICTURES);
         return;
       }
-      if (made.skipped > 0) {
-        toast(made.skipped === 1 ? '1 picture could not be read and was left out.' : `${made.skipped} pictures could not be read and were left out.`);
+      const notes: string[] = [];
+      if (made.cantOpen.length > 0) notes.push(`${made.cantOpen.join(', ')}: ${CANT_OPEN_PHOTO}`);
+      const unread = made.skipped - made.cantOpen.length;
+      if (unread > 0) {
+        notes.push(unread === 1 ? '1 picture could not be read and was left out.' : `${unread} pictures could not be read and were left out.`);
       }
+      // carry: shown on the story editor this opens, not cleared by the route change.
+      if (notes.length > 0) toast(notes.join(' '), { carry: true });
       router.push(`/story/edit/?id=${made.storyId}`);
-    } catch {
-      toast('Could not read those pictures. Try JPG or PNG files.');
+    } catch (err) {
+      toast(err instanceof PhotoDecodeError ? CANT_OPEN_PHOTO : 'Could not read those pictures. Try JPG or PNG files.');
     } finally {
       setUploading(false);
     }
@@ -123,7 +129,7 @@ export function StoriesScreen() {
       <input
         ref={fileInput}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         multiple
         hidden
         onChange={(e) => {
