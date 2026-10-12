@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { SURVEY_QUESTIONS, type FeedbackHelped, type FeedbackKind } from '@chipperly/shared/schemas/feedback';
+import { SURVEY_QUESTIONS, type FeedbackBilling, type FeedbackFairPrice, type FeedbackHelped, type FeedbackKind } from '@chipperly/shared/schemas/feedback';
 import { buildFeedbackBody, canSend, sendFeedback, type FeedbackDraft } from '@/lib/feedback/send';
 import { useSession } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
@@ -27,12 +27,23 @@ const PROMPT: Record<FeedbackKind, string> = {
   nps: 'What is the main reason?',
 };
 
-const EMPTY: FeedbackDraft = { kind: 'idea', message: '', rating: null, contactOk: false, contactEmail: '', problem: '', helped: '', easier: '', frustrated: '', liked: '', recommend: '', price: '' };
+const EMPTY: FeedbackDraft = { kind: 'idea', message: '', rating: null, contactOk: false, contactEmail: '', problem: '', helped: '', easier: '', frustrated: '', liked: '', recommend: '', price: '', fairPrice: '', billing: '', wouldPay: '' };
 
 const HELPED: { value: FeedbackHelped; label: string }[] = [
   { value: 'yes', label: 'Yes' },
   { value: 'partly', label: 'Partly' },
   { value: 'no', label: 'No' },
+];
+
+const FAIR: { value: FeedbackFairPrice; label: string }[] = [
+  { value: 'yes', label: 'Yes' },
+  { value: 'too much', label: 'Too much' },
+  { value: 'too little', label: 'Too little' },
+];
+
+const BILLING: { value: FeedbackBilling; label: string }[] = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly', label: 'Yearly' },
 ];
 
 const QUESTION = Object.fromEntries(SURVEY_QUESTIONS.map((q) => [q.key, q.label])) as Record<(typeof SURVEY_QUESTIONS)[number]['key'], string>;
@@ -124,6 +135,16 @@ export function FeedbackForm() {
           <Area label={QUESTION.q_liked} value={draft.liked} onChange={(v) => set('liked', v)} />
           <Area label={QUESTION.q_recommend} value={draft.recommend} onChange={(v) => set('recommend', v)} />
           <TextField label={QUESTION.q_price_monthly} hint="Whole dollars per month." inputMode="numeric" value={draft.price} onChange={(e) => set('price', e.target.value)} />
+          <p className={styles.muted}>Three more about price. Also optional.</p>
+          <div className={styles.choice}>
+            <span className={styles.choiceLabel} aria-hidden="true">{QUESTION.q_fair_price} (optional)</span>
+            <Segmented label={`${QUESTION.q_fair_price} (optional)`} items={FAIR} value={draft.fairPrice} onChange={(v) => set('fairPrice', v as FeedbackFairPrice)} />
+          </div>
+          <div className={styles.choice}>
+            <span className={styles.choiceLabel} aria-hidden="true">{QUESTION.q_billing} (optional)</span>
+            <Segmented label={`${QUESTION.q_billing} (optional)`} items={BILLING} value={draft.billing} onChange={(v) => set('billing', v as FeedbackBilling)} />
+          </div>
+          <Area label={`${QUESTION.q_would_pay} (optional)`} value={draft.wouldPay} onChange={(v) => set('wouldPay', v)} />
         </div>
       </details>
 

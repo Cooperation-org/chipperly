@@ -1,5 +1,5 @@
 import { bigint, boolean, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
-import type { FeedbackHelped, FeedbackKind, FeedbackStatus } from '@chipperly/shared/schemas/feedback';
+import type { FeedbackBilling, FeedbackFairPrice, FeedbackHelped, FeedbackKind, FeedbackStatus } from '@chipperly/shared/schemas/feedback';
 
 /** What beta testers tell us from inside the app (routes/feedback.ts). `user_id` is null for a guest. */
 export const feedback = pgTable('feedback', {
@@ -27,6 +27,10 @@ export const feedback = pgTable('feedback', {
   q_liked: text('q_liked'),
   q_recommend: text('q_recommend'),
   q_price_monthly: integer('q_price_monthly'),
+  /** Optional pricing questions (0038). */
+  q_fair_price: text('q_fair_price').$type<FeedbackFairPrice>(),
+  q_billing: text('q_billing').$type<FeedbackBilling>(),
+  q_would_pay: text('q_would_pay'),
   nps_score: integer('nps_score'),
   status: text('status').$type<FeedbackStatus>().notNull().default('new'),
   /** True when the person ticked "you may write back". */

@@ -16,6 +16,12 @@ const answerSchema = z.string().trim().max(2000);
 export const FeedbackHelped = z.enum(['yes', 'partly', 'no']);
 export type FeedbackHelped = z.infer<typeof FeedbackHelped>;
 
+export const FeedbackFairPrice = z.enum(['yes', 'too much', 'too little']);
+export type FeedbackFairPrice = z.infer<typeof FeedbackFairPrice>;
+
+export const FeedbackBilling = z.enum(['monthly', 'yearly']);
+export type FeedbackBilling = z.infer<typeof FeedbackBilling>;
+
 /** The owner's beta survey, in order. Used by the form, the inbox and the team email. */
 export const SURVEY_QUESTIONS = [
   { key: 'q_problem', label: 'What problem were you hoping to be able to solve by using Chipperly?' },
@@ -25,6 +31,10 @@ export const SURVEY_QUESTIONS = [
   { key: 'q_liked', label: 'What did you like about it?' },
   { key: 'q_recommend', label: 'Would you recommend this to others, why or why not?' },
   { key: 'q_price_monthly', label: 'How much would you be willing to pay a month to continue to use Chipperly?' },
+  /** Optional pricing questions, asked after the one above. */
+  { key: 'q_fair_price', label: 'Would $10 a month for one person be fair?' },
+  { key: 'q_billing', label: 'Would you rather pay monthly or yearly?' },
+  { key: 'q_would_pay', label: 'What would make you pay for Chipperly?' },
 ] as const;
 
 /** What the app sends. Signed-in or not: a guest can leave feedback too. */
@@ -47,6 +57,9 @@ export const FeedbackBodySchema = z
   q_liked: answerSchema.optional(),
   q_recommend: answerSchema.optional(),
   q_price_monthly: priceSchema.optional(),
+  q_fair_price: FeedbackFairPrice.optional(),
+  q_billing: FeedbackBilling.optional(),
+  q_would_pay: answerSchema.optional(),
   /** 0 to 10, from the day 7 / day 21 prompt (kind `nps`). */
   nps_score: z.number().int().min(0).max(10).optional(),
 })
@@ -70,6 +83,9 @@ export const FeedbackItemSchema = z.object({
   q_liked: z.string().nullable(),
   q_recommend: z.string().nullable(),
   q_price_monthly: z.number().int().nullable(),
+  q_fair_price: FeedbackFairPrice.nullable().default(null),
+  q_billing: FeedbackBilling.nullable().default(null),
+  q_would_pay: z.string().nullable().default(null),
   nps_score: z.number().int().nullable(),
   status: FeedbackStatus,
 });
