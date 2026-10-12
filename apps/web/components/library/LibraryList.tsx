@@ -25,7 +25,8 @@ import { PicturePicker, type PicturePickerValue } from '@/components/picture/Pic
 import { db } from '@/lib/db/db';
 import { restore, upsert } from '@/lib/sync/mutate';
 import { useActivities, useRoutines, deleteActivity } from '@/lib/data/activities';
-import { useRewards, deleteReward, moveWithinGroup, reorderRewards } from '@/lib/data/rewards';
+import { useRewards, deleteReward, placePosition, reorderRewards } from '@/lib/data/rewards';
+import { moveItem } from '@/components/schedule/todayModel';
 import { useLocations, saveLocation, deleteLocation } from '@/lib/data/locations';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
@@ -43,11 +44,10 @@ export type LibraryKind = 'activity' | 'reward' | 'location' | 'routine';
 
 type ReorderControl = 'handle' | 'up' | 'down';
 
-/** One place group of the reward list: its ids, and what the child sees in that place (Every place plus this place). */
+/** One place group of the reward list ('all' = Every place) and its ids in that place's order. */
 interface ReorderGroup {
   key: string;
   ids: string[];
-  mergedIds: string[];
 }
 
 export interface LibraryListProps {
@@ -425,19 +425,20 @@ export function LibraryList({ kind }: LibraryListProps) {
   // Moving a row can make React re-insert its DOM node, or disable the arrow that was used, and the browser
   // then drops focus to the page. Remember the control and put focus back once the new order is live.
   const listRef = useRef<HTMLDivElement>(null);
-  const refocusRef = useRef<{ key: string; control: ReorderControl; order: string } | null>(null);
+  const refocusRef = useRef<{ key: string; control: ReorderControl; placeKey: string; order: string[] } | null>(null);
 
+  // Each place keeps its own order: a move here never changes where a reward sits in another place.
   function moveReward(group: ReorderGroup, id: string, to: number, control?: ReorderControl): void {
     const from = group.ids.indexOf(id);
     if (from === to) return;
-    const next = moveWithinGroup(rewards.map((r) => r.id), group.ids, from, to, group.mergedIds);
-    refocusRef.current = control ? { key: `${group.key}:${id}`, control, order: next.join() } : null;
-    void reorderRewards(next);
+    const next = moveItem(group.ids, from, to);
+    refocusRef.current = control ? { key: `${group.key}:${id}`, control, placeKey: group.key, order: next } : null;
+    void reorderRewards(group.key, next);
   }
 
   useEffect(() => {
     const pending = refocusRef.current;
-    if (!pending || rewards.map((r) => r.id).join() !== pending.order) return;
+    if (!pending || !pending.order.every((id, i) => rewards.find((r) => r.id === id)?.positions?.[pending.placeKey] === i)) return;
     refocusRef.current = null;
     const active = document.activeElement;
     const lost = !active || active === document.body || !active.isConnected || (active as HTMLButtonElement).disabled;
@@ -639,6 +640,17 @@ export function LibraryList({ kind }: LibraryListProps) {
   const groups = grouped
     ? groupRows(rows, (r) => r.groupKeys, kind === 'activity' ? [...PartOfDay.options, 'anytime'] : ['all', ...locations.map((l) => l.id)])
     : [{ key: '', rows }];
+  if (kind === 'reward') {
+    // Each place lists its rewards in the order set for that place (the same order the child sees there).
+    const byId = new Map(rewards.map((r) => [r.id, r]));
+    for (const group of groups) {
+      const at = (id: string) => {
+        const reward = byId.get(id);
+        return reward ? placePosition(reward, group.key) : 0;
+      };
+      group.rows.sort((a, b) => at(a.id) - at(b.id) || a.name.localeCompare(b.name));
+    }
+  }
   function groupLabel(key: string): string {
     if (kind === 'activity') return key === 'anytime' ? 'Any time of day' : key.charAt(0).toUpperCase() + key.slice(1);
     return key === 'all' ? 'Every place' : (locations.find((l) => l.id === key)?.name ?? 'Other place');
@@ -701,16 +713,7 @@ export function LibraryList({ kind }: LibraryListProps) {
             <div className={styles.list}>
               {group.rows.map((row, idx) => {
                 const groupIds = group.rows.map((r) => r.id);
-                // The child sees Every place rewards mixed in with each place's own, so a move in a place group is
-                // placed against that merged list (see moveWithinGroup).
-                const reorderGroup: ReorderGroup = {
-                  key: group.key,
-                  ids: groupIds,
-                  mergedIds:
-                    group.key === 'all'
-                      ? rows.map((r) => r.id)
-                      : rows.filter((r) => r.groupKeys.includes(group.key) || r.groupKeys.includes('all')).map((r) => r.id),
-                };
+                const reorderGroup: ReorderGroup = { key: group.key, ids: groupIds };
                 const reorderable = kind === 'reward' && !selecting;
                 const rowKey = `${group.key}:${row.id}`;
                 const isDragging = draggingId === rowKey;

@@ -15,18 +15,32 @@ export interface RewardsFilter {
   always_available?: boolean;
 }
 
-/** Pure: not-deleted, optionally scoped to a location (null-location rewards are everywhere) and/or always-available. */
+/** Where a reward sits in one place's list ('all' = Every place). A place it was never moved in uses `position`. */
+export function placePosition(row: Reward, placeKey: string): number {
+  return row.positions?.[placeKey] ?? row.position;
+}
+
+/**
+ * Pure: not-deleted, optionally scoped to a location (null-location rewards are everywhere) and/or always-available.
+ * In a place, that place's own rewards come first in the order set for that place, then the Every place rewards in
+ * theirs. With no location (the whole list), the order is `position`.
+ */
 export function filterRewards(rows: readonly Reward[], filter: RewardsFilter): Reward[] {
+  const place = filter.location_id;
+  const keyOf = (row: Reward): string =>
+    place === undefined ? '' : place !== null && effectiveLocationIds(row).length > 0 ? place : 'all';
+  const rank = (row: Reward): number => (keyOf(row) === 'all' ? 1 : 0);
+  const at = (row: Reward): number => (place === undefined ? row.position : placePosition(row, keyOf(row)));
   return rows
     .filter((row) => row.deleted_at === null)
     .filter((row) => {
-      if (filter.location_id === undefined) return true;
+      if (place === undefined) return true;
       // null asks for rows that show everywhere only, as before.
-      if (filter.location_id === null) return effectiveLocationIds(row).length === 0;
-      return matchesLocation(row, filter.location_id);
+      if (place === null) return effectiveLocationIds(row).length === 0;
+      return matchesLocation(row, place);
     })
     .filter((row) => filter.always_available === undefined || row.always_available === filter.always_available)
-    .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+    .sort((a, b) => rank(a) - rank(b) || at(a) - at(b) || a.name.localeCompare(b.name));
 }
 
 export function useRewards(profileId: string, { location_id, always_available }: RewardsFilter = {}): Reward[] {
@@ -74,6 +88,7 @@ export async function saveReward(input: SaveRewardInput): Promise<string> {
     always_available: input.always_available,
     requires_activity_id: input.requires_activity_id ?? null,
     position,
+    positions: existing?.positions ?? null,
     screen_time_minutes: input.screen_time_minutes ?? null,
     screen_time_packages: input.screen_time_packages ?? null,
     screen_time_whole_phone: input.screen_time_whole_phone ?? null,
@@ -85,42 +100,10 @@ export async function deleteReward(id: string): Promise<void> {
   await softDelete('rewards', id);
 }
 
-/**
- * Pure: move the reward at `from` to `to` within `groupIds` (a visible group, in display order) and return the new
- * full order. Only the moved reward changes slot, so every other group keeps its order.
- *
- * `mergedIds` is what the child sees for that group, in full-list order: Every place rewards plus this place's own.
- * The library shows a place group without the Every place rewards, so the move is placed against the merged list:
- * the top or bottom of the group is the top or bottom of the merged list, and any other move goes as far as it can
- * in its direction without passing the next reward of its own group. `mergedIds` must contain `groupIds`.
- */
-export function moveWithinGroup(
-  allIds: readonly string[],
-  groupIds: readonly string[],
-  from: number,
-  to: number,
-  mergedIds: readonly string[] = groupIds,
-): string[] {
-  const clamped = Math.max(0, Math.min(to, groupIds.length - 1));
-  if (from === clamped || from < 0 || from >= groupIds.length) return [...allIds];
-  const id = groupIds[from] as string;
-  const next = [...groupIds];
-  next.splice(clamped, 0, ...next.splice(from, 1));
-  const rest = allIds.filter((x) => x !== id);
-  const merged = mergedIds.filter((x) => x !== id);
-  let at: number;
-  if (clamped === 0) at = rest.indexOf(merged[0] as string);
-  else if (clamped === next.length - 1) at = rest.indexOf(merged[merged.length - 1] as string) + 1;
-  else if (clamped < from) at = rest.indexOf(next[clamped - 1] as string) + 1;
-  else at = rest.indexOf(next[clamped + 1] as string);
-  rest.splice(at, 0, id);
-  return rest;
-}
-
-/** Writes position = index for every reward whose slot changed; synced like any other edit. */
-export async function reorderRewards(orderedIds: readonly string[]): Promise<void> {
+/** Saves `orderedIds` as the order inside one place ('all' = Every place). Other places keep theirs. Synced like any edit. */
+export async function reorderRewards(placeKey: string, orderedIds: readonly string[]): Promise<void> {
   for (let i = 0; i < orderedIds.length; i += 1) {
     const row = await db.rewards.get(orderedIds[i] as string);
-    if (row && row.position !== i) await upsert('rewards', { ...row, position: i });
+    if (row && row.positions?.[placeKey] !== i) await upsert('rewards', { ...row, positions: { ...row.positions, [placeKey]: i } });
   }
 }
