@@ -52,25 +52,25 @@ test.describe('onboarding setup interview', () => {
     await snap(page, 'setup-routines');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
-    // Guided rewards setup: one place (Home), three anytime choices, then rewards earned with chips.
+    // Guided rewards setup: one place (Home), rewards earned with chips, then three anytime choices.
     await expect(page.getByRole('heading', { name: 'Where will Riley use Chipperly?' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Main place' })).toHaveValue('Home');
     await expectNoOverflow(page, 'setup: places');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
-    await expect(page.getByRole('heading', { name: 'Pick three things Riley can choose anytime' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Rewards I earn with chips' })).toBeVisible();
+    await page.getByRole('button', { name: 'Pizza night', exact: true }).click();
+    await expect(page.getByText('1 of 3 picked')).toBeVisible();
+    await expectNoOverflow(page, 'setup: earned rewards');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+    await expect(page.getByRole('heading', { name: 'Things I can always choose' })).toBeVisible();
     await page.getByRole('button', { name: 'Music', exact: true }).click();
     await page.getByLabel('Add your own', { exact: true }).fill('Skateboarding');
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Skateboarding' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByText('2 of 3 picked')).toBeVisible();
     await expectNoOverflow(page, 'setup: free choices');
-    await page.getByRole('button', { name: 'Continue', exact: true }).click();
-
-    await expect(page.getByRole('heading', { name: 'Pick three rewards Riley earns with chips' })).toBeVisible();
-    await page.getByRole('button', { name: 'Pizza night', exact: true }).click();
-    await expect(page.getByText('1 of 3 picked')).toBeVisible();
-    await expectNoOverflow(page, 'setup: earned rewards');
     await page.getByRole('button', { name: "Create Riley's plan", exact: true }).click();
 
     // Ready summarizes what was actually made.
