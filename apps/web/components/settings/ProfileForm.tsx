@@ -97,7 +97,7 @@ export function ProfileForm({ profileId }: ProfileFormProps) {
 
   return (
     <div className={styles.form}>
-      <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+      <TextField label="Name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />
       <PicturePicker value={picture} onChange={setPicture} name={name || row.name} />
       {selfManaged ? null : <UsesAppSwitch name={name || row.name} checked={childUsesApp} onChange={setChildUsesApp} />}
       <div className={styles.setting}>

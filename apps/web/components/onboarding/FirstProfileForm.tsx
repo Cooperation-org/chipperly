@@ -142,7 +142,7 @@ export function FirstProfileForm() {
         <h1 className={styles.title}>What&apos;s their name?</h1>
         <p className={styles.subtitle}>Personalize their visual routine workspace.</p>
       </div>
-      <TextField label="Name" hint="A first name or nickname is fine. It stays in your account and isn't shared." autoFocus required value={name} onChange={(e) => setName(e.target.value)} />
+      <TextField label="Name" hint="A first name or nickname is fine. It stays in your account and isn't shared." autoComplete="off" autoFocus required value={name} onChange={(e) => setName(e.target.value)} />
       <PicturePicker value={picture} onChange={setPicture} name={name} choices={AVATAR_EMOJI} />
       <UsesAppSwitch name={name} checked={usesApp} onChange={setUsesApp} />
       {errorLine}
