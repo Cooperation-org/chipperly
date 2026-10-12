@@ -156,6 +156,8 @@ export interface AdminPayments {
     /** applied | ignored, or null for an event from before the log existed. */
     result: string | null;
     status: string | null;
+    /** A dispute's amount and reason; absent for other events. */
+    detail?: string | null;
     account_name: string | null;
   }>;
 }

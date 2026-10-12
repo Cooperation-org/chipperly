@@ -253,6 +253,13 @@
       "when": 1790340000000,
       "tag": "0037_sync_health",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790350000000,
+      "tag": "0038_stripe_event_detail",
+      "breakpoints": true
     }
   ]
 }
