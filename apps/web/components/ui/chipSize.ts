@@ -26,7 +26,8 @@ export interface ChipLayout {
 export function chipLayout(size: ChipSize | undefined, total: number, where: 'strip' | 'board'): ChipLayout {
   const s = size ?? DEFAULT_CHIP_SIZE;
   const px = PX[where][s];
-  const gap = Math.round(px / 4);
+  // The strip keeps the old tight gap (4px at large) so My feelings still fits beside the chips on a phone.
+  const gap = Math.round(px / (where === 'strip' ? 7 : 4));
   const perRow = Math.max(1, Math.floor((ROOM[where] + gap) / (px + gap)));
   let rows = Math.max(1, Math.ceil(total / perRow));
   if (s === 'xl' && total >= 4) rows = Math.max(rows, 2);
