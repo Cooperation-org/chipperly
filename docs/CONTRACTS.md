@@ -64,6 +64,13 @@ STRIPE_WEBHOOK_SECRET      the upgrade path. BOTH must be set to enable it.
 STRIPE_PRICE_INDIVIDUAL STRIPE_PRICE_HOUSEHOLD STRIPE_PRICE_SUPPORTED STRIPE_PRICE_AGENCY
                            One price id per account kind; a kind with none cannot check out
                            (409 price_not_set). Amounts are read live from Stripe, never hardcoded.
+STRIPE_PRICE_*_YEARLY      optional yearly price beside each kind's price above; offered only when both are set.
+                           Plan changes after checkout happen in the Stripe customer portal. In the
+                           dashboard (Settings > Billing > Customer portal) turn on plan switching and add
+                           the Individual, Supported and Household prices, monthly and yearly. The webhook
+                           sets the account kind from the paid price, unless the account has more profiles
+                           (or, for Household, admins) than that plan allows: then the kind stays and the
+                           super admins get an email.
 ```
 
 Web (`apps/web/.env.production` or shell, inlined at build):

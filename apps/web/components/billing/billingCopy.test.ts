@@ -1,6 +1,6 @@
 import type { BillingStatus } from '@chipperly/shared/schemas/billing';
 import { describe, expect, it } from 'vitest';
-import { accessNotice, discountLine, isLive, planChoices, planLine, priceLabel, subscriptionLine } from './billingCopy';
+import { accessNotice, billingErrorText, checkoutOffer, discountLine, isLive, planChoices, planLine, priceLabel, subscriptionLine } from './billingCopy';
 
 describe('billingCopy', () => {
   it('formats whatever price the server reports', () => {
@@ -47,8 +47,8 @@ describe('billingCopy', () => {
   });
 
   it('describes the discount and when it does not apply', () => {
-    expect(discountLine({ code: 'EARLY-ABC234', percent_off: 25, applies_to: 'annual', applicable: true })).toContain('applied at checkout');
-    expect(discountLine({ code: 'EARLY-ABC234', percent_off: 25, applies_to: 'annual', applicable: false })).toContain('not annual');
+    expect(discountLine({ code: 'EARLY-ABC234', percent_off: 25, applies_to: 'annual', applicable: true })).toBe('25% off a yearly plan (code EARLY-ABC234). Pick a yearly plan and it is applied at checkout.');
+    expect(discountLine({ code: 'EARLY-ABC234', percent_off: 25, applies_to: 'annual', applicable: false })).toContain('no yearly plan');
     expect(discountLine({ code: 'X', percent_off: 10, applies_to: 'any', applicable: true })).toContain('any plan');
   });
 
@@ -78,5 +78,41 @@ describe('planChoices', () => {
 
   it('does not claim a saving when the yearly price is not cheaper', () => {
     expect(planChoices([month, { ...year, amount: 12000 }], 'en-US')[1]?.label).toBe('Yearly: $120.00 per year');
+  });
+});
+
+describe('checkoutOffer', () => {
+  const access = { state: 'trial' as const, ended_at: null, pauses_at: null, write_paused: false };
+  const month = { plan: 'default' as const, amount: 1000, currency: 'usd', interval: 'month' };
+  const year = { plan: 'yearly' as const, amount: 10000, currency: 'usd', interval: 'year' };
+  const kinds: BillingStatus['kinds'] = [
+    { kind: 'individual', prices: [month] },
+    { kind: 'household', prices: [month, year] },
+  ];
+  const base: BillingStatus = { kind: 'individual', checkout_available: true, price: month, prices: [month], kinds, subscription: null, can_manage: true, access, discount: null };
+
+  it('lets anyone pick a plan and sends the kind picked', () => {
+    expect(checkoutOffer(base, null)).toEqual({ kind: 'individual', prices: [month], picker: true, canBuy: true });
+    expect(checkoutOffer(base, 'household')).toEqual({ kind: 'household', prices: [month, year], picker: true, canBuy: true });
+  });
+
+  it('falls back to the first plan with a price when the own kind has none', () => {
+    const supported = { ...base, kind: 'supported' as const, checkout_available: false, price: null, prices: [] };
+    expect(checkoutOffer(supported, null)).toMatchObject({ kind: 'individual', canBuy: true });
+  });
+
+  it('an organization buys its own price, with no picker and no kind sent', () => {
+    const agency = { ...base, kind: 'agency' as const, prices: [year] };
+    expect(checkoutOffer(agency, null)).toEqual({ kind: undefined, prices: [year], picker: false, canBuy: true });
+    expect(checkoutOffer({ ...agency, checkout_available: false, price: null, prices: [] }, 'household').canBuy).toBe(false);
+  });
+});
+
+describe('billingErrorText', () => {
+  it('passes the plan limit text through and words the rest for the person', () => {
+    expect(billingErrorText('too_many_admins', 'A family plan can have 2 admins.')).toBe('A family plan can have 2 admins.');
+    expect(billingErrorText('pay_by_arrangement', 'x')).toMatch(/support@chipperlyapp\.com/);
+    expect(billingErrorText('already_subscribed', 'x')).not.toMatch(/Try again/);
+    expect(billingErrorText(null, '')).toMatch(/Try again/);
   });
 });

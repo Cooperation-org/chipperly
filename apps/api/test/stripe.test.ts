@@ -10,7 +10,7 @@ import { buildTestApp, request } from './helpers.js';
 import { db } from '../src/db/client.js';
 import { stripe_events, subscriptions } from '../src/db/schema/subscriptions.js';
 import { env } from '../src/env.js';
-import { accounts, promo_codes, users } from '../src/db/schema/accounts.js';
+import { accounts, invites, promo_codes, users } from '../src/db/schema/accounts.js';
 import {
   applyDisputeEvent,
   applyStripeEvent,
@@ -592,7 +592,7 @@ describe('choosing a plan at checkout', () => {
       'fetch',
       vi.fn(async (url: string, init?: { body?: URLSearchParams }) => {
         const json = (o: unknown) => new Response(JSON.stringify(o), { headers: { 'content-type': 'application/json' } });
-        if (url.includes('/prices/')) return json({ unit_amount: 1000, currency: 'usd', recurring: { interval: 'month' } });
+        if (url.includes('/prices/')) return json({ unit_amount: 1000, currency: 'usd', recurring: { interval: url.endsWith('_y') ? 'year' : 'month' } });
         if (url.endsWith('/checkout/sessions')) {
           sessions.push(String(init?.body?.get('line_items[0][price]')));
           return json({ url: 'https://checkout.stripe.com/c/pay/test' });
@@ -600,6 +600,18 @@ describe('choosing a plan at checkout', () => {
         return new Response('{}', { status: 404 });
       }),
     );
+
+  it('an annual-only discount applies when any plan on offer is yearly, not just the current one', async () => {
+    stubStripe();
+    const { adminId, headers } = await setup('individual');
+    const offer = `TEST-${uuidv7().slice(-8)}`;
+    const now = Date.now();
+    await db.insert(promo_codes).values({ code: offer, percent_off: 25, applies_to: 'annual', valid_from: now, valid_until: now, active: true, auto_issue: false, note: null, created_at: now });
+    await db.update(users).set({ promo_code: offer, personal_code: `EARLY-${uuidv7().slice(-6).toUpperCase()}`, promo_code_at: now }).where(eq(users.id, adminId));
+    const status = (await request(app, { method: 'GET', url: `${env.BASE_PATH}/api/billing`, headers })).json() as { prices: { interval: string }[]; discount: { applicable: boolean } };
+    expect(status.prices.map((p) => p.interval)).toEqual(['month']);
+    expect(status.discount.applicable).toBe(true);
+  });
 
   it('maps a price id back to its kind, monthly or yearly, and ignores unknown ones', () => {
     expect(kindForPriceId('price_house')).toBe('household');
@@ -631,6 +643,19 @@ describe('choosing a plan at checkout', () => {
     expect((res.json() as { error: { code: string } }).error.code).toBe('too_many_profiles');
   });
 
+  it('refuses the family plan with more than 2 admins, counting open admin invites', async () => {
+    const sessions: string[] = [];
+    stubStripe(sessions);
+    const { accountId, adminId, headers } = await setup('individual');
+    await addMember(accountId, (await createUser()).id, 'admin');
+    expect((await checkout(headers, { kind: 'household' })).statusCode).toBe(200);
+    await db.insert(invites).values({ id: uuidv7(), account_id: accountId, email: 'third@example.com', role: 'admin', token_hash: `h-${uuidv7()}`, profile_ids: [], invited_by: adminId, expires_at: Date.now() + 86_400_000 });
+    const res = await checkout(headers, { kind: 'household' });
+    expect(res.statusCode).toBe(409);
+    expect((res.json() as { error: { code: string } }).error.code).toBe('too_many_admins');
+    expect(sessions).toEqual(['price_house']);
+  });
+
   it('sends a live subscription to the billing portal to change plan', async () => {
     stubStripe();
     const { accountId, headers } = await setup('individual');
@@ -654,5 +679,25 @@ describe('choosing a plan at checkout', () => {
     expect(await kindNow()).toBe('household');
     await applyStripeEvent(withPrice('active', 'price_ind', 3)); // downgrade in the portal
     expect(await kindNow()).toBe('individual');
+  });
+
+  it('a portal downgrade the account does not fit keeps the kind it has', async () => {
+    const { accountId, adminId } = await setup('household');
+    await createProfile(accountId, adminId, 'One');
+    await createProfile(accountId, adminId, 'Two');
+    const e = subEvent(accountId, { status: 'active', created: 1_800_000_100 });
+    (e.data.object as { items: unknown }).items = { data: [{ price: { id: 'price_ind' } }] };
+    expect(await applyStripeEvent(e)).toBe('applied');
+    expect((await db.select().from(accounts).where(eq(accounts.id, accountId)))[0]!.kind).toBe('household');
+    expect((await db.select().from(subscriptions).where(eq(subscriptions.account_id, accountId)))[0]!.status).toBe('active');
+  });
+
+  it('a portal upgrade to the family plan with 3 admins keeps the kind it has', async () => {
+    const { accountId } = await setup('individual');
+    for (let i = 0; i < 2; i++) await addMember(accountId, (await createUser()).id, 'admin');
+    const e = subEvent(accountId, { status: 'active', created: 1_800_000_200 });
+    (e.data.object as { items: unknown }).items = { data: [{ price: { id: 'price_house' } }] };
+    await applyStripeEvent(e);
+    expect((await db.select().from(accounts).where(eq(accounts.id, accountId)))[0]!.kind).toBe('individual');
   });
 });

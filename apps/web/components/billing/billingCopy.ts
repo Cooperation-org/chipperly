@@ -70,16 +70,54 @@ export function accessNotice(access: Access, canManage: boolean, locale?: string
   };
 }
 
-/** "25% off the annual plan" (and why it may not apply), from what the server reports. */
+/** "25% off a yearly plan" (and when it applies), from what the server reports. */
 export function discountLine(discount: BillingDiscount): string {
-  const plan = discount.applies_to === 'annual' ? 'the annual plan' : 'any plan';
-  const base = `${discount.percent_off}% off ${plan} (code ${discount.code})`;
-  return discount.applicable ? `${base}. It is applied at checkout.` : `${base}. Your plan is not annual, so it does not apply to it.`;
+  if (discount.applies_to === 'any') return `${discount.percent_off}% off any plan (code ${discount.code}). It is applied at checkout.`;
+  const base = `${discount.percent_off}% off a yearly plan (code ${discount.code})`;
+  return discount.applicable ? `${base}. Pick a yearly plan and it is applied at checkout.` : `${base}. There is no yearly plan to pick yet.`;
 }
 
 /** An organization with no price in the app: it pays by arrangement. */
 export function paysByArrangement(status: Pick<BillingStatus, 'kind' | 'checkout_available'>): boolean {
   return status.kind === 'agency' && !status.checkout_available;
+}
+
+export interface CheckoutOffer {
+  /** The kind to send at checkout; undefined sends none, and the server uses the account's own kind. */
+  kind: AccountKind | undefined;
+  prices: BillingStatus['prices'];
+  /** Show the plan picker. */
+  picker: boolean;
+  /** Show the subscribe buttons. */
+  canBuy: boolean;
+}
+
+/**
+ * What the subscribe part of the card offers. An organization buys its own price, if it has one, with
+ * no picker. Everyone else can pick any plan that has a price: the one picked, else their own, else the first.
+ */
+export function checkoutOffer(status: BillingStatus, picked: AccountKind | null): CheckoutOffer {
+  if (status.kind === 'agency') return { kind: undefined, prices: status.prices, picker: false, canBuy: status.checkout_available };
+  const chosen = status.kinds.find((k) => k.kind === (picked ?? status.kind)) ?? status.kinds[0];
+  if (!chosen) return { kind: undefined, prices: status.prices, picker: false, canBuy: status.checkout_available };
+  return { kind: chosen.kind, prices: chosen.prices, picker: status.kinds.length > 1, canBuy: chosen.prices.length > 0 };
+}
+
+/** What to say when checkout or the billing portal does not open. The plan limits come with their own plain text. */
+export function billingErrorText(code: string | null, message: string): string {
+  switch (code) {
+    case 'too_many_profiles':
+    case 'too_many_admins':
+      return message;
+    case 'already_subscribed':
+      return 'This account already has a subscription. Reload the page to manage it.';
+    case 'price_not_set':
+      return 'This plan cannot be bought yet. Pick another plan.';
+    case 'pay_by_arrangement':
+      return 'Organization plans are set up by email. Write to support@chipperlyapp.com.';
+    default:
+      return 'Could not open billing. Try again in a moment.';
+  }
 }
 
 export function isLive(sub: BillingStatus['subscription']): boolean {

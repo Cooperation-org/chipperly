@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { InviteDetails, AcceptInviteResponse } from '@chipperly/shared/schemas/account';
-import { api, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
+import { api, ApiError, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveAccount, useActiveProfile } from '@/lib/profile/active';
 import { startSync } from '@/lib/sync/engine';
@@ -82,7 +82,13 @@ export function InviteAccept() {
       await enterParentMode();
       router.push('/today/');
     } catch (err) {
-      setAcceptError(err instanceof TimeoutError ? TIMEOUT_MESSAGE : "Couldn't accept the invite. Try again.");
+      setAcceptError(
+        err instanceof TimeoutError
+          ? TIMEOUT_MESSAGE
+          : err instanceof ApiError && err.code === 'admin_limit'
+            ? 'This family already has 2 admins. Ask them to invite you as a member, or to remove an admin first.'
+            : "Couldn't accept the invite. Try again.",
+      );
       setAccepting(false);
     }
   }

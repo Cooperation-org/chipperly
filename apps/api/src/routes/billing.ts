@@ -1,12 +1,11 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AccountKind } from '@chipperly/shared/schemas/account';
 import { BillingCheckoutBodySchema, PurchasableKind, type BillingStatus } from '@chipperly/shared/schemas/billing';
-import { PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
+import { HOUSEHOLD_ADMIN_LIMIT, PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { db } from '../db/client.js';
 import { account_members, accounts, users } from '../db/schema/accounts.js';
-import { profiles } from '../db/schema/profiles.js';
 import { subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
 import { linkBase } from '../lib/links.js';
@@ -17,6 +16,7 @@ import {
   ensureCoupon,
   loadPersonalDiscount,
   parseStripeEvent,
+  planMisfit,
   priceIdForKind,
   priceIdsForKind,
   recordStripeEvent,
@@ -102,6 +102,8 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     const price: BillingStatus['price'] = prices[0] ? { amount: prices[0].amount, currency: prices[0].currency, interval: prices[0].interval } : null;
     // Checkout only applies it to a first subscription, so stop advertising it once one exists.
     const held = sub ? null : await loadPersonalDiscount(userId);
+    // It applies if any plan that can be bought here fits it, since the person can pick another plan.
+    const buyable = kind === 'agency' ? prices : kinds.flatMap((k) => k.prices);
     return {
       kind,
       checkout_available: Boolean(priceId),
@@ -113,7 +115,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
         : null,
       can_manage: isAdmin,
       access: await accountAccess(accountId),
-      discount: held ? { ...held, applicable: (prices.length > 0 ? prices : [{ interval: null }]).some((p) => discountApplies(held, p.interval)) } : null,
+      discount: held ? { ...held, applicable: (buyable.length > 0 ? buyable : [{ interval: null }]).some((p) => discountApplies(held, p.interval)) } : null,
     };
   });
 
@@ -130,8 +132,9 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
     if (!priceId) throw new AppError(409, 'price_not_set', 'No price is set for this kind of account yet');
     // Changing plan on a live subscription happens in the Stripe portal; its webhook switches the kind.
     if (sub && LIVE_STATES.has(sub.status)) throw new AppError(409, 'already_subscribed', 'This account already has a subscription. Change plan in the billing portal.');
-    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(profiles).where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at)));
-    if (count! > PROFILE_LIMITS[target]) throw new AppError(409, 'too_many_profiles', `The ${target} plan is limited to ${PROFILE_LIMITS[target]} profile${PROFILE_LIMITS[target] === 1 ? '' : 's'}. Remove some profiles first.`);
+    const misfit = await planMisfit(db, accountId, target, true);
+    if (misfit === 'too_many_profiles') throw new AppError(409, misfit, `This plan allows ${PROFILE_LIMITS[target]} profile${PROFILE_LIMITS[target] === 1 ? '' : 's'}. Remove some profiles first, then subscribe.`);
+    if (misfit === 'too_many_admins') throw new AppError(409, misfit, `A family plan can have ${HOUSEHOLD_ADMIN_LIMIT} admins. Change the other admins to members, or cancel open admin invites, first.`);
 
     // The early-access discount rides along on a first subscription only, and
     // only when its plan restriction fits the price being bought. A Stripe

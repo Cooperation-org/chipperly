@@ -8,7 +8,7 @@ import { useBillingStatus } from '@/lib/billing/useBillingStatus';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
-import { accessNotice, discountLine, isLive, KIND_LABEL, paysByArrangement, planChoices, planLine, priceLabel } from './billingCopy';
+import { accessNotice, billingErrorText, checkoutOffer, discountLine, isLive, KIND_LABEL, paysByArrangement, planChoices, planLine, priceLabel } from './billingCopy';
 import styles from './BillingPanel.module.css';
 
 /**
@@ -24,17 +24,18 @@ export function BillingPanel() {
   if (!status) return null;
   const sub = status.subscription;
   const notice = accessNotice(status.access, status.can_manage, undefined, undefined, paysByArrangement(status));
-  // Which plan to buy: the one picked, else the account's own, else the first one with a price.
-  const kind = status.kinds.find((k) => k.kind === (picked ?? status.kind)) ?? status.kinds[0];
-  const choices = planChoices(kind?.prices ?? status.prices);
+  const offer = checkoutOffer(status, picked);
+  const choices = planChoices(offer.prices);
+  // One price: say what the picked plan costs, not the account's current one.
+  const shown = offer.prices[0] ?? status.price;
 
   async function go(path: '/billing/checkout' | '/billing/portal', plan?: BillingPlan): Promise<void> {
     setBusy(true);
     try {
-      const { url } = await api.post<{ url: string }>(path, plan ? { plan, kind: kind?.kind } : undefined, { schema: BillingRedirectSchema });
+      const { url } = await api.post<{ url: string }>(path, plan ? { plan, kind: offer.kind } : undefined, { schema: BillingRedirectSchema });
       window.location.assign(url);
     } catch (err) {
-      toast(err instanceof ApiError && err.code === 'too_many_profiles' ? err.message : 'Could not open billing. Try again in a moment.');
+      toast(err instanceof ApiError ? billingErrorText(err.code, err.message) : billingErrorText(null, ''));
       setBusy(false);
     }
   }
@@ -49,7 +50,7 @@ export function BillingPanel() {
         </div>
       )}
       {status.discount && <p className={styles.muted}>{discountLine(status.discount)}</p>}
-      {!isLive(sub) && status.price && choices.length === 1 && <p className={styles.muted}>{priceLabel(status.price)}</p>}
+      {!isLive(sub) && shown && choices.length === 1 && <p className={styles.muted}>{priceLabel(shown)}</p>}
       {!status.can_manage && <p className={styles.muted}>Only an account admin can change the subscription.</p>}
       {status.can_manage && sub && (
         <Button variant="secondary" loading={busy} onClick={() => void go('/billing/portal')}>
@@ -67,12 +68,12 @@ export function BillingPanel() {
           <a href="mailto:support@chipperlyapp.com?subject=Organization%20plan">support@chipperlyapp.com</a> and we will set yours up.
         </p>
       )}
-      {status.can_manage && !isLive(sub) && status.kinds.length > 1 && (
-        <Segmented label="Plan" value={kind?.kind ?? status.kind} onChange={(v) => setPicked(v as AccountKind)} items={status.kinds.map((k) => ({ value: k.kind, label: KIND_LABEL[k.kind] }))} />
+      {status.can_manage && !isLive(sub) && offer.picker && (
+        <Segmented label="Plan" value={offer.kind ?? status.kind} onChange={(v) => setPicked(v as AccountKind)} items={status.kinds.map((k) => ({ value: k.kind, label: KIND_LABEL[k.kind] }))} />
       )}
       {status.can_manage &&
         !isLive(sub) &&
-        (status.checkout_available || kind) &&
+        offer.canBuy &&
         choices.map((choice, i) => (
           <Button key={choice.plan} variant={i === 0 ? 'primary' : 'secondary'} loading={busy} onClick={() => void go('/billing/checkout', choice.plan)}>
             {choice.label}
