@@ -74,10 +74,10 @@ export function Ready() {
                   <span aria-hidden="true">📍</span> {places.map((l) => l.name).join(', ')}
                 </li>
                 <li>
-                  <span aria-hidden="true">🎈</span> Free choices: {freeChoices.length > 0 ? freeChoices.map((r) => r.name).join(', ') : 'none yet'}
+                  <span aria-hidden="true">⭐</span> Earned with chips: {earned.length > 0 ? earned.map((r) => `${r.name} (${r.chip_cost})`).join(', ') : 'none yet'}
                 </li>
                 <li>
-                  <span aria-hidden="true">⭐</span> Earned with chips: {earned.length > 0 ? earned.map((r) => `${r.name} (${r.chip_cost})`).join(', ') : 'none yet'}
+                  <span aria-hidden="true">🎈</span> Always there, no chips: {freeChoices.length > 0 ? freeChoices.map((r) => r.name).join(', ') : 'none yet'}
                 </li>
               </>
             ) : (

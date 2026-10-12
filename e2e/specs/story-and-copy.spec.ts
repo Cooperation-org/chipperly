@@ -286,9 +286,9 @@ test.describe('starter plan wording and shape', () => {
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Where will Mia use Chipperly?' })).toBeVisible();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Rewards I earn with chips' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Rewards Mia earns with chips' })).toBeVisible();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Things I can always choose' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Things Mia can always choose' })).toBeVisible();
     await page.getByRole('button', { name: "Create Mia's plan", exact: true }).click();
 
     // Ready summary (Ready.tsx:54): one Morning Routine with the six steps, and no standalone teeth/dressed line.

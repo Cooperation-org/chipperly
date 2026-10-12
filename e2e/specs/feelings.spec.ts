@@ -150,7 +150,7 @@ test.describe('feelings, check-ups and the whole-routine bonus', () => {
   });
 
   test('team: day check-up with a note', async () => {
-    await page.getByRole('button', { name: 'Team unlock', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit mode', exact: true }).click();
     await enterPin(page, '1234');
     await page.waitForURL('**/today/');
     await page.getByRole('button', { name: 'Day check-up', exact: true }).click();
