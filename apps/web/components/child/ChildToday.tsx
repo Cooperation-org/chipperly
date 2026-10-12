@@ -30,6 +30,7 @@ import { useTimer, useTimerRunning, setDuration, setReveal, setLocked, start } f
 import { playChip } from '@/lib/sound';
 import { now } from '@/lib/clock';
 import { Picture } from '@/components/media/Picture';
+import { displaySizeClass } from './displaySize';
 import { ChipStrip } from '@/components/ui/ChipStrip';
 import { CheckCircle } from '@/components/ui/CheckCircle';
 import { StepRow } from '@/components/ui/StepRow';
@@ -511,7 +512,7 @@ export function ChildToday() {
   }
 
   // Big pictures, fewer words (profile setting, the team's choice): see .pictureMode in the CSS.
-  const screenClass = [styles.screen, profile.settings.picture_mode ? styles.pictureMode : ''].filter(Boolean).join(' ');
+  const screenClass = [styles.screen, profile.settings.picture_mode ? styles.pictureMode : '', displaySizeClass(profile.settings)].filter(Boolean).join(' ');
 
   const header = (
     <header className={styles.header}>

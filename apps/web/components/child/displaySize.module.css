@@ -1,0 +1,30 @@
+/* B9: text and picture size for the child view. Tokens are re-declared here so the scale resolves on this element. */
+.sized {
+  --text-sm: calc(clamp(0.8125rem, 0.75rem + 0.5vw, 0.875rem) * var(--text-scale));
+  --text-md: calc(clamp(0.9375rem, 0.875rem + 0.5vw, 1rem) * var(--text-scale));
+  --text-lg: calc(clamp(1.0625rem, 0.95rem + 1.2vw, 1.25rem) * var(--text-scale));
+}
+
+.text_small {
+  --text-scale: 0.85;
+}
+
+.text_large {
+  --text-scale: 1.25;
+}
+
+.text_xl {
+  --text-scale: 1.5;
+}
+
+.pic_small {
+  --pic-scale: 0.8;
+}
+
+.pic_large {
+  --pic-scale: 1.3;
+}
+
+.pic_xl {
+  --pic-scale: 1.6;
+}

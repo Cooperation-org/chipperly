@@ -19,6 +19,8 @@ import { Switch } from '@/components/ui/Switch';
 import { Button } from '@/components/ui/Button';
 import { firstThenReadiness, FIRST_THEN_SETUP_PATH } from '@/components/firstThen/firstThenReadiness';
 import { needsBothConfirm, setExclusive, type ExclusiveKey } from './lockOptionRules';
+import { DisplayPreview, DISPLAY_SIZE_ITEMS } from './DisplayPreview';
+import type { DisplaySize } from '@/components/child/displaySize';
 import { isSelfManaged, settingsCopy } from './settingsCopy';
 
 export interface LockSheetProps {
@@ -67,6 +69,8 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
   const [childReorders, setChildReorders] = useState(false);
   const [readAloud, setReadAloud] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+  const [textSize, setTextSize] = useState<DisplaySize>('medium');
+  const [pictureSize, setPictureSize] = useState<DisplaySize>('medium');
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   if (row && loadedFor !== row.id) {
     setChildLayout(row.settings.child_layout ?? 'list');
@@ -76,6 +80,8 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
     setChildReorders(row.settings.child_reorders ?? false);
     setReadAloud(row.settings.read_aloud ?? false);
     setHighContrast(row.settings.high_contrast ?? false);
+    setTextSize(row.settings.text_size ?? 'medium');
+    setPictureSize(row.settings.picture_size ?? 'medium');
     setLoadedFor(row.id);
   }
 
@@ -147,6 +153,8 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
           child_reorders: childReorders,
           read_aloud: readAloud,
           high_contrast: highContrast,
+          text_size: textSize,
+          picture_size: pictureSize,
         },
       });
     }
@@ -278,6 +286,15 @@ export function LockSheet({ profileId, lockAfter }: LockSheetProps) {
         <div className={styles.toggleRow}>
           <span className={styles.toggleLabel}>Big pictures, fewer words</span>
           <Switch label="Big pictures, fewer words" checked={pictureMode} onChange={setPictureMode} />
+        </div>
+        <div className={styles.settingRow}>
+          <span className={styles.toggleLabel}>Text size</span>
+          <Segmented label="Text size" items={DISPLAY_SIZE_ITEMS} value={textSize} onChange={(v) => setTextSize(v as DisplaySize)} />
+        </div>
+        <div className={styles.settingRow}>
+          <span className={styles.toggleLabel}>Picture size</span>
+          <Segmented label="Picture size" items={DISPLAY_SIZE_ITEMS} value={pictureSize} onChange={(v) => setPictureSize(v as DisplaySize)} />
+          <DisplayPreview textSize={textSize} pictureSize={pictureSize} />
         </div>
 
         <p className={styles.sectionTitle}>{copy.canTitle}</p>
