@@ -18,6 +18,9 @@ import { StoryViewer } from './StoryViewer';
 import styles from './StoriesScreen.module.css';
 import { ScreenHint } from '@/components/ui/ScreenHint';
 
+const UPLOAD_NOTE = 'Pick a picture of each page. PDFs are not supported yet, so save each page as a picture first.';
+const NO_PICTURES = 'PDFs are not supported yet. Save each page as a picture and pick those.';
+
 const TEMPLATES: { key: StoryTemplateKey; label: string }[] = [
   { key: 'haircut', label: 'Haircut' },
   { key: 'doctor', label: 'Doctor visit' },
@@ -39,6 +42,7 @@ export function StoriesScreen() {
   const sheet = useSheet();
   const [viewingId, setViewingId] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   if (!profile) return null;
   const profileId = profile.id;
@@ -50,11 +54,21 @@ export function StoriesScreen() {
 
   async function uploadStory(files: FileList | null): Promise<void> {
     if (!files || files.length === 0) return;
+    setUploading(true);
     try {
-      const storyId = await createFromImages(profileId, Array.from(files));
-      router.push(`/story/edit/?id=${storyId}`);
+      const made = await createFromImages(profileId, Array.from(files));
+      if (!made) {
+        toast(NO_PICTURES);
+        return;
+      }
+      if (made.skipped > 0) {
+        toast(made.skipped === 1 ? '1 picture could not be read and was left out.' : `${made.skipped} pictures could not be read and were left out.`);
+      }
+      router.push(`/story/edit/?id=${made.storyId}`);
     } catch {
       toast('Could not read those pictures. Try JPG or PNG files.');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -117,9 +131,12 @@ export function StoriesScreen() {
           e.target.value = '';
         }}
       />
-      <Button variant="secondary" icon="plus" onClick={() => fileInput.current?.click()}>
-        Add a story I already have
-      </Button>
+      <div className={styles.upload}>
+        <Button variant="secondary" icon="plus" loading={uploading} onClick={() => fileInput.current?.click()}>
+          {uploading ? 'Adding pictures…' : 'Add a story I already have'}
+        </Button>
+        <p className={styles.uploadNote}>{UPLOAD_NOTE}</p>
+      </div>
 
       {stories.length === 0 ? (
         <>
