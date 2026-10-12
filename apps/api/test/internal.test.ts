@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { env } from '../src/env.js';
+import { newsletterSegment } from '../src/lib/newsletterAudience.js';
 
 const secret = 'cron-secret-for-tests-at-least-32-chars';
 
@@ -32,6 +33,23 @@ describe('/api/internal (cron routes)', () => {
 
     const busy = await app.inject({ method: 'GET', url: '/api/internal/busy', headers });
     expect(busy.json()).toEqual({ busy: false });
+  });
+
+  it('lists newsletter users only with the secret', async () => {
+    const none = await app.inject({ method: 'GET', url: '/api/internal/newsletter-audience' });
+    expect(none.statusCode).toBe(404);
+    const ok = await app.inject({ method: 'GET', url: '/api/internal/newsletter-audience', headers: { 'x-cron-secret': secret } });
+    expect(ok.statusCode).toBe(200);
+    expect(Array.isArray(ok.json().users)).toBe(true);
+  });
+
+  it('puts a user in trial, expired trial or subscribed', () => {
+    const DAY = 86_400_000;
+    const now = 100 * DAY;
+    expect(newsletterSegment({ created_at: now - 5 * DAY, trial_ends_at: null }, false, now)).toBe('trial');
+    expect(newsletterSegment({ created_at: now - 40 * DAY, trial_ends_at: null }, false, now)).toBe('trial_expired');
+    expect(newsletterSegment({ created_at: now - 40 * DAY, trial_ends_at: now + DAY }, false, now)).toBe('trial');
+    expect(newsletterSegment({ created_at: now - 40 * DAY, trial_ends_at: null }, true, now)).toBe('subscribed');
   });
 
   it('is not registered at all without CRON_SECRET', async () => {
