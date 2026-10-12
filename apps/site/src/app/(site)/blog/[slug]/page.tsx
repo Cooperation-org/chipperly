@@ -14,6 +14,7 @@ import { breadcrumbs, faqPage, ORG_ID } from '../../../../lib/jsonld';
 import { followRedirect, getPost, getSettings, payload } from '../../../../lib/payload';
 import { buildMetadata, ogImageUrl } from '../../../../lib/seo';
 import { abs } from '../../../../lib/site';
+import { firstMention } from '../../../../lib/trademark';
 import type { Media, Post } from '../../../../payload-types';
 
 export const revalidate = 3600;
@@ -61,6 +62,7 @@ export default async function PostPage({ params }: Props) {
   const related = (post.relatedPosts ?? []).filter((p): p is Post => typeof p === 'object' && p._status === 'published');
   const minutes = readingMinutes(convertLexicalToPlaintext({ data: post.content }));
   const url = abs(`/blog/${post.slug}`);
+  const tm = firstMention(); // ™ on the first mention only, in reading order
   const faqs = post.faqs ?? [];
   const share = (settings.share ?? []) as ShareTarget[];
 
@@ -74,7 +76,7 @@ export default async function PostPage({ params }: Props) {
           </Link>
         ))}
         <h1>{post.title}</h1>
-        <p className="lede">{post.excerpt}</p>
+        <p className="lede">{tm.text(post.excerpt)}</p>
         <p className="meta">
           {byline.length > 0 && <span>By {byline.map((a) => a.name).join(', ')}</span>}
           <time dateTime={post.publishedAt ?? undefined}>{formatDate(post.publishedAt)}</time>
@@ -96,7 +98,7 @@ export default async function PostPage({ params }: Props) {
       )}
 
       <div className="narrow">
-        <RichText data={post.content} />
+        <RichText data={tm.lexical(post.content)} />
 
         <Faq items={faqs} title="Questions about this topic" />
 

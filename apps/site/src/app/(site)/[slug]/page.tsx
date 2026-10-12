@@ -7,6 +7,7 @@ import { breadcrumbs, faqPage } from '../../../lib/jsonld';
 import { followRedirect, getPage } from '../../../lib/payload';
 import { buildMetadata } from '../../../lib/seo';
 import { abs } from '../../../lib/site';
+import { firstMention } from '../../../lib/trademark';
 
 // Pages written in the CMS (Pages collection), e.g. /press or /resources.
 export const revalidate = 3600;
@@ -35,17 +36,18 @@ export default async function CmsPage({ params }: Props) {
     await followRedirect(`/${slug}`);
     notFound();
   }
+  const tm = firstMention(); // ™ on the first mention only, in reading order
   return (
     <>
       <section className="page-hero">
         <div className="narrow">
           <Crumbs items={[[page.title]]} />
           <h1>{page.title}</h1>
-          {page.intro ? <p className="lede">{page.intro}</p> : null}
+          {page.intro ? <p className="lede">{tm.text(page.intro)}</p> : null}
         </div>
       </section>
       <div className="narrow" style={{ paddingBottom: 96 }}>
-        <RichText data={page.content} />
+        <RichText data={tm.lexical(page.content)} />
         <Faq items={page.faqs ?? []} />
       </div>
       <JsonLd graph={[breadcrumbs([[page.title, `/${page.slug}`]]), ...(page.faqs?.length ? [faqPage(page.faqs, abs(`/${page.slug}`))] : [])]} />
