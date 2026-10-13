@@ -251,7 +251,7 @@ export function FirstProfileForm() {
           onDone={onSetupDone}
           onBack={back}
           copyFrom={familyMode && person > 0 && first?.answers && first.picks ? { name: first.name, answers: first.answers, picks: first.picks } : undefined}
-          doneLabel={familyMode ? `Save ${forPerson}'s plan` : undefined}
+          doneLabel={familyMode && people.length > 1 ? `Save ${forPerson}'s plan` : undefined}
         />
         {errorLine}
       </div>

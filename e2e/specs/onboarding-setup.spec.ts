@@ -72,6 +72,7 @@ test.describe('onboarding setup interview', () => {
     await expect(page.getByText('2 of 3 picked')).toBeVisible();
     await expectNoOverflow(page, 'setup: free choices');
     await page.getByRole('button', { name: "Create Riley's plan", exact: true }).click();
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
 
     // Ready summarizes what was actually made.
     await page.waitForURL('**/onboarding/ready/');
@@ -124,6 +125,7 @@ test.describe('onboarding setup interview', () => {
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: "Create Sam's plan", exact: true }).click();
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
 
     await page.waitForURL('**/onboarding/ready/');
     await expect(page.getByText(/Using the Toilet · \d+ steps/)).toBeVisible();
@@ -145,7 +147,10 @@ test.describe('onboarding setup interview', () => {
     await page.getByRole('button', { name: /Myself/ }).click();
     await page.waitForURL('**/onboarding/profile/');
 
-    // No name form and no age question for a self-managed account.
+    // The name question comes first, filled with the sign-up name; then no age question for a self-managed account.
+    await expect(page.getByRole('heading', { name: 'What should we call you?' })).toBeVisible();
+    await expect(page.getByLabel('Your name')).toHaveValue('Solo Tester');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('heading', { name: "What's in a typical week?" })).toBeVisible();
     await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
 
@@ -161,6 +166,7 @@ test.describe('onboarding setup interview', () => {
     await createAccount(page, 'Order Tester');
     await page.getByRole('button', { name: /Myself/ }).click();
     await page.waitForURL('**/onboarding/profile/');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
 
     await expect(page.getByRole('heading', { name: "What's in a typical week?" })).toBeVisible();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();

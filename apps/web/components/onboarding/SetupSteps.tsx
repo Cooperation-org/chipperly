@@ -52,7 +52,7 @@ export function FamilyStep({ rows, onRows, meOn, onMeOn, me, onMe, onContinue, o
       </p>
       {rows.map((row, i) => (
         <section key={row.id} className={styles.card} aria-label={`Person ${i + 1}`}>
-          <TextField label={`Name of person ${i + 1}`} autoComplete="off" maxLength={80} value={row.name} onChange={(e) => update(row.id, { name: e.target.value })} />
+          <TextField label={i === 0 ? 'Name' : `Name of person ${i + 1}`} autoComplete="off" maxLength={80} value={row.name} onChange={(e) => update(row.id, { name: e.target.value })} />
           <PicturePicker value={row} onChange={(v) => update(row.id, { emoji: v.emoji ?? null, photo_id: v.photo_id ?? null })} name={row.name} choices={AVATAR_EMOJI} />
           {rows.length > 1 ? (
             <Button variant="secondary" onClick={() => onRows(rows.filter((r) => r.id !== row.id))}>

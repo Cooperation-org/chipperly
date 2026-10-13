@@ -21,6 +21,7 @@ test('Go to Today still lands on Today when every API request stalls', async ({ 
   await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
+  await page.getByRole('button', { name: 'Skip', exact: true }).click();
   await page.waitForURL('**/onboarding/ready/');
 
   // From here on the network is effectively dead: every API call waits a minute.

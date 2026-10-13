@@ -54,8 +54,8 @@ async function orgSignUp(page: Page, parentEmail: string): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Add people' })).toBeVisible();
   await page.getByRole('button', { name: 'Paste a list', exact: true }).click();
   await page
-    .getByLabel(/One name per line/)
-    .fill(`name, group, parent email\nAva, North clinic\nBen, North clinic\nCy, South clinic, ${parentEmail}`);
+    .getByLabel(/One person per line/)
+    .fill(`Ava, North clinic\nBen, North clinic\nCy, South clinic, ${parentEmail}`);
   await page.getByRole('button', { name: 'Add to list', exact: true }).click();
   await expect(page.getByRole('row')).toHaveCount(4); // header + 3
   await expectNoOverflow(page, 'org setup: people');
@@ -69,7 +69,7 @@ async function orgSignUp(page: Page, parentEmail: string): Promise<void> {
 
   // 6 Families
   await expect(page.getByRole('heading', { name: 'Families' })).toBeVisible();
-  await expect(page.getByText('We sent 1 family invite.')).toBeVisible();
+  await expect(page.getByText(/We sent 1 family invite, one email per parent/)).toBeVisible();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await page.waitForURL('**/org/');
 }

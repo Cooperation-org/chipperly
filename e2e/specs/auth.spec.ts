@@ -75,7 +75,8 @@ test.describe('auth', () => {
   });
 
   test('S4 first profile', async () => {
-    await expect(page.getByRole('heading', { name: "What's their name?" })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Who is in your family?' })).toBeVisible();
+    await expect(page.getByText('1 of 6', { exact: true })).toBeVisible();
     await expectNoOverflow(page, 'S4 onboarding profile');
     await snap(page, 's4-onboarding-profile');
 
@@ -93,6 +94,8 @@ test.describe('auth', () => {
     await expectNoOverflow(page, 'S4b setup interview');
     await snap(page, 's4b-setup-questions');
     await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Invite a second admin' })).toBeVisible();
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
     await page.waitForURL('**/onboarding/ready/');
   });
 
@@ -170,6 +173,7 @@ test.describe('auth', () => {
     await page.getByRole('radiogroup', { name: 'Choose a picture' }).getByRole('radio').first().click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
     await page.getByRole('button', { name: 'Go to Today', exact: true }).click();
     await page.waitForURL('**/today/');
 
