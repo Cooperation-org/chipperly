@@ -5,3 +5,11 @@ app.chipperlyapp.com {
 	}
 	reverse_proxy 127.0.0.1:8064
 }
+
+# The admin site: the same build and API, its own address (13 Oct 2026). Sign-in there
+# goes to /admin/; the API's admin routes check the role either way.
+admin.chipperlyapp.com {
+	encode zstd gzip
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy 127.0.0.1:8064
+}
