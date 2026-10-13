@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { db } from '../src/db/client.js';
 import { clusters } from '../src/db/schema/clusters.js';
+import { accounts } from '../src/db/schema/accounts.js';
 import { profile_members, profiles } from '../src/db/schema/profiles.js';
 import { buildTestApp, request } from './helpers.js';
 import { addMember, createAccount, createProfile, createUser } from './fixtures.js';
@@ -84,5 +85,17 @@ describe('sync push and org-only profile fields', () => {
     expect((await stored(s.profileId)).cluster_id).toBeNull();
     await push(s.admin.token, s.profileId, { cluster_id: mine });
     expect((await stored(s.profileId)).cluster_id).toBe(mine);
+  });
+
+  it("renaming the person of a supported account renames the account, and only that kind", async () => {
+    const accountName = async (id: string) => (await db.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, id)))[0]?.name;
+    for (const kind of ['supported', 'household'] as const) {
+      const admin = await createUser();
+      const accountId = await createAccount(admin.id, kind, 'Grandpa Joe');
+      await addMember(accountId, admin.id, 'admin');
+      const profileId = await createProfile(accountId, admin.id, 'Grandpa Joe');
+      expect((await push(admin.token, profileId, { name: 'Grandad Joe' })).statusCode).toBe(200);
+      expect(await accountName(accountId)).toBe(kind === 'supported' ? 'Grandad Joe' : 'Grandpa Joe');
+    }
   });
 });

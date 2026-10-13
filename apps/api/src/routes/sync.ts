@@ -581,6 +581,10 @@ async function applyUpsert(
   }
 
   await tx`update ${tx(mutation.table)} set ${tx(updateRow)} where id = ${mutation.id}`;
+  // A supported account is named after its one person (routes/accounts.ts): renaming the person renames it too.
+  if (mutation.table === 'profiles' && typeof row.name === 'string' && row.name !== stored.name) {
+    await tx`update accounts set name = ${row.name} where id = ${stored.account_id as string} and kind = 'supported' and name = ${stored.name as string}`;
+  }
   return { ok: true };
 }
 
