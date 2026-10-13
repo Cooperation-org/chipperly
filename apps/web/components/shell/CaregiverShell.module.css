@@ -82,3 +82,18 @@
 .profileRow:hover {
   background: var(--color-border);
 }
+
+.profileSearch {
+  padding: var(--space-3) var(--space-3) 0;
+}
+
+.accountHeading {
+  margin: var(--space-2) 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.profileEmpty {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+}

@@ -12,6 +12,8 @@ import { PicturePicker, type PicturePickerValue } from '@/components/picture/Pic
 import { api, ApiError } from '@/lib/api/client';
 import { useSession, refreshMe } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
+import { filterByName, needsSearch } from '@/lib/profile/switcher';
+import { ProfileSearchField } from '@/components/shell/ProfileSearchField';
 import { toast } from '@/lib/toast';
 import styles from './ProfilesScreen.module.css';
 import { UsesAppSwitch } from './UsesAppSwitch';
@@ -69,14 +71,17 @@ export function ProfilesScreen() {
   const targetAccountId = profile?.account_id ?? accounts[0]?.account.id;
   const targetAccount = accounts.find((a) => a.account.id === targetAccountId);
   const isAdmin = targetAccount?.role === 'admin';
-  const countInAccount = profiles.filter((p) => p.account_id === targetAccountId).length;
+  const inAccount = profiles.filter((p) => p.account_id === targetAccountId);
+  const countInAccount = inAccount.length;
+  const [query, setQuery] = useState('');
   const limit = targetAccount ? PROFILE_LIMITS[targetAccount.account.kind] : 0;
   const atLimit = countInAccount >= limit;
 
   return (
     <div className={styles.page}>
+      {needsSearch(countInAccount) ? <ProfileSearchField value={query} onChange={setQuery} /> : null}
       <div className={styles.list}>
-        {profiles.map((p) => {
+        {filterByName(inAccount, query).map((p) => {
           const current = p.id === profile?.id;
           return (
             <button
