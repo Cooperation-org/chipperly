@@ -550,6 +550,8 @@ test.describe('places', () => {
   });
 
   test('#17 a failed search shows its message and never blocks saving the place', async () => {
+    // Two searches, a save and a database poll: on WebKit that runs close to the 60 s budget.
+    test.slow();
     mode = 'error500';
     const dialog = await openAddLocation();
     await dialog.getByLabel('Name', { exact: true }).fill('Vet');
