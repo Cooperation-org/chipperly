@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   canManageOrg,
+  canMovePeople,
+  staffNames,
   filterRoster,
   homePath,
   initials,
@@ -81,5 +83,24 @@ describe('text helpers', () => {
   });
   it('error text', () => {
     expect(orgErrorMessage('cluster_not_empty')).toMatch(/Move or archive/);
+  });
+});
+
+describe('moderators on the org screens', () => {
+  it('admins and moderators move people, others do not', () => {
+    expect(canMovePeople('admin')).toBe(true);
+    expect(canMovePeople('moderator')).toBe(true);
+    expect(canMovePeople('member')).toBe(false);
+    expect(canMovePeople('viewer')).toBe(false);
+    expect(canManageOrg('moderator')).toBe(false);
+  });
+  it('lists staff names without families', () => {
+    const team = [
+      { user_id: '1', display_name: 'Sam', role: 'member' },
+      { user_id: '2', display_name: 'Pat', role: 'viewer' },
+      { user_id: '3', display_name: 'Mo', role: 'moderator' },
+    ];
+    expect(staffNames(team)).toBe('Sam, Mo');
+    expect(staffNames([])).toBe('');
   });
 });
