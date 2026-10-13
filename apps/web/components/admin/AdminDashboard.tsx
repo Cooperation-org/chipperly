@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminOverview, AdminUser, PromoCode } from '@chipperly/shared/schemas/billing';
 import { api } from '@/lib/api/client';
-import { useSession } from '@/lib/auth/session';
+import { useAdminRole } from '@/lib/admin/role';
 import { trialDaysLeft } from '@/lib/billing/promo';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
@@ -33,7 +33,8 @@ function ago(ms: number | null): string {
 
 /** Super admins only (the server's SUPER_ADMIN_EMAILS): sign-ups, trials, early access codes. */
 export function AdminDashboard() {
-  const { user } = useSession();
+  const role = useAdminRole();
+  const canChange = role === 'super';
   const sheet = useSheet();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [people, setPeople] = useState<AdminUser[] | null>(null);
@@ -48,19 +49,19 @@ export function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!user?.is_super_admin) return;
+    if (!role) return;
     void api.get<AdminOverview>('/admin/overview').then(setOverview);
     loadCodes();
-  }, [user?.is_super_admin, loadCodes]);
+  }, [role, loadCodes]);
 
   // Search as you type, a beat after the last key.
   useEffect(() => {
-    if (!user?.is_super_admin) return;
+    if (!role) return;
     const t = setTimeout(() => loadPeople(query), 250);
     return () => clearTimeout(t);
-  }, [query, user?.is_super_admin, loadPeople]);
+  }, [query, role, loadPeople]);
 
-  if (!user?.is_super_admin) return <p className={styles.muted}>This page is for Chipperly&rsquo;s own team.</p>;
+  if (!role) return <p className={styles.muted}>This page is for Chipperly&rsquo;s own team.</p>;
 
   async function extend(person: AdminUser, days: number): Promise<void> {
     try {
@@ -143,13 +144,15 @@ export function AdminDashboard() {
       <section className={styles.card} aria-label="Early access offers">
         <div className={styles.headRow}>
           <h2 className={styles.heading}>Early access offers</h2>
-          <Button variant="secondary" onClick={() => editCode(null)}>
-            New offer
-          </Button>
+          {canChange ? (
+            <Button variant="secondary" onClick={() => editCode(null)}>
+              New offer
+            </Button>
+          ) : null}
         </div>
         <p className={styles.muted}>Nobody types these. Each person gets their own code under an offer, used once their trial ends.</p>
         {codes?.map((c) => (
-          <button key={c.code} type="button" className={styles.codeRow} onClick={() => editCode(c)}>
+          <button key={c.code} type="button" className={styles.codeRow} disabled={!canChange} onClick={() => editCode(c)}>
             <span className={styles.code}>{c.code}</span>
             <span>{c.percent_off ? `${c.percent_off}% off ${c.applies_to === 'annual' ? 'annual' : 'any plan'}` : 'Discount not set'}</span>
             <span className={styles.muted}>
@@ -215,7 +218,7 @@ export function AdminDashboard() {
                         </span>
                       </td>
                       <td data-label="" className={styles.rowActions}>
-                        <div className={styles.actions}>
+                        {canChange ? <div className={styles.actions}>
                           {!p.personal_code && offers.length > 0 ? (
                             <Button variant="secondary" onClick={() => void issue(p)}>
                               Give code
@@ -230,7 +233,7 @@ export function AdminDashboard() {
                           <Button variant="secondary" onClick={() => manage(p)}>
                             Manage
                           </Button>
-                        </div>
+                        </div> : <span className={styles.muted}>{p.is_super_admin ? 'Super admin' : p.is_support ? 'Support' : ''}</span>}
                       </td>
                     </tr>
                   );

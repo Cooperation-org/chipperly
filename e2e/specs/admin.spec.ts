@@ -1,13 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { expectNoOverflow, signUp } from '../helpers';
 
-// The super admin dashboard (e2e/server.mjs lists admin-<project>@example.com in SUPER_ADMIN_EMAILS).
+// The admin site (e2e/server.mjs lists admin-<project>@example.com in SUPER_ADMIN_EMAILS). The test server is
+// local, so /admin/ shows in place instead of moving to admin.chipperlyapp.com.
 test('a super admin sees the dashboard, sets the early access discount, and extends a trial', async ({ page }, testInfo) => {
   await signUp(page, { name: 'Boss', email: `admin-${testInfo.project.name}@example.com` });
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: /^Admin dashboard/ }).click();
-  await page.waitForURL('**/settings/admin/');
+  await page.getByRole('button', { name: /^Admin site/ }).click();
+  await page.waitForURL('**/admin/');
+  await expect(page.getByText(/Super admin$/)).toBeVisible();
   await expect(page.getByText('People', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('region', { name: 'Sign-ups, last 30 days' })).toBeVisible();
 
@@ -31,16 +33,26 @@ test('a super admin sees the dashboard, sets the early access discount, and exte
   await page.screenshot({ path: `e2e/screenshots/admin-people-${testInfo.project.name}.png`, fullPage: true });
 
   // The payments log is read-only; with no Stripe keys in the harness it says so and lists nothing.
-  await page.goto('/settings/admin/payments/');
-  await expect(page.getByText('Payments are switched off on this server.')).toBeVisible();
+  await page.getByRole('navigation', { name: 'Admin' }).getByRole('link', { name: 'Payments' }).click();
+  await page.waitForURL('**/admin/payments/');
+  await expect(page.getByText('Payments are switched off on this server.').first()).toBeVisible();
   await expect(page.getByRole('region', { name: 'Messages from Stripe' })).toContainText('Nothing has arrived yet.');
   await expectNoOverflow(page, 'payments log');
+
+  // Every other admin page opens and fits the screen.
+  for (const [label, path] of [['Organizations', 'orgs'], ['Subscriptions', 'subscriptions'], ['Feedback', 'feedback'], ['Activity', 'activity'], ['Sync health', 'sync'], ['Backups', 'backups']] as const) {
+    await page.getByRole('navigation', { name: 'Admin' }).getByRole('link', { name: label, exact: true }).click();
+    await page.waitForURL(`**/admin/${path}/`);
+    await expect(page.getByRole('heading', { level: 1, name: label })).toBeVisible();
+    await expectNoOverflow(page, `admin ${path}`);
+  }
 });
 
-test('everyone else gets no admin row and no dashboard', async ({ page }) => {
+test('everyone else gets no admin row and no admin site', async ({ page }) => {
   await signUp(page, { name: 'Not Boss' });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await expect(page.getByRole('button', { name: /^Admin dashboard/ })).toHaveCount(0);
-  await page.goto('/settings/admin/');
-  await expect(page.getByText('This page is for Chipperly’s own team.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Admin site/ })).toHaveCount(0);
+  await page.goto('/admin/');
+  await expect(page.getByText(/is not on Chipperly’s team list/)).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Admin' })).toHaveCount(0);
 });

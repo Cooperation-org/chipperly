@@ -11,6 +11,7 @@ import { env } from '../env.js';
 import { linkBase } from '../lib/links.js';
 import {
   applyDisputeEvent,
+  applyOrgInvoicePaid,
   applyStripeEvent,
   discountApplies,
   ensureCoupon,
@@ -189,7 +190,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
       }
       const event = parseStripeEvent(JSON.parse(raw.toString('utf8')));
       if (event.type.startsWith('charge.dispute.')) return { received: true, result: await applyDisputeEvent(event) }; // logs itself
-      const result = await applyStripeEvent(event);
+      const result = event.type === 'invoice.paid' ? await applyOrgInvoicePaid(event) : await applyStripeEvent(event);
       await recordStripeEvent(event, result);
       reply.code(200);
       return { received: true, result };

@@ -132,3 +132,17 @@ The uploads (photos, recordings) are not restored by either path. They are in
     sudo systemctl daemon-reload && sudo systemctl enable chipperly
     sudo cp deploy/contabo/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
     bash deploy/contabo/deploy.sh
+
+## Admin site (admin.chipperlyapp.com)
+
+The same build and API, on its own address. Sign-in there goes to `/admin/`; the app's
+Settings shows one "Admin site" row that links here. Super admins (`SUPER_ADMIN_EMAILS`) can
+change things; people with `users.is_support` (switched on from a person's sheet) can only look.
+
+One-time setup:
+
+1. Cloudflare DNS: `admin` A record to this server's IP, DNS only (not proxied), like `app`.
+2. `sudo cp deploy/contabo/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy`
+   (Caddy gets the certificate on the first request).
+3. `apps/api/.env`: `ADMIN_ORIGIN=https://admin.chipperlyapp.com` (links in emails to super admins).
+4. Stripe webhook: also subscribe to `invoice.paid`, so organization invoices are marked paid.

@@ -10,6 +10,13 @@ export function siteOrigin(): string {
   return `${origin}${env.BASE_PATH}`;
 }
 
+/** The admin site (`ADMIN_ORIGIN`), for emails to super admins; the live admin site when unset or local. */
+export function adminOrigin(): string {
+  const origin = env.ADMIN_ORIGIN;
+  if (!origin || /^https?:\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/i.test(origin)) return 'https://admin.chipperlyapp.com';
+  return origin;
+}
+
 export interface EmailParts {
   readonly heading: string;
   readonly paragraphs: readonly string[];

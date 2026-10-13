@@ -5,6 +5,7 @@ import { getKv, setKv } from '@/lib/db/kv';
 import { asksDeviceRole, getDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
 import { homePath } from '@/lib/org/roster';
 import { inviteTokenFromRedirect } from './inviteToken';
+import { isAdminHost } from '@/lib/admin/host';
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -31,6 +32,11 @@ export async function getPendingInviteToken(): Promise<string | null> {
  * screens (lib/device/role.ts), asking who it's for the first time.
  */
 export async function redirectAfterAuth(router: Router): Promise<void> {
+  // The admin site has one destination; AdminShell turns away anyone who is not an admin.
+  if (isAdminHost()) {
+    router.push('/admin/');
+    return;
+  }
   const next = await getKv<string>(POST_AUTH_REDIRECT_KEY);
   if (next) {
     await setKv<string | null>(POST_AUTH_REDIRECT_KEY, null);

@@ -23,6 +23,10 @@ export const accounts = pgTable('accounts', {
   /** Organizations only (migration 0050): what kind of organization, and the size it guessed at sign-up. */
   org_type: text('org_type').$type<OrgType>(),
   org_size_estimate: integer('org_size_estimate'),
+  /** Organization plan (constants/orgTiers.ts ORG_TIERS key, or 'custom'), set from the admin site. Null for other kinds. */
+  org_tier: text('org_tier'),
+  /** How many Primary Users the organization paid for. */
+  seat_limit: integer('seat_limit'),
 });
 
 export const users = pgTable(

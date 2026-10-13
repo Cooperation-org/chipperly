@@ -7,9 +7,9 @@ import { HOUSEHOLD_ADMIN_LIMIT, PROFILE_LIMITS } from '@chipperly/shared/constan
 import { db } from '../db/client.js';
 import { account_members, accounts, invites, promo_codes, users } from '../db/schema/accounts.js';
 import { profiles } from '../db/schema/profiles.js';
-import { stripe_events, subscriptions } from '../db/schema/subscriptions.js';
+import { org_billing, stripe_events, subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
-import { renderEmail, siteOrigin } from './emailTemplate.js';
+import { adminOrigin, renderEmail, siteOrigin } from './emailTemplate.js';
 import { sendMail } from './mailer.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -100,14 +100,14 @@ export class StripeApiError extends AppError {
 }
 
 export async function stripeRequest<S extends z.ZodType>(
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'DELETE',
   path: string,
   schema: S,
   params: Record<string, string | undefined> = {},
 ): Promise<z.infer<S>> {
   if (!env.STRIPE_SECRET_KEY) throw new AppError(404, 'not_found', 'Billing is not enabled');
   const form = stripeForm(params);
-  const res = await fetch(`${STRIPE_API}${path}${method === 'GET' && form.size ? `?${form}` : ''}`, {
+  const res = await fetch(`${STRIPE_API}${path}${method !== 'POST' && form.size ? `?${form}` : ''}`, {
     method,
     headers: {
       authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
@@ -233,11 +233,52 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
         else await tx.update(accounts).set({ kind: paidKind }).where(eq(accounts.id, accountId));
       }
     }
+    // An organization paying through a link or invoice from the admin site: tie the subscription to that row,
+    // and once it is live, the plan's tier and seats become the account's.
+    const org = OrgMetaSchema.safeParse(sub.metadata);
+    if (!stale && org.success) {
+      await tx.update(org_billing).set({ stripe_subscription_id: sub.id }).where(eq(org_billing.id, org.data.org_billing_id));
+      if (PAID.has(row.status)) await tx.update(accounts).set({ org_tier: org.data.org_tier, seat_limit: org.data.seats }).where(eq(accounts.id, accountId));
+    }
     return { result: 'applied' as const, notice: stale ? null : subscriptionNotice(prev, row), misfit };
   });
   if (notice) await mailAccountAdmins(accountId, notice, row.current_period_end);
   if (misfit) await mailPlanMisfit(accountId, misfit);
   return result;
+}
+
+const OrgMetaSchema = z.object({ org_billing_id: z.string().uuid(), org_tier: z.string().min(1), seats: z.coerce.number().int().positive() });
+
+const InvoiceObjectSchema = z.object({
+  id: z.string(),
+  // Older API versions put the subscription and its metadata on the invoice, newer ones under parent.
+  subscription: z.union([z.string(), z.object({ id: z.string() }).passthrough()]).nullish(),
+  subscription_details: z.object({ metadata: z.record(z.string(), z.string()).nullish() }).passthrough().nullish(),
+  parent: z
+    .object({ subscription_details: z.object({ subscription: z.string().nullish(), metadata: z.record(z.string(), z.string()).nullish() }).passthrough().nullish() })
+    .passthrough()
+    .nullish(),
+});
+
+/**
+ * invoice.paid: marks the admin site's org link or invoice row paid. Found by
+ * the subscription's org_billing_id metadata, or by its subscription id. Other
+ * invoices are ignored. Repeating it changes nothing.
+ */
+export async function applyOrgInvoicePaid(event: StripeEvent): Promise<ApplyResult> {
+  if (event.type !== 'invoice.paid') return 'ignored';
+  const inv = InvoiceObjectSchema.parse(event.data.object);
+  const meta = inv.parent?.subscription_details?.metadata ?? inv.subscription_details?.metadata ?? {};
+  const subId = inv.parent?.subscription_details?.subscription ?? (typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id) ?? null;
+  const byId = z.string().uuid().safeParse(meta.org_billing_id);
+  const where = byId.success ? eq(org_billing.id, byId.data) : subId ? eq(org_billing.stripe_subscription_id, subId) : null;
+  if (!where) return 'ignored';
+  const done = await db
+    .update(org_billing)
+    .set({ status: 'paid', ...(subId ? { stripe_subscription_id: subId } : {}) })
+    .where(and(where, eq(org_billing.status, 'open')))
+    .returning({ id: org_billing.id });
+  return done.length > 0 ? 'applied' : 'ignored';
 }
 
 async function mailPlanMisfit(accountId: string, m: { name: string; from: AccountKind; to: AccountKind; why: PlanMisfit }): Promise<void> {
@@ -249,7 +290,7 @@ async function mailPlanMisfit(accountId: string, m: { name: string; from: Accoun
       `${m.name} now pays for the ${m.to} plan, but it has ${has} than that plan allows.`,
       `Its account type was left as ${m.from}. Check the subscription in Stripe and talk to the account admin.`,
     ],
-    action: { label: 'Open the payments log', url: `${siteOrigin()}/settings/admin/payments/` },
+    action: { label: 'Open the payments log', url: `${adminOrigin()}/admin/payments/` },
   });
   for (const to of env.superAdminEmails) await sendMail({ to, subject: 'Chipperly plan change needs a look', ...mail });
 }
@@ -311,7 +352,7 @@ export async function applyDisputeEvent(event: StripeEvent, call: StripeCall = s
         accountName ? `Account: ${accountName}.` : 'We could not match it to an account.',
         'Nothing was cancelled or refunded. Respond to it in the Stripe dashboard.',
       ],
-      action: { label: 'Open the payments log', url: `${siteOrigin()}/settings/admin/payments/` },
+      action: { label: 'Open the payments log', url: `${adminOrigin()}/admin/payments/` },
     });
     for (const to of env.superAdminEmails) await sendMail({ to, subject: `Chipperly payment dispute ${verb}`, ...mail });
   }

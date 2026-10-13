@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminPayments } from '@chipperly/shared/schemas/billing';
 import { api } from '@/lib/api/client';
-import { useSession } from '@/lib/auth/session';
+import { useAdminRole } from '@/lib/admin/role';
 import { Button } from '@/components/ui/Button';
 import styles from './AdminDashboard.module.css';
 
@@ -30,9 +30,9 @@ const RESULT_WORDS: Record<string, string> = {
   ignored: 'Received, nothing to do',
 };
 
-/** Super admins only: the subscriptions the app holds, and the newest events Stripe has sent. Read-only. */
+/** The admin site's payments page, below the charges: the subscriptions the app holds, and the newest events Stripe has sent. Read-only. */
 export function PaymentsLog() {
-  const { user } = useSession();
+  const role = useAdminRole();
   const [log, setLog] = useState<AdminPayments | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -47,10 +47,10 @@ export function PaymentsLog() {
   }, []);
 
   useEffect(() => {
-    if (user?.is_super_admin) load();
-  }, [user?.is_super_admin, load]);
+    if (role) load();
+  }, [role, load]);
 
-  if (!user?.is_super_admin) return <p className={styles.muted}>This page is for Chipperly&rsquo;s own team.</p>;
+  if (!role) return <p className={styles.muted}>This page is for Chipperly&rsquo;s own team.</p>;
   if (failed) return <p className={styles.error} role="alert">Couldn&rsquo;t load the payments log.</p>;
   if (!log) return null;
 

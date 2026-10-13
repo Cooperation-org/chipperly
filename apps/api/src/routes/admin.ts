@@ -13,6 +13,7 @@ import {
   type AdminUser,
   type PromoCode,
 } from '@chipperly/shared/schemas/billing';
+import { SetSupportBodySchema } from '@chipperly/shared/schemas/admin';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import { db, sql } from '../db/client.js';
 import { accounts, promo_codes, users } from '../db/schema/accounts.js';
@@ -20,6 +21,7 @@ import { deactivateUser, eraseAllowedAt, eraseUser, reactivateUser, type EraseRe
 import { env } from '../env.js';
 import { isSuperAdmin, trialEndsAt } from '../lib/trial.js';
 import { issuePersonalCode } from '../lib/earlyAccess.js';
+import { recordAdminAction } from '../lib/adminStripe.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -32,11 +34,25 @@ export async function requireSuperAdmin(request: FastifyRequest): Promise<void> 
   if (!user || !isSuperAdmin(user.email) || request.locked) throw new AppError(403, 'forbidden', 'Super admins only');
 }
 
-/** The super admin dashboard (apps/web /admin/): who signed up, trials, early access codes. */
+/** Super admins, or people with users.is_support: the admin site's read-only screens. Never from a device locked to a child. */
+export async function requireAdminRead(request: FastifyRequest): Promise<void> {
+  if (!request.user) throw new AppError(401, 'unauthorized', 'Sign-in required');
+  const [user] = await db.select({ email: users.email, is_support: users.is_support }).from(users).where(eq(users.id, request.user.id)).limit(1);
+  if (!user || !(isSuperAdmin(user.email) || user.is_support) || request.locked) throw new AppError(403, 'forbidden', 'Admins only');
+}
+
+/** The signed-in admin's email, for the audit log. */
+export async function adminEmail(request: FastifyRequest): Promise<string> {
+  const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, request.user!.id)).limit(1);
+  return user?.email ?? 'unknown';
+}
+
+/** The admin site (admin.chipperlyapp.com /admin/): who signed up, trials, early access codes. Reads are open to support, changes to super admins. */
 export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   const guard = { preHandler: [requireUser, requireSuperAdmin] };
+  const read = { preHandler: [requireUser, requireAdminRead] };
 
-  app.get('/admin/overview', guard, async (): Promise<AdminOverview> => {
+  app.get('/admin/overview', read, async (): Promise<AdminOverview> => {
     const now = Date.now();
     const rows = await db.select({ created_at: users.created_at, trial_ends_at: users.trial_ends_at, personal_code: users.personal_code }).from(users);
     const [{ active } = { active: 0 }] = await sql<{ active: number }[]>`
@@ -67,7 +83,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** Payments log: subscriptions as the app holds them, and the last 200 webhook events. Read-only. */
-  app.get('/admin/payments', guard, async (): Promise<AdminPayments> => {
+  app.get('/admin/payments', read, async (): Promise<AdminPayments> => {
     const subs = await sql<AdminPayments['subscriptions']>`
       select s.account_id, a.name as account_name, a.kind, s.status, s.current_period_end::float8 as current_period_end,
         s.cancel_at_period_end, s.updated_at::float8 as updated_at
@@ -81,7 +97,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     return { enabled: env.stripeEnabled, subscriptions: [...subs], events: [...events] };
   });
 
-  app.get('/admin/users', guard, async (request): Promise<{ users: AdminUser[] }> => {
+  app.get('/admin/users', read, async (request): Promise<{ users: AdminUser[] }> => {
     const { q } = z.object({ q: z.string().trim().max(100).optional() }).parse(request.query);
     const like = `%${(q ?? '').toLowerCase()}%`;
     // ponytail: newest 500, searched server-side; page it once there are more people than that.
@@ -95,6 +111,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         trial_ends_at: string | null;
         personal_code: string | null;
         deactivated_at: string | null;
+        is_support: boolean;
         accounts: AdminUser['accounts'] | null;
         account_kinds: string[] | null;
         children: number;
@@ -102,7 +119,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         last_seen_at: string | null;
       }[]
     >`
-      select u.id, u.email, u.display_name, u.created_at, u.email_verified_at, u.trial_ends_at, u.personal_code, u.deactivated_at,
+      select u.id, u.email, u.display_name, u.created_at, u.email_verified_at, u.trial_ends_at, u.personal_code, u.deactivated_at, u.is_support,
         (select json_agg(json_build_object('id', a.id, 'name', a.name, 'kind', a.kind, 'role', m.role, 'comp_until', a.comp_until) order by a.created_at)
            from account_members m join accounts a on a.id = m.account_id where m.user_id = u.id) as accounts,
         (select array_agg(distinct a.kind) from account_members m join accounts a on a.id = m.account_id where m.user_id = u.id) as account_kinds,
@@ -124,6 +141,8 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         trial_ends_at: trialEndsAt({ created_at: Number(r.created_at), trial_ends_at: r.trial_ends_at === null ? null : Number(r.trial_ends_at) }),
         personal_code: r.personal_code,
         deactivated_at: r.deactivated_at === null ? null : Number(r.deactivated_at),
+        is_support: r.is_support,
+        is_super_admin: isSuperAdmin(r.email),
         accounts: (r.accounts ?? []).map((a) => ({ ...a, comp_until: a.comp_until === null ? null : Number(a.comp_until) })),
         account_kinds: r.account_kinds ?? [],
         children: r.children,
@@ -217,7 +236,16 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     return { trial_ends_at };
   });
 
-  app.get('/admin/promo-codes', guard, async (): Promise<{ codes: PromoCode[] }> => {
+  /** Turn the read-only admin site role on or off for one person. Not for super admins (they have everything). */
+  app.put('/admin/users/:id/support', guard, async (request): Promise<{ ok: true }> => {
+    const user = await target(request, true);
+    const { is_support } = SetSupportBodySchema.parse(request.body ?? {});
+    await db.update(users).set({ is_support }).where(eq(users.id, user.id));
+    await recordAdminAction(await adminEmail(request), is_support ? 'support_on' : 'support_off', user.email);
+    return { ok: true };
+  });
+
+  app.get('/admin/promo-codes', read, async (): Promise<{ codes: PromoCode[] }> => {
     const codes = await db.select().from(promo_codes).orderBy(promo_codes.created_at);
     const issued = await sql<{ code: string; n: number }[]>`
       select promo_code as code, count(*)::int as n from users where personal_code is not null group by promo_code`;

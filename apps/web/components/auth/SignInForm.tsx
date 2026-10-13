@@ -12,6 +12,7 @@ import { GoogleButton } from './GoogleButton';
 import { AppleButton } from './AppleButton';
 import { redirectAfterAuth } from './postAuthRedirect';
 import styles from './SignInForm.module.css';
+import { isAdminHost } from '@/lib/admin/host';
 
 const HAS_OAUTH = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) || Boolean(process.env.NEXT_PUBLIC_APPLE_CLIENT_ID);
 
@@ -28,7 +29,7 @@ export function SignInForm() {
   const submittingRef = useRef(false);
 
   useEffect(() => {
-    if (status === 'signed_in' && !submittingRef.current) router.replace('/child/');
+    if (status === 'signed_in' && !submittingRef.current) router.replace(isAdminHost() ? '/admin/' : '/child/');
   }, [status, router]);
 
   if (status === 'signed_in') return null;

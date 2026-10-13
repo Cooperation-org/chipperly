@@ -125,6 +125,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         trial_ends_at: users.trial_ends_at,
         promo_code: users.promo_code,
         personal_code: users.personal_code,
+        is_support: users.is_support,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -145,6 +146,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         ? { code: codes.personal_code, percent_off: codes.percent_off ?? null, applies_to: codes.applies_to ?? 'annual' }
         : null,
       is_super_admin: isSuperAdmin(userRow.email),
+      is_support: userRow.is_support,
     };
 
     const memberships = await db.select().from(account_members).where(eq(account_members.user_id, userId));

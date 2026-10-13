@@ -11,7 +11,7 @@ import { renderEmail, siteOrigin } from '../lib/emailTemplate.js';
 import { sendMail } from '../lib/mailer.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
-import { requireSuperAdmin } from './admin.js';
+import { requireAdminRead, requireSuperAdmin } from './admin.js';
 
 const KIND_LABEL = { bug: 'Something is broken', idea: 'An idea', question: 'A question', love: 'Something they love', nps: 'Would they recommend us' } as const;
 
@@ -74,8 +74,9 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
   });
 
   const guard = { preHandler: [requireUser, requireSuperAdmin] };
+  const read = { preHandler: [requireUser, requireAdminRead] };
 
-  app.get('/admin/feedback', guard, async (): Promise<FeedbackList> => {
+  app.get('/admin/feedback', read, async (): Promise<FeedbackList> => {
     const rows = await db.select().from(feedback).orderBy(desc(feedback.created_at)).limit(300);
     const items: FeedbackItem[] = rows.map((r) => ({
       id: r.id,
