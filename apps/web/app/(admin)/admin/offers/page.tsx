@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: 'Offers · Admin' };
 export default function OffersAdminPage() {
   return (
     <>
-      <h1 className={styles.pageTitle}>Early access offers</h1>
+      <h1 className={styles.pageTitle}>Offers</h1>
       <AdminDashboard show="offers" />
     </>
   );
