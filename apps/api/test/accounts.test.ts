@@ -787,6 +787,19 @@ describe('editing a member role and people', () => {
     expect(await roleOf(accountId, admin.id)).toBe('admin');
   });
 
+  it('accepting an invite raises an existing member to its role, and never lowers one', async () => {
+    const { admin, member, accountId } = await setup('agency');
+    const acceptAs = async (token: string, role: string) => {
+      const sent = await request(app, { method: 'POST', url: `/api/accounts/${accountId}/invites`, headers: auth(admin.token), payload: { email: 'again@example.com', role, profile_ids: [] } });
+      expect(sent.statusCode).toBe(201);
+      return request(app, { method: 'POST', url: `/api/invites/${captureInviteToken()}/accept`, headers: auth(token) });
+    };
+    expect((await acceptAs(member.token, 'admin')).statusCode).toBe(200);
+    expect(await roleOf(accountId, member.id)).toBe('admin');
+    expect((await acceptAs(member.token, 'viewer')).statusCode).toBe(200);
+    expect(await roleOf(accountId, member.id)).toBe('admin');
+  });
+
   it('only an admin can edit members', async () => {
     const { member, patch } = await setup('agency');
     expect((await patch(member.id, member.token, { role: 'admin' })).statusCode).toBe(403);

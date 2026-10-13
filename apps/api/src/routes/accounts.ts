@@ -79,6 +79,8 @@ export async function requireManager(accountId: string, userId: string) {
   return membership;
 }
 
+const ROLE_RANK: Record<Role, number> = { viewer: 0, member: 1, moderator: 2, admin: 3 };
+
 /** 400 org_only unless the account is an organization (moderators and groups only exist there). */
 async function assertOrgAccount(accountId: string, message: string): Promise<void> {
   const [account] = await db.select({ kind: accounts.kind }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
@@ -563,6 +565,11 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       if (!already) {
         if (invite.role === 'admin') await assertAdminSeat(invite.account_id);
         await tx.insert(account_members).values({ account_id: invite.account_id, user_id: userId, role: invite.role });
+      } else if (ROLE_RANK[invite.role] > ROLE_RANK[already.role]) {
+        // An invite raises a member's role but never lowers it.
+        if (invite.role === 'admin') await assertAdminSeat(invite.account_id);
+        await tx.update(account_members).set({ role: invite.role }).where(and(eq(account_members.account_id, invite.account_id), eq(account_members.user_id, userId)));
+        if (invite.role === 'admin') await setGroups(tx, invite.account_id, userId, []);
       }
       // An ownership invite (orgOwner.ts) hands the account to whoever accepts it, once.
       if (invite.makes_owner && !invite.accepted_at) {
