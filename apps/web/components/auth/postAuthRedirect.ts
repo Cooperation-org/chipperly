@@ -3,6 +3,7 @@ import type { MeResponse } from '@chipperly/shared/schemas/auth';
 import { api } from '@/lib/api/client';
 import { getKv, setKv } from '@/lib/db/kv';
 import { asksDeviceRole, getDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
+import { homePath } from '@/lib/org/roster';
 import { inviteTokenFromRedirect } from './inviteToken';
 
 type Router = ReturnType<typeof useRouter>;
@@ -43,7 +44,7 @@ export async function redirectAfterAuth(router: Router): Promise<void> {
   }
   const role = await getDeviceRole();
   if (role) {
-    router.push(role.kind === 'caregiver' ? '/today/' : '/child/');
+    router.push(role.kind === 'caregiver' ? homePath(me.accounts) : '/child/');
     return;
   }
   // First sign-in here: a phone or tablet asks who it's for; a browser, or an account with no child using the app, is the caregiver's.
@@ -52,5 +53,5 @@ export async function redirectAfterAuth(router: Router): Promise<void> {
     return;
   }
   await setDeviceRole({ kind: 'caregiver' });
-  router.push('/today/');
+  router.push(homePath(me.accounts));
 }

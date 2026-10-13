@@ -17,6 +17,7 @@ import { GUEST_MESSAGE } from '@/lib/auth/guest';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useDeviceSettings, setDeviceSettings } from '@/lib/device/settings';
 import { toast } from '@/lib/toast';
+import { homePath } from '@/lib/org/roster';
 import { Switch } from '@/components/ui/Switch';
 import { usesApp, useDeviceRole } from '@/lib/device/role';
 import { DeviceRolePicker } from '@/components/onboarding/DeviceRolePicker';
@@ -199,6 +200,15 @@ export function SettingsMenu() {
           <ListRow tile={<Icon name="home" size={20} />} name="Locations" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/library/locations/')} />
         </div>
       </div>
+
+      {homePath(accounts) === '/org/' && !guest ? (
+        <div className={styles.section}>
+          <span className={styles.sectionTitle}>Organization</span>
+          <div className={styles.card}>
+            <ListRow tile={<Icon name="users" size={20} />} name="Organization" secondary="People and groups" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/org/')} />
+          </div>
+        </div>
+      ) : null}
 
       {isAdmin && !guest ? (
         <div className={styles.section}>
