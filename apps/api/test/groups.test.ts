@@ -525,17 +525,17 @@ describe('groups, moderators and group access', () => {
       expect(admin.invites.map((i) => i.email).sort()).toEqual(['north@example.com', 'south@example.com']);
 
       const mod = await team(s.mod.token, s.accountId);
-      expect(ids(mod)).toEqual([s.mod, s.staff, s.family].map((u) => u.id).sort());
+      expect(ids(mod)).toEqual([s.admin, s.mod, s.staff, s.family].map((u) => u.id).sort());
       expect(mod.invites.map((i) => i.email)).toEqual(['north@example.com']);
 
       // Staff and Family: themselves plus the non-Family users on their people. No invites.
       const staff = await team(s.staff.token, s.accountId);
-      expect(ids(staff)).toEqual([s.mod, s.staff].map((u) => u.id).sort());
+      expect(ids(staff)).toEqual([s.admin, s.mod, s.staff].map((u) => u.id).sort());
       expect(staff.invites).toEqual([]);
       const family = await team(s.family.token, s.accountId);
-      expect(ids(family)).toEqual([s.mod, s.staff, s.family].map((u) => u.id).sort());
+      expect(ids(family)).toEqual([s.admin, s.mod, s.staff, s.family].map((u) => u.id).sort());
       expect(family.invites).toEqual([]);
-      expect(ids(await team(s.loner.token, s.accountId))).toEqual([s.loner.id]);
+      expect(ids(await team(s.loner.token, s.accountId))).toEqual([s.admin.id, s.loner.id].sort());
     });
 
     it('the account report lists only staff in the moderator\'s groups', async () => {

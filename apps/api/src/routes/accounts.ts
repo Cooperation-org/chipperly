@@ -459,7 +459,8 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       .from(account_members)
       .innerJoin(users, eq(users.id, account_members.user_id))
       .where(eq(account_members.account_id, accountId));
-    const memberships = visibleUsers ? allMemberships.filter((m) => visibleUsers.has(m.user_id)) : allMemberships;
+    // Admins look after everyone, so everyone on the team still sees them (a household carer sees the parent).
+    const memberships = visibleUsers ? allMemberships.filter((m) => m.role === 'admin' || visibleUsers.has(m.user_id)) : allMemberships;
 
     const groupRows = await db.select({ user_id: cluster_members.user_id, cluster_id: cluster_members.cluster_id }).from(cluster_members).where(eq(cluster_members.account_id, accountId));
     const groupsByUser = new Map<string, string[]>();
