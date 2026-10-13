@@ -28,6 +28,16 @@ export function canAddRow(rows: number, meOn: boolean): boolean {
   return rows + (meOn ? 1 : 0) < FAMILY_MAX;
 }
 
+/** The admin can join only while a seat is free: turning it on never drops a named person. */
+export function canAddMe(rows: number): boolean {
+  return canAddRow(rows, false);
+}
+
+/** The own-login request is sent only when the supported person uses Chipperly themselves. */
+export function sendsOwnLogin(usesApp: boolean, loginOn: boolean): boolean {
+  return usesApp && loginOn;
+}
+
 /** The people to create: named rows in order, then the admin when they use Chipperly too. Blank rows are dropped. */
 export function familyPeople(rows: readonly PersonDraft[], me: PersonDraft | null): PersonDraft[] {
   const named = [...rows, ...(me ? [me] : [])].map((p) => ({ ...p, name: p.name.trim() })).filter((p) => p.name !== '');
