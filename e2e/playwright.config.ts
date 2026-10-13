@@ -5,6 +5,9 @@ import { defineConfig, devices } from '@playwright/test';
  * embedded Postgres, migrations and the API process; this file only points
  * Playwright at it. See e2e/README.md for how to run this locally.
  */
+// E2E_PORT (default 8123) must match e2e/server.mjs, which reads the same variable.
+const origin = `http://127.0.0.1:${process.env.E2E_PORT || '8123'}`;
+
 export default defineConfig({
   testDir: './specs',
   fullyParallel: false,
@@ -19,7 +22,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: [['list'], ['html', { outputFolder: 'report', open: 'never' }]],
   use: {
-    baseURL: 'http://127.0.0.1:8123',
+    baseURL: origin,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',
@@ -70,7 +73,7 @@ export default defineConfig({
     // the repo root (as the root package.json's "e2e" script expects), so
     // pin cwd there explicitly.
     cwd: '..',
-    url: 'http://127.0.0.1:8123/api/health',
+    url: `${origin}/api/health`,
     reuseExistingServer: false,
     timeout: 180_000,
     stdout: 'pipe',

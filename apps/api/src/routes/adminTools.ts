@@ -60,19 +60,30 @@ export default async function adminToolRoutes(app: FastifyInstance): Promise<voi
     if (!user || !(await adminRoleOf(user)) || request.locked) throw new AppError(403, 'forbidden', 'Admins only');
     return user;
   }
-  const twoStepLimit = { config: { rateLimit: { max: 10, timeWindow: '5 minutes' } }, preHandler: requireUser };
+  // 10 code tries per 5 minutes per signed-in session (not per address: a whole office shares one).
+  const twoStepLimit = {
+    config: { rateLimit: { max: 10, timeWindow: '5 minutes', keyGenerator: (r: FastifyRequest) => String(r.headers.authorization ?? r.ip) } },
+    preHandler: requireUser,
+  };
 
   app.get('/admin/2fa/status', { preHandler: requireUser }, async (request): Promise<TwoStepStatus> => {
     const user = await adminSelf(request);
     return { required: env.adminTwoStep, enrolled: user.totp_enabled_at !== null };
   });
 
-  /** A fresh secret to scan. Saved unconfirmed; it only counts once /confirm accepts a code from it. Refused once set up. */
-  app.post('/admin/2fa/setup', twoStepLimit, async (request): Promise<TwoStepSetup> => {
+  /** The secret to scan: made once, kept unconfirmed until /confirm accepts a code from it. Refused once set up. */
+  app.post('/admin/2fa/setup', { preHandler: requireUser }, async (request): Promise<TwoStepSetup> => {
     const user = await adminSelf(request);
     if (user.totp_enabled_at !== null) throw new AppError(409, 'already_set_up', 'Two-step sign-in is already set up. Ask a super admin to reset it.');
-    const secret = newSecret();
-    await db.update(users).set({ totp_secret: sealSecret(secret) }).where(eq(users.id, user.id));
+    // The same secret until a code from it is confirmed: a reload (or a second render) must not
+    // swap the QR code someone has already scanned.
+    let secret: Buffer;
+    try {
+      secret = user.totp_secret ? openSecret(user.totp_secret) : newSecret();
+    } catch {
+      secret = newSecret();
+    }
+    if (!user.totp_secret) await db.update(users).set({ totp_secret: sealSecret(secret) }).where(eq(users.id, user.id));
     return { secret: base32Encode(secret), otpauth_url: otpauthUrl(secret, user.email) };
   });
 

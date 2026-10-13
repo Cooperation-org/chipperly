@@ -152,7 +152,7 @@ test.describe('auth', () => {
     expect(download.suggestedFilename()).toMatch(/^chipperly-export-\d{4}-\d{2}-\d{2}\.json$/);
 
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await page.waitForURL('http://127.0.0.1:8123/');
+    await page.waitForURL(`http://127.0.0.1:${process.env.E2E_PORT || '8123'}/`);
     await expect(page.getByRole('heading', { name: 'Chipperly' })).toBeVisible();
   });
 
