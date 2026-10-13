@@ -69,6 +69,10 @@ const EnvSchema = z.object({
   APP_ORIGIN: z.string().min(1).optional(),
   /** The admin site, e.g. https://admin.chipperlyapp.com: links in emails to super admins. */
   ADMIN_ORIGIN: z.string().min(1).optional(),
+  /** off = the admin site does not ask for an authenticator code (tests, a local server). Default on. */
+  ADMIN_TWO_STEP: z.enum(['on', 'off']).default('on'),
+  /** The marketing site, which holds the waitlist (read with CRON_SECRET). */
+  SITE_ORIGIN: z.string().min(1).default('https://chipperlyapp.com'),
   /** Set = reminders run from an outside cron via POST /api/internal/reminders (routes/internal.ts) instead of the in-process timer. */
   CRON_SECRET: z.string().min(32).optional(),
   LOG_LEVEL: z.string().min(1).default('info'),
@@ -106,6 +110,8 @@ export const env = {
   webPushEnabled: Boolean(parsed.VAPID_PUBLIC_KEY && parsed.VAPID_PRIVATE_KEY),
   /** True when a closed beta invite code gates /auth/register and new-user /auth/google, /auth/apple. */
   inviteCodeRequired: Boolean(parsed.BETA_INVITE_CODE),
+  /** Admin site asks for an authenticator code (lib/twoStep.ts). Tests flip it. */
+  adminTwoStep: parsed.ADMIN_TWO_STEP === 'on',
   superAdminEmails: new Set((parsed.SUPER_ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)),
 };
 

@@ -8,7 +8,7 @@ export const Waitlist: CollectionConfig = {
   slug: 'waitlist',
   labels: { singular: 'Waitlist entry', plural: 'Waitlist' },
   access: { read: signedIn, create: () => false, update: signedIn, delete: signedIn },
-  admin: { useAsTitle: 'email', defaultColumns: ['email', 'name', 'role', 'source', 'createdAt'] },
+  admin: { useAsTitle: 'email', defaultColumns: ['email', 'name', 'role', 'invitedAt', 'createdAt'] },
   fields: [
     { name: 'email', type: 'email', required: true, unique: true, index: true },
     { name: 'name', type: 'text' },
@@ -23,5 +23,6 @@ export const Waitlist: CollectionConfig = {
       ],
     },
     { name: 'source', type: 'text', admin: { readOnly: true, description: 'Page the form was sent from.' } },
+    { name: 'invitedAt', label: 'Beta code sent', type: 'date', admin: { readOnly: true, description: 'Set by the admin site when it emails the beta code.' } },
   ],
 };

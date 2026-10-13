@@ -4,6 +4,7 @@ import { apiBase, withBase } from './base';
 import { getKv, setKv } from '../db/kv';
 import { setServerDate } from '../clock';
 import { GUEST_MESSAGE, isGuestMode } from '../auth/guest';
+import { askForCode, getAdminPass } from '../admin/pass';
 
 const TOKENS_KEY = 'auth_tokens';
 const ACTIVE_ACCOUNT_KEY = 'active_account_id';
@@ -95,8 +96,10 @@ export function buildHeaders(params: {
   accessToken?: string;
   accountId?: string;
   locked?: boolean;
+  adminPass?: string;
 }): Record<string, string> {
   const headers: Record<string, string> = {};
+  if (params.adminPass) headers['X-Admin-Step'] = params.adminPass;
   if (params.hasBody) headers['Content-Type'] = 'application/json';
   if (params.accessToken) headers.Authorization = `Bearer ${params.accessToken}`;
   if (params.accountId) headers['X-Account-Id'] = params.accountId;
@@ -214,6 +217,8 @@ async function send<T>(
     accessToken: tokens?.access_token,
     accountId,
     locked: Boolean(opts?.locked || lockState?.locked_profile_id),
+    // Only the admin site's own routes ever see it.
+    adminPass: path.startsWith('/admin/') ? getAdminPass() : undefined,
   });
 
   const res = await fetch(`${apiBase}${path}`, {
@@ -247,11 +252,13 @@ async function send<T>(
 
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as ErrorPayload | null;
+    const code = payload?.error?.code ?? 'unknown_error';
     // A login made with a temporary password does nothing until its owner picks their own.
-    if (res.status === 403 && payload?.error?.code === 'must_change_password' && typeof window !== 'undefined' && !window.location.pathname.includes('/change-password')) {
+    if (res.status === 403 && code === 'must_change_password' && typeof window !== 'undefined' && !window.location.pathname.includes('/change-password')) {
       window.location.assign(withBase('/change-password/'));
     }
-    throw new ApiError(res.status, payload?.error?.code ?? 'unknown_error', payload?.error?.message);
+    if (res.status === 403 && (code === 'two_step_required' || code === 'two_step_setup')) askForCode();
+    throw new ApiError(res.status, code, payload?.error?.message);
   }
 
   if (res.status === 204) return undefined as T;

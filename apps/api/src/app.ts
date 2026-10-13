@@ -28,6 +28,7 @@ import feedbackRoutes from './routes/feedback.js';
 import adminBackupRoutes from './routes/adminBackups.js';
 import adminSyncRoutes from './routes/adminSync.js';
 import adminBillingRoutes from './routes/adminBilling.js';
+import adminToolRoutes from './routes/adminTools.js';
 
 export interface BuildAppOptions {
   readonly env: Env;
@@ -54,6 +55,7 @@ const routePlugins: FastifyPluginAsync[] = [
   adminBackupRoutes,
   adminSyncRoutes,
   adminBillingRoutes,
+  adminToolRoutes,
 ];
 
 // Test-only route, never registered outside e2e (see routes/testing.ts).

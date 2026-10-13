@@ -367,6 +367,7 @@ export interface Waitlist {
    * Page the form was sent from.
    */
   source?: string | null;
+  invitedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -867,6 +868,7 @@ export interface WaitlistSelect<T extends boolean = true> {
   name?: T;
   role?: T;
   source?: T;
+  invitedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

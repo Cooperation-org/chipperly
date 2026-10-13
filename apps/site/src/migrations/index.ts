@@ -5,6 +5,7 @@ import * as migration_20261012_090145_unsubscribes from './20261012_090145_unsub
 import * as migration_20261012_090436_newsletters from './20261012_090436_newsletters';
 import * as migration_20261012_090522_post_email_subscribers from './20261012_090522_post_email_subscribers';
 import * as migration_20261012_130000_support_team_wording from './20261012_130000_support_team_wording';
+import * as migration_20261013_100000_waitlist_invited from './20261013_100000_waitlist_invited';
 
 export const migrations = [
   {
@@ -41,5 +42,10 @@ export const migrations = [
     up: migration_20261012_130000_support_team_wording.up,
     down: migration_20261012_130000_support_team_wording.down,
     name: '20261012_130000_support_team_wording',
+  },
+  {
+    up: migration_20261013_100000_waitlist_invited.up,
+    down: migration_20261013_100000_waitlist_invited.down,
+    name: '20261013_100000_waitlist_invited',
   },
 ];

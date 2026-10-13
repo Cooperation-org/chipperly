@@ -61,6 +61,8 @@ export const UserPublicSchema = z.object({
   is_super_admin: z.boolean().optional(),
   /** `users.is_support`: can work the community moderation queue without full admin. */
   is_support: z.boolean().optional(),
+  /** The admin site role, if any: super, support or moderator. */
+  admin_role: z.enum(['super', 'support', 'moderator']).nullable().optional(),
 });
 export type UserPublic = z.infer<typeof UserPublicSchema>;
 

@@ -62,22 +62,52 @@ describe('admin site: roles', () => {
       { method: 'POST' as const, url: '/api/admin/charges/ch_123/refund', payload: {} },
       { method: 'POST' as const, url: '/api/admin/subscriptions/sub_123/cancel', payload: { at_period_end: true } },
       { method: 'POST' as const, url: `/api/admin/orgs/${org}/billing`, payload: { method: 'link', tier: '25' } },
-      { method: 'PUT' as const, url: `/api/admin/users/${nobody.id}/support`, payload: { is_support: true } },
+      { method: 'PUT' as const, url: '/api/admin/team', payload: { email: nobody.email, role: 'support' } },
       { method: 'GET' as const, url: '/api/admin/backups', payload: undefined },
     ];
     for (const w of writes) expect((await request(app, { ...w, headers: auth(support.token) })).statusCode, w.url).toBe(403);
   });
 
-  it('a super admin turns the support role on and it is logged', async () => {
+  it('a role given by email before sign-up applies once they sign up, and removing it takes it away', async () => {
     const boss = await createUser('boss');
     env.superAdminEmails.add(boss.email);
-    const helper = await createUser('helper');
-    const res = await request(app, { method: 'PUT', url: `/api/admin/users/${helper.id}/support`, headers: auth(boss.token), payload: { is_support: true } });
-    expect(res.statusCode).toBe(200);
-    const [row] = await db.select({ is_support: users.is_support }).from(users).where(eq(users.id, helper.id));
-    expect(row?.is_support).toBe(true);
-    const log = await db.select().from(admin_actions).where(eq(admin_actions.target, helper.email));
-    expect(log[0]).toMatchObject({ admin_email: boss.email, action: 'support_on' });
+    const email = `chris-${uuidv7()}@example.com`;
+    expect((await request(app, { method: 'PUT', url: '/api/admin/team', headers: auth(boss.token), payload: { email, role: 'support' } })).statusCode).toBe(200);
+    const team = (await request(app, { method: 'GET', url: '/api/admin/team', headers: auth(boss.token) })).json() as { team: Array<{ email: string; role: string; has_account: boolean }> };
+    expect(team.team.find((t) => t.email === email)).toMatchObject({ role: 'support', has_account: false });
+
+    const id = uuidv7();
+    await db.insert(users).values({ id, email, display_name: 'Chris', created_at: Date.now() });
+    const token = (await issueTokens(id)).access_token;
+    const me = (await request(app, { method: 'GET', url: '/api/me', headers: auth(token) })).json() as { user: { admin_role: string | null } };
+    expect(me.user.admin_role).toBe('support');
+    expect((await request(app, { method: 'GET', url: '/api/admin/users', headers: auth(token) })).statusCode).toBe(200);
+
+    expect((await request(app, { method: 'DELETE', url: `/api/admin/team/${encodeURIComponent(email)}`, headers: auth(boss.token) })).statusCode).toBe(200);
+    expect((await request(app, { method: 'GET', url: '/api/admin/users', headers: auth(token) })).statusCode).toBe(403);
+    const log = await db.select().from(admin_actions).where(eq(admin_actions.target, email));
+    expect(log.map((l) => l.action).sort()).toEqual(['team_removed', 'team_support']);
+  });
+
+  it('support does the safe support actions; a moderator only moderates', async () => {
+    const support = await createUser('helper', { is_support: true });
+    const person = await createUser('customer');
+    expect((await request(app, { method: 'POST', url: `/api/admin/users/${person.id}/extend-trial`, headers: auth(support.token), payload: { days: 7 } })).statusCode).toBe(200);
+    // Editing someone's details, closing or erasing them stays with super admins.
+    expect((await request(app, { method: 'PATCH', url: `/api/admin/users/${person.id}`, headers: auth(support.token), payload: { display_name: 'X' } })).statusCode).toBe(403);
+    expect((await request(app, { method: 'POST', url: `/api/admin/users/${person.id}/deactivate`, headers: auth(support.token) })).statusCode).toBe(403);
+
+    const boss = await createUser('boss3');
+    env.superAdminEmails.add(boss.email);
+    const mod = await createUser('mod');
+    await request(app, { method: 'PUT', url: '/api/admin/team', headers: auth(boss.token), payload: { email: mod.email, role: 'moderator' } });
+    expect((await request(app, { method: 'GET', url: '/api/admin/users', headers: auth(mod.token) })).statusCode).toBe(403);
+    expect((await request(app, { method: 'GET', url: '/api/admin/2fa/status', headers: auth(mod.token) })).statusCode).toBe(200);
+    const me = (await request(app, { method: 'GET', url: '/api/me', headers: auth(mod.token) })).json() as { user: { admin_role: string } };
+    expect(me.user.admin_role).toBe('moderator');
+    // The moderation queue opens for them, and stays shut to everyone else.
+    expect((await request(app, { method: 'GET', url: '/api/community/moderation/reports', headers: auth(mod.token) })).statusCode).toBe(200);
+    expect((await request(app, { method: 'GET', url: '/api/community/moderation/reports', headers: auth(person.token) })).statusCode).toBe(403);
   });
 });
 

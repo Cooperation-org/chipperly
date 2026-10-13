@@ -51,8 +51,8 @@ import {
   sellerStatus,
   webhookSecrets,
 } from '../lib/stripeConnect.js';
-import { isSuperAdmin } from '../lib/trial.js';
 import { canModerate } from '../lib/moderation.js';
+import { adminRoleOf, ALLOWED } from '../lib/adminRoles.js';
 import { canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -121,7 +121,9 @@ async function moderatorFlags(userId: string): Promise<{ is_super_admin: boolean
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  return { is_super_admin: row ? isSuperAdmin(row.email) : false, is_support: row?.is_support ?? false };
+  // Super admins, support and moderators from the admin team (lib/adminRoles.ts) all moderate.
+  const role = row ? await adminRoleOf(row) : null;
+  return { is_super_admin: role === 'super', is_support: role !== null && ALLOWED.moderate.has(role) };
 }
 
 async function isModerator(request: FastifyRequest): Promise<boolean> {

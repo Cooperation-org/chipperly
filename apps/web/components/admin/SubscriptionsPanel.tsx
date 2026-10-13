@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
+import { csvName, downloadCsv, toCsv } from './csv';
 import { day, money, NOT_TEAM } from './format';
 import styles from './AdminDashboard.module.css';
+import { CustomerBillingSheet } from './CustomerBillingSheet';
 
 type Filter = 'all' | 'active' | 'past_due' | 'cancelled';
 const GROUPS: Record<Exclude<Filter, 'all'>, string[]> = {
@@ -98,6 +100,10 @@ export function SubscriptionsPanel() {
   // ponytail: assumes one currency (usd); split per currency if another is ever sold.
   const yearly = active.reduce((sum, s) => sum + (s.amount ?? 0) * (PER_YEAR[s.interval ?? ''] ?? 0), 0);
 
+  function manage(sub: AdminSubscription): void {
+    sheet.open(<CustomerBillingSheet accountId={sub.account_id!} />, { title: sub.account_name ?? sub.customer_email ?? 'Billing', onClose: load });
+  }
+
   function cancel(sub: AdminSubscription): void {
     sheet.open(
       <CancelSheet
@@ -127,9 +133,14 @@ export function SubscriptionsPanel() {
       <section className={styles.card} aria-label="Subscriptions">
         <div className={styles.headRow}>
           <h2 className={styles.heading}>Subscriptions</h2>
-          <Button variant="secondary" onClick={load}>
-            Refresh
-          </Button>
+          <div className={styles.actions}>
+            <Button variant="secondary" onClick={load}>
+              Refresh
+            </Button>
+            <Button variant="secondary" disabled={shown.length === 0} onClick={() => downloadCsv(csvName('subscriptions'), subscriptionsCsv(shown))}>
+              Download CSV
+            </Button>
+          </div>
         </div>
         <Segmented
           label="Show"
@@ -184,6 +195,11 @@ export function SubscriptionsPanel() {
                     </td>
                     <td data-label="" className={styles.rowActions}>
                       <div className={styles.actions}>
+                        {s.account_id ? (
+                          <Button variant="secondary" onClick={() => manage(s)}>
+                            Manage
+                          </Button>
+                        ) : null}
                         <a href={`https://dashboard.stripe.com/subscriptions/${s.id}`} target="_blank" rel="noreferrer">
                           Open in Stripe
                         </a>
@@ -202,5 +218,25 @@ export function SubscriptionsPanel() {
         )}
       </section>
     </div>
+  );
+}
+
+/** The rows on screen (after the filter and search), amounts in dollars. */
+function subscriptionsCsv(rows: AdminSubscription[]): string {
+  const date = (ms: number | null) => (ms === null ? '' : new Date(ms).toISOString().slice(0, 10));
+  return toCsv(
+    ['Account', 'Email', 'Status', 'Amount', 'Currency', 'Every', 'Renews or ends', 'Started', 'Cancelled', 'Stripe id'],
+    rows.map((s) => [
+      s.account_name ?? '',
+      s.customer_email ?? '',
+      s.status,
+      s.amount === null ? '' : (s.amount / 100).toFixed(2),
+      s.currency.toUpperCase(),
+      s.interval ?? '',
+      date(s.current_period_end),
+      date(s.created),
+      date(s.canceled_at),
+      s.id,
+    ]),
   );
 }

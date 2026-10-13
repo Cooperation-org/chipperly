@@ -1,0 +1,30 @@
+.chip {
+  align-self: flex-start;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+  border: 1px solid var(--color-border);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.stepTitle {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.stepTitle:focus {
+  outline: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.link {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}

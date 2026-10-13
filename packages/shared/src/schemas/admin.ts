@@ -1,8 +1,28 @@
 import { z } from 'zod';
 import { ORG_TIER_KEYS } from '../constants/orgTiers.js';
 
-/** Who may open the admin site: super admins change things, support only looks. */
-export type AdminRole = 'super' | 'support';
+/**
+ * Who may open the admin site. super: everything. support: look up people, payments and
+ * organizations, and the safe support actions (extend a trial, free access, resend
+ * verification, reminders, beta codes, feedback). moderator: the moderation queue only.
+ */
+export type AdminRole = 'super' | 'support' | 'moderator';
+
+/** GET /admin/team: the super admins (from the server's list) and everyone given a role here. */
+export interface AdminTeamMember {
+  email: string;
+  role: AdminRole;
+  /** False for super admins: they come from the server's settings. */
+  editable: boolean;
+  has_account: boolean;
+  added_by: string | null;
+  added_at: number | null;
+}
+
+export const SetTeamRoleBodySchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(200),
+  role: z.enum(['support', 'moderator']),
+});
 
 /** GET /admin/subscriptions: read live from Stripe, matched to our accounts. */
 export interface AdminSubscription {
@@ -20,6 +40,8 @@ export interface AdminSubscription {
   current_period_end: number | null;
   cancel_at_period_end: boolean;
   created: number;
+  /** When it was cancelled, for the cancellations chart. */
+  canceled_at: number | null;
   /** charge_automatically (card) or send_invoice. */
   collection_method: string;
 }
@@ -120,6 +142,8 @@ export interface AdminOrg {
   subscription_status: string | null;
   current_period_end: number | null;
   comp_until: number | null;
+  /** Made from the admin site and the owner has not accepted the invite yet. */
+  owner_invite_pending: boolean;
   billing: OrgBilling[];
 }
 
@@ -133,4 +157,169 @@ export interface AdminAction {
   detail: string;
 }
 
-export const SetSupportBodySchema = z.object({ is_support: z.boolean() });
+
+// ---- growth (trials and conversions) ----
+
+/** GET /admin/insights: trials ending soon and how many trials became paying, from our database. */
+export interface AdminInsights {
+  trials_ending: Array<{
+    user_id: string;
+    email: string;
+    display_name: string;
+    trial_ends_at: number;
+    last_seen_at: number | null;
+    profiles: number;
+    accounts: Array<{ id: string; name: string; kind: string }>;
+  }>;
+  /** People whose trial has ended (not counting super admins or support). */
+  trials_ended: number;
+  /** Accounts that have ever paid (a subscription that reached active). */
+  paying_accounts: number;
+  /** Accounts on a live subscription now. */
+  active_subscriptions: number;
+  /** Accounts with free access given by hand. */
+  comp_accounts: number;
+}
+
+// ---- failed payments ----
+
+/** GET /admin/failed-payments: subscriptions whose card failed, and invoices past their due date. */
+export interface AdminFailedPayment {
+  kind: 'subscription' | 'invoice';
+  /** Stripe subscription or invoice id. */
+  id: string;
+  account_id: string | null;
+  account_name: string | null;
+  customer_email: string | null;
+  amount: number | null;
+  currency: string;
+  status: string;
+  /** When it became due or the period it failed for (ms). */
+  since: number | null;
+  /** Stripe's own page for paying an invoice; null for a card on a subscription. */
+  pay_url: string | null;
+  /** The last time an admin sent a reminder, from the audit log. */
+  reminded_at: number | null;
+}
+
+// ---- two-step sign-in ----
+
+export interface TwoStepStatus {
+  /** False when the server does not ask for it (tests, local). */
+  required: boolean;
+  enrolled: boolean;
+}
+
+/** POST /admin/2fa/setup: a new secret to scan. Not saved until a code from it is confirmed. */
+export interface TwoStepSetup {
+  secret: string;
+  otpauth_url: string;
+}
+
+export const TwoStepCodeBodySchema = z.object({
+  code: z.string().trim().min(6).max(20),
+});
+
+/** The proof sent on every admin request as the X-Admin-Step header after a code was accepted. */
+export interface TwoStepPass {
+  token: string;
+  expires_at: number;
+  /** Only right after setup: shown once. */
+  recovery_codes?: string[];
+}
+
+// ---- waitlist (lives on the website) ----
+
+export interface AdminWaitlistEntry {
+  email: string;
+  name: string | null;
+  role: string | null;
+  source: string | null;
+  created_at: number;
+  invited_at: number | null;
+  /** True when someone with this email already has an app account. */
+  has_account: boolean;
+}
+
+export const SendBetaCodeBodySchema = z.object({ emails: z.array(z.string().trim().toLowerCase().email()).min(1).max(200) });
+
+// ---- email log ----
+
+export interface AdminEmail {
+  id: string;
+  at: number;
+  subject: string;
+  /** Our send result: sent, failed, or logged (no mail provider on this server). */
+  result: string;
+  /** Resend's latest event when it could be read: delivered, bounced, opened, ... */
+  last_event: string | null;
+}
+
+// ---- app error reports ----
+
+export interface AdminClientErrorGroup {
+  message: string;
+  count: number;
+  first_at: number;
+  last_at: number;
+  paths: string[];
+  commits: string[];
+  /** The newest stack for this message. */
+  stack: string | null;
+  user_agent: string | null;
+}
+
+// ---- organizations created for a customer ----
+
+export const CreateOrgBodySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  owner_name: z.string().trim().min(1).max(100),
+  owner_email: z.string().trim().toLowerCase().email().max(200),
+  /** Optional: bill it right away, same body as POST /admin/orgs/:id/billing. */
+  billing: z.lazy(() => CreateOrgBillingBodySchema).optional(),
+});
+export type CreateOrgBody = z.infer<typeof CreateOrgBodySchema>;
+
+// ---- one customer's billing ----
+
+export interface AdminPlanOption {
+  price_id: string;
+  kind: string;
+  plan: string;
+  amount: number;
+  currency: string;
+  interval: string | null;
+}
+
+/** GET /admin/accounts/:id/billing: everything about one account's money, live from Stripe where it can be. */
+export interface AdminAccountBilling {
+  account: { id: string; name: string; kind: string; comp_until: number | null; org_tier: string | null; seat_limit: number | null };
+  stripe_enabled: boolean;
+  subscription: null | {
+    id: string;
+    status: string;
+    price_id: string | null;
+    amount: number | null;
+    currency: string;
+    interval: string | null;
+    current_period_end: number | null;
+    cancel_at_period_end: boolean;
+    collection_method: string;
+    customer_id: string;
+    customer_email: string | null;
+    discount: null | { percent_off: number | null; amount_off: number | null; duration: string; months: number | null; ends_at: number | null; name: string | null };
+  };
+  invoices: Array<{ id: string; number: string | null; created: number; amount_due: number; amount_paid: number; currency: string; status: string; url: string | null; pdf: string | null }>;
+  /** Plans this account can be moved to (not for organizations, which use their own tiers). */
+  plan_options: AdminPlanOption[];
+}
+
+export const ChangePlanBodySchema = z.object({ price_id: z.string().regex(/^price_[A-Za-z0-9]+$/), note: z.string().trim().max(300).default('') });
+
+export const DiscountBodySchema = z.object({
+  percent_off: z.number().int().min(1).max(100),
+  /** null = for as long as they subscribe. */
+  months: z.number().int().min(1).max(36).nullable(),
+  note: z.string().trim().max(300).default(''),
+});
+export type DiscountBody = z.infer<typeof DiscountBodySchema>;

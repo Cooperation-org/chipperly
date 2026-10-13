@@ -146,3 +146,12 @@ One-time setup:
    (Caddy gets the certificate on the first request).
 3. `apps/api/.env`: `ADMIN_ORIGIN=https://admin.chipperlyapp.com` (links in emails to super admins).
 4. Stripe webhook: also subscribe to `invoice.paid`, so organization invoices are marked paid.
+
+### Admin site, round 2 (two-step sign-in, waitlist, email log, errors)
+
+- Two-step sign-in is on by default (`ADMIN_TWO_STEP`, set `off` only on a local or test server). Each admin
+  sets it up at their first visit; a super admin can reset someone's from their person sheet.
+- Waitlist: the admin site reads the website's waitlist with the API's `CRON_SECRET`. The website must have the
+  same value as `NEWSLETTER_API_SECRET` (`wrangler secret put NEWSLETTER_API_SECRET` in apps/site), and its
+  migration `20261013_100000_waitlist_invited` runs on the next "Deploy site".
+- `SITE_ORIGIN` defaults to https://chipperlyapp.com.

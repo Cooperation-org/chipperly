@@ -22,8 +22,8 @@ export async function recordAdminAction(adminEmail: string, action: string, targ
   await db.insert(admin_actions).values({ id: uuidv7(), at, admin_email: adminEmail, action, target, detail });
 }
 
-const Customer = z.union([z.string(), z.object({ id: z.string(), email: z.string().nullish() }).passthrough()]).nullish();
-const customerOf = (c: z.infer<typeof Customer>) => (c == null ? { id: null, email: null } : typeof c === 'string' ? { id: c, email: null } : { id: c.id, email: c.email ?? null });
+export const Customer = z.union([z.string(), z.object({ id: z.string(), email: z.string().nullish() }).passthrough()]).nullish();
+export const customerOf = (c: z.infer<typeof Customer>) => (c == null ? { id: null, email: null } : typeof c === 'string' ? { id: c, email: null } : { id: c.id, email: c.email ?? null });
 
 const SubList = z.object({
   has_more: z.boolean(),
@@ -36,6 +36,7 @@ const SubList = z.object({
         cancel_at_period_end: z.boolean().default(false),
         current_period_end: z.number().int().optional(),
         created: z.number().int(),
+        canceled_at: z.number().int().nullish(),
         collection_method: z.string().default('charge_automatically'),
         metadata: z.record(z.string(), z.string()).default({}),
         items: z.object({
@@ -93,6 +94,7 @@ export async function listSubscriptions(call: StripeCall = stripeRequest): Promi
       current_period_end: periodEnd === undefined ? null : periodEnd * 1000,
       cancel_at_period_end: s.cancel_at_period_end,
       created: s.created * 1000,
+      canceled_at: s.canceled_at ? s.canceled_at * 1000 : null,
       collection_method: s.collection_method,
     };
   });
@@ -195,7 +197,7 @@ export async function refundCharge(chargeId: string, body: { amount?: number; re
   return refund;
 }
 
-const SubBrief = z.object({ id: z.string(), status: z.string(), cancel_at_period_end: z.boolean().default(false) }).passthrough();
+export const SubBrief = z.object({ id: z.string(), status: z.string(), cancel_at_period_end: z.boolean().default(false) }).passthrough();
 
 export async function cancelSubscription(subId: string, body: { at_period_end: boolean; note: string }, adminEmail: string, call: StripeCall = stripeRequest) {
   const sub = body.at_period_end

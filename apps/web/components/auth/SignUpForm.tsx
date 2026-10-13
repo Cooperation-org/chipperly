@@ -43,7 +43,15 @@ export function SignUpForm() {
   }, [status, router]);
 
   useEffect(() => {
-    void getAuthProviders().then((providers) => setInviteCodeRequired(providers.invite_code_required));
+    void getAuthProviders().then((providers) => {
+      setInviteCodeRequired(providers.invite_code_required);
+      // The beta invite email links here with ?code= and ?email=, so nothing has to be typed or copied.
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const given = params.get('email');
+      if (code) setInviteCode(code.slice(0, 100));
+      if (given) setEmail((current) => current || given.slice(0, 200));
+    });
   }, []);
 
   // An invitee's email is already known from the invite.

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
+import { csvName, downloadCsv, toCsv } from './csv';
 import { money, NOT_TEAM, when } from './format';
 import styles from './AdminDashboard.module.css';
 
@@ -158,7 +159,12 @@ export function ChargesPanel() {
       </section>
 
       <section className={styles.card} aria-label="Payments">
-        <h2 className={styles.heading}>Payments</h2>
+        <div className={styles.headRow}>
+          <h2 className={styles.heading}>Payments</h2>
+          <Button variant="secondary" disabled={shown.length === 0} onClick={() => downloadCsv(csvName('payments'), chargesCsv(shown))}>
+            Download CSV
+          </Button>
+        </div>
         <TextField label="Search account or email" value={query} onChange={(e) => setQuery(e.target.value)} />
         {shown.length === 0 ? (
           <p className={styles.muted}>Nothing here.</p>
@@ -214,5 +220,22 @@ export function ChargesPanel() {
         )}
       </section>
     </div>
+  );
+}
+
+/** The payments on screen (after the search), amounts in dollars. */
+function chargesCsv(rows: AdminCharge[]): string {
+  return toCsv(
+    ['Date', 'Account', 'Email', 'Amount', 'Refunded', 'Currency', 'Status', 'Stripe id'],
+    rows.map((c) => [
+      new Date(c.created).toISOString().slice(0, 10),
+      c.account_name ?? '',
+      c.customer_email ?? '',
+      (c.amount / 100).toFixed(2),
+      (c.amount_refunded / 100).toFixed(2),
+      c.currency.toUpperCase(),
+      statusWords(c),
+      c.id,
+    ]),
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminOverview, AdminUser, PromoCode } from '@chipperly/shared/schemas/billing';
 import { api } from '@/lib/api/client';
-import { useAdminRole } from '@/lib/admin/role';
+import { canAct, useAdminRole } from '@/lib/admin/role';
 import { trialDaysLeft } from '@/lib/billing/promo';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { PromoCodeSheet } from './PromoCodeSheet';
 import { PersonSheet } from './PersonSheet';
 import styles from './AdminDashboard.module.css';
+import { csvName, downloadCsv, toCsv } from './csv';
 
 /** Plural label per account kind, for the counts line. Unknown kinds read as individuals. */
 const KIND_LABELS: Record<string, string> = {
@@ -32,9 +33,11 @@ function ago(ms: number | null): string {
 }
 
 /** Super admins only (the server's SUPER_ADMIN_EMAILS): sign-ups, trials, early access codes. */
-export function AdminDashboard() {
+export function AdminDashboard({ show }: { show: 'today' | 'people' }) {
   const role = useAdminRole();
   const canChange = role === 'super';
+  // Trials, codes and the person sheet are support work too; offers stay with super admins.
+  const canHelp = canAct(role);
   const sheet = useSheet();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [people, setPeople] = useState<AdminUser[] | null>(null);
@@ -50,16 +53,16 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (!role) return;
-    void api.get<AdminOverview>('/admin/overview').then(setOverview);
-    loadCodes();
-  }, [role, loadCodes]);
+    if (show === 'today') void api.get<AdminOverview>('/admin/overview').then(setOverview);
+    else loadCodes();
+  }, [role, show, loadCodes]);
 
   // Search as you type, a beat after the last key.
   useEffect(() => {
-    if (!role) return;
+    if (!role || show !== 'people') return;
     const t = setTimeout(() => loadPeople(query), 250);
     return () => clearTimeout(t);
-  }, [query, role, loadPeople]);
+  }, [query, role, show, loadPeople]);
 
   if (!role) return <p className={styles.muted}>This page is for Chipperly&rsquo;s own team.</p>;
 
@@ -110,7 +113,7 @@ export function AdminDashboard() {
 
   return (
     <div className={styles.page} data-wide>
-      {overview ? (
+      {show === 'today' && overview ? (
         <>
           <div className={styles.stats}>
             <Stat label="People" value={overview.users} />
@@ -141,6 +144,8 @@ export function AdminDashboard() {
         </>
       ) : null}
 
+      {show === 'people' ? (
+        <>
       <section className={styles.card} aria-label="Early access offers">
         <div className={styles.headRow}>
           <h2 className={styles.heading}>Early access offers</h2>
@@ -164,7 +169,14 @@ export function AdminDashboard() {
       </section>
 
       <section className={styles.card} aria-label="People">
-        <h2 className={styles.heading}>People</h2>
+        <div className={styles.headRow}>
+          <h2 className={styles.heading}>People</h2>
+          {people && people.length > 0 ? (
+            <Button variant="secondary" onClick={() => downloadPeople(people)}>
+              Download CSV
+            </Button>
+          ) : null}
+        </div>
         <TextField label="Search name or email" value={query} onChange={(e) => setQuery(e.target.value)} />
         {people && people.length > 0 ? (
           <div className={styles.tableWrap}>
@@ -218,7 +230,7 @@ export function AdminDashboard() {
                         </span>
                       </td>
                       <td data-label="" className={styles.rowActions}>
-                        {canChange ? <div className={styles.actions}>
+                        {canHelp ? <div className={styles.actions}>
                           {!p.personal_code && offers.length > 0 ? (
                             <Button variant="secondary" onClick={() => void issue(p)}>
                               Give code
@@ -244,7 +256,32 @@ export function AdminDashboard() {
         ) : null}
         {people?.length === 0 ? <p className={styles.muted}>Nobody matches.</p> : null}
       </section>
+        </>
+      ) : null}
     </div>
+  );
+}
+
+/** The people shown (search applies), for a spreadsheet. */
+function downloadPeople(people: AdminUser[]): void {
+  downloadCsv(
+    csvName('people'),
+    toCsv(
+      ['Name', 'Email', 'Email verified', 'Joined', 'Accounts', 'Profiles', 'Devices', 'Last seen', 'Trial ends', 'Early access code', 'Sign-in closed'],
+      people.map((p) => [
+        p.display_name,
+        p.email,
+        p.email_verified ? 'yes' : 'no',
+        day(p.created_at),
+        p.accounts.map((a) => `${a.name} (${a.kind})`).join('; '),
+        p.children,
+        p.devices,
+        p.last_seen_at === null ? '' : day(p.last_seen_at),
+        day(p.trial_ends_at),
+        p.personal_code ?? '',
+        p.deactivated_at === null ? '' : day(p.deactivated_at),
+      ]),
+    ),
   );
 }
 
