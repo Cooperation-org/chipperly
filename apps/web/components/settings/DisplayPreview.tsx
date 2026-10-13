@@ -34,8 +34,10 @@ export function DisplayPreview({
     .join(' ');
   return (
     <div className={className} role="group" aria-label="Preview">
-      <PictureTile emoji="🪥" name="Brush teeth" size="child" />
-      <span className={styles.previewName}>Brush teeth</span>
+      <span className={styles.previewTask}>
+        <PictureTile emoji="🪥" name="Brush teeth" size="child" />
+        <span className={styles.previewName}>Brush teeth</span>
+      </span>
       <div className={styles.previewChips}>
         <ChipStrip size="lg" showCount filled={3} total={5} chipSize={chipSize} />
       </div>

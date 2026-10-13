@@ -148,6 +148,31 @@
   touch-action: manipulation;
 }
 
+/* The picture with its name underneath, as on the tiles home. As wide as the name needs, up to 55%
+   of the row (then it wraps), so a short name stays under its picture and the bar keeps room to tap. */
+.pictureColumn {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: max-content;
+  max-width: 55%;
+}
+
+.nameTap {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  max-width: 100%;
+}
+
 .rowOptions {
   display: flex;
   flex-direction: column;
@@ -174,18 +199,13 @@
 }
 
 .rowName {
-  flex: 1;
-  min-width: 0;
+  display: block;
+  font-family: var(--font-heading);
   font-size: var(--text-lg);
+  line-height: 1.2;
   overflow-wrap: break-word;
-}
-
-.rowText {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
+  /* A word too long for the column at the biggest text breaks with a hyphen, not mid-word. */
+  hyphens: auto;
 }
 
 .stepProgress {
