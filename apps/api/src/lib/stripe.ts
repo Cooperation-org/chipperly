@@ -69,8 +69,10 @@ export function priceIdsForKind(kind: AccountKind): Array<{ plan: BillingPlan; i
 }
 
 /** The self-serve kind a price id (monthly or yearly) belongs to; undefined for an unknown price or an organization. */
-export function kindForPriceId(id: string): AccountKind | undefined {
-  return PurchasableKind.options.find((k) => priceIdsForKind(k).some((p) => p.id === id));
+/** The account type a price buys. Individual and Supported may share a price: then the account's `current` type wins. */
+export function kindForPriceId(id: string, current?: AccountKind): AccountKind | undefined {
+  const kinds = PurchasableKind.options.filter((k) => priceIdsForKind(k).some((p) => p.id === id));
+  return current && (kinds as AccountKind[]).includes(current) ? current : kinds[0];
 }
 
 export function priceIdForKind(kind: AccountKind): string | undefined {
@@ -223,11 +225,12 @@ export async function applyStripeEvent(event: StripeEvent, nowMs: number = Date.
     const stale = prev !== undefined && prev.last_event_at > row.last_event_at;
     // The plan that was paid for (at checkout or later in the portal) becomes the account's kind,
     // unless the account does not fit it (a portal downgrade skips checkout's checks): then a person sorts it out.
-    const paidKind = sub.items?.data[0]?.price && kindForPriceId(sub.items.data[0].price.id);
+    const paidPrice = sub.items?.data[0]?.price?.id;
     let misfit: { name: string; from: AccountKind; to: AccountKind; why: PlanMisfit } | null = null;
-    if (!stale && paidKind && PAID.has(row.status)) {
+    if (!stale && paidPrice && PAID.has(row.status)) {
       const [account] = await tx.select({ kind: accounts.kind, name: accounts.name }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
-      if (account && account.kind !== 'agency' && account.kind !== paidKind) {
+      const paidKind = account && kindForPriceId(paidPrice, account.kind);
+      if (account && paidKind && account.kind !== 'agency' && account.kind !== paidKind) {
         const why = await planMisfit(tx, accountId, paidKind);
         if (why) misfit = { name: account.name, from: account.kind, to: paidKind, why };
         else await tx.update(accounts).set({ kind: paidKind }).where(eq(accounts.id, accountId));
