@@ -704,3 +704,76 @@ describe('household limits', () => {
     for (const n of ['a', 'b', 'c']) expect((await invite(admin.token, accountId, 'admin', `${n}@example.com`)).statusCode).toBe(201);
   });
 });
+
+describe('editing a member role and people', () => {
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  async function setup(kind: 'household' | 'agency') {
+    const admin = await createUser('edit-admin');
+    const res = await request(app, { method: 'POST', url: '/api/accounts', headers: auth(admin.token), payload: { kind, name: 'Edit' } });
+    const accountId = (res.json() as { account: { id: string } }).account.id;
+    const profileIds: string[] = [];
+    for (const name of ['One', 'Two']) {
+      const p = await request(app, { method: 'POST', url: `/api/accounts/${accountId}/profiles`, headers: auth(admin.token), payload: { name, skip_seed: true } });
+      profileIds.push((p.json() as { id: string }).id);
+    }
+    const member = await createUser('edit-member');
+    await db.insert(account_members).values({ account_id: accountId, user_id: member.id, role: 'member' });
+    const patch = (userId: string, token: string, payload: object) =>
+      request(app, { method: 'PATCH', url: `/api/accounts/${accountId}/members/${userId}`, headers: auth(token), payload });
+    return { admin, member, accountId, profileIds, patch };
+  }
+  const roleOf = async (accountId: string, userId: string) =>
+    (await db.select().from(account_members).where(eq(account_members.user_id, userId))).find((r) => r.account_id === accountId)?.role;
+
+  it('changes a member to viewer and sets which people they see', async () => {
+    const { admin, member, accountId, profileIds, patch } = await setup('household');
+    const res = await patch(member.id, admin.token, { role: 'viewer', profile_ids: [profileIds[0]!] });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ role: 'viewer', profile_ids: [profileIds[0]] });
+    expect(await roleOf(accountId, member.id)).toBe('viewer');
+  });
+
+  it('edits the profile list, and rejects a profile from another account', async () => {
+    const { admin, member, profileIds, patch } = await setup('agency');
+    await patch(member.id, admin.token, { profile_ids: [profileIds[0]!] });
+    const res = await patch(member.id, admin.token, { profile_ids: [profileIds[1]!] });
+    expect((res.json() as { profile_ids: string[] }).profile_ids).toEqual([profileIds[1]]);
+    const other = await setup('agency');
+    const bad = await patch(member.id, admin.token, { profile_ids: [other.profileIds[0]!] });
+    expect(bad.statusCode).toBe(400);
+  });
+
+  it('promoting a viewer to admin checks the household seat limit, and viewers do not use a seat', async () => {
+    const { admin, member, accountId, patch } = await setup('household');
+    const second = await createUser('edit-second');
+    await db.insert(account_members).values({ account_id: accountId, user_id: second.id, role: 'admin' });
+    // Two admins already: a viewer cannot become a third, and the message carries the server limit.
+    await patch(member.id, admin.token, { role: 'viewer' });
+    const full = await patch(member.id, admin.token, { role: 'admin' });
+    expect(full.statusCode).toBe(409);
+    expect(full.json()).toMatchObject({ error: { code: 'admin_limit', message: expect.stringContaining('2') } });
+    // Demote one admin to viewer: the seat frees up and the viewer can take it.
+    expect((await patch(second.id, admin.token, { role: 'viewer' })).statusCode).toBe(200);
+    expect((await patch(member.id, admin.token, { role: 'admin' })).statusCode).toBe(200);
+  });
+
+  it('refuses to demote the last admin to viewer', async () => {
+    const { admin, accountId, patch } = await setup('agency');
+    const res = await patch(admin.id, admin.token, { role: 'viewer' });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: { code: 'last_admin' } });
+    expect(await roleOf(accountId, admin.id)).toBe('admin');
+  });
+
+  it('only an admin can edit members', async () => {
+    const { member, patch } = await setup('agency');
+    expect((await patch(member.id, member.token, { role: 'admin' })).statusCode).toBe(403);
+  });
+});

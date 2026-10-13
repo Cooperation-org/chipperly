@@ -1,6 +1,5 @@
 'use client';
 
-import { roleLabel } from '@/lib/auth/roleRules';
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { InviteIssuedSchema, type AccountMembersResponse, type InviteIssued } from '@chipperly/shared/schemas/account';
@@ -15,12 +14,14 @@ import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import { InviteSheet } from './InviteSheet';
+import { EditMemberSheet } from './EditMemberSheet';
+import { ROLE_LABEL } from './roles';
 import { EditMemberLocationSheet } from './EditMemberLocationSheet';
 import styles from './CareTeamScreen.module.css';
 
 /** S26: care team members and pending invites, admin only. */
 export function CareTeamScreen() {
-  const { open, close } = useSheet();
+  const { open, replace, close } = useSheet();
   const { accounts } = useSession();
   const { profile } = useActiveProfile();
   const accountId = profile?.account_id;
@@ -74,6 +75,19 @@ export function CareTeamScreen() {
     refetch();
   }
 
+  function removeConfirm(userId: string, name: string) {
+    return (
+      <Confirm
+        title={`Remove ${name}`}
+        body="Their created activities, rewards and history stay in the account."
+        confirmLabel={`Remove ${name}`}
+        danger
+        onConfirm={() => void removeMember(userId, name)}
+        onCancel={close}
+      />
+    );
+  }
+
   async function resendInvite(inviteId: string): Promise<void> {
     const issued = await api.post<InviteIssued>(`/accounts/${accountId}/invites/${inviteId}/resend`, undefined, {
       schema: InviteIssuedSchema,
@@ -113,8 +127,30 @@ export function CareTeamScreen() {
             {data.members.map((m) => (
               <div key={m.user.id} className={styles.memberRow}>
                 <div className={styles.memberInfo}>
-                  <span className={styles.memberName}>{m.user.display_name}</span>
-                  <span className={styles.memberRole}>{roleLabel(m.role)}</span>
+                  <button
+                    type="button"
+                    className={styles.memberEdit}
+                    aria-label={`Edit ${m.user.display_name}`}
+                    onClick={() =>
+                      open(
+                        <EditMemberSheet
+                          accountId={accountId}
+                          member={m}
+                          profiles={profiles}
+                          canRemove={m.role !== 'admin' || data.members.filter((x) => x.role === 'admin').length > 1}
+                          onSaved={refetch}
+                          onRemove={() => replace(removeConfirm(m.user.id, m.user.display_name))}
+                        />,
+                        { title: m.user.display_name },
+                      )
+                    }
+                  >
+                    <span className={styles.memberName}>{m.user.display_name}</span>
+                    <span className={styles.memberRole}>
+                      {ROLE_LABEL[m.role]}
+                      {m.role === 'admin' ? ' · sees everyone' : m.profiles.length === 0 ? ' · sees no one yet' : ''}
+                    </span>
+                  </button>
                   <div className={styles.tiles}>
                     {m.profiles.map((mp) => {
                       const p = profileById.get(mp.profile_id);
@@ -164,18 +200,7 @@ export function CareTeamScreen() {
                   <IconButton
                     icon="close"
                     aria-label={`Remove ${m.user.display_name}`}
-                    onClick={() =>
-                      open(
-                        <Confirm
-                          title={`Remove ${m.user.display_name}`}
-                          body="Their created activities, rewards and history stay in the account."
-                          confirmLabel={`Remove ${m.user.display_name}`}
-                          danger
-                          onConfirm={() => void removeMember(m.user.id, m.user.display_name)}
-                          onCancel={close}
-                        />,
-                      )
-                    }
+                    onClick={() => open(removeConfirm(m.user.id, m.user.display_name))}
                   />
                 ) : null}
               </div>
@@ -192,7 +217,7 @@ export function CareTeamScreen() {
               <div key={inv.id} className={styles.inviteRow}>
                 <div className={styles.inviteInfo}>
                   <span className={styles.inviteEmail}>{inv.email}</span>
-                  <p className={styles.inviteHint}>{roleLabel(inv.role)}</p>
+                  <p className={styles.inviteHint}>{ROLE_LABEL[inv.role]}</p>
                 </div>
                 <div className={styles.memberActions}>
                   <Button variant="secondary" onClick={() => void resendInvite(inv.id)}>
