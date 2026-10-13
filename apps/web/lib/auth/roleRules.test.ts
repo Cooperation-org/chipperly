@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MeAccount } from '@chipperly/shared/schemas/auth';
-import { canEditProfile, canEditRole, canManageMember, roleChoices, roleForProfile, roleLabel } from './roleRules';
+import { canEditProfile, canEditRole, canManageMember, groupsToOffer, roleChoices, roleForProfile, roleLabel } from './roleRules';
 
 const acct = (id: string, role: MeAccount['role']): MeAccount =>
   ({ account: { id, kind: 'household', name: 'A', created_at: 0 }, role }) as MeAccount;
@@ -71,6 +71,11 @@ describe('canManageMember', () => {
   it('a moderator manages Staff and Family entirely inside their groups and people', () => {
     expect(canManageMember({ role: 'moderator' }, { role: 'member', cluster_ids: ['g1'] }, scope)).toBe(true);
     expect(canManageMember({ role: 'moderator' }, { role: 'viewer', profile_ids: ['p1'] }, scope)).toBe(true);
+  });
+  it('offers a moderator only their own groups, an admin all', () => {
+    const groups = [{ id: 'g1' }, { id: 'g2' }];
+    expect(groupsToOffer('moderator', groups, new Set(['g1']))).toEqual([{ id: 'g1' }]);
+    expect(groupsToOffer('admin', groups, new Set())).toEqual(groups);
   });
   it('a moderator never manages admins or moderators', () => {
     expect(canManageMember({ role: 'moderator' }, { role: 'admin', cluster_ids: ['g1'] }, scope)).toBe(false);

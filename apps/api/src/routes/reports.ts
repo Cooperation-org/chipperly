@@ -23,7 +23,7 @@ import { profiles } from '../db/schema/profiles.js';
 import { day_plans, schedule_items, step_completions } from '../db/schema/schedule.js';
 import { canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
-import { moderatorScope } from '../lib/groupAccess.js';
+import { moderatorScope, visibleTeamUserIds } from '../lib/groupAccess.js';
 import { requireMember } from './accounts.js';
 
 const DAY_MS = 86_400_000;
@@ -174,6 +174,8 @@ export default async function reportRoutes(app: FastifyInstance): Promise<void> 
       .from(account_members)
       .innerJoin(users, eq(users.id, account_members.user_id))
       .where(eq(account_members.account_id, accountId));
+    // A moderator only sees staff whose access lies inside their groups (same rule as the team list).
+    const teamIds = await visibleTeamUserIds(accountId, request.user!.id, scope.profileIds ? 'moderator' : 'admin');
 
     const report: AccountReport = {
       from: w.from,
@@ -190,7 +192,7 @@ export default async function reportRoutes(app: FastifyInstance): Promise<void> 
         last_active: lastActive.get(p.id) ?? null,
       })),
       staff: members
-        .filter((m) => m.role !== 'viewer')
+        .filter((m) => m.role !== 'viewer' && (!teamIds || teamIds.has(m.user_id)))
         .map((m) => ({ user_id: m.user_id, display_name: m.display_name, role: m.role, completions: byStaff.get(m.user_id) ?? 0 }))
         .sort((a, b) => b.completions - a.completions || a.display_name.localeCompare(b.display_name)),
     };

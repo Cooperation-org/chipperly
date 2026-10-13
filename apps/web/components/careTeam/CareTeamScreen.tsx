@@ -10,7 +10,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
 import { api } from '@/lib/api/client';
 import { db } from '@/lib/db/db';
-import { canManageMember, roleLabel } from '@/lib/auth/roleRules';
+import { canManageMember, groupsToOffer, roleLabel } from '@/lib/auth/roleRules';
 import { useSession } from '@/lib/auth/session';
 import { activeClusters, type Cluster } from '@/lib/org/roster';
 import { useActiveProfile } from '@/lib/profile/active';
@@ -82,6 +82,7 @@ export function CareTeamScreen() {
   const self = data?.members.find((m) => m.user.id === user?.id);
   const scope = { groups: new Set(self?.cluster_ids ?? []), profiles: new Set(profileIds) };
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
+  const offered = groupsToOffer(callerRole, groups, scope.groups);
   const adminCount = data?.members.filter((x) => x.role === 'admin').length ?? 0;
 
   async function removeMember(userId: string, name: string): Promise<void> {
@@ -130,7 +131,7 @@ export function CareTeamScreen() {
         fullWidth
         icon="plus"
         onClick={() =>
-          open(<InviteSheet accountId={accountId} profiles={profiles} onSent={() => refetch()} accountKind={accountKind} callerRole={callerRole} groups={groups} />, { title: 'Invite' })
+          open(<InviteSheet accountId={accountId} profiles={profiles} onSent={() => refetch()} accountKind={accountKind} callerRole={callerRole} groups={offered} />, { title: 'Invite' })
         }
       >
         Invite
@@ -173,7 +174,7 @@ export function CareTeamScreen() {
                           onRemove={() => replace(removeConfirm(m.user.id, m.user.display_name))}
                           accountKind={accountKind}
                           callerRole={callerRole}
-                          groups={groups}
+                          groups={offered}
                         />,
                         { title: m.user.display_name },
                       )

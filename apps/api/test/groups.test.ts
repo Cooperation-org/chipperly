@@ -437,7 +437,9 @@ describe('groups, moderators and group access', () => {
       const list = await get(s.mod.token, path(s.accountId, '/members'));
       const members = (list.json() as { members: Array<{ user: { id: string }; role: string; cluster_ids?: string[] }> }).members;
       expect(members.find((m) => m.user.id === s.staff.id)).toMatchObject({ role: 'moderator', cluster_ids: [s.north] });
-      expect(members.find((m) => m.user.id === s.southStaff.id)?.cluster_ids).toEqual([s.south]);
+      expect(members.find((m) => m.user.id === s.southStaff.id)).toBeUndefined();
+      const all = await get(s.admin.token, path(s.accountId, '/members'));
+      expect((all.json() as { members: Array<{ user: { id: string }; cluster_ids?: string[] }> }).members.find((m) => m.user.id === s.southStaff.id)?.cluster_ids).toEqual([s.south]);
     });
 
     it('making someone admin clears their groups', async () => {
@@ -505,6 +507,50 @@ describe('groups, moderators and group access', () => {
       const res = await send('PUT', hh.token, path(hhAccount, `/members/${helper.id}/groups`), { cluster_ids: [] });
       expect(res.statusCode).toBe(409);
       expect(codeOf(res)).toBe('not_an_org');
+    });
+  });
+
+  describe('team list visibility', () => {
+    type Team = { members: Array<{ user: { id: string } }>; invites: Array<{ email: string }> };
+    const team = async (token: string, accountId: string) => (await get(token, path(accountId, '/members'))).json() as Team;
+    const ids = (t: Team) => t.members.map((m) => m.user.id).sort();
+
+    it('admin sees everyone, a moderator only people inside their groups, others only themselves and the staff on their people', async () => {
+      const s = await setup();
+      await send('POST', s.admin.token, path(s.accountId, '/invites'), { email: 'north@example.com', role: 'member', profile_ids: [], cluster_ids: [s.north] });
+      await send('POST', s.admin.token, path(s.accountId, '/invites'), { email: 'south@example.com', role: 'member', profile_ids: [], cluster_ids: [s.south] });
+
+      const admin = await team(s.admin.token, s.accountId);
+      expect(ids(admin)).toEqual([s.admin, s.mod, s.staff, s.family, s.southStaff, s.loner].map((u) => u.id).sort());
+      expect(admin.invites.map((i) => i.email).sort()).toEqual(['north@example.com', 'south@example.com']);
+
+      const mod = await team(s.mod.token, s.accountId);
+      expect(ids(mod)).toEqual([s.mod, s.staff, s.family].map((u) => u.id).sort());
+      expect(mod.invites.map((i) => i.email)).toEqual(['north@example.com']);
+
+      // Staff and Family: themselves plus the non-Family users on their people. No invites.
+      const staff = await team(s.staff.token, s.accountId);
+      expect(ids(staff)).toEqual([s.mod, s.staff].map((u) => u.id).sort());
+      expect(staff.invites).toEqual([]);
+      const family = await team(s.family.token, s.accountId);
+      expect(ids(family)).toEqual([s.mod, s.staff, s.family].map((u) => u.id).sort());
+      expect(family.invites).toEqual([]);
+      expect(ids(await team(s.loner.token, s.accountId))).toEqual([s.loner.id]);
+    });
+
+    it('the account report lists only staff in the moderator\'s groups', async () => {
+      const s = await setup();
+      const mod = (await get(s.mod.token, path(s.accountId, '/report'))).json() as { staff: Array<{ user_id: string }> };
+      expect(mod.staff.map((x) => x.user_id).sort()).toEqual([s.mod.id, s.staff.id].sort());
+      const admin = (await get(s.admin.token, path(s.accountId, '/report'))).json() as { staff: Array<{ user_id: string }> };
+      expect(admin.staff.map((x) => x.user_id)).toContain(s.southStaff.id);
+    });
+
+    it('a moderator is offered only their own groups, even when a person of theirs sits in another', async () => {
+      const s = await setup();
+      await db.insert(profile_members).values({ profile_id: s.sue, user_id: s.mod.id, relationship_label: null });
+      const mod = expectShape(await get(s.mod.token, path(s.accountId, '/clusters')), ClustersResponseSchema);
+      expect(mod.clusters.map((c) => c.name)).toEqual(['North']);
     });
   });
 

@@ -60,6 +60,11 @@ export interface MemberAccess {
   profile_ids?: readonly string[];
 }
 
+/** The groups the invite and edit sheets offer: all of them for an admin, only the moderator's own for a moderator. */
+export function groupsToOffer<G extends { id: string }>(callerRole: Role | undefined, groups: readonly G[], ownGroupIds: ReadonlySet<string>): G[] {
+  return callerRole === 'moderator' ? groups.filter((g) => ownGroupIds.has(g.id)) : [...groups];
+}
+
 /**
  * May the signed-in user change or remove this member? Mirrors the server: an admin manages anyone;
  * a moderator manages Staff and Family whose access (groups and people) is entirely inside their own,

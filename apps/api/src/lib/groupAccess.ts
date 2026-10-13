@@ -84,6 +84,48 @@ export async function allLiveGroups(accountId: string, ids: readonly string[]): 
   return rows.length === unique.length;
 }
 
+/**
+ * Who a user may see on the team list. null = everyone (admin). A moderator sees themselves and
+ * non-admins whose groups and people all sit inside their scope. Staff and Family see themselves and
+ * the non-Family users assigned to the people (or the groups of the people) they can access.
+ */
+export async function visibleTeamUserIds(accountId: string, userId: string, role: string): Promise<Set<string> | null> {
+  if (role === 'admin') return null;
+  const out = new Set([userId]);
+  const groupLinks = await db.select({ user_id: cluster_members.user_id, cluster_id: cluster_members.cluster_id }).from(cluster_members).where(eq(cluster_members.account_id, accountId));
+  const personLinks = await db
+    .select({ user_id: profile_members.user_id, profile_id: profile_members.profile_id })
+    .from(profile_members)
+    .innerJoin(profiles, eq(profiles.id, profile_members.profile_id))
+    .where(eq(profiles.account_id, accountId));
+  const roles = new Map((await db.select({ id: account_members.user_id, role: account_members.role }).from(account_members).where(eq(account_members.account_id, accountId))).map((r) => [r.id, r.role]));
+  if (role === 'moderator') {
+    const scope = await moderatorScope(accountId, userId);
+    const access = new Map<string, { ok: boolean; any: boolean }>();
+    const note = (id: string, inside: boolean) => {
+      const a = access.get(id) ?? { ok: true, any: false };
+      access.set(id, { ok: a.ok && inside, any: true });
+    };
+    for (const g of groupLinks) note(g.user_id, scope.groups.has(g.cluster_id));
+    for (const p of personLinks) note(p.user_id, scope.profiles.has(p.profile_id));
+    for (const [id, a] of access) if (a.ok && a.any && roles.get(id) !== 'admin') out.add(id);
+    return out;
+  }
+  const mine = new Set(await visibleProfileIds(accountId, userId));
+  const groups = new Set(
+    mine.size ? (await db.select({ c: profiles.cluster_id }).from(profiles).where(inArray(profiles.id, [...mine]))).flatMap((r) => (r.c ? [r.c] : [])) : [],
+  );
+  for (const g of groupLinks) if (groups.has(g.cluster_id)) out.add(g.user_id);
+  for (const p of personLinks) if (mine.has(p.profile_id)) out.add(p.user_id);
+  for (const id of [...out]) if (id !== userId && roles.get(id) === 'viewer') out.delete(id);
+  return out;
+}
+
+/** True when an invite's role, people and groups are all inside the moderator's scope. */
+export function inviteWithinScope(scope: { groups: Set<string>; profiles: Set<string> }, i: { role: string; profile_ids: readonly string[]; cluster_ids: readonly string[] }): boolean {
+  return (i.role === 'member' || i.role === 'viewer') && i.profile_ids.length + i.cluster_ids.length > 0 && i.profile_ids.every((p) => scope.profiles.has(p)) && i.cluster_ids.every((g) => scope.groups.has(g));
+}
+
 /** Replaces a person's groups in this account with `clusterIds`. */
 export async function setGroups(
   tx: Pick<typeof db, 'delete' | 'insert'>,

@@ -141,7 +141,8 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
     const rows = await db.select().from(clusters).where(eq(clusters.account_id, accountId)).orderBy(asc(sql`lower(${clusters.name})`));
     // Everyone but an admin only hears about their own groups and the clusters their own people are in.
     const mine = visible ? new Set((await db.select({ id: cluster_members.cluster_id }).from(cluster_members).where(and(eq(cluster_members.user_id, userId), eq(cluster_members.account_id, accountId)))).map((r) => r.id)) : null;
-    const shown = visible ? rows.filter((c) => counts.has(c.id) || mine?.has(c.id)) : rows;
+    // A moderator only hears about their own groups; Staff and Family also see the clusters their people are in.
+    const shown = !visible ? rows : membership.role === 'moderator' ? rows.filter((c) => mine?.has(c.id)) : rows.filter((c) => counts.has(c.id) || mine?.has(c.id));
 
     // Admins and moderators also see who is assigned to each group they can see.
     const staff = new Map<string, NonNullable<ClusterWithStaff['staff']>>();
