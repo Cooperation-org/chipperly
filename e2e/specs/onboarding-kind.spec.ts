@@ -81,10 +81,10 @@ test.describe('setup per plan type', () => {
     await page.getByRole('radio', { name: 'Set a temporary password' }).check();
     const joEmail = `e2e-jo-${Date.now()}@example.com`;
     await page.getByLabel("Jo's email").fill(joEmail);
-    await page.getByLabel('Temporary password').fill('short');
+    await page.getByRole('textbox', { name: 'Temporary password' }).fill('short');
     await button(page, 'Continue').click();
-    await expect(page.getByRole('alert')).toContainText('at least 8');
-    await page.getByLabel('Temporary password').fill('temporary-pass-1');
+    await expect(page.getByText('Use at least 8 characters.')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Temporary password' }).fill('temporary-pass-1');
     await button(page, 'Continue').click();
 
     await button(page, 'Skip setup').click();
