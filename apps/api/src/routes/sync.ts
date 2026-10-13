@@ -282,6 +282,13 @@ export async function applyMutation(
   // A viewer changes nothing, not even on a locked device. Refused (not dropped) so the device keeps the write.
   if (role === 'viewer') return { ok: false, reason: 'read_only', server_row: null };
 
+  // An id that already belongs to another profile's row is never touched through this push,
+  // whatever the body says: the profile check above only covers the profile named in the request.
+  if (table !== 'profiles') {
+    const [stored] = await tx`select profile_id from ${tx(table)} where id = ${mutation.id} limit 1`;
+    if (stored && stored.profile_id !== profileId) return { ok: false, reason: 'forbidden', server_row: null };
+  }
+
   if (locked) {
     const allowed = await lockGateAllows(tx, mutation);
     if (!allowed) return { ok: false, reason: 'locked', server_row: null };
