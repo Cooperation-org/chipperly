@@ -139,10 +139,12 @@ export async function findOrphans(): Promise<AdminSyncOrphan[]> {
       where c.deleted_at is null and not exists (select 1 from schedule_items s where s.id = c.schedule_item_id)
       group by c.profile_id
       union all
-      select l.profile_id, 'Chips for a task with no schedule item', count(*)::int
+      select l.profile_id, 'Chips for a task the server never got', count(*)::int
       from chip_ledger l
       where l.deleted_at is null and l.reason in ('task', 'routine') and l.ref_id is not null
         and not exists (select 1 from schedule_items s where s.id = l.ref_id)
+        -- First-Then chips point at the activity, not a schedule item (lib/data/firstThen.ts).
+        and not exists (select 1 from activities a where a.id = l.ref_id)
       group by l.profile_id
       union all
       select s.profile_id, 'Schedule items with no activity', count(*)::int

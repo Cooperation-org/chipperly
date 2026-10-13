@@ -170,6 +170,24 @@ describe('nothing a device writes vanishes without a trace', () => {
     });
   });
 
+  describe('the orphan check', () => {
+    it('counts First-Then chips as pointing at their activity, and only chips for a task the server never got as orphans', async () => {
+      const { admin, profileId } = await setupProfile();
+      const activityId = uuidv7();
+      const t0 = Date.now();
+      const chip = (id: string, refId: string, at: number): MutationInput => ({
+        table: 'chip_ledger',
+        id,
+        op: 'upsert',
+        client_updated_at: at,
+        row: { ...base(id, profileId, admin.id, at), location_id: null, delta: 1, reason: 'task', ref_id: refId, created_at: at, created_by: admin.id },
+      });
+      const res = await push(admin, profileId, [activity(activityId, profileId, admin.id, t0), chip(uuidv7(), activityId, t0 + 1), chip(uuidv7(), uuidv7(), t0 + 2)]);
+      expect(expectShape(res, SyncPushResponseSchema).rejected).toEqual([]);
+      expect((await findOrphans()).filter((o) => o.profile_id === profileId)).toMatchObject([{ kind: 'Chips for a task the server never got', count: 1 }]);
+    });
+  });
+
   describe('a refused write', () => {
     it('is kept with its row, counted once however often it is retried, and closed when it is later accepted', async () => {
       const { admin, profileId } = await setupProfile();
