@@ -137,6 +137,21 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
   if (await menu.isVisible()) await menu.click();
   await expect(modPage.getByRole('navigation', { name: 'Admin' }).getByRole('link')).toHaveText(['Moderation']);
   await modPage.close();
+
+  // Erase now: the throwaway moderator goes at once, and the Activity log has it under this admin.
+  await go(page, 'People', 'people/');
+  const people2 = page.getByRole('region', { name: 'People' });
+  await people2.getByLabel('Search name or email').fill(modEmail);
+  await expect(people2.getByText(modEmail)).toHaveCount(1);
+  await people2.getByRole('button', { name: 'Manage', exact: true }).click();
+  const personSheet = page.getByRole('dialog');
+  await personSheet.getByText('Erase now, without waiting 30 days').click();
+  await personSheet.getByLabel('Their email').fill(modEmail);
+  await personSheet.getByRole('button', { name: /^Erase .+ now$/ }).click();
+  await expect(people2.getByText(modEmail)).toHaveCount(0);
+  await go(page, 'Activity', 'activity/');
+  await page.getByLabel('Done by').selectOption(`admin-${testInfo.project.name}@example.com`);
+  await expect(page.getByRole('row', { name: new RegExp(`Erased now.*${modEmail.replace(/[.]/g, '\.')}`) })).toBeVisible();
 });
 
 test('everyone else gets no admin row and no admin site', async ({ page }) => {
