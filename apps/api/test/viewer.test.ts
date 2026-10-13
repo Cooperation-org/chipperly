@@ -4,7 +4,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { MUTATION_TABLE_NAMES } from '@chipperly/shared/constants/tables';
 import { db, sql } from '../src/db/client.js';
 import { profile_members, profiles } from '../src/db/schema/profiles.js';
-
+import { media } from '../src/db/schema/media.js';
 import { eq } from 'drizzle-orm';
 import { buildTestApp, request } from './helpers.js';
 import { addMember, createProfile, createUser, setupProfile } from './fixtures.js';
@@ -230,4 +230,22 @@ describe('viewer role', () => {
     expect((exp.json() as { profiles: Array<{ id: string }> }).profiles.map((p) => p.id)).toEqual([profileId]);
   });
 
+  it('/me/export gives a viewer only the media their profile uses, and an admin all of it', async () => {
+    const { admin, viewer, accountId, profileId, otherProfileId } = await setup();
+    const mk = async (createdBy: string) => {
+      const id = uuidv7();
+      await db.insert(media).values({ id, account_id: accountId, kind: 'image', status: 'ready', storage_key: id, content_type: 'image/webp', bytes: 1, original_bytes: 1, created_by: createdBy, created_at: Date.now() });
+      return id;
+    };
+    const mine = await mk(admin.id);
+    const theirs = await mk(admin.id);
+    await db.update(profiles).set({ avatar_photo_id: mine }).where(eq(profiles.id, profileId));
+    await db.update(profiles).set({ avatar_photo_id: theirs }).where(eq(profiles.id, otherProfileId));
+    const ids = async (token: string) => {
+      const res = await request(app, { method: 'GET', url: '/api/me/export', headers: auth(token) });
+      return (res.json() as { media: Array<{ id: string }> }).media.map((m) => m.id).sort();
+    };
+    expect(await ids(viewer.token)).toEqual([mine]);
+    expect(await ids(admin.token)).toEqual([mine, theirs].sort());
+  });
 });

@@ -239,8 +239,13 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    const mediaRows =
-      accountIds.length > 0 ? await db.select().from(media).where(inArray(media.account_id, accountIds)) : [];
+    // Admin accounts list all their media. Elsewhere only what the user uploaded or what their exported
+    // rows reference: the id of an unassigned child's photo must not leak (GET /media/:id is public).
+    // ponytail: substring match on the exported JSON, no per-column list to keep in sync.
+    const exported = JSON.stringify([exportProfiles, tables]);
+    const allMedia = accountIds.length > 0 ? await db.select().from(media).where(inArray(media.account_id, accountIds)) : [];
+    const adminSet = new Set(adminAccountIds);
+    const mediaRows = allMedia.filter((m) => adminSet.has(m.account_id) || m.created_by === userId || exported.includes(m.id));
 
     return {
       exported_at: Date.now(),
