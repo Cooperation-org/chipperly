@@ -21,7 +21,8 @@
 }
 
 .who {
-  flex: 1;
+  /* Its own line on a phone rather than breaking the address mid-word. */
+  flex: 1 1 14rem;
   min-width: 0;
   color: var(--color-text-muted);
   overflow-wrap: anywhere;
@@ -29,9 +30,9 @@
 
 .nav {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-4);
-  overflow-x: auto;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
 }
