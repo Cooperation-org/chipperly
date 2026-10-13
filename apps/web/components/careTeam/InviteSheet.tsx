@@ -15,13 +15,22 @@ import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
 import { toast } from '@/lib/toast';
 import { useOnline } from '@/lib/device/online';
-import { missingPersonError, ROLE_HINT, ROLE_ITEMS } from './roles';
+import { roleHint } from '@/lib/auth/roleRules';
+import type { Cluster } from '@/lib/org/roster';
+import { GroupChecklist } from './GroupChecklist';
+import { missingPersonError, roleItemsFor } from './roles';
 import styles from './InviteSheet.module.css';
 
 export interface InviteSheetProps {
   accountId: string;
   profiles: Profile[];
   onSent: () => void;
+  /** 'agency' offers Moderator, org role names and groups. */
+  accountKind?: string;
+  /** A moderator can only invite Staff and Family into their own groups. */
+  callerRole?: Role;
+  /** The groups the signed-in user can hand out (a moderator is only sent their own). */
+  groups?: Cluster[];
 }
 
 /**
@@ -29,7 +38,7 @@ export interface InviteSheetProps {
  * can also send it by text (or must, when the server has no mail provider).
  * No offline queue in v1 (this task's brief).
  */
-export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
+export function InviteSheet({ accountId, profiles, onSent, accountKind, callerRole = 'admin', groups = [] }: InviteSheetProps) {
   const { close } = useSheet();
   const online = useOnline();
   const [email, setEmail] = useState('');
@@ -37,6 +46,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
   const [profileIds, setProfileIds] = useState<Set<string>>(
     () => new Set(profiles.length === 1 ? [profiles[0].id] : []),
   );
+  const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [relationship, setRelationship] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [sending, setSending] = useState(false);
@@ -51,13 +61,25 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
     });
   }
 
+  function toggleGroup(id: string): void {
+    setGroupIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const inOrg = accountKind === 'agency';
+  const items = roleItemsFor(accountKind, callerRole);
+
   async function send(): Promise<void> {
     setError(undefined);
     if (!email.trim()) {
       setError('Enter an email address.');
       return;
     }
-    const missing = missingPersonError(role, profileIds);
+    const missing = missingPersonError(role, profileIds, inOrg ? groupIds.size : 0, inOrg);
     if (missing) {
       setError(missing);
       return;
@@ -70,6 +92,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
           email: email.trim(),
           role,
           profile_ids: role !== 'admin' ? Array.from(profileIds) : profiles.map((p) => p.id),
+          ...(inOrg && role !== 'admin' && groupIds.size > 0 ? { cluster_ids: Array.from(groupIds) } : {}),
           relationship_label: relationship.trim() || null,
         },
         { schema: InviteIssuedSchema },
@@ -78,6 +101,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
       setIssued(result);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'admin_limit') setError(`${err.message}. Invite them as Support team or Viewer instead, or remove an admin first.`);
+      else if (err instanceof ApiError && err.status === 403) setError('You can only invite people into your own groups.');
       else setError(err instanceof ApiError ? "Couldn't send the invite. Check the email address and try again." : "Couldn't send the invite. Try again.");
     } finally {
       setSending(false);
@@ -120,12 +144,13 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
       <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} error={error} autoFocus />
       <div>
         <span className={styles.label}>Role</span>
-        <Segmented label="Role" value={role} onChange={(v) => setRole(v as Role)} items={ROLE_ITEMS} />
-        <p className={styles.hint}>{ROLE_HINT[role]}</p>
+        <Segmented label="Role" value={role} onChange={(v) => setRole(v as Role)} items={items} />
+        <p className={styles.hint}>{roleHint(role, accountKind)}</p>
       </div>
+      {inOrg && role !== 'admin' && groups.length > 0 ? <GroupChecklist groups={groups} selected={groupIds} onToggle={toggleGroup} /> : null}
       {role !== 'admin' ? (
         <div>
-          <span className={styles.label}>Who they see</span>
+          <span className={styles.label}>{inOrg && groups.length > 0 ? 'Or pick people one by one' : 'Who they see'}</span>
           <div className={styles.checklist}>
             {profiles.map((p) => (
               <ListRow

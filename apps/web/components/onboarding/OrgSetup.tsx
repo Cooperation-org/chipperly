@@ -24,7 +24,8 @@ import {
   type OrgType,
 } from '@/lib/orgSetup';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
-import { missingPersonError, ROLE_HINT, ROLE_ITEMS } from '@/components/careTeam/roles';
+import { missingPersonError, roleItemsFor } from '@/components/careTeam/roles';
+import { roleHint } from '@/lib/auth/roleRules';
 import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
@@ -258,8 +259,10 @@ export function OrgSetup() {
     if (!accountId) return;
     const list = splitEmails(emails);
     if (list.length === 0) return setError('Enter at least one email address.');
-    const ids = role === 'admin' ? roster.map((p) => p.profile_id) : Array.from(new Set([...peopleInGroups(roster, groupIds, everyone), ...personIds]));
-    const missing = missingPersonError(role, new Set(ids));
+    // Groups are sent as groups, so people added to them later are covered too. "Everyone" lists each person.
+    const ids = role === 'admin' ? roster.map((p) => p.profile_id) : Array.from(new Set([...peopleInGroups(roster, new Set(), everyone), ...personIds]));
+    const clusterIds = role === 'admin' || everyone ? [] : Array.from(groupIds);
+    const missing = missingPersonError(role, new Set(ids), clusterIds.length, true);
     if (missing) return setError(missing);
     setBusy(true);
     setError(null);
@@ -267,7 +270,7 @@ export function OrgSetup() {
     const failed: string[] = [];
     for (const email of list) {
       try {
-        await api.post(`/accounts/${accountId}/invites`, { email, role, profile_ids: ids, relationship_label: null });
+        await api.post(`/accounts/${accountId}/invites`, { email, role, profile_ids: ids, ...(clusterIds.length > 0 ? { cluster_ids: clusterIds } : {}), relationship_label: null });
         sent++;
       } catch {
         failed.push(email);
@@ -526,8 +529,8 @@ export function OrgSetup() {
           </label>
           <div>
             <span className={styles.label}>Role</span>
-            <Segmented label="Role" value={role} onChange={(v) => setRole(v as Role)} items={ROLE_ITEMS} />
-            <p className={styles.hint}>{ROLE_HINT[role]}</p>
+            <Segmented label="Role" value={role} onChange={(v) => setRole(v as Role)} items={roleItemsFor('agency')} />
+            <p className={styles.hint}>{roleHint(role, 'agency')}</p>
           </div>
           {role !== 'admin' ? (
             <fieldset className={styles.checks}>

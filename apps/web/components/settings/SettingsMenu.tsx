@@ -211,7 +211,7 @@ export function SettingsMenu() {
         </div>
       ) : null}
 
-      {isAdmin && !guest ? (
+      {(isAdmin || (role === 'moderator' && homePath(accounts) === '/org/')) && !guest ? (
         <div className={styles.section}>
           <span className={styles.sectionTitle}>Team</span>
           <div className={styles.card}>
