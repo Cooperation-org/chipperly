@@ -44,6 +44,7 @@ import { sendDataMessage } from '../lib/push.js';
 import { assertCanWriteProfile, assertNotViewerOfProfile, canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { normalizeRow } from './sync.js';
+import { adminRoleOf } from '../lib/adminRoles.js';
 
 const LockBodySchema = z.object({
   profile_id: uuidSchema,
@@ -147,6 +148,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         : null,
       is_super_admin: isSuperAdmin(userRow.email),
       is_support: userRow.is_support,
+      admin_role: await adminRoleOf(userRow),
     };
 
     const memberships = await db.select().from(account_members).where(eq(account_members.user_id, userId));

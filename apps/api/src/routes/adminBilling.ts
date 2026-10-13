@@ -3,6 +3,9 @@ import { desc, eq, inArray, isNull, and, sql as dsql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   CancelSubscriptionBodySchema,
+  ChangePlanBodySchema,
+  DiscountBodySchema,
+  type AdminAccountBilling,
   CreateOrgBillingBodySchema,
   RefundBodySchema,
   type AdminAction,
@@ -18,6 +21,7 @@ import { profiles } from '../db/schema/profiles.js';
 import { admin_actions, org_billing, subscriptions } from '../db/schema/subscriptions.js';
 import { env } from '../env.js';
 import { cancelSubscription, createOrgBilling, listCharges, listSubscriptions, refundCharge, toBilling, withdrawOrgBilling } from '../lib/adminStripe.js';
+import { accountBilling, addDiscount, changePlan, removeDiscount } from '../lib/adminAccountBilling.js';
 import { siteOrigin } from '../lib/emailTemplate.js';
 import { orgOwnerPending } from '../lib/orgOwner.js';
 import { requireUser } from '../plugins/auth.js';
@@ -101,6 +105,30 @@ export default async function adminBillingRoutes(app: FastifyInstance): Promise<
     needStripe();
     const { id } = z.object({ id: uuidSchema }).parse(request.params);
     return withdrawOrgBilling(id, await adminEmail(request));
+  });
+
+  app.get('/admin/accounts/:id/billing', read, async (request): Promise<AdminAccountBilling> => {
+    const { id } = z.object({ id: uuidSchema }).parse(request.params);
+    return accountBilling(id);
+  });
+
+  app.post('/admin/subscriptions/:id/plan', write, async (request) => {
+    needStripe();
+    const { id } = StripeId.parse(request.params);
+    const { price_id, note } = ChangePlanBodySchema.parse(request.body ?? {});
+    return changePlan(id, price_id, note, await adminEmail(request));
+  });
+
+  app.post('/admin/subscriptions/:id/discount', write, async (request) => {
+    needStripe();
+    const { id } = StripeId.parse(request.params);
+    return addDiscount(id, DiscountBodySchema.parse(request.body ?? {}), await adminEmail(request));
+  });
+
+  app.delete('/admin/subscriptions/:id/discount', write, async (request) => {
+    needStripe();
+    const { id } = StripeId.parse(request.params);
+    return removeDiscount(id, await adminEmail(request));
   });
 
   app.get('/admin/actions', read, async (): Promise<{ actions: AdminAction[] }> => ({

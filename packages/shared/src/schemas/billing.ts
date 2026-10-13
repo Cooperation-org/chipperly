@@ -96,6 +96,8 @@ export const AdminUserSchema = z.object({
   /** users.is_support: may open the admin site, read-only. */
   is_support: z.boolean().default(false),
   is_super_admin: z.boolean().default(false),
+  /** Their admin site role, if any. */
+  admin_role: z.enum(['super', 'support', 'moderator']).nullable().default(null),
   /** The accounts they belong to, so free access can be given to the right one. */
   accounts: z
     .array(z.object({ id: uuidSchema, name: z.string(), kind: z.string(), role: z.string(), comp_until: msTimestampSchema.nullable() }))

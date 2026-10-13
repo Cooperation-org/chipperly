@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   AdminCompBodySchema,
@@ -13,16 +13,18 @@ import {
   type AdminUser,
   type PromoCode,
 } from '@chipperly/shared/schemas/billing';
-import { SetSupportBodySchema } from '@chipperly/shared/schemas/admin';
+import { SetTeamRoleBodySchema, type AdminTeamMember } from '@chipperly/shared/schemas/admin';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import { db, sql } from '../db/client.js';
 import { accounts, promo_codes, users } from '../db/schema/accounts.js';
+import { admin_team } from '../db/schema/adminTools.js';
 import { deactivateUser, eraseAllowedAt, eraseUser, reactivateUser, type EraseResult } from '../lib/adminUsers.js';
 import { env } from '../env.js';
 import { isSuperAdmin, trialEndsAt } from '../lib/trial.js';
 import { issuePersonalCode } from '../lib/earlyAccess.js';
 import { recordAdminAction } from '../lib/adminStripe.js';
 import { checkPass } from '../lib/twoStep.js';
+import { adminRoleOf, ALLOWED } from '../lib/adminRoles.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -50,15 +52,25 @@ function requireTwoStep(request: FastifyRequest, enabledAt: number | null): void
     : new AppError(403, 'two_step_required', 'Enter the code from your authenticator app');
 }
 
-/** Super admins, or people with users.is_support: the admin site's read-only screens. Never from a device locked to a child. */
+/** Super admins and support (lib/adminRoles.ts): the admin site's read screens. Never from a device locked to a child. */
 export async function requireAdminRead(request: FastifyRequest): Promise<void> {
+  await requireAdminRole(request, ALLOWED.read);
+}
+
+/** Super admins and support: the safe support actions (trial, free access, verification, reminders, beta codes, feedback). */
+export async function requireAdminAct(request: FastifyRequest): Promise<void> {
+  await requireAdminRole(request, ALLOWED.act);
+}
+
+async function requireAdminRole(request: FastifyRequest, allowed: ReadonlySet<string>): Promise<void> {
   if (!request.user) throw new AppError(401, 'unauthorized', 'Sign-in required');
   const [user] = await db
     .select({ email: users.email, is_support: users.is_support, totp_enabled_at: users.totp_enabled_at })
     .from(users)
     .where(eq(users.id, request.user.id))
     .limit(1);
-  if (!user || !(isSuperAdmin(user.email) || user.is_support) || request.locked) throw new AppError(403, 'forbidden', 'Admins only');
+  const role = user ? await adminRoleOf(user) : null;
+  if (!user || !role || !allowed.has(role) || request.locked) throw new AppError(403, 'forbidden', 'Admins only');
   requireTwoStep(request, user.totp_enabled_at);
 }
 
@@ -72,6 +84,7 @@ export async function adminEmail(request: FastifyRequest): Promise<string> {
 export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   const guard = { preHandler: [requireUser, requireSuperAdmin] };
   const read = { preHandler: [requireUser, requireAdminRead] };
+  const act = { preHandler: [requireUser, requireAdminAct] };
 
   app.get('/admin/overview', read, async (): Promise<AdminOverview> => {
     const now = Date.now();
@@ -133,6 +146,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         personal_code: string | null;
         deactivated_at: string | null;
         is_support: boolean;
+        team_role: 'support' | 'moderator' | null;
         accounts: AdminUser['accounts'] | null;
         account_kinds: string[] | null;
         children: number;
@@ -141,6 +155,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       }[]
     >`
       select u.id, u.email, u.display_name, u.created_at, u.email_verified_at, u.trial_ends_at, u.personal_code, u.deactivated_at, u.is_support,
+        (select t.role from admin_team t where t.email = lower(u.email)) as team_role,
         (select json_agg(json_build_object('id', a.id, 'name', a.name, 'kind', a.kind, 'role', m.role, 'comp_until', a.comp_until) order by a.created_at)
            from account_members m join accounts a on a.id = m.account_id where m.user_id = u.id) as accounts,
         (select array_agg(distinct a.kind) from account_members m join accounts a on a.id = m.account_id where m.user_id = u.id) as account_kinds,
@@ -164,6 +179,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         deactivated_at: r.deactivated_at === null ? null : Number(r.deactivated_at),
         is_support: r.is_support,
         is_super_admin: isSuperAdmin(r.email),
+        admin_role: isSuperAdmin(r.email) ? 'super' : (r.team_role ?? (r.is_support ? 'support' : null)),
         accounts: (r.accounts ?? []).map((a) => ({ ...a, comp_until: a.comp_until === null ? null : Number(a.comp_until) })),
         account_kinds: r.account_kinds ?? [],
         children: r.children,
@@ -226,7 +242,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** Free access for one account until a date, or `until: null` to take it away. */
-  app.put('/admin/accounts/:id/comp', guard, async (request): Promise<{ ok: true }> => {
+  app.put('/admin/accounts/:id/comp', act, async (request): Promise<{ ok: true }> => {
     const { id } = z.object({ id: uuidSchema }).parse(request.params);
     const { until, note } = AdminCompBodySchema.parse(request.body);
     const updated = await db.update(accounts).set({ comp_until: until, comp_note: until === null ? null : note }).where(eq(accounts.id, id)).returning({ id: accounts.id });
@@ -235,7 +251,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** Gives someone their own early access code under an offer (e.g. a person who signed up before or after its dates). */
-  app.post('/admin/users/:id/issue-code', guard, async (request): Promise<{ code: string }> => {
+  app.post('/admin/users/:id/issue-code', act, async (request): Promise<{ code: string }> => {
     const { id } = z.object({ id: uuidSchema }).parse(request.params);
     const { offer } = IssueCodeBodySchema.parse(request.body);
     const [user] = await db.select({ personal_code: users.personal_code }).from(users).where(eq(users.id, id)).limit(1);
@@ -247,7 +263,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** Adds days to someone's trial, counted from today if it already ended. */
-  app.post('/admin/users/:id/extend-trial', guard, async (request): Promise<{ trial_ends_at: number }> => {
+  app.post('/admin/users/:id/extend-trial', act, async (request): Promise<{ trial_ends_at: number }> => {
     const { id } = z.object({ id: uuidSchema }).parse(request.params);
     const { days } = ExtendTrialBodySchema.parse(request.body);
     const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -257,12 +273,41 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     return { trial_ends_at };
   });
 
-  /** Turn the read-only admin site role on or off for one person. Not for super admins (they have everything). */
-  app.put('/admin/users/:id/support', guard, async (request): Promise<{ ok: true }> => {
-    const user = await target(request, true);
-    const { is_support } = SetSupportBodySchema.parse(request.body ?? {});
-    await db.update(users).set({ is_support }).where(eq(users.id, user.id));
-    await recordAdminAction(await adminEmail(request), is_support ? 'support_on' : 'support_off', user.email);
+  /** The admin team: super admins (read-only here) and everyone given support or moderator by email. */
+  app.get('/admin/team', read, async (): Promise<{ team: AdminTeamMember[] }> => {
+    const rows = await db.select().from(admin_team).orderBy(admin_team.added_at);
+    const emails = [...env.superAdminEmails, ...rows.map((r) => r.email)];
+    const known = emails.length ? await db.select({ email: users.email }).from(users).where(inArray(users.email, emails)) : [];
+    const has = new Set(known.map((k) => k.email));
+    return {
+      team: [
+        ...[...env.superAdminEmails].map((email) => ({ email, role: 'super' as const, editable: false, has_account: has.has(email), added_by: null, added_at: null })),
+        ...rows
+          .filter((r) => !env.superAdminEmails.has(r.email))
+          .map((r) => ({ email: r.email, role: r.role, editable: true, has_account: has.has(r.email), added_by: r.added_by, added_at: r.added_at })),
+      ],
+    };
+  });
+
+  /** Give or change a role by email. Works before they have an account: it applies when they sign up. */
+  app.put('/admin/team', guard, async (request): Promise<{ ok: true }> => {
+    const { email, role } = SetTeamRoleBodySchema.parse(request.body ?? {});
+    if (env.superAdminEmails.has(email)) throw new AppError(409, 'super_admin', 'This is a super admin; that comes from the server settings');
+    const by = await adminEmail(request);
+    await db
+      .insert(admin_team)
+      .values({ email, role, added_by: by, added_at: Date.now() })
+      .onConflictDoUpdate({ target: admin_team.email, set: { role, added_by: by } });
+    await recordAdminAction(by, `team_${role}`, email);
+    return { ok: true };
+  });
+
+  app.delete('/admin/team/:email', guard, async (request): Promise<{ ok: true }> => {
+    const { email } = z.object({ email: z.string().trim().toLowerCase().email() }).parse(request.params);
+    await db.delete(admin_team).where(eq(admin_team.email, email));
+    // The older flag would otherwise keep them in as support.
+    await db.update(users).set({ is_support: false }).where(eq(users.email, email));
+    await recordAdminAction(await adminEmail(request), 'team_removed', email);
     return { ok: true };
   });
 

@@ -1,8 +1,28 @@
 import { z } from 'zod';
 import { ORG_TIER_KEYS } from '../constants/orgTiers.js';
 
-/** Who may open the admin site: super admins change things, support only looks. */
-export type AdminRole = 'super' | 'support';
+/**
+ * Who may open the admin site. super: everything. support: look up people, payments and
+ * organizations, and the safe support actions (extend a trial, free access, resend
+ * verification, reminders, beta codes, feedback). moderator: the moderation queue only.
+ */
+export type AdminRole = 'super' | 'support' | 'moderator';
+
+/** GET /admin/team: the super admins (from the server's list) and everyone given a role here. */
+export interface AdminTeamMember {
+  email: string;
+  role: AdminRole;
+  /** False for super admins: they come from the server's settings. */
+  editable: boolean;
+  has_account: boolean;
+  added_by: string | null;
+  added_at: number | null;
+}
+
+export const SetTeamRoleBodySchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(200),
+  role: z.enum(['support', 'moderator']),
+});
 
 /** GET /admin/subscriptions: read live from Stripe, matched to our accounts. */
 export interface AdminSubscription {
@@ -137,7 +157,6 @@ export interface AdminAction {
   detail: string;
 }
 
-export const SetSupportBodySchema = z.object({ is_support: z.boolean() });
 
 // ---- growth (trials and conversions) ----
 
@@ -260,3 +279,47 @@ export const CreateOrgBodySchema = z.object({
   billing: z.lazy(() => CreateOrgBillingBodySchema).optional(),
 });
 export type CreateOrgBody = z.infer<typeof CreateOrgBodySchema>;
+
+// ---- one customer's billing ----
+
+export interface AdminPlanOption {
+  price_id: string;
+  kind: string;
+  plan: string;
+  amount: number;
+  currency: string;
+  interval: string | null;
+}
+
+/** GET /admin/accounts/:id/billing: everything about one account's money, live from Stripe where it can be. */
+export interface AdminAccountBilling {
+  account: { id: string; name: string; kind: string; comp_until: number | null; org_tier: string | null; seat_limit: number | null };
+  stripe_enabled: boolean;
+  subscription: null | {
+    id: string;
+    status: string;
+    price_id: string | null;
+    amount: number | null;
+    currency: string;
+    interval: string | null;
+    current_period_end: number | null;
+    cancel_at_period_end: boolean;
+    collection_method: string;
+    customer_id: string;
+    customer_email: string | null;
+    discount: null | { percent_off: number | null; amount_off: number | null; duration: string; months: number | null; ends_at: number | null; name: string | null };
+  };
+  invoices: Array<{ id: string; number: string | null; created: number; amount_due: number; amount_paid: number; currency: string; status: string; url: string | null; pdf: string | null }>;
+  /** Plans this account can be moved to (not for organizations, which use their own tiers). */
+  plan_options: AdminPlanOption[];
+}
+
+export const ChangePlanBodySchema = z.object({ price_id: z.string().regex(/^price_[A-Za-z0-9]+$/), note: z.string().trim().max(300).default('') });
+
+export const DiscountBodySchema = z.object({
+  percent_off: z.number().int().min(1).max(100),
+  /** null = for as long as they subscribe. */
+  months: z.number().int().min(1).max(36).nullable(),
+  note: z.string().trim().max(300).default(''),
+});
+export type DiscountBody = z.infer<typeof DiscountBodySchema>;

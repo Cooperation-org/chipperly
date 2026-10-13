@@ -30,3 +30,15 @@ export const client_errors = pgTable(
   },
   (t) => [index('client_errors_at_idx').on(t.at)],
 );
+
+/**
+ * Who besides the super admins (SUPER_ADMIN_EMAILS) may use the admin site, by email, so a
+ * role can be given before the person signs up (migration 0061). support: look up people and
+ * do the safe support actions; moderator: the community moderation queue only.
+ */
+export const admin_team = pgTable('admin_team', {
+  email: text('email').primaryKey(),
+  role: text('role').$type<'support' | 'moderator'>().notNull(),
+  added_by: text('added_by').notNull(),
+  added_at: bigint('added_at', { mode: 'number' }).notNull(),
+});

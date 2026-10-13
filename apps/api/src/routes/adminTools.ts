@@ -26,7 +26,7 @@ import { renderEmail, siteOrigin } from '../lib/emailTemplate.js';
 import { sendMail } from '../lib/mailer.js';
 import { createOrgWithOwnerInvite } from '../lib/orgOwner.js';
 import { stripeRequest } from '../lib/stripe.js';
-import { isSuperAdmin } from '../lib/trial.js';
+import { adminRoleOf } from '../lib/adminRoles.js';
 import {
   checkTotp,
   hashRecovery,
@@ -40,7 +40,7 @@ import {
 } from '../lib/twoStep.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
-import { adminEmail, requireAdminRead, requireSuperAdmin } from './admin.js';
+import { adminEmail, requireAdminAct, requireAdminRead, requireSuperAdmin } from './admin.js';
 import { sendVerificationEmail } from './auth.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,13 +50,14 @@ const LIVE = ['active', 'trialing', 'past_due'];
 export default async function adminToolRoutes(app: FastifyInstance): Promise<void> {
   const read = { preHandler: [requireUser, requireAdminRead] };
   const write = { preHandler: [requireUser, requireSuperAdmin] };
+  const act = { preHandler: [requireUser, requireAdminAct] };
 
   // ---- two-step sign-in (no pass needed for these, only an admin password session) ----
 
   async function adminSelf(request: FastifyRequest) {
     if (!request.user) throw new AppError(401, 'unauthorized', 'Sign-in required');
     const [user] = await db.select().from(users).where(eq(users.id, request.user.id)).limit(1);
-    if (!user || !(isSuperAdmin(user.email) || user.is_support) || request.locked) throw new AppError(403, 'forbidden', 'Admins only');
+    if (!user || !(await adminRoleOf(user)) || request.locked) throw new AppError(403, 'forbidden', 'Admins only');
     return user;
   }
   const twoStepLimit = { config: { rateLimit: { max: 10, timeWindow: '5 minutes' } }, preHandler: requireUser };
@@ -240,7 +241,7 @@ export default async function adminToolRoutes(app: FastifyInstance): Promise<voi
   });
 
   /** Emails the account's admins (or the invoice's address): pay the invoice, or update the card in Plan. */
-  app.post('/admin/failed-payments/remind', write, async (request) => {
+  app.post('/admin/failed-payments/remind', act, async (request) => {
     const body = z.object({ kind: z.enum(['subscription', 'invoice']), id: z.string().min(3), account_id: uuidSchema.nullable(), pay_url: z.string().url().nullable(), email: z.string().email().nullable() }).parse(request.body ?? {});
     const to = new Set<string>();
     if (body.account_id) {
@@ -308,7 +309,7 @@ export default async function adminToolRoutes(app: FastifyInstance): Promise<voi
   });
 
   /** Emails each address the beta code with a sign-up link that fills it in, then marks them invited on the website. */
-  app.post('/admin/waitlist/send-code', write, async (request) => {
+  app.post('/admin/waitlist/send-code', act, async (request) => {
     const { emails } = SendBetaCodeBodySchema.parse(request.body ?? {});
     const code = env.BETA_INVITE_CODE;
     const sent: string[] = [];
@@ -357,7 +358,7 @@ export default async function adminToolRoutes(app: FastifyInstance): Promise<voi
     return { emails };
   });
 
-  app.post('/admin/users/:id/resend-verification', write, async (request) => {
+  app.post('/admin/users/:id/resend-verification', act, async (request) => {
     const { id } = z.object({ id: uuidSchema }).parse(request.params);
     const [user] = await db.select({ email: users.email, verified: users.email_verified_at }).from(users).where(eq(users.id, id)).limit(1);
     if (!user) throw new AppError(404, 'not_found', 'User not found');

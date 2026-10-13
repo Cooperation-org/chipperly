@@ -11,7 +11,7 @@ import { renderEmail, siteOrigin } from '../lib/emailTemplate.js';
 import { sendMail } from '../lib/mailer.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
-import { requireAdminRead, requireSuperAdmin } from './admin.js';
+import { requireAdminAct, requireAdminRead } from './admin.js';
 
 const KIND_LABEL = { bug: 'Something is broken', idea: 'An idea', question: 'A question', love: 'Something they love', nps: 'Would they recommend us' } as const;
 
@@ -73,7 +73,6 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
     return reply.code(201).send({ ok: true });
   });
 
-  const guard = { preHandler: [requireUser, requireSuperAdmin] };
   const read = { preHandler: [requireUser, requireAdminRead] };
 
   app.get('/admin/feedback', read, async (): Promise<FeedbackList> => {
@@ -104,7 +103,7 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
     return { items };
   });
 
-  app.patch('/admin/feedback/:id', guard, async (request) => {
+  app.patch('/admin/feedback/:id', { preHandler: [requireUser, requireAdminAct] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const { status } = FeedbackStatusBodySchema.parse(request.body);
     const updated = await db.update(feedback).set({ status }).where(eq(feedback.id, id)).returning({ id: feedback.id });
