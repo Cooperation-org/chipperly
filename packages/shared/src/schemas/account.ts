@@ -18,6 +18,8 @@ export const AccountSchema = z.object({
   /** Organizations only (migration 0050). Same values as OrgTypeSchema in org.ts, which imports this file. */
   org_type: z.enum(['aba', 'habilitation', 'respite', 'school', 'other']).nullable().optional(),
   org_size_estimate: z.number().int().nonnegative().nullable().optional(),
+  /** The account's owner: shown as "Owner" in an organization. Sent by /me. */
+  owner_user_id: uuidSchema.nullable().optional(),
 });
 export type Account = z.infer<typeof AccountSchema>;
 

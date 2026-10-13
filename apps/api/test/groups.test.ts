@@ -126,6 +126,13 @@ describe('groups, moderators and group access', () => {
       expect(none.json()).toEqual([]);
     });
 
+    it('/me tells each member the account owner, and the moderator role', async () => {
+      const s = await setup();
+      const me = await get(s.mod.token, '/api/me');
+      const body = me.json() as { accounts: Array<{ role: string; account: { owner_user_id: string } }> };
+      expect(body.accounts[0]).toMatchObject({ role: 'moderator', account: { owner_user_id: s.admin.id } });
+    });
+
     it('roster is scoped: group people only, with archived ones only for the moderator', async () => {
       const s = await setup();
       const staffRoster = expectShape(await get(s.staff.token, path(s.accountId, '/roster?status=all')), RosterResponseSchema);
