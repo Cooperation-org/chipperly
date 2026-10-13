@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Role } from '@chipperly/shared/schemas/account';
 import { AVATAR_EMOJI } from '@chipperly/shared/constants/emoji';
-import { parsePeopleList, type ParsedPerson } from '@chipperly/shared/lib/peopleList';
+import { parsePeopleList } from '@chipperly/shared/helpers/parsePeopleList';
+import type { BulkPerson } from '@chipperly/shared/schemas/org';
 import { api, ApiError } from '@/lib/api/client';
 import { useKv } from '@/lib/db/kv';
 import { refreshMe } from '@/lib/auth/session';
@@ -31,7 +32,7 @@ const ACTIVE_ACCOUNT_KEY = 'active_account_id';
 const DEFAULT_GROUP = 'Everyone';
 const MAX_GROUPS = 50;
 
-interface Row extends ParsedPerson {
+interface Row extends BulkPerson {
   emoji?: string;
 }
 interface RosterPerson {

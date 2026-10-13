@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { api, ApiError } from '@/lib/api/client';
 import { refreshMe } from '@/lib/auth/session';
-import { parsePeople } from '@/lib/org/parsePeople';
+import { parsePeopleList } from '@chipperly/shared/helpers/parsePeopleList';
 import { orgErrorMessage, type Cluster } from '@/lib/org/roster';
 import styles from './Org.module.css';
 
@@ -32,18 +32,18 @@ export function AddPeople({
   const [clusterId, setClusterId] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
-  const parsed = parsePeople(text);
+  const parsed = parsePeopleList(text);
 
   async function readFile(file: File | undefined): Promise<void> {
     if (file) setText(await file.text());
   }
 
   async function submit(): Promise<void> {
-    if (parsed.rows.length === 0) {
+    if (parsed.people.length === 0) {
       setError('Add at least one name.');
       return;
     }
-    if (parsed.problems.length > 0) {
+    if (parsed.errors.length > 0) {
       setError('Fix the lines marked below first.');
       return;
     }
@@ -51,7 +51,7 @@ export function AddPeople({
     setError(undefined);
     try {
       const res = await api.post<BulkResponse>(`/accounts/${accountId}/profiles/bulk`, {
-        people: parsed.rows.map((r) => (clusterId && !r.cluster_name ? { ...r, cluster_id: clusterId } : r)),
+        people: parsed.people.map((r) => (clusterId && !r.cluster_name ? { ...r, cluster_id: clusterId } : r)),
       });
       await refreshMe().catch(() => undefined);
       onDone(res);
@@ -93,10 +93,10 @@ export function AddPeople({
           </select>
         </label>
       ) : null}
-      {parsed.problems.length > 0 ? (
+      {parsed.errors.length > 0 ? (
         <ul className={styles.problems}>
-          {parsed.problems.map((p) => (
-            <li key={`${p.line}-${p.message}`}>{p.line > 0 ? `Line ${p.line}: ` : ''}{p.message}</li>
+          {parsed.errors.map((p) => (
+            <li key={`${p.row}-${p.message}`}>{`Line ${p.row}: ` : ''}{p.message}</li>
           ))}
         </ul>
       ) : null}
@@ -106,7 +106,7 @@ export function AddPeople({
         </p>
       ) : null}
       <Button fullWidth size="lg" loading={saving} onClick={() => void submit()}>
-        {parsed.rows.length > 1 ? `Add ${parsed.rows.length} people` : 'Add person'}
+        {parsed.people.length > 1 ? `Add ${parsed.people.length} people` : 'Add person'}
       </Button>
     </div>
   );
