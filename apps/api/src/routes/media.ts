@@ -13,7 +13,7 @@ import { media } from '../db/schema/media.js';
 import { processAudio, processImage, processVideo } from '../media/pipeline.js';
 import { getStorageDriver, S3Driver } from '../media/storage.js';
 import { videoQueue } from '../media/queue.js';
-import { requireAccount, requireUser } from '../plugins/auth.js';
+import { requireAccountWriter } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -77,7 +77,7 @@ async function existingMediaRow(id: string, accountId: string) {
 }
 
 export default async function mediaRoutes(app: FastifyInstance): Promise<void> {
-  app.post('/media', { preHandler: [requireUser, requireAccount] }, async (
+  app.post('/media', { preHandler: requireAccountWriter }, async (
     request,
     reply,
   ): Promise<MediaUploadResponse | { id: string; status: MediaStatus }> => {

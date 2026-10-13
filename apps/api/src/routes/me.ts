@@ -40,7 +40,7 @@ import { attitude_checks } from '../db/schema/attitude.js';
 import { media } from '../db/schema/media.js';
 import { hashPin, verifyPin } from '../lib/password.js';
 import { sendDataMessage } from '../lib/push.js';
-import { canAccessProfile, requireUser } from '../plugins/auth.js';
+import { assertCanWriteProfile, assertNotViewerOfProfile, canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { normalizeRow } from './sync.js';
 
@@ -68,12 +68,15 @@ async function sendDeviceRequest(
   deviceId: string,
   type: string,
   extra: Record<string, string> = {},
+  changes = true,
 ): Promise<{ ok: true; sent: boolean; profile_id: string | null }> {
   const [device] = await db
     .select({ id: devices.id, profile_id: devices.profile_id })
     .from(devices)
     .where(and(eq(devices.id, deviceId), eq(devices.user_id, userId)));
   if (!device) throw new AppError(404, 'not_found', 'Device not found');
+  // Lock, unlock, rest and free change the child's phone: a viewer may not.
+  if (changes && device.profile_id) await assertNotViewerOfProfile(userId, device.profile_id);
 
   const tokenRows = await db.select({ token: push_tokens.token }).from(push_tokens).where(eq(push_tokens.device_id, deviceId));
   if (tokenRows.length === 0) return { ok: true, sent: false, profile_id: device.profile_id };
@@ -320,7 +323,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
 
   app.put('/profiles/:id/review-reminder', { preHandler: requireUser }, async (request): Promise<ReviewReminder> => {
     const { id } = z.object({ id: uuidSchema }).parse(request.params);
-    if (!(await canAccessProfile(request.user!.id, id))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+    await assertCanWriteProfile(request.user!.id, id);
     const body = ReviewReminderSchema.parse(request.body);
     await db
       .insert(review_reminders)
@@ -452,7 +455,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
   /** Caregiver-triggered, from any signed-in device: asks the target device (Android only -- see lib/native/deviceLocator.ts) to report its current position. Fire-and-forget: the answer lands later via POST /devices/:id/location (routes/deviceLocation.ts) and shows up in a later GET /me/devices. */
   app.post('/me/devices/:id/locate', { preHandler: requireUser }, async (request): Promise<{ ok: true; sent: boolean }> => {
     const { id } = deviceIdParamSchema.parse(request.params);
-    const result = await sendDeviceRequest(request.user!.id, id, 'locate_request');
+    const result = await sendDeviceRequest(request.user!.id, id, 'locate_request', {}, false);
     return { ok: result.ok, sent: result.sent };
   });
 
@@ -513,6 +516,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     if (body.profile_id) {
       const allowed = await canAccessProfile(authUser.id, body.profile_id);
       if (!allowed) throw new AppError(403, 'forbidden', "You don't have access to that profile");
+      await assertNotViewerOfProfile(authUser.id, body.profile_id);
     }
 
     const result = await db
@@ -539,6 +543,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
 
     const allowed = await canAccessProfile(authUser.id, body.profile_id);
     if (!allowed) throw new AppError(403, 'forbidden', 'Cannot lock to this profile');
+    await assertNotViewerOfProfile(authUser.id, body.profile_id);
 
     await db.update(sessions).set({ locked_profile_id: body.profile_id }).where(eq(sessions.id, authUser.session_id));
     // "Lock phone" (block_apps) turns app blocking on here, not only through

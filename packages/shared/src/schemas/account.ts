@@ -18,7 +18,8 @@ export const AccountSchema = z.object({
 });
 export type Account = z.infer<typeof AccountSchema>;
 
-export const Role = z.enum(['admin', 'member']);
+/** admin: every profile, manages the team. member ("Support team"): assigned profiles, can edit. viewer: assigned profiles, read only. */
+export const Role = z.enum(['admin', 'member', 'viewer']);
 export type Role = z.infer<typeof Role>;
 
 /** 'strict' notifies a care-team member only about their one assigned location; 'linked' about any of the child's location changes. */

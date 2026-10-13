@@ -108,9 +108,40 @@ export async function canAccessProfile(userId: string, profileId: string): Promi
   return Boolean(profileMember);
 }
 
-/** Same rule as read access: an admin writes every profile, a member only the ones they're listed on. */
+/**
+ * Same rule as read access: an admin writes every profile, a member only the ones they're listed on.
+ * A viewer passes too, on purpose: sync push must reach applyMutation, which refuses each of their
+ * writes as 'read_only' so the device keeps them. Other write routes use assertCanWriteProfile.
+ */
 export async function canWriteProfile(userId: string, profileId: string): Promise<boolean> {
   return canAccessProfile(userId, profileId);
+}
+
+/** The 403 every write path gives a viewer. */
+export function readOnlyError(): AppError {
+  return new AppError(403, 'read_only', 'View only. Ask an admin to make changes.');
+}
+
+/** True when `userId` is a viewer in the profile's account (read only). */
+export async function isViewerOfProfile(userId: string, profileId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ role: account_members.role })
+    .from(account_members)
+    .innerJoin(profiles, eq(profiles.account_id, account_members.account_id))
+    .where(and(eq(profiles.id, profileId), eq(account_members.user_id, userId)))
+    .limit(1);
+  return row?.role === 'viewer';
+}
+
+/** Throws 403 read_only when `userId` is a viewer of this profile's account. Access itself is checked separately. */
+export async function assertNotViewerOfProfile(userId: string, profileId: string): Promise<void> {
+  if (await isViewerOfProfile(userId, profileId)) throw readOnlyError();
+}
+
+/** Same as `canAccessProfile`, then refuses viewers with 403 read_only. */
+export async function assertCanWriteProfile(userId: string, profileId: string): Promise<void> {
+  if (!(await canAccessProfile(userId, profileId))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+  await assertNotViewerOfProfile(userId, profileId);
 }
 
 /**
@@ -122,4 +153,15 @@ export async function canWriteProfile(userId: string, profileId: string): Promis
 export async function isAccountOwner(userId: string, accountId: string): Promise<boolean> {
   const [account] = await db.select({ owner_user_id: accounts.owner_user_id }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
   return account?.owner_user_id === userId;
+}
+
+/** requireAccount, then refuses a viewer of that account with 403 read_only (uploads and other account writes). */
+export async function requireAccountWriter(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  await requireAccount(request, reply);
+  const [m] = await db
+    .select({ role: account_members.role })
+    .from(account_members)
+    .where(and(eq(account_members.account_id, request.accountId!), eq(account_members.user_id, request.user!.id)))
+    .limit(1);
+  if (m?.role === 'viewer') throw readOnlyError();
 }

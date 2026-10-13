@@ -27,7 +27,7 @@ import { schedule_items, step_completions } from '../db/schema/schedule.js';
 import { chip_ledger } from '../db/schema/chips.js';
 import { social_stories, story_pages } from '../db/schema/stories.js';
 import { attitude_checks } from '../db/schema/attitude.js';
-import { requireUser, canAccessProfile } from '../plugins/auth.js';
+import { requireUser, canAccessProfile, assertCanWriteProfile, readOnlyError } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { assertCanCreate } from '../lib/trial.js';
 import { linkBase } from '../lib/links.js';
@@ -61,6 +61,7 @@ async function requireMember(accountId: string, userId: string) {
 
 async function requireAdmin(accountId: string, userId: string) {
   const membership = await requireMember(accountId, userId);
+  if (membership.role === 'viewer') throw readOnlyError();
   if (membership.role !== 'admin') throw new AppError(403, 'forbidden', 'Admin role required');
   return membership;
 }
@@ -585,7 +586,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
   app.post('/profiles/:id/location-changed', { preHandler: requireUser }, async (request): Promise<{ notified: number }> => {
     const { id: profileId } = idParamSchema.parse(request.params);
     const userId = request.user!.id;
-    if (!(await canAccessProfile(userId, profileId))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+    await assertCanWriteProfile(userId, profileId);
 
     const body = LocationChangedBodySchema.parse(request.body);
 
@@ -647,7 +648,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
    */
   app.post('/profiles/:id/first-then', { preHandler: requireUser }, async (request): Promise<{ ok: true }> => {
     const { id: profileId } = idParamSchema.parse(request.params);
-    if (!(await canAccessProfile(request.user!.id, profileId))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+    await assertCanWriteProfile(request.user!.id, profileId);
     const { progress } = FirstThenProgressBodySchema.parse(request.body);
     const updated = await db
       .update(profiles)
@@ -663,7 +664,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
 
   app.post('/profiles/:id/reward-request', { preHandler: requireUser }, async (request): Promise<{ notified: number }> => {
     const { id: profileId } = idParamSchema.parse(request.params);
-    if (!(await canAccessProfile(request.user!.id, profileId))) throw new AppError(403, 'forbidden', 'Cannot access this profile');
+    await assertCanWriteProfile(request.user!.id, profileId);
     const body = RewardRequestBodySchema.parse(request.body);
 
     const [profile] = await db
