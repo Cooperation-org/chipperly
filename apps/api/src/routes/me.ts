@@ -4,7 +4,7 @@ import { and, desc, eq, inArray, isNull, ne, sql as drizzleSql } from 'drizzle-o
 import { z } from 'zod';
 import { uuidSchema } from '@chipperly/shared/schemas/common';
 import type { UserPublic } from '@chipperly/shared/schemas/account';
-import { PinBodySchema, type ExportResponse, type MeAccount, type MeResponse } from '@chipperly/shared/schemas/auth';
+import { PinBodySchema, UpdateDisplayNameBodySchema, type ExportResponse, type MeAccount, type MeResponse } from '@chipperly/shared/schemas/auth';
 import { RegisterPushTokenBodySchema, UnregisterPushTokenBodySchema } from '@chipperly/shared/schemas/push';
 import {
   RegisterDeviceBodySchema,
@@ -264,6 +264,12 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         created_at: m.created_at,
       })),
     };
+  });
+
+  app.patch('/me/name', { preHandler: requireUser }, async (request): Promise<{ display_name: string }> => {
+    const body = UpdateDisplayNameBodySchema.parse(request.body);
+    await db.update(users).set({ display_name: body.display_name }).where(eq(users.id, request.user!.id));
+    return { display_name: body.display_name };
   });
 
   app.patch('/me/pin', { preHandler: requireUser }, async (request): Promise<{ pin_hash: string }> => {

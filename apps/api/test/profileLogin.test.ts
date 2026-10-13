@@ -20,7 +20,7 @@ describe('own login for a supported person', () => {
     await app.close();
   });
 
-  const post = (token: string, accountId: string, profileId: string, payload: unknown) =>
+  const post = (token: string, accountId: string, profileId: string, payload: Record<string, unknown>) =>
     request(app, { method: 'POST', url: `/api/accounts/${accountId}/profiles/${profileId}/login`, headers: auth(token), payload });
 
   it('invite mode sends a member invite limited to that profile with relationship self', async () => {

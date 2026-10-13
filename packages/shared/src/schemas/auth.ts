@@ -64,6 +64,12 @@ export const ResetPasswordBodySchema = z.object({
 });
 export type ResetPasswordBody = z.infer<typeof ResetPasswordBodySchema>;
 
+/** PATCH /me/name: what the person is called in the app. Never an email: the web prefills from this. */
+export const UpdateDisplayNameBodySchema = z.object({
+  display_name: z.string().trim().min(1).max(80),
+});
+export type UpdateDisplayNameBody = z.infer<typeof UpdateDisplayNameBodySchema>;
+
 export const ChangePasswordBodySchema = z.object({
   password: passwordSchema,
 });
