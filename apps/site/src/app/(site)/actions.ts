@@ -3,7 +3,10 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { headers } from 'next/headers';
 import { payload } from '../../lib/payload';
+import { sendBatch } from '../../lib/newsletterMail';
+import { SITE_URL } from '../../lib/site';
 import { checkWaitlist, type WaitlistState } from '../../lib/waitlist';
+import { welcomeMail } from '../../lib/waitlistWelcome';
 
 // Per-IP limit. On Cloudflare the WAITLIST_LIMITER binding (wrangler.jsonc)
 // counts across every Worker instance; the in-memory map is only the
@@ -26,6 +29,21 @@ async function limited(ip: string) {
   return recent.length > MAX_HITS;
 }
 
+// New sign-ups only. Never throws: the sign-up is saved either way.
+async function sendWelcome(email: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error(JSON.stringify({ msg: 'waitlist welcome not sent: RESEND_API_KEY is missing' }));
+    return;
+  }
+  try {
+    const mail = await welcomeMail(email, process.env.PAYLOAD_SECRET ?? '', SITE_URL);
+    await sendBatch([mail], { apiKey, from: process.env.MAIL_FROM || 'Chipperly <no-reply@chipperlyapp.com>' });
+  } catch (err) {
+    console.error(JSON.stringify({ msg: 'waitlist welcome failed', err: String(err) }));
+  }
+}
+
 export async function joinWaitlist(_prev: WaitlistState, form: FormData): Promise<WaitlistState> {
   const checked = checkWaitlist(form);
   if ('error' in checked) return { status: 'error', message: checked.error };
@@ -42,6 +60,7 @@ export async function joinWaitlist(_prev: WaitlistState, form: FormData): Promis
     // be used to test which emails are registered.
     if (!existing.totalDocs) {
       await p.create({ collection: 'waitlist', data: checked.data, overrideAccess: true });
+      await sendWelcome(checked.email);
     }
     return { status: 'ok' };
   } catch (err) {
