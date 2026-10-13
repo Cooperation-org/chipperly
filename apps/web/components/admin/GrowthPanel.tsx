@@ -8,6 +8,7 @@ import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { money, NOT_TEAM } from './format';
 import { lastMonths } from './months';
+import { PersonLink } from './PersonLink';
 import styles from './AdminDashboard.module.css';
 import g from './GrowthPanel.module.css';
 
@@ -217,7 +218,9 @@ export function GrowthPanel() {
                   <tr key={t.user_id}>
                     <td data-label="Person">
                       <div className={styles.cellStack}>
-                        <span className={styles.name}>{t.display_name}</span>
+                        <PersonLink q={t.email}>
+                          <span className={styles.name}>{t.display_name}</span>
+                        </PersonLink>
                         <span className={styles.muted}>{t.email}</span>
                       </div>
                     </td>

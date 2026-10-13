@@ -8,6 +8,7 @@ import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { useSheet } from '@/components/ui/Sheet';
 import { day, money, NOT_TEAM } from './format';
+import { PersonLink } from './PersonLink';
 import styles from './AdminDashboard.module.css';
 
 const who = (p: AdminFailedPayment) => p.account_name ?? p.customer_email ?? 'Unknown customer';
@@ -135,7 +136,9 @@ export function FailedPaymentsPanel() {
                   <tr key={p.id}>
                     <td data-label="Who">
                       <div className={styles.cellStack}>
-                        <span className={styles.name}>{who(p)}</span>
+                        <PersonLink q={p.customer_email ?? p.account_name}>
+                          <span className={styles.name}>{who(p)}</span>
+                        </PersonLink>
                         {p.account_name && p.customer_email ? <span className={styles.muted}>{p.customer_email}</span> : null}
                       </div>
                     </td>

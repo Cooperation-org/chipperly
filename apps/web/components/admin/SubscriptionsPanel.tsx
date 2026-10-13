@@ -11,6 +11,7 @@ import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { csvName, downloadCsv, toCsv } from './csv';
 import { day, money, NOT_TEAM } from './format';
+import { PersonLink } from './PersonLink';
 import styles from './AdminDashboard.module.css';
 import { CustomerBillingSheet } from './CustomerBillingSheet';
 
@@ -174,7 +175,9 @@ export function SubscriptionsPanel() {
                   <tr key={s.id}>
                     <td data-label="Account">
                       <div className={styles.cellStack}>
-                        <span className={styles.name}>{s.account_name ?? s.customer_email ?? s.customer_id}</span>
+                        <PersonLink q={s.customer_email ?? s.account_name}>
+                          <span className={styles.name}>{s.account_name ?? s.customer_email ?? s.customer_id}</span>
+                        </PersonLink>
                         {s.account_kind ? <span className={styles.muted}>{s.account_kind}</span> : null}
                         {s.account_name && s.customer_email ? <span className={styles.muted}>{s.customer_email}</span> : null}
                       </div>

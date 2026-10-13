@@ -11,6 +11,7 @@ import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { csvName, downloadCsv, toCsv } from './csv';
 import { money, NOT_TEAM, when } from './format';
+import { PersonLink } from './PersonLink';
 import styles from './AdminDashboard.module.css';
 
 type Reason = 'requested_by_customer' | 'duplicate' | 'fraudulent';
@@ -188,7 +189,9 @@ export function ChargesPanel() {
                     </td>
                     <td data-label="Who">
                       <div className={styles.cellStack}>
-                        <span className={styles.name}>{c.account_name ?? c.customer_email ?? 'Unknown'}</span>
+                        <PersonLink q={c.customer_email ?? c.account_name}>
+                          <span className={styles.name}>{c.account_name ?? c.customer_email ?? 'Unknown'}</span>
+                        </PersonLink>
                         {c.account_name && c.customer_email ? <span className={styles.muted}>{c.customer_email}</span> : null}
                         {c.description ? <span className={styles.muted}>{c.description}</span> : null}
                       </div>
