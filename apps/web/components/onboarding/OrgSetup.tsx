@@ -9,6 +9,9 @@ import type { BulkPerson } from '@chipperly/shared/schemas/org';
 import { api, ApiError } from '@/lib/api/client';
 import { useKv } from '@/lib/db/kv';
 import { refreshMe } from '@/lib/auth/session';
+import { startSync } from '@/lib/sync/engine';
+import { enterParentMode } from '@/lib/device/settings';
+import { setDeviceRole } from '@/lib/device/role';
 import {
   CSV_TEMPLATE,
   ORG_STEP_COUNT,
@@ -278,6 +281,15 @@ export function OrgSetup() {
       return;
     }
     go(5);
+  }
+
+  // The owner is on their own work device: skip the child-device question and open Org home unlocked, as Ready does for a family.
+  async function finish(): Promise<void> {
+    setBusy(true);
+    startSync();
+    await setDeviceRole({ kind: 'caregiver' });
+    await enterParentMode();
+    router.push('/org/');
   }
 
   const labelStep = `Step ${step + 1} of ${ORG_STEP_COUNT}`;
@@ -561,7 +573,7 @@ export function OrgSetup() {
           ) : (
             <p className={styles.lead}>No family emails yet. You can invite families any time. They are free.</p>
           )}
-          <Button fullWidth onClick={() => router.push('/org/')}>
+          <Button fullWidth loading={busy} onClick={() => void finish()}>
             Done
           </Button>
           {back}
