@@ -1,5 +1,6 @@
 'use client';
 
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { todayIso } from '@chipperly/shared/helpers/date';
@@ -20,6 +21,7 @@ export interface DayGoalProps {
  * chips earned today across every location, and today's completion count. */
 export function DayGoal({ profile }: DayGoalProps) {
   const sheet = useSheet();
+  const canEdit = useCanEdit(profile.id);
   const isoDate = todayIso();
   const rewardId = profile.settings.day_goal_reward_id ?? null;
   const reward = useLiveQuery(() => (rewardId ? db.rewards.get(rewardId) : undefined), [rewardId]);
@@ -60,9 +62,11 @@ export function DayGoal({ profile }: DayGoalProps) {
         </span>
       </div>
 
-      <Button variant="secondary" onClick={openEdit}>
-        Edit day goal
-      </Button>
+      {canEdit ? (
+        <Button variant="secondary" onClick={openEdit}>
+          Edit day goal
+        </Button>
+      ) : null}
     </div>
   );
 }

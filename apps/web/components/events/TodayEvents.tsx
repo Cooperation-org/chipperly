@@ -5,6 +5,7 @@ import { todayIso } from '@chipperly/shared/helpers/date';
 import { daysUntilLabel, dismissReminder, eventsOnDate, remindersOnDate, useDayEvents } from '@/lib/data/events';
 import { IconButton } from '@/components/ui/IconButton';
 import { useSheet } from '@/components/ui/Sheet';
+import { useCanEdit } from '@/lib/auth/permissions';
 import { weekdayName } from '@/components/schedule/todayModel';
 import { EventLine } from './EventLine';
 import { EventSheet } from './EventSheet';
@@ -24,6 +25,7 @@ export interface TodayEventsProps {
 export function TodayEvents({ profileId, isoDate }: TodayEventsProps) {
   const events = useDayEvents(profileId);
   const { open } = useSheet();
+  const canEdit = useCanEdit(profileId);
   const happening = useMemo(() => eventsOnDate(events, isoDate), [events, isoDate]);
   const reminders = useMemo(() => remindersOnDate(events, isoDate), [events, isoDate]);
 
@@ -43,7 +45,7 @@ export function TodayEvents({ profileId, isoDate }: TodayEventsProps) {
               event={event}
               kicker={isToday ? 'Today' : undefined}
               actions={
-                <IconButton
+                !canEdit ? undefined : <IconButton
                   icon="edit"
                   aria-label={`Edit ${event.title}`}
                   onClick={() => open(<EventSheet profileId={profileId} isoDate={isoDate} event={event} />, { title: 'Edit event' })}
@@ -60,7 +62,7 @@ export function TodayEvents({ profileId, isoDate }: TodayEventsProps) {
               key={event.id}
               event={event}
               kicker={`Reminder: ${daysUntilLabel(days_until)}`}
-              actions={<IconButton icon="close" aria-label={`Remove reminder for ${event.title}`} onClick={() => void dismissReminder(event, isoDate)} />}
+              actions={!canEdit ? undefined : <IconButton icon="close" aria-label={`Remove reminder for ${event.title}`} onClick={() => void dismissReminder(event, isoDate)} />}
             />
           ))}
         </ul>

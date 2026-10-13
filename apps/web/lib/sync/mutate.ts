@@ -1,9 +1,19 @@
 import type { MutationTable } from '@chipperly/shared/constants/tables';
 import { db, tableForMutation, type MutationRow, type OutboxEntry } from '../db/db';
-import { getCurrentUserId } from '../auth/session';
+import { getCurrentUserId, getSessionState } from '../auth/session';
+import { canEditProfile } from '../auth/roleRules';
 import { isGuestMode } from '../auth/guest';
 import { now } from '../clock';
 import { nextClientUpdatedAt } from './nextClientUpdatedAt';
+
+/**
+ * A viewer's taps change nothing: no local row, no outbox entry. The server refuses their writes
+ * too (read_only); this keeps the screen from showing a change that will never save.
+ */
+function viewerBlocked(profileId: unknown): boolean {
+  const { accounts, profiles } = getSessionState();
+  return typeof profileId === 'string' && !canEditProfile(accounts, profiles, profileId);
+}
 
 /** A guest's writes stay in their table: there is no server to send them to. */
 async function queue(entry: OutboxEntry): Promise<void> {
@@ -17,6 +27,7 @@ async function queue(entry: OutboxEntry): Promise<void> {
  * of a row that already synced.
  */
 export async function upsert<T extends MutationTable>(table: T, row: MutationRow<T>): Promise<void> {
+  if (viewerBlocked(table === 'profiles' ? row.id : (row as { profile_id?: unknown }).profile_id)) return;
   const updated_by = await getCurrentUserId();
   const tbl = tableForMutation(table);
 
@@ -48,6 +59,7 @@ export async function softDelete(table: MutationTable, id: string): Promise<void
   await db.transaction('rw', tbl, db.outbox, async () => {
     const existing = await tbl.get(id);
     if (!existing) return;
+    if (viewerBlocked(table === 'profiles' ? id : (existing as { profile_id?: unknown }).profile_id)) return;
     const client_updated_at = nextClientUpdatedAt(now(), existing.client_updated_at);
     const nextRow = { ...existing, deleted_at: client_updated_at, client_updated_at, updated_by };
     await tbl.put(nextRow);
@@ -73,6 +85,7 @@ export async function restore(table: MutationTable, id: string): Promise<void> {
   await db.transaction('rw', tbl, db.outbox, async () => {
     const existing = await tbl.get(id);
     if (!existing) return;
+    if (viewerBlocked(table === 'profiles' ? id : (existing as { profile_id?: unknown }).profile_id)) return;
     const client_updated_at = nextClientUpdatedAt(now(), existing.client_updated_at);
     const nextRow = { ...existing, deleted_at: null, client_updated_at, updated_by };
     await tbl.put(nextRow);

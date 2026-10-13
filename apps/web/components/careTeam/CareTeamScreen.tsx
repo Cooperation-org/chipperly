@@ -1,5 +1,6 @@
 'use client';
 
+import { roleLabel } from '@/lib/auth/roleRules';
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { InviteIssuedSchema, type AccountMembersResponse, type InviteIssued } from '@chipperly/shared/schemas/account';
@@ -113,7 +114,7 @@ export function CareTeamScreen() {
               <div key={m.user.id} className={styles.memberRow}>
                 <div className={styles.memberInfo}>
                   <span className={styles.memberName}>{m.user.display_name}</span>
-                  <span className={styles.memberRole}>{m.role}</span>
+                  <span className={styles.memberRole}>{roleLabel(m.role)}</span>
                   <div className={styles.tiles}>
                     {m.profiles.map((mp) => {
                       const p = profileById.get(mp.profile_id);
@@ -191,7 +192,7 @@ export function CareTeamScreen() {
               <div key={inv.id} className={styles.inviteRow}>
                 <div className={styles.inviteInfo}>
                   <span className={styles.inviteEmail}>{inv.email}</span>
-                  <p className={styles.inviteHint}>{inv.role}</p>
+                  <p className={styles.inviteHint}>{roleLabel(inv.role)}</p>
                 </div>
                 <div className={styles.memberActions}>
                   <Button variant="secondary" onClick={() => void resendInvite(inv.id)}>

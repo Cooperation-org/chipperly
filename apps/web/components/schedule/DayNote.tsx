@@ -5,6 +5,7 @@ import { dayNotePhotoAlt, hasDayNoteContent, useDayNote } from '@/lib/data/dayPl
 import { useMediaUrl } from '@/lib/data/media';
 import { IconButton } from '@/components/ui/IconButton';
 import { useSheet } from '@/components/ui/Sheet';
+import { useCanEdit } from '@/lib/auth/permissions';
 import { weekdayName } from './todayModel';
 import { DayNoteSheet } from './DayNoteSheet';
 import styles from './DayNote.module.css';
@@ -41,6 +42,7 @@ export function DayNotePhoto({ photoId, text }: { photoId: string | null; text: 
 /** S6: the caregiver's note for the day being viewed, as a band under the day header. Nothing when there's no note. */
 export function DayNote(props: DayNoteProps) {
   const { text, photoId, hasContent, dayName, edit } = useDayNoteEditor(props);
+  const canEdit = useCanEdit(props.profileId);
   if (!hasContent) return null;
   return (
     <div className={styles.row}>
@@ -51,7 +53,7 @@ export function DayNote(props: DayNoteProps) {
         {text ? <p className={styles.note}>{text}</p> : null}
         <DayNotePhoto photoId={photoId} text={text} />
       </div>
-      <IconButton icon="edit" aria-label={`Edit note for ${props.childName}, ${dayName}`} onClick={edit} />
+      {canEdit ? <IconButton icon="edit" aria-label={`Edit note for ${props.childName}, ${dayName}`} onClick={edit} /> : null}
     </div>
   );
 }
@@ -59,6 +61,7 @@ export function DayNote(props: DayNoteProps) {
 /** The "add a note" control when there's none yet: an icon in the chip-strip row, not a full-width row of its own. */
 export function DayNoteAddButton(props: DayNoteProps) {
   const { hasContent, dayName, edit } = useDayNoteEditor(props);
-  if (hasContent) return null;
+  const canEdit = useCanEdit(props.profileId);
+  if (hasContent || !canEdit) return null;
   return <IconButton icon="edit" aria-label={`Add a note for ${dayName}`} onClick={edit} />;
 }

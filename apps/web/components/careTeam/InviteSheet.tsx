@@ -32,7 +32,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
   const { close } = useSheet();
   const online = useOnline();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'member'>('member');
+  const [role, setRole] = useState<'admin' | 'member' | 'viewer'>('member');
   const [profileIds, setProfileIds] = useState<Set<string>>(
     () => new Set(profiles.length === 1 ? [profiles[0].id] : []),
   );
@@ -63,7 +63,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
         {
           email: email.trim(),
           role,
-          profile_ids: role === 'member' ? Array.from(profileIds) : profiles.map((p) => p.id),
+          profile_ids: role !== 'admin' ? Array.from(profileIds) : profiles.map((p) => p.id),
           relationship_label: relationship.trim() || null,
         },
         { schema: InviteIssuedSchema },
@@ -117,19 +117,22 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
         <Segmented
           label="Role"
           value={role}
-          onChange={(v) => setRole(v as 'admin' | 'member')}
+          onChange={(v) => setRole(v as 'admin' | 'member' | 'viewer')}
           items={[
             { value: 'admin', label: 'Admin' },
-            { value: 'member', label: 'Member' },
+            { value: 'member', label: 'Support team' },
+            { value: 'viewer', label: 'Viewer' },
           ]}
         />
         <p className={styles.hint}>
           {role === 'admin'
             ? 'Admin: manages everything, including the team.'
-            : 'Member: sees and checks off the schedule for the chosen profiles.'}
+            : role === 'viewer'
+              ? 'Viewer: can read the schedule, notes and feelings for the chosen profiles, and cannot change anything.'
+              : 'Support team: sees and checks off the schedule for the chosen profiles.'}
         </p>
       </div>
-      {role === 'member' ? (
+      {role !== 'admin' ? (
         <div>
           <span className={styles.label}>Which profiles</span>
           <div className={styles.checklist}>

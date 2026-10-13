@@ -1,5 +1,6 @@
 'use client';
 
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -388,6 +389,7 @@ export function LibraryList({ kind }: LibraryListProps) {
   const { open, close } = useSheet();
   const { profile } = useActiveProfile();
   const profileId = profile?.id;
+  const canEdit = useCanEdit();
 
   const activities = useActivities(profileId ?? '');
   const routines = useRoutines(profileId ?? '');
@@ -669,15 +671,17 @@ export function LibraryList({ kind }: LibraryListProps) {
 
   return (
     <div className={styles.page} ref={listRef}>
-      <BigButton fullWidth icon="plus" onClick={addNew}>
-        {addLabel}
-      </BigButton>
-      {kind === 'activity' || kind === 'routine' ? (
+      {canEdit ? (
+        <BigButton fullWidth icon="plus" onClick={addNew}>
+          {addLabel}
+        </BigButton>
+      ) : null}
+      {canEdit && (kind === 'activity' || kind === 'routine') ? (
         <Button fullWidth variant="secondary" onClick={() => open(<TemplateList />, { title: 'Start from a template' })}>
           Start from a template
         </Button>
       ) : null}
-      {bulkable && rows.length > 0 ? (
+      {canEdit && bulkable && rows.length > 0 ? (
         <div className={styles.bulkBar}>
           {selecting ? (
             <>
@@ -714,7 +718,7 @@ export function LibraryList({ kind }: LibraryListProps) {
               {group.rows.map((row, idx) => {
                 const groupIds = group.rows.map((r) => r.id);
                 const reorderGroup: ReorderGroup = { key: group.key, ids: groupIds };
-                const reorderable = kind === 'reward' && !selecting;
+                const reorderable = kind === 'reward' && !selecting && canEdit;
                 const rowKey = `${group.key}:${row.id}`;
                 const isDragging = draggingId === rowKey;
                 return (
@@ -757,7 +761,7 @@ export function LibraryList({ kind }: LibraryListProps) {
                   tile={row.tile}
                   name={row.name}
                   secondary={row.secondary}
-                  onTap={selecting && bulkable ? () => setSelected(toggleId(liveSelected, row.id)) : row.onTap}
+                  onTap={selecting && bulkable ? () => setSelected(toggleId(liveSelected, row.id)) : canEdit ? row.onTap : undefined}
                   trailing={
                     selecting && bulkable ? (
                       <CheckCircle
@@ -773,7 +777,7 @@ export function LibraryList({ kind }: LibraryListProps) {
                             <IconButton icon="chevron" className={styles.down} data-reorder={`${rowKey}:down`} aria-label={`Move ${row.name} down`} disabled={idx === groupIds.length - 1} onClick={() => moveReward(reorderGroup, row.id, idx + 1, 'down')} />
                           </span>
                         ) : null}
-                        <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} />
+                        {canEdit ? <IconButton icon="trash" aria-label={`Delete ${row.name}`} onClick={row.onDelete} /> : null}
                       </>
                     )
                   }
