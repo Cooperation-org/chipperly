@@ -13,19 +13,38 @@ import { env } from '../src/env.js';
 import { countBackupRows, parseCopyHeader, previewAccountRestore, restoreAccount, type BackupSource } from '../src/lib/backups.js';
 import { setBackupSourceForTests } from '../src/routes/adminBackups.js';
 
+
+
 const DAY = '2026-10-01';
 
 /**
  * Stands in for the nightly dump: the tables as they are at the moment it is taken, kept as the
  * same COPY text pg_restore prints. Everything after the file read is the real code on a real database.
  */
-async function takeBackup(): Promise<BackupSource & { copies: number }> {
+async function takeBackup(accountIds: string[]): Promise<BackupSource & { copies: number }> {
   const tables = new Map<string, string[]>();
-  // Only what the restore reads: the suite's shared database is large by the time this runs.
+  // Only what the restore reads, and only the accounts under test: the suite's shared database holds thousands
+  // of rows by the time this runs, and copying them all made these tests time out in a full run.
   const names = ['users', 'accounts', 'account_members', 'profiles', ...TABLE_NAMES];
+  // One catalog read for every table: per-table information_schema queries crawl while the whole suite shares the database.
+  const columnRows = await sql<{ table_name: string; column_name: string }[]>`
+    select c.relname as table_name, a.attname as column_name
+    from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relname = any(${names}) and a.attnum > 0 and not a.attisdropped
+    order by c.relname, a.attnum`;
+  // COPY takes no bind parameters, so the ids go in as literals; they are this test's own uuids.
+  if (!accountIds.every((id) => /^[0-9a-f-]{36}$/.test(id))) throw new Error('takeBackup wants account uuids');
+  const ids = accountIds.map((id) => `'${id}'`).join(',');
+  const inAccounts: Record<string, string> = {
+    accounts: `id in (${ids})`,
+    account_members: `account_id in (${ids})`,
+    users: `id in (select user_id from account_members where account_id in (${ids}))`,
+    profiles: `account_id in (${ids})`,
+  };
   for (const table of names) {
-    const columns = (await sql<{ column_name: string }[]>`select column_name from information_schema.columns where table_schema = 'public' and table_name = ${table} order by ordinal_position`).map((r) => r.column_name);
-    const readable = await sql`copy (select ${sql(columns)} from ${sql(table)}) to stdout`.readable();
+    const columns = columnRows.filter((r) => r.table_name === table).map((r) => r.column_name);
+    const where = inAccounts[table] ?? (columns.includes('profile_id') ? `profile_id in (select id from profiles where account_id in (${ids}))` : 'true');
+    const readable = await sql.unsafe(`copy (select ${columns.map((c) => `"${c}"`).join(', ')} from "${table}" where ${where}) to stdout`).readable();
     let text = '';
     for await (const chunk of readable) text += (chunk as Buffer).toString('utf8');
     const rows = text.split('\n').filter((line) => line !== '');
@@ -76,7 +95,7 @@ describe('restoring one account from a backup', () => {
     const place = uuidv7();
     await db.insert(locations).values({ id: place, profile_id: setup.profileId, client_updated_at: 1, updated_by: setup.admin.id, deleted_at: null, name: 'Home', position: 0 });
 
-    const backup = await takeBackup();
+    const backup = await takeBackup([setup.accountId, other.accountId]);
     expect(await countBackupRows(backup, DAY, 'rewards')).toBeGreaterThanOrEqual(5);
 
     // After the backup: one edited, one deleted in the app (marked), one wiped outright, one new, and the neighbours edit theirs.
@@ -123,7 +142,7 @@ describe('restoring one account from a backup', () => {
     const setup = await setupProfile();
     const dead = await addReward(setup, 'Deleted long ago');
     await db.update(rewards).set({ deleted_at: 5 }).where(eq(rewards.id, dead));
-    const backup = await takeBackup();
+    const backup = await takeBackup([setup.accountId]);
     await db.update(rewards).set({ deleted_at: null, name: 'Brought back by hand since' }).where(eq(rewards.id, dead));
     expect((await previewAccountRestore(backup, DAY, setup.accountId)).will_restore).toBe(0);
     await restoreAccount(backup, DAY, setup.accountId, setup.admin.id);
@@ -155,7 +174,7 @@ describe('the backup screen routes', () => {
     env.superAdminEmails.add(await emailOf(boss.id));
     const setup = await setupProfile();
     const lost = await addReward(setup, 'Lost reward');
-    setBackupSourceForTests(await takeBackup());
+    setBackupSourceForTests(await takeBackup([setup.accountId]));
     await db.delete(rewards).where(eq(rewards.id, lost));
     const headers = auth(boss.token);
 
