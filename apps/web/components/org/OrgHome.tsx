@@ -12,6 +12,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
 import { useSession } from '@/lib/auth/session';
+import { syncNow } from '@/lib/sync/engine';
 import { selectProfile, useActiveAccount } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import {
@@ -128,6 +129,8 @@ export function OrgHome() {
       await api.patch(`/accounts/${accountId}/profiles/${p.profile_id}`, body);
       toast(body.archived === true ? `Archived ${p.name}` : body.archived === false ? `Restored ${p.name}` : `Moved ${p.name}`);
       load();
+      // The switcher reads this device's copy of the profiles: pull the change now instead of at the next poll.
+      void syncNow();
     } catch (e) {
       toast(e instanceof ApiError ? orgErrorMessage(e.code) : 'Could not reach the server. Try again.');
     }
