@@ -30,7 +30,7 @@ export function pickAudience(audience: Audience, recipients: Recipient[], unsubs
   return [...out];
 }
 
-export const NOT_CONNECTED = 'That segment is not connected yet. Set NEWSLETTER_API_SECRET on the site to match CRON_SECRET on the app.';
+export const NOT_CONNECTED = 'That segment is not connected yet. Set the same NEWSLETTER_API_SECRET on the site and on the app.';
 
 /**
  * Adapter for the app's users: GET <app>/api/internal/newsletter-audience
@@ -39,7 +39,7 @@ export const NOT_CONNECTED = 'That segment is not connected yet. Set NEWSLETTER_
  */
 export async function fetchAppUsers(appUrl: string, secret: string | undefined, fetchImpl: typeof fetch = fetch): Promise<Recipient[]> {
   if (!secret) throw new Error(NOT_CONNECTED);
-  const res = await fetchImpl(`${appUrl}/api/internal/newsletter-audience`, { headers: { 'x-cron-secret': secret } });
+  const res = await fetchImpl(`${appUrl}/api/internal/newsletter-audience`, { headers: { 'x-newsletter-secret': secret } });
   if (!res.ok) throw new Error(`The app did not return its users (HTTP ${res.status}).`);
   return ((await res.json()) as { users: Recipient[] }).users;
 }

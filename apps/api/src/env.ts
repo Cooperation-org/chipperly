@@ -78,6 +78,8 @@ const EnvSchema = z.object({
   ADMIN_LINK_SECRET: z.string().min(32).optional(),
   /** The marketing site, which holds the waitlist. */
   SITE_ORIGIN: z.string().min(1).default('https://chipperlyapp.com'),
+  /** Lets the marketing site read GET /api/internal/newsletter-audience (same value as NEWSLETTER_API_SECRET there). Touches nothing else. */
+  NEWSLETTER_API_SECRET: z.string().min(32).optional(),
   /** Set = reminders run from an outside cron via POST /api/internal/reminders (routes/internal.ts) instead of the in-process timer. */
   CRON_SECRET: z.string().min(32).optional(),
   LOG_LEVEL: z.string().min(1).default('info'),

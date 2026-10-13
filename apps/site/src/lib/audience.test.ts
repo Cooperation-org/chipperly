@@ -39,6 +39,6 @@ describe('fetchAppUsers', () => {
   it('sends the secret header and returns the users', async () => {
     const f = vi.fn(async () => new Response(JSON.stringify({ users: people.slice(0, 1) })));
     expect(await fetchAppUsers('https://app.test', 'sek', f as never)).toEqual(people.slice(0, 1));
-    expect(f).toHaveBeenCalledWith('https://app.test/api/internal/newsletter-audience', { headers: { 'x-cron-secret': 'sek' } });
+    expect(f).toHaveBeenCalledWith('https://app.test/api/internal/newsletter-audience', { headers: { 'x-newsletter-secret': 'sek' } });
   });
 });
