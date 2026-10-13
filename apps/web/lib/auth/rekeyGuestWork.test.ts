@@ -121,6 +121,10 @@ describe('canCarryOver', () => {
     expect(canCarryOver(carry, { accounts: [account('x'), account('y')], profiles: [] })).toBe(false);
   });
 
+  it('never moves a guest child into an organization, even one with no people yet', () => {
+    expect(canCarryOver(carry, { accounts: [{ account: { id: 'org', kind: 'agency' } }], profiles: [] })).toBe(false);
+  });
+
   it('once an account was made, only that account counts', () => {
     expect(canCarryOver({ ...carry, account_id: 'x' }, { accounts: [account('x')], profiles: [{}] })).toBe(true);
     expect(canCarryOver({ ...carry, account_id: 'x' }, { accounts: [account('y')], profiles: [] })).toBe(false);

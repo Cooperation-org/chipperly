@@ -57,8 +57,9 @@ export interface CarryOver {
  * Pure: whether the guest's work may move into this signed-in user's account. Only a brand-new user
  * (no profile yet, at most the account an earlier attempt made) gets it; signing in to an account that
  * already has people in it would mix a throwaway trial into real data, so that trial is dropped instead.
+ * An organization counts as real data even before it has people.
  */
-export function canCarryOver(carry: CarryOver, me: { accounts: { account: { id: string } }[]; profiles: unknown[] }): boolean {
+export function canCarryOver(carry: CarryOver, me: { accounts: { account: { id: string; kind?: string } }[]; profiles: unknown[] }): boolean {
   if (carry.account_id) return me.accounts.some((a) => a.account.id === carry.account_id);
-  return me.profiles.length === 0 && me.accounts.length <= 1;
+  return me.profiles.length === 0 && me.accounts.length <= 1 && !me.accounts.some((a) => a.account.kind === 'agency');
 }
