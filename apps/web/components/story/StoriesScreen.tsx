@@ -7,7 +7,8 @@ import type { SocialStory } from '@chipperly/shared/schemas/story';
 import type { StoryTemplateKey } from '@chipperly/shared/constants/storyTemplates';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useStories, useStory, deleteStory, duplicateStory, createFromTemplate } from '@/lib/data/stories';
-import { createFromImages } from '@/lib/data/storyUpload';
+import { createFromImages, PdfOpenError } from '@/lib/data/storyUpload';
+import { PDF_PAGE_LIMIT } from '@/lib/media/pdfPages';
 import { CANT_OPEN_PHOTO, PhotoDecodeError } from '@/lib/media/imageFile';
 import { restore } from '@/lib/sync/mutate';
 import { toast } from '@/lib/toast';
@@ -20,8 +21,8 @@ import { StoryViewer } from './StoryViewer';
 import styles from './StoriesScreen.module.css';
 import { ScreenHint } from '@/components/ui/ScreenHint';
 
-const UPLOAD_NOTE = 'Pick a picture of each page. PDFs are not supported yet, so save each page as a picture first.';
-const NO_PICTURES = 'PDFs are not supported yet. Save each page as a picture and pick those.';
+const UPLOAD_NOTE = `Pick a PDF, or a picture of each page. A PDF becomes one page per PDF page (up to ${PDF_PAGE_LIMIT}).`;
+const NO_PICTURES = 'Pick a PDF or pictures (JPG, PNG or HEIC).';
 
 const TEMPLATES: { key: StoryTemplateKey; label: string }[] = [
   { key: 'haircut', label: 'Haircut' },
@@ -66,6 +67,7 @@ export function StoriesScreen() {
       }
       const notes: string[] = [];
       if (made.cantOpen.length > 0) notes.push(`${made.cantOpen.join(', ')}: ${CANT_OPEN_PHOTO}`);
+      if (made.cantOpenPdf.length > 0) notes.push(new PdfOpenError(made.cantOpenPdf).message);
       const unread = made.skipped - made.cantOpen.length;
       if (unread > 0) {
         notes.push(unread === 1 ? '1 picture could not be read and was left out.' : `${unread} pictures could not be read and were left out.`);
@@ -74,7 +76,7 @@ export function StoriesScreen() {
       if (notes.length > 0) toast(notes.join(' '), { carry: true });
       router.push(`/story/edit/?id=${made.storyId}`);
     } catch (err) {
-      toast(err instanceof PhotoDecodeError ? CANT_OPEN_PHOTO : 'Could not read those pictures. Try JPG or PNG files.');
+      toast(err instanceof PhotoDecodeError ? CANT_OPEN_PHOTO : err instanceof PdfOpenError ? err.message : 'Could not read those pictures. Try JPG or PNG files.');
     } finally {
       setUploading(false);
     }
@@ -133,7 +135,7 @@ export function StoriesScreen() {
       <input
         ref={fileInput}
         type="file"
-        accept="image/*,.heic,.heif"
+        accept="image/*,.heic,.heif,application/pdf,.pdf"
         multiple
         hidden
         onChange={(e) => {

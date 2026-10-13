@@ -1,6 +1,7 @@
 import { pickAndStoreImage } from './media';
 import { saveStory } from './stories';
 import { isImageFile, PhotoDecodeError } from '../media/imageFile';
+import { isPdfFile, pdfToImages } from '../media/pdfPages';
 
 /** Image files (by type, or by extension when the type is blank) in page order: natural sort, so "page2" comes before "page10". */
 export function sortUploadFiles<T extends { name: string; type: string }>(files: T[]): T[] {
@@ -24,18 +25,42 @@ export function pagesFromMedia(mediaIds: string[]): { text: string; emoji: null;
   return mediaIds.map((photo_id) => ({ text: '', emoji: null, photo_id }));
 }
 
+/** A picked PDF that pdf.js could not open (damaged, password-protected, or pdf.js failed to load offline). */
+export class PdfOpenError extends Error {
+  constructor(public readonly names: string[]) {
+    super(`${names.join(', ')}: this PDF could not be opened. Try saving each page as a picture.`);
+    this.name = 'PdfOpenError';
+  }
+}
+
 /**
- * Turns picked images into a new story (stored locally and queued for upload like any other picture).
- * Null when none of the files is a picture (a PDF picked through "All files"), so no empty story is made.
+ * Turns picked images, and the pages of picked PDFs, into a new story (stored locally and queued for upload
+ * like any other picture). Null when nothing picked is a picture or a PDF, so no empty story is made.
  * A picture that cannot be read is left out and counted in `skipped`; one this browser can't decode (HEIC on
- * Chrome desktop) is also named in `cantOpen`. Throws only when none could be read.
+ * Chrome desktop) is also named in `cantOpen`, and a PDF that can't be opened in `cantOpenPdf`.
+ * Throws only when nothing could be read.
  */
 export async function createFromImages(
   profileId: string,
   files: File[],
-): Promise<{ storyId: string; skipped: number; cantOpen: string[] } | null> {
-  const sorted = sortUploadFiles(files);
-  if (sorted.length === 0) return null;
+): Promise<{ storyId: string; skipped: number; cantOpen: string[]; cantOpenPdf: string[] } | null> {
+  const pictures: File[] = [];
+  const cantOpenPdf: string[] = [];
+  for (const file of files) {
+    if (!isPdfFile(file)) pictures.push(file);
+    else {
+      try {
+        pictures.push(...(await pdfToImages(file)));
+      } catch {
+        cantOpenPdf.push(file.name);
+      }
+    }
+  }
+  const sorted = sortUploadFiles(pictures);
+  if (sorted.length === 0) {
+    if (cantOpenPdf.length > 0) throw new PdfOpenError(cantOpenPdf);
+    return null;
+  }
   const ids: string[] = [];
   const cantOpen: string[] = [];
   for (const file of sorted) {
@@ -54,5 +79,5 @@ export async function createFromImages(
     cover_photo_id: ids[0] ?? null,
     pages: pagesFromMedia(ids),
   });
-  return { storyId, skipped: sorted.length - ids.length, cantOpen };
+  return { storyId, skipped: sorted.length - ids.length, cantOpen, cantOpenPdf };
 }
