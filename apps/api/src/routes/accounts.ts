@@ -422,6 +422,10 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const target = await getMembership(accountId, targetId);
     if (!target) throw new AppError(404, 'not_found', 'Member not found');
 
+    if (body.profile_ids) {
+      const own = new Set(await accountProfileIds(accountId));
+      if (body.profile_ids.some((id) => !own.has(id))) throw new AppError(400, 'invalid_profiles', 'Some of those people are not in this account');
+    }
     if (body.role === 'admin' && target.role !== 'admin') await assertAdminSeat(accountId, true); // an open admin invite holds its seat
     if (body.role && body.role !== 'admin' && target.role === 'admin') {
       const admins = await db
