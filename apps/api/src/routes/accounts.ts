@@ -298,6 +298,8 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     }
 
     const profile = await insertProfile(accountId, userId, body);
+    // Sign-up names a supported account "Someone I support" before the person's name is known; it is their account.
+    if (account.kind === 'supported' && existing.length === 0) await db.update(accounts).set({ name: profile.name }).where(eq(accounts.id, accountId));
 
     reply.code(201);
     return profile;

@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
-import { eq } from 'drizzle-orm';
+import { readFileSync } from 'node:fs';
+import { eq, sql } from 'drizzle-orm';
 import {
   AccountMembersResponseSchema,
   InviteDetailsSchema,
@@ -10,7 +11,7 @@ import {
 import { buildTestApp, expectShape, request } from './helpers.js';
 import { createProfile } from './fixtures.js';
 import { db } from '../src/db/client.js';
-import { account_members, users } from '../src/db/schema/accounts.js';
+import { account_members, accounts, users } from '../src/db/schema/accounts.js';
 import { activities, activity_steps } from '../src/db/schema/activities.js';
 import { rewards } from '../src/db/schema/rewards.js';
 import { locations } from '../src/db/schema/locations.js';
@@ -712,6 +713,26 @@ describe('household limits', () => {
     const promote = await request(app, { method: 'PATCH', url: `/api/accounts/${accountId}/members/${member.id}`, headers: auth(admin.token), payload: { role: 'admin' } });
     expect(promote.statusCode).toBe(409);
     expect(codeOf(promote)).toBe('admin_limit');
+  });
+
+  it('a supported account takes its person\'s name', async () => {
+    const admin = await createUser('supported-admin');
+    const res = await request(app, { method: 'POST', url: '/api/accounts', headers: auth(admin.token), payload: { kind: 'supported', name: 'Someone I support' } });
+    const accountId = (res.json() as { account: { id: string } }).account.id;
+    await request(app, { method: 'POST', url: `/api/accounts/${accountId}/profiles`, headers: auth(admin.token), payload: { name: 'Grandpa Joe', skip_seed: true } });
+    const [row] = await db.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, accountId));
+    expect(row?.name).toBe('Grandpa Joe');
+  });
+
+  it('migration 0062 names existing placeholder supported accounts after their person', async () => {
+    const admin = await createUser('supported-old');
+    const res = await request(app, { method: 'POST', url: '/api/accounts', headers: auth(admin.token), payload: { kind: 'supported', name: 'Someone I support' } });
+    const accountId = (res.json() as { account: { id: string } }).account.id;
+    await createProfile(accountId, admin.id, 'Aunt May');
+    await db.update(accounts).set({ name: 'Someone I support' }).where(eq(accounts.id, accountId));
+    await db.execute(sql.raw(readFileSync(new URL('../src/db/migrations/0062_supported_account_names.sql', import.meta.url), 'utf8')));
+    const [row] = await db.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, accountId));
+    expect(row?.name).toBe('Aunt May');
   });
 
   it('does not limit admins on other kinds of account', async () => {

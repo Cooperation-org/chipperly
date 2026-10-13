@@ -330,6 +330,13 @@
       "when": 1790900100000,
       "tag": "0061_admin_team",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1790900200000,
+      "tag": "0062_supported_account_names",
+      "breakpoints": true
     }
   ]
 }
