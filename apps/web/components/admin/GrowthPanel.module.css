@@ -1,0 +1,66 @@
+.figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.peak {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.plot {
+  width: 100%;
+  height: 9rem;
+  display: block;
+}
+
+.baseline {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.months {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* On a narrow phone every third month is labelled; the hover titles and the table give the rest. */
+@media (max-width: 420px) {
+  .months span:not(:nth-child(3n)) {
+    visibility: hidden;
+  }
+}
+
+.numbers summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--color-primary);
+  font-weight: 600;
+}
