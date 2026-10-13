@@ -52,6 +52,7 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
       { href: '/admin/team/', label: 'Admin team', roles: STAFF },
       { href: '/admin/sync/', label: 'Sync health', roles: ['super'] },
       { href: '/admin/backups/', label: 'Backups', roles: ['super'] },
+      { href: '/admin/stripe/', label: 'Stripe messages', roles: ['super'] },
     ],
   },
 ];

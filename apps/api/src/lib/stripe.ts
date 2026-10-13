@@ -290,7 +290,7 @@ async function mailPlanMisfit(accountId: string, m: { name: string; from: Accoun
       `${m.name} now pays for the ${m.to} plan, but it has ${has} than that plan allows.`,
       `Its account type was left as ${m.from}. Check the subscription in Stripe and talk to the account admin.`,
     ],
-    action: { label: 'Open the payments log', url: `${adminOrigin()}/admin/payments/` },
+    action: { label: 'Open subscriptions', url: `${adminOrigin()}/admin/subscriptions/` },
   });
   for (const to of env.superAdminEmails) await sendMail({ to, subject: 'Chipperly plan change needs a look', ...mail });
 }
@@ -352,7 +352,7 @@ export async function applyDisputeEvent(event: StripeEvent, call: StripeCall = s
         accountName ? `Account: ${accountName}.` : 'We could not match it to an account.',
         'Nothing was cancelled or refunded. Respond to it in the Stripe dashboard.',
       ],
-      action: { label: 'Open the payments log', url: `${adminOrigin()}/admin/payments/` },
+      action: { label: 'Open Stripe messages', url: `${adminOrigin()}/admin/stripe/` },
     });
     for (const to of env.superAdminEmails) await sendMail({ to, subject: `Chipperly payment dispute ${verb}`, ...mail });
   }

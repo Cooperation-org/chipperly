@@ -30,7 +30,7 @@ const RESULT_WORDS: Record<string, string> = {
   ignored: 'Received, nothing to do',
 };
 
-/** The admin site's payments page, below the charges: the subscriptions the app holds, and the newest events Stripe has sent. Read-only. */
+/** Super admins, for checking the app against Stripe: the subscriptions the app holds, and the newest events Stripe has sent. Read-only. */
 export function PaymentsLog() {
   const role = useAdminRole();
   const [log, setLog] = useState<AdminPayments | null>(null);
@@ -64,7 +64,8 @@ export function PaymentsLog() {
       </div>
 
       <section className={styles.card} aria-label="Subscriptions">
-        <h2 className={styles.heading}>Subscriptions</h2>
+        <h2 className={styles.heading}>Subscriptions as the app has them</h2>
+        <p className={styles.muted}>What the app saved from Stripe. If this differs from the Subscriptions page, a message below went wrong.</p>
         {log.subscriptions.length === 0 ? (
           <p className={styles.muted}>Nobody has subscribed yet.</p>
         ) : (
