@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { AdminClientErrorGroup, AdminFailedPayment, AdminInsights, AdminWaitlistEntry } from '@chipperly/shared/schemas/admin';
+import type { AdminClientErrorGroup, AdminFailedPayment, AdminInsights, AdminRole, AdminWaitlistEntry } from '@chipperly/shared/schemas/admin';
+import { BackupListSchema, type BackupList } from '@chipperly/shared/schemas/backup';
 import type { FeedbackList } from '@chipperly/shared/schemas/feedback';
+import type { ModerationReport } from '@/lib/data/moderation';
+import type { AdminSyncHealth } from '@chipperly/shared/schemas/syncHealth';
 import { useAdminRole } from '@/lib/admin/role';
 import { api } from '@/lib/api/client';
+import { HELD_REASONS, syncVerdict } from './syncVerdict';
 import styles from './AttentionCards.module.css';
 
 type Count = number | 'error' | null;
@@ -18,9 +22,13 @@ interface Card {
   label: (n: number) => string;
   calm: string;
   load: () => Promise<number>;
+  /** Who sees it; everyone on Today when left out. */
+  roles?: readonly AdminRole[];
 }
 
 const DAY = 24 * 60 * 60 * 1000;
+/** A nightly backup older than this means last night's did not run. */
+const BACKUP_LATE_MS = 36 * 60 * 60 * 1000;
 
 const CARDS: Card[] = [
   {
@@ -66,6 +74,42 @@ const CARDS: Card[] = [
       return (await api.get<{ groups: AdminClientErrorGroup[] }>('/admin/client-errors')).groups.filter((g) => g.last_at > since).length;
     },
   },
+  {
+    key: 'moderation',
+    what: 'reports',
+    href: '/admin/moderation/',
+    label: (n) => `${n} community report${n === 1 ? '' : 's'} to review`,
+    calm: 'No community reports to review',
+    load: async () => (await api.get<{ reports: ModerationReport[] }>('/community/moderation/reports?status=open')).reports.length,
+  },
+  {
+    key: 'sync',
+    what: 'sync health',
+    href: '/admin/sync/',
+    label: (n) => (n === 1 ? 'Sync health needs a look' : `${n} refused changes need you on Sync health`),
+    calm: 'Everything phones wrote is saved',
+    load: async () => {
+      const health = await api.get<AdminSyncHealth>('/admin/sync-health');
+      const verdict = syncVerdict(health, Date.now());
+      if (verdict.tone === 'calm') return 0;
+      return Math.max(1, health.rejections.filter((r) => r.resolved_at === null && !HELD_REASONS.has(r.reason)).length);
+    },
+    roles: ['super'],
+  },
+  {
+    key: 'backups',
+    what: 'backups',
+    href: '/admin/backups/',
+    label: () => "Last night's backup is missing",
+    calm: "Last night's backup is there",
+    load: async () => {
+      const list = await api.get<BackupList>('/admin/backups', { schema: BackupListSchema });
+      if (!list.enabled) return 0;
+      const newest = Math.max(0, ...list.backups.map((b) => b.taken_at));
+      return Date.now() - newest > BACKUP_LATE_MS ? 1 : 0;
+    },
+    roles: ['super'],
+  },
 ];
 
 /** The top of the Today page: what needs someone now, each a link to where it is done. Each card loads on its own. */
@@ -75,7 +119,7 @@ export function AttentionCards() {
 
   useEffect(() => {
     if (!role) return;
-    for (const card of CARDS) {
+    for (const card of CARDS.filter((c) => !c.roles || c.roles.includes(role))) {
       card.load().then(
         (n) => setCounts((c) => ({ ...c, [card.key]: n })),
         () => setCounts((c) => ({ ...c, [card.key]: 'error' })),
@@ -84,15 +128,16 @@ export function AttentionCards() {
   }, [role]);
 
   if (!role) return null;
-  const busy = CARDS.filter((c) => typeof counts[c.key] === 'number' && (counts[c.key] as number) > 0);
-  const loaded = CARDS.every((c) => counts[c.key] !== undefined);
-  const failed = CARDS.some((c) => counts[c.key] === 'error');
+  const cards = CARDS.filter((c) => !c.roles || c.roles.includes(role));
+  const busy = cards.filter((c) => typeof counts[c.key] === 'number' && (counts[c.key] as number) > 0);
+  const loaded = cards.every((c) => counts[c.key] !== undefined);
+  const failed = cards.some((c) => counts[c.key] === 'error');
 
   return (
     <section aria-label="Needs attention" className={styles.wrap}>
       <h2 className={styles.heading}>{loaded && busy.length === 0 && !failed ? 'All clear' : 'Needs attention'}</h2>
       <ul className={styles.list}>
-        {CARDS.map((card) => {
+        {cards.map((card) => {
           const n = counts[card.key];
           const tone = n === undefined ? 'loading' : n === 'error' ? 'error' : n === null || n === 0 ? 'calm' : 'act';
           return (
