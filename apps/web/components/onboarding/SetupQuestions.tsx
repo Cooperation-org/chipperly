@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { AgeBand, FocusRoutine, SetupAnswers } from '@chipperly/shared/schemas/profile';
 import { AGE_BAND_TILES, FOCUS_TILES, FREE_TILES, LOVE_TILES, ROUTINE_TILES, WEEK_TILES, defaultAnswers } from '@chipperly/shared/constants/setup';
 import { newId } from '@/lib/ids';
-import type { GuidedItem, GuidedPicks, GuidedPlace } from '@/lib/profile/guidedSetup';
+import { cloneGuidedPicks, type GuidedItem, type GuidedPicks, type GuidedPlace } from '@/lib/profile/guidedSetup';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { PickStep, PlacesStep } from './GuidedSteps';
@@ -19,6 +19,10 @@ export interface SetupQuestionsProps {
   onDone: (answers: SetupAnswers | null, picks?: GuidedPicks) => void;
   /** Family and organization accounts: back from the first question to the name form. */
   onBack?: () => void;
+  /** Household, second person on: the first person's finished answers, offered as one tap ("Same as Ava"). */
+  copyFrom?: { name: string; answers: SetupAnswers; picks: GuidedPicks };
+  /** The last button's text. Default: "Create {name}'s plan". */
+  doneLabel?: string;
 }
 
 type MultiKey = 'week' | 'routines';
@@ -31,7 +35,7 @@ const LAST_STEP = 5;
  * places, three earned rewards and three free choices, which the caller
  * creates locally so photos attach. Every step is skippable; skipping the whole thing keeps the old default lists.
  */
-export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQuestionsProps) {
+export function SetupQuestions({ name, selfMode, busy, onDone, onBack, copyFrom, doneLabel }: SetupQuestionsProps) {
   const [step, setStep] = useState(selfMode ? 1 : 0);
   const [answers, setAnswers] = useState<SetupAnswers>(() => defaultAnswers(selfMode ? '18+' : '2-7'));
   const [places, setPlaces] = useState<GuidedPlace[]>(() => [{ id: newId(), name: 'Home', emoji: '🏠', photo_id: null }]);
@@ -51,7 +55,8 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
   // Each forward move is a history entry, so the browser Back button (and Back below) goes one step back, not off the page.
   function go(next: number): void {
     setStep(next);
-    window.history.pushState({ setupStep: next }, '');
+    // Merged, so the parent's own entry fields (which person this is) survive a Back into this step.
+    window.history.pushState({ ...window.history.state, setupStep: next }, '');
   }
   useEffect(() => {
     const saved: unknown = window.history.state?.setupStep;
@@ -136,6 +141,11 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
               </button>
             ))}
           </div>
+          {copyFrom ? (
+            <Button variant="secondary" fullWidth disabled={busy} onClick={() => onDone(copyFrom.answers, cloneGuidedPicks(copyFrom.picks, newId))}>
+              Same as {copyFrom.name}
+            </Button>
+          ) : null}
         </>
       ) : null}
 
@@ -202,7 +212,7 @@ export function SetupQuestions({ name, selfMode, busy, onDone, onBack }: SetupQu
       <div className={styles.actions}>
         {step === LAST_STEP ? (
           <Button fullWidth loading={busy} onClick={finish}>
-            Create {name}&apos;s plan
+            {doneLabel ?? `Create ${name}'s plan`}
           </Button>
         ) : step > 0 ? (
           <Button fullWidth disabled={step === 2 && !goalReady} onClick={() => go(nextStep)}>
