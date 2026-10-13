@@ -3,7 +3,9 @@ import type { FastifyInstance } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { MUTATION_TABLE_NAMES } from '@chipperly/shared/constants/tables';
 import { db, sql } from '../src/db/client.js';
-import { profile_members } from '../src/db/schema/profiles.js';
+import { profile_members, profiles } from '../src/db/schema/profiles.js';
+import { media } from '../src/db/schema/media.js';
+import { eq } from 'drizzle-orm';
 import { buildTestApp, request } from './helpers.js';
 import { addMember, createProfile, createUser, setupProfile } from './fixtures.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
@@ -205,5 +207,45 @@ describe('viewer role', () => {
       expect(patch.statusCode).toBe(200);
     });
   });
-});
+  it('refuses an invite naming a profile from another account', async () => {
+    const { admin, accountId } = await setup();
+    const foreign = await setupProfile();
+    const res = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${accountId}/invites`,
+      headers: auth(admin.token),
+      payload: { email: 'x@example.com', role: 'viewer', profile_ids: [foreign.profileId] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(codeOf(res)).toBe('invalid_profiles');
+  });
 
+  it('GET /me and /me/export ignore a profile_members row pointing at another account', async () => {
+    const { viewer, profileId } = await setup();
+    const foreign = await setupProfile();
+    await db.insert(profile_members).values({ profile_id: foreign.profileId, user_id: viewer.id, relationship_label: null });
+    const me = await request(app, { method: 'GET', url: '/api/me', headers: auth(viewer.token) });
+    expect((me.json() as { profiles: Array<{ id: string }> }).profiles.map((p) => p.id)).toEqual([profileId]);
+    const exp = await request(app, { method: 'GET', url: '/api/me/export', headers: auth(viewer.token) });
+    expect((exp.json() as { profiles: Array<{ id: string }> }).profiles.map((p) => p.id)).toEqual([profileId]);
+  });
+
+  it('/me/export gives a viewer only the media their profile uses, and an admin all of it', async () => {
+    const { admin, viewer, accountId, profileId, otherProfileId } = await setup();
+    const mk = async (createdBy: string) => {
+      const id = uuidv7();
+      await db.insert(media).values({ id, account_id: accountId, kind: 'image', status: 'ready', storage_key: id, content_type: 'image/webp', bytes: 1, original_bytes: 1, created_by: createdBy, created_at: Date.now() });
+      return id;
+    };
+    const mine = await mk(admin.id);
+    const theirs = await mk(admin.id);
+    await db.update(profiles).set({ avatar_photo_id: mine }).where(eq(profiles.id, profileId));
+    await db.update(profiles).set({ avatar_photo_id: theirs }).where(eq(profiles.id, otherProfileId));
+    const ids = async (token: string) => {
+      const res = await request(app, { method: 'GET', url: '/api/me/export', headers: auth(token) });
+      return (res.json() as { media: Array<{ id: string }> }).media.map((m) => m.id).sort();
+    };
+    expect(await ids(viewer.token)).toEqual([mine]);
+    expect(await ids(admin.token)).toEqual([mine, theirs].sort());
+  });
+});
