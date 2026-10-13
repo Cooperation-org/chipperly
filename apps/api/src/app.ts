@@ -5,6 +5,7 @@ import multipart from '@fastify/multipart';
 import type { Env } from './env.js';
 import registerErrors from './plugins/errors.js';
 import registerAuth from './plugins/auth.js';
+import { registerAdminAudit } from './plugins/adminAudit.js';
 import { registerStatic } from './static.js';
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
@@ -80,6 +81,7 @@ export async function buildApp({ env }: BuildAppOptions): Promise<FastifyInstanc
   // and every route registered afterwards, with no encapsulation boundary.
   await registerErrors(app);
   await registerAuth(app);
+  registerAdminAudit(app);
 
   if (env.CORS_ORIGIN) {
     // @fastify/cors defaults `methods` to 'GET,HEAD,POST' (its own hardcoded

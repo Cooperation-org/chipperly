@@ -131,8 +131,13 @@ export default async function adminBillingRoutes(app: FastifyInstance): Promise<
     return removeDiscount(id, await adminEmail(request));
   });
 
-  app.get('/admin/actions', read, async (): Promise<{ actions: AdminAction[] }> => ({
-    // ponytail: newest 300; page it when the log outgrows that.
-    actions: await db.select().from(admin_actions).orderBy(desc(admin_actions.at)).limit(300),
-  }));
+  /** The audit log, newest first; ?admin= one admin's actions, ?target= what was done to one person or thing. */
+  app.get('/admin/actions', read, async (request): Promise<{ actions: AdminAction[]; admins: string[] }> => {
+    const { admin, target } = z.object({ admin: z.string().trim().toLowerCase().max(200).optional(), target: z.string().trim().max(200).optional() }).parse(request.query);
+    const where = and(admin ? eq(admin_actions.admin_email, admin) : undefined, target ? eq(admin_actions.target, target) : undefined);
+    // ponytail: newest 300 per view; page it when the log outgrows that.
+    const actions = await db.select().from(admin_actions).where(where).orderBy(desc(admin_actions.at)).limit(300);
+    const admins = (await db.selectDistinct({ e: admin_actions.admin_email }).from(admin_actions)).map((r) => r.e).sort();
+    return { actions, admins };
+  });
 }

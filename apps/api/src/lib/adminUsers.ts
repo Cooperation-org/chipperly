@@ -2,6 +2,7 @@ import { ERASE_AFTER_DAYS } from '@chipperly/shared/schemas/billing';
 import { TABLE_NAMES } from '@chipperly/shared/constants/tables';
 import { sql } from '../db/client.js';
 import { AppError } from '../plugins/errors.js';
+import { getStorageDriver, type StorageDriver } from '../media/storage.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -28,6 +29,8 @@ export interface EraseResult {
   /** Accounts the person was only taken out of, because other people use them. */
   accounts_left: string[];
   rows_removed: number;
+  /** Uploaded files deleted from storage (a file another account still uses is kept). */
+  files_removed: number;
 }
 
 /**
@@ -37,11 +40,12 @@ export interface EraseResult {
  *   or to the longest-standing member, who becomes one).
  * Refused while money is involved (a Stripe subscription that is still live, a seller account, a purchase):
  * those need a person to settle them first.
- * The uploaded files of a removed account stay on disk; only their rows go.
- * ponytail: file cleanup is a separate sweep, add it when storage matters.
+ * Their uploaded files go too, after the rows: a file is only deleted when no other row
+ * still points at it (a family handover copies media rows onto the same stored file).
  */
-export async function eraseUser(userId: string): Promise<EraseResult> {
-  return sql.begin(async (tx) => {
+export async function eraseUser(userId: string, storage: Pick<StorageDriver, 'delete'> = getStorageDriver()): Promise<EraseResult> {
+  const keys: string[] = [];
+  const result = await sql.begin(async (tx) => {
     const [user] = await tx<{ id: string }[]>`select id from users where id = ${userId} for update`;
     if (!user) throw new AppError(404, 'not_found', 'User not found');
 
@@ -83,6 +87,7 @@ export async function eraseUser(userId: string): Promise<EraseResult> {
         await run(tx`update devices set profile_id = null where profile_id = any(${profileIds})`);
         await run(tx`delete from profiles where id = any(${profileIds})`);
       }
+      keys.push(...(await tx<{ k: string }[]>`select storage_key as k from media where account_id = any(${aloneIds}) and storage_key <> ''`).map((r) => r.k));
       await run(tx`delete from media where account_id = any(${aloneIds})`);
       await run(tx`delete from invites where account_id = any(${aloneIds})`);
       await run(tx`delete from cluster_members where account_id = any(${aloneIds})`);
@@ -123,4 +128,23 @@ export async function eraseUser(userId: string): Promise<EraseResult> {
 
     return { accounts_removed: alone.map((m) => m.name), accounts_left: shared.map((m) => m.name), rows_removed: rows };
   });
+  return { ...result, files_removed: await deleteUnusedFiles(keys, storage) };
+}
+
+/** Deletes stored files no media row points at any more. A failure is logged and skipped: the rows are already gone. */
+async function deleteUnusedFiles(keys: string[], storage: Pick<StorageDriver, 'delete'>): Promise<number> {
+  const unique = [...new Set(keys)];
+  if (unique.length === 0) return 0;
+  const still = await sql<{ k: string }[]>`select distinct storage_key as k from media where storage_key = any(${unique})`;
+  const kept = new Set(still.map((r) => r.k));
+  let removed = 0;
+  for (const key of unique.filter((k) => !kept.has(k))) {
+    try {
+      await storage.delete(key);
+      removed++;
+    } catch (err) {
+      console.error(`erase: could not delete stored file ${key}`, err);
+    }
+  }
+  return removed;
 }

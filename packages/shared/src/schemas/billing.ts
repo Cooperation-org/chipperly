@@ -117,7 +117,11 @@ export const AdminEditUserBodySchema = z.object({
 export type AdminEditUserBody = z.infer<typeof AdminEditUserBodySchema>;
 
 /** DELETE /admin/users/:id: the email is typed again, so the wrong row cannot be erased by a slip. */
-export const AdminEraseUserBodySchema = z.object({ confirm_email: z.string().trim().toLowerCase() });
+export const AdminEraseUserBodySchema = z.object({
+  confirm_email: z.string().trim().toLowerCase(),
+  /** Super admins: skip the 30-day wait after closing (test accounts, a person who asked to be deleted). */
+  now: z.boolean().default(false),
+});
 
 /** PUT /admin/accounts/:id/comp. `until: null` takes the free access away. */
 export const AdminCompBodySchema = z.object({
