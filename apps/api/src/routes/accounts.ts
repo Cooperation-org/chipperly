@@ -190,19 +190,18 @@ export async function insertProfile(
   });
 }
 
-/** Creates an invite row and mails the accept link. Shared by POST /accounts/:id/invites and the org bulk add. */
-export async function issueInvite(params: {
+/** Inserts an invite row without mailing it; returns the raw token for the accept link. */
+export async function insertInvite(params: {
   accountId: string;
-  accountName: string;
   inviterId: string;
-  inviterName: string;
   email: string;
   role: Role;
   profileIds: string[];
   clusterIds?: string[];
   relationshipLabel?: string | null;
-  request: FastifyRequest;
-}): Promise<{ invite: typeof invites.$inferSelect; inviteUrl: string }> {
+  makesOwner?: boolean;
+  ownerName?: string | null;
+}): Promise<{ invite: typeof invites.$inferSelect; rawToken: string }> {
   const rawToken = randomBytes(32).toString('base64url');
   const [invite] = await db
     .insert(invites)
@@ -214,20 +213,30 @@ export async function issueInvite(params: {
       profile_ids: params.profileIds,
       cluster_ids: params.clusterIds ?? [],
       relationship_label: params.relationshipLabel ?? null,
+      makes_owner: params.makesOwner ?? false,
+      owner_name: params.ownerName ?? null,
       token_hash: hashToken(rawToken),
       expires_at: Date.now() + INVITE_TTL_MS,
       accepted_at: null,
       invited_by: params.inviterId,
     })
     .returning();
+  return { invite: invite!, rawToken };
+}
+
+/** Creates an invite row and mails the accept link. Shared by POST /accounts/:id/invites and the org bulk add. */
+export async function issueInvite(
+  params: Parameters<typeof insertInvite>[0] & { accountName: string; inviterName: string; request: FastifyRequest },
+): Promise<{ invite: typeof invites.$inferSelect; inviteUrl: string }> {
+  const { invite, rawToken } = await insertInvite(params);
   const inviteUrl = await sendInviteEmail({
-    to: invite!.email,
+    to: invite.email,
     rawToken,
     accountName: params.accountName,
     inviterName: params.inviterName,
     request: params.request,
   });
-  return { invite: invite!, inviteUrl };
+  return { invite, inviteUrl };
 }
 
 export default async function accountsRoutes(app: FastifyInstance): Promise<void> {
@@ -554,6 +563,15 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       if (!already) {
         if (invite.role === 'admin') await assertAdminSeat(invite.account_id);
         await tx.insert(account_members).values({ account_id: invite.account_id, user_id: userId, role: invite.role });
+      }
+      // An ownership invite (orgOwner.ts) hands the account to whoever accepts it, once.
+      if (invite.makes_owner && !invite.accepted_at) {
+        await tx.update(account_members).set({ role: 'admin' }).where(and(eq(account_members.account_id, invite.account_id), eq(account_members.user_id, userId)));
+        await tx.update(accounts).set({ owner_user_id: userId }).where(eq(accounts.id, invite.account_id));
+        const [me] = await tx.select({ email: users.email, display_name: users.display_name }).from(users).where(eq(users.id, userId)).limit(1);
+        if (invite.owner_name && me && (!me.display_name.trim() || me.display_name.toLowerCase() === me.email.toLowerCase())) {
+          await tx.update(users).set({ display_name: invite.owner_name }).where(eq(users.id, userId));
+        }
       }
       // Second guard: only profiles that belong to the invite's account.
       const own = new Set(await accountProfileIds(invite.account_id));

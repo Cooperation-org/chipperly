@@ -309,6 +309,13 @@
       "when": 1790800000000,
       "tag": "0053_family_handover",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1790850000000,
+      "tag": "0054_invite_makes_owner",
+      "breakpoints": true
     }
   ]
 }

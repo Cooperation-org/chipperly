@@ -82,6 +82,10 @@ export const invites = pgTable('invites', {
   /** Groups (clusters) the invitee joins on accepting (migration 0051). */
   cluster_ids: uuid('cluster_ids').array().notNull().default([]),
   relationship_label: text('relationship_label'),
+  /** Accepting makes the accepter the account owner and an admin (migration 0054, lib/orgOwner.ts). */
+  makes_owner: boolean('makes_owner').notNull().default(false),
+  /** Name to give the accepter when their display name is empty or just their email (migration 0054). */
+  owner_name: text('owner_name'),
   token_hash: text('token_hash').notNull().unique(),
   expires_at: bigint('expires_at', { mode: 'number' }).notNull(),
   accepted_at: bigint('accepted_at', { mode: 'number' }),
