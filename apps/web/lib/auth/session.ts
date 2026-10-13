@@ -16,6 +16,7 @@ import { GUEST_EXPIRED_NOTICE_KEY, GUEST_IDS_KEY, GUEST_STARTED_AT_KEY, isGuestM
 import { setAsideOutbox } from '../sync/parkedStore';
 import { isGuestExpired } from './guestExpiry';
 import { CARRY_NOTICE_KEY, CARRY_OVER_KEY, GUEST_KV_KEYS, runCarryOver, setCarryOverPhase } from './carryOver';
+import { staleProfileIds } from './staleProfiles';
 import { canCarryOver, type CarryOver } from './rekeyGuestWork';
 
 export type SessionStatus = 'loading' | 'signed_out' | 'signed_in';
@@ -136,11 +137,26 @@ async function applyMe(me: MeResponse): Promise<void> {
       await db.profiles.bulkPut(me.profiles.map((incoming, i) => applySnapshotRow(locals[i], incoming)));
     });
   }
+  // Profiles the user no longer has access to (unassigned, demoted) leave the device, unless they still hold unsent work.
+  await db.transaction('rw', db.profiles, db.outbox, async () => {
+    const pending = new Set<string>();
+    for (const o of await db.outbox.toArray()) {
+      pending.add(o.id);
+      const pid = o.row?.profile_id;
+      if (typeof pid === 'string') pending.add(pid);
+    }
+    const stale = staleProfileIds(await db.profiles.toArray(), me, pending);
+    if (stale.length > 0) await db.profiles.bulkDelete(stale);
+  });
+  const activeNow = await getKv<string>(ACTIVE_PROFILE_KEY);
+  if (activeNow && !me.profiles.some((p) => p.id === activeNow)) await db.kv.delete(ACTIVE_PROFILE_KEY);
   if (me.accounts.length > 0) await db.accounts.bulkPut(me.accounts.map((a) => a.account));
   await db.users.put(me.user);
 
   const activeAccount = await getKv<string>(ACTIVE_ACCOUNT_KEY);
-  if (!activeAccount && me.accounts[0]) await setKv(ACTIVE_ACCOUNT_KEY, me.accounts[0].account.id);
+  // The default account is the default profile's, so the two never start out disagreeing.
+  const defaultAccount = me.profiles[0]?.account_id ?? me.accounts[0]?.account.id;
+  if (!activeAccount && defaultAccount) await setKv(ACTIVE_ACCOUNT_KEY, defaultAccount);
 
   const activeProfile = await getKv<string>(ACTIVE_PROFILE_KEY);
   if (!activeProfile && me.profiles[0]) await setKv(ACTIVE_PROFILE_KEY, me.profiles[0].id);

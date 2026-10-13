@@ -12,7 +12,7 @@ import { PicturePicker, type PicturePickerValue } from '@/components/picture/Pic
 import { api, ApiError } from '@/lib/api/client';
 import { useSession, refreshMe } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
-import { filterByName, needsSearch } from '@/lib/profile/switcher';
+import { filterByName, needsSearch, sortByName } from '@/lib/profile/switcher';
 import { ProfileSearchField } from '@/components/shell/ProfileSearchField';
 import { toast } from '@/lib/toast';
 import styles from './ProfilesScreen.module.css';
@@ -71,7 +71,7 @@ export function ProfilesScreen() {
   const targetAccountId = profile?.account_id ?? accounts[0]?.account.id;
   const targetAccount = accounts.find((a) => a.account.id === targetAccountId);
   const isAdmin = targetAccount?.role === 'admin';
-  const inAccount = profiles.filter((p) => p.account_id === targetAccountId);
+  const inAccount = sortByName(profiles.filter((p) => p.account_id === targetAccountId));
   const countInAccount = inAccount.length;
   const [query, setQuery] = useState('');
   const limit = targetAccount ? PROFILE_LIMITS[targetAccount.account.kind] : 0;

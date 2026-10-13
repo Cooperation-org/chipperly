@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterByName, groupByAccount, needsSearch } from './switcher';
+import { filterByName, groupByAccount, needsSearch, sortByName } from './switcher';
 
 describe('switcher helpers', () => {
   it('shows search only above 8 people', () => {
@@ -29,5 +29,18 @@ describe('switcher helpers', () => {
     const g = groupByAccount(profiles, accounts);
     expect(g.map((x) => x.accountName)).toEqual(['Home', 'Clinic']);
     expect(g[1]!.profiles.map((p) => p.name)).toEqual(['1', '3']);
+  });
+
+  it('sorts by name ignoring case and accents, inside each account group', () => {
+    const list = [{ name: 'zoe' }, { name: '\u00c9mile' }, { name: 'Amy' }];
+    expect(sortByName(list).map((p) => p.name)).toEqual(['Amy', '\u00c9mile', 'zoe']);
+    const g = groupByAccount(
+      [
+        { account_id: 'a', name: 'Zed' },
+        { account_id: 'a', name: 'abe' },
+      ],
+      [{ id: 'a', name: 'Home' }],
+    );
+    expect(g[0]!.profiles.map((p) => p.name)).toEqual(['abe', 'Zed']);
   });
 });

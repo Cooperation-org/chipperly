@@ -5,7 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { useSession } from '@/lib/auth/session';
-import { useActiveAccount, useActiveProfile } from '@/lib/profile/active';
+import { useActiveProfile } from '@/lib/profile/active';
 import { filterByName, groupByAccount, needsSearch } from '@/lib/profile/switcher';
 import { useMediaUrl } from '@/lib/data/media';
 import { useLock, useLockLoaded, useParentMode, useParentModeLoaded } from '@/lib/device/settings';
@@ -90,7 +90,6 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   const { status: sessionStatus, profiles: sessionProfiles, accounts: sessionAccounts, user, guest } = useSession();
   const blockingReady = useBlockingReady();
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
-  const { setActiveAccountId } = useActiveAccount();
   // TopBar is a dumb tile: without a resolved URL a photo avatar stays a skeleton forever.
   const avatarUrl = useMediaUrl(profile?.avatar_photo_id);
   const sync = useSyncStatus();
@@ -172,8 +171,6 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
               profiles={profiles}
               accounts={sessionAccounts.map((a) => ({ id: a.account.id, name: a.account.name }))}
               onPick={(p) => {
-                // A profile from another account makes that account the active one too.
-                if (p.account_id !== profile?.account_id) setActiveAccountId(p.account_id);
                 setActiveProfileId(p.id);
                 close();
               }}
