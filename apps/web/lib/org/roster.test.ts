@@ -7,6 +7,7 @@ import {
   homePath,
   initials,
   isOverSeats,
+  needsOnboarding,
   orgErrorMessage,
   pickOrgAccount,
   seatLabel,
@@ -67,6 +68,12 @@ describe('org account helpers', () => {
   it('home is the Org home only for orgs', () => {
     expect(homePath(accts)).toBe('/org/');
     expect(homePath([accts[0]!])).toBe('/today/');
+  });
+  it('an org with no people yet is not sent back to onboarding', () => {
+    expect(needsOnboarding([], [])).toBe(true);
+    expect(needsOnboarding([accts[0]!], [])).toBe(true);
+    expect(needsOnboarding([accts[2]!], [])).toBe(false);
+    expect(needsOnboarding([accts[0]!], [{}])).toBe(false);
   });
   it('only admins manage', () => {
     expect(canManageOrg('admin')).toBe(true);

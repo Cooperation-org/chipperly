@@ -3,7 +3,7 @@ import type { MeResponse } from '@chipperly/shared/schemas/auth';
 import { api } from '@/lib/api/client';
 import { getKv, setKv } from '@/lib/db/kv';
 import { asksDeviceRole, getDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
-import { homePath } from '@/lib/org/roster';
+import { homePath, needsOnboarding } from '@/lib/org/roster';
 import { inviteTokenFromRedirect } from './inviteToken';
 import { isAdminHost } from '@/lib/admin/host';
 
@@ -44,7 +44,7 @@ export async function redirectAfterAuth(router: Router): Promise<void> {
     return;
   }
   const me = await api.get<MeResponse>('/me');
-  if (me.profiles.length === 0) {
+  if (needsOnboarding(me.accounts, me.profiles)) {
     router.push('/onboarding/kind/');
     return;
   }

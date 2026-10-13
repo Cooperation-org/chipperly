@@ -19,7 +19,7 @@ import { TopBar } from '@/components/ui/TopBar';
 import { TabBar } from '@/components/ui/TabBar';
 import { TabRail } from '@/components/ui/TabRail';
 import { TimerPill } from '@/components/timer/TimerPill';
-import { homePath } from '@/lib/org/roster';
+import { homePath, needsOnboarding } from '@/lib/org/roster';
 import { ProfileSearchField } from './ProfileSearchField';
 import { SyncSheet } from './SyncSheet';
 import { UnsavedBanner } from './UnsavedBanner';
@@ -123,14 +123,14 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
     // loading" or "a sync 401 just cleared it" -- otherwise this bounces to
     // /onboarding/kind/ right as ChildShell bounces away from it too.
     if (sessionStatus === 'signed_out') router.replace('/');
-    else if (sessionStatus === 'signed_in' && sessionProfiles.length === 0) router.replace('/onboarding/kind/');
+    else if (sessionStatus === 'signed_in' && needsOnboarding(sessionAccounts, sessionProfiles)) router.replace('/onboarding/kind/');
     // Carries the route a caregiver was actually trying to reach (a bookmark,
     // a deep link, this same e2e-style direct nav) through UnlockOverlay's
     // PIN/password gate, so unlocking lands back where they meant to go
     // instead of always dumping them on Today.
     // Locking isn't trying to reach this page, so no ?next= (unlocking should land on Today, not back here).
     else if (decided && !allowed) router.replace(locked_profile_id ? '/child/' : `/child/?next=${encodeURIComponent(pathname)}`);
-  }, [sessionStatus, sessionProfiles.length, decided, allowed, locked_profile_id, router, pathname]);
+  }, [sessionStatus, sessionAccounts, sessionProfiles, decided, allowed, locked_profile_id, router, pathname]);
 
   // A tapped reward alert opens ".../chips/?profile=<id>": show that child, once (then drop the query so switching profile later sticks).
   useEffect(() => {
@@ -153,7 +153,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
     router.push('/child/');
   }
 
-  if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !decided || !allowed) return null;
+  if (sessionStatus !== 'signed_in' || needsOnboarding(sessionAccounts, sessionProfiles) || !decided || !allowed) return null;
   // An organization's home is its people list; Today stays one tap away.
   const tabs = homePath(sessionAccounts) === '/org/' ? [ORG_TAB, ...TABS] : TABS;
   // Lock buttons only for a child who uses the app themselves.

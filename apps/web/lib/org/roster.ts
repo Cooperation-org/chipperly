@@ -76,6 +76,14 @@ export function homePath(accounts: { account: { kind: string } }[]): string {
   return accounts.some((a) => a.account.kind === 'agency') ? '/org/' : '/today/';
 }
 
+/**
+ * Send this signed-in user to "Who is Chipperly for?". An org can rightly have no people yet (the owner skipped
+ * adding them, or a staff member's groups are still empty), so belonging to one is never a reason to start over.
+ */
+export function needsOnboarding(accounts: { account: { kind: string } }[], profiles: readonly unknown[]): boolean {
+  return profiles.length === 0 && !accounts.some((a) => a.account.kind === 'agency');
+}
+
 /** Who may do what on the Org screens: admins manage everything; members and viewers only see their people. */
 export function canManageOrg(role: string | undefined): boolean {
   return role === 'admin';

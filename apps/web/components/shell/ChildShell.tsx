@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth/session';
 import { useLock, useLockLoaded } from '@/lib/device/settings';
 import { useCaregiverDevice } from '@/lib/device/role';
+import { needsOnboarding } from '@/lib/org/roster';
 import { GuestBanner } from './GuestBanner';
 import styles from './ChildShell.module.css';
 
@@ -20,7 +21,7 @@ import styles from './ChildShell.module.css';
  */
 export function ChildShell({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { status, profiles } = useSession();
+  const { status, accounts, profiles } = useSession();
   const caregiverDevice = useCaregiverDevice();
   const { locked_profile_id } = useLock();
   const lockLoaded = useLockLoaded();
@@ -42,9 +43,9 @@ export function ChildShell({ children }: { children: ReactNode }) {
     // redirecting off that snapshot is what sent this bouncing to
     // /onboarding/kind/ and back once the real session settled again.
     if (status === 'signed_out') router.replace('/');
-    else if (status === 'signed_in' && profiles.length === 0) router.replace('/onboarding/kind/');
+    else if (status === 'signed_in' && needsOnboarding(accounts, profiles)) router.replace('/onboarding/kind/');
     else if (status === 'signed_in' && toCaregiver) router.replace('/today/');
-  }, [status, profiles.length, toCaregiver, router]);
+  }, [status, accounts, profiles, toCaregiver, router]);
 
   if (status !== 'signed_in' || profiles.length === 0 || toCaregiver) return null;
 
