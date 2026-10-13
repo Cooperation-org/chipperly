@@ -31,6 +31,7 @@ import { attitude_checks } from '../db/schema/attitude.js';
 import { requireUser, canAccessProfile, assertCanWriteProfile, readOnlyError } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { assertCanCreate } from '../lib/trial.js';
+import { familyLinksOf, offerHandoversForLinks } from '../lib/familyHandover.js';
 import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
 import { renderEmail } from '../lib/emailTemplate.js';
@@ -551,6 +552,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     }
 
     const profileIds = await accountProfileIds(accountId);
+    const familyLinks = await familyLinksOf(accountId, targetId);
 
     await db.transaction(async (tx) => {
       if (profileIds.length > 0) {
@@ -618,6 +620,9 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
           .where(and(eq(attitude_checks.created_by, targetId), inArray(attitude_checks.profile_id, profileIds)));
       }
     });
+
+    // An organization stopped covering this family: they may keep a copy (lib/familyHandover.ts).
+    await offerHandoversForLinks(familyLinks).catch((err: unknown) => request.log.error(err));
 
     return { ok: true };
   });

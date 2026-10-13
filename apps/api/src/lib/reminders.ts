@@ -4,6 +4,7 @@ import { inArray } from 'drizzle-orm';
 import { db, sql } from '../db/client.js';
 import { push_tokens } from '../db/schema/push.js';
 import { env } from '../env.js';
+import { sendLapsedHandovers } from './familyHandover.js';
 import { sendDataMessage, sendWebPush } from './push.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -165,8 +166,13 @@ export async function sendDueEventReminders(at = Date.now()): Promise<number> {
   return sent;
 }
 
+/** Once a day (09:00 UTC) offers families a copy where an organization's access has lapsed. Safe to call every tick: each offer is sent once. */
+export async function dailyHandoverCheck(at = Date.now()): Promise<number> {
+  return env.stripeEnabled && new Date(at).getUTCHours() === 9 ? sendLapsedHandovers(at) : 0;
+}
+
 /** ponytail: an in-process timer; move to a job queue if the API ever runs as more than one process. */
 export function startReminders(log: (err: unknown) => void): () => void {
-  const handle = setInterval(() => void Promise.all([sendDueReminders(), sendDueEventReminders()]).catch(log), 10 * 60 * 1000);
+  const handle = setInterval(() => void Promise.all([sendDueReminders(), sendDueEventReminders(), dailyHandoverCheck()]).catch(log), 10 * 60 * 1000);
   return () => clearInterval(handle);
 }

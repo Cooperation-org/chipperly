@@ -288,6 +288,13 @@
       "when": 1790500000000,
       "tag": "0050_org_setup",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790800000000,
+      "tag": "0053_family_handover",
+      "breakpoints": true
     }
   ]
 }

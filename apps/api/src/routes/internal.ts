@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { newsletterUsers } from '../lib/newsletterAudience.js';
-import { sendDueReminders } from '../lib/reminders.js';
+import { dailyHandoverCheck, sendDueReminders } from '../lib/reminders.js';
 import { alertNewRejections, sendSyncHealthDigest } from '../lib/syncHealth.js';
 import { videoQueue } from '../media/queue.js';
 import { AppError } from '../plugins/errors.js';
@@ -21,7 +21,7 @@ export default function internalRoutes(secret: string): FastifyPluginAsync {
       }
     });
 
-    app.post('/internal/reminders', async () => ({ sent: await sendDueReminders() }));
+    app.post('/internal/reminders', async () => ({ sent: await sendDueReminders(), handovers: await dailyHandoverCheck() }));
 
     /** The sync health mails (lib/syncHealth.ts), for the same outside cron. */
     app.post('/internal/sync-health', async () => ({ alerted: await alertNewRejections(), digest: await sendSyncHealthDigest() }));
