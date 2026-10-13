@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { msTimestampSchema, uuidSchema } from './common.js';
-import { AccountSchema } from './account.js';
+import { AccountSchema, Role } from './account.js';
 
 export const ORG_TYPES = ['aba', 'habilitation', 'respite', 'school', 'other'] as const;
 export const OrgTypeSchema = z.enum(ORG_TYPES);
@@ -27,8 +27,10 @@ export const ClusterSchema = z.object({
   archived_at: msTimestampSchema.nullable(),
   /** People in it who are not archived. */
   profile_count: z.number().int().nonnegative(),
+  /** Moderators, staff and families assigned to this group. Only admins and moderators are sent it. */
+  staff: z.array(z.object({ user_id: uuidSchema, display_name: z.string(), role: Role })).optional(),
 });
-export type Cluster = z.infer<typeof ClusterSchema>;
+export type Cluster =z.infer<typeof ClusterSchema>;
 
 export const ClustersResponseSchema = z.object({ clusters: z.array(ClusterSchema) });
 export type ClustersResponse = z.infer<typeof ClustersResponseSchema>;
@@ -60,7 +62,7 @@ export const RosterPersonSchema = z.object({
   photo_id: uuidSchema.nullable(),
   cluster_id: uuidSchema.nullable(),
   archived_at: msTimestampSchema.nullable(),
-  team: z.array(z.object({ user_id: uuidSchema, display_name: z.string(), role: z.enum(['admin', 'member', 'viewer']) })),
+  team: z.array(z.object({ user_id: uuidSchema, display_name: z.string(), role: Role })),
 });
 export type RosterPerson = z.infer<typeof RosterPersonSchema>;
 
@@ -98,6 +100,10 @@ export const BulkProfilesResponseSchema = z.object({
   seats: SeatsSchema,
 });
 export type BulkProfilesResponse = z.infer<typeof BulkProfilesResponseSchema>;
+
+/** PUT /accounts/:id/members/:user_id/groups: replaces the groups a person is assigned to. */
+export const SetMemberGroupsBodySchema = z.object({ cluster_ids: z.array(uuidSchema).max(200) });
+export type SetMemberGroupsBody = z.infer<typeof SetMemberGroupsBodySchema>;
 
 /** PATCH /accounts/:id/profiles/:pid. `cluster_id: null` takes the person out of their cluster. */
 export const UpdateOrgProfileBodySchema = z.object({

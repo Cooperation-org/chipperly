@@ -21,8 +21,8 @@ export const AccountSchema = z.object({
 });
 export type Account = z.infer<typeof AccountSchema>;
 
-/** admin: every profile, manages the team. member ("Support team"): assigned profiles, can edit. viewer: assigned profiles, read only. */
-export const Role = z.enum(['admin', 'member', 'viewer']);
+/** admin: every profile, manages the team. moderator (organizations only): their groups, manages staff and families inside them. member ("Support team", "Staff" in an organization): assigned people and groups, can edit. viewer: assigned people and groups, read only. */
+export const Role = z.enum(['admin', 'moderator', 'member', 'viewer']);
 export type Role = z.infer<typeof Role>;
 
 /** 'strict' notifies a care-team member only about their one assigned location; 'linked' about any of the child's location changes. */
@@ -68,6 +68,8 @@ export const InviteSchema = z.object({
   email: z.string().email(),
   role: Role,
   profile_ids: z.array(uuidSchema),
+  /** Groups the invitee joins on accepting (organizations). */
+  cluster_ids: z.array(uuidSchema).optional(),
   relationship_label: z.string().nullable(),
   token_hash: z.string(),
   expires_at: msTimestampSchema,
@@ -132,6 +134,8 @@ export const AccountMemberSchema = z.object({
   user: z.object({ id: uuidSchema, email: z.string().email(), display_name: z.string() }),
   role: Role,
   profiles: z.array(AccountMemberProfileSchema),
+  /** Groups this person is assigned to (organizations). */
+  cluster_ids: z.array(uuidSchema).optional(),
 });
 export type AccountMember = z.infer<typeof AccountMemberSchema>;
 
