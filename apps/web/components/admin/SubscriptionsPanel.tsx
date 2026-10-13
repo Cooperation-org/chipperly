@@ -12,6 +12,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { csvName, downloadCsv, toCsv } from './csv';
 import { day, money, NOT_TEAM } from './format';
 import styles from './AdminDashboard.module.css';
+import { CustomerBillingSheet } from './CustomerBillingSheet';
 
 type Filter = 'all' | 'active' | 'past_due' | 'cancelled';
 const GROUPS: Record<Exclude<Filter, 'all'>, string[]> = {
@@ -98,6 +99,10 @@ export function SubscriptionsPanel() {
   const active = data.subscriptions.filter((s) => GROUPS.active.includes(s.status));
   // ponytail: assumes one currency (usd); split per currency if another is ever sold.
   const yearly = active.reduce((sum, s) => sum + (s.amount ?? 0) * (PER_YEAR[s.interval ?? ''] ?? 0), 0);
+
+  function manage(sub: AdminSubscription): void {
+    sheet.open(<CustomerBillingSheet accountId={sub.account_id!} />, { title: sub.account_name ?? sub.customer_email ?? 'Billing', onClose: load });
+  }
 
   function cancel(sub: AdminSubscription): void {
     sheet.open(
@@ -190,6 +195,11 @@ export function SubscriptionsPanel() {
                     </td>
                     <td data-label="" className={styles.rowActions}>
                       <div className={styles.actions}>
+                        {s.account_id ? (
+                          <Button variant="secondary" onClick={() => manage(s)}>
+                            Manage
+                          </Button>
+                        ) : null}
                         <a href={`https://dashboard.stripe.com/subscriptions/${s.id}`} target="_blank" rel="noreferrer">
                           Open in Stripe
                         </a>

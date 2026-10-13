@@ -13,6 +13,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { day, money, NOT_TEAM } from './format';
 import styles from './AdminDashboard.module.css';
 import local from './OrgsPanel.module.css';
+import { CustomerBillingSheet } from './CustomerBillingSheet';
 
 const STATUS_WORDS: Record<string, string> = { open: 'Open', paid: 'Paid', deactivated: 'Turned off', void: 'Void' };
 
@@ -369,11 +370,16 @@ export function OrgsPanel() {
         <section key={org.id} className={styles.card} aria-label={org.name}>
           <div className={styles.headRow}>
             <h2 className={styles.heading}>{org.name}</h2>
-            {role === 'super' ? (
-              <Button variant="secondary" onClick={() => bill(org)}>
-                Bill this organization
+            <div className={styles.actions}>
+              <Button variant="secondary" onClick={() => sheet.open(<CustomerBillingSheet accountId={org.id} />, { title: org.name })}>
+                Billing
               </Button>
-            ) : null}
+              {role === 'super' ? (
+                <Button variant="secondary" onClick={() => bill(org)}>
+                  Bill this organization
+                </Button>
+              ) : null}
+            </div>
           </div>
           <div className={styles.cellStack}>
             {org.owner_invite_pending ? <span className={local.chip}>Owner invite sent, not accepted yet</span> : null}
