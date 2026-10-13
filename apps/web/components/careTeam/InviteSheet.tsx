@@ -15,7 +15,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
 import { toast } from '@/lib/toast';
 import { useOnline } from '@/lib/device/online';
-import { ROLE_HINT, ROLE_ITEMS } from './roles';
+import { missingPersonError, ROLE_HINT, ROLE_ITEMS } from './roles';
 import styles from './InviteSheet.module.css';
 
 export interface InviteSheetProps {
@@ -55,6 +55,11 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
     setError(undefined);
     if (!email.trim()) {
       setError('Enter an email address.');
+      return;
+    }
+    const missing = missingPersonError(role, profileIds);
+    if (missing) {
+      setError(missing);
       return;
     }
     setSending(true);

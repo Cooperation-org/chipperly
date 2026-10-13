@@ -12,7 +12,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
-import { profileIdsToSave, ROLE_HINT, ROLE_ITEMS } from './roles';
+import { missingPersonError, profileIdsToSave,ROLE_HINT, ROLE_ITEMS } from './roles';
 import styles from './InviteSheet.module.css';
 
 export interface EditMemberSheetProps {
@@ -45,6 +45,11 @@ export function EditMemberSheet({ accountId, member, profiles, canRemove, onSave
   }
 
   async function save(): Promise<void> {
+    const missing = missingPersonError(role, ids);
+    if (missing) {
+      setError(missing);
+      return;
+    }
     setError(undefined);
     setSaving(true);
     // Only send the list when it changed: the server rebuilds the rows, which clears location assignments.

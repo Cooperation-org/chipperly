@@ -11,6 +11,11 @@ export const ROLE_HINT: Record<Role, string> = {
 
 export const ROLE_ITEMS = (['admin', 'member', 'viewer'] as const).map((value) => ({ value, label: ROLE_LABEL[value] }));
 
+/** Support team and Viewer need at least one person, or they would see nobody. Returns the error text, or undefined. */
+export function missingPersonError(role: Role, ids: Set<string>): string | undefined {
+  return role !== 'admin' && ids.size === 0 ? 'Pick at least one person they can see.' : undefined;
+}
+
 /**
  * The profile_ids to send when saving a member, or undefined to leave their list alone.
  * An admin has no profile_members rows (they see everyone implicitly), so demoting one must send the list.

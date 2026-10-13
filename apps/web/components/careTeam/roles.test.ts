@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { profileIdsToSave } from './roles';
+import { missingPersonError, profileIdsToSave } from './roles';
+
+describe('missingPersonError', () => {
+  it('asks for a person for Support team and Viewer when none is ticked', () => {
+    expect(missingPersonError('member', new Set())).toBe('Pick at least one person they can see.');
+    expect(missingPersonError('viewer', new Set())).toBeDefined();
+  });
+  it('is fine with a person ticked, or for an admin', () => {
+    expect(missingPersonError('viewer', new Set(['a']))).toBeUndefined();
+    expect(missingPersonError('admin', new Set())).toBeUndefined();
+  });
+});
 
 describe('profileIdsToSave', () => {
   it('sends the ticked list when an admin is demoted, even if untouched', () => {
