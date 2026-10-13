@@ -10,6 +10,7 @@ import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import meRoutes from './routes/me.js';
 import accountsRoutes from './routes/accounts.js';
+import orgRoutes from './routes/org.js';
 import syncRoutes from './routes/sync.js';
 import mediaRoutes from './routes/media.js';
 import shareRoutes from './routes/share.js';
@@ -34,6 +35,7 @@ const routePlugins: FastifyPluginAsync[] = [
   authRoutes,
   meRoutes,
   accountsRoutes,
+  orgRoutes,
   syncRoutes,
   mediaRoutes,
   shareRoutes,

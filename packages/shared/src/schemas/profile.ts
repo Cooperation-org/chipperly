@@ -180,6 +180,9 @@ export const ProfileSchema = z.object({
   first_then_activity_id: uuidSchema.nullable(),
   first_then_reward_id: uuidSchema.nullable(),
   settings: ProfileSettingsSchema,
+  /** Organizations only: the cluster this person belongs to, and when they were archived (hidden, never deleted). */
+  cluster_id: uuidSchema.nullable().optional(),
+  archived_at: msTimestampSchema.nullable().optional(),
   version: z.number().int().nonnegative(),
   client_updated_at: msTimestampSchema,
   updated_by: uuidSchema,

@@ -9,9 +9,10 @@ import {
   InviteDetailsSchema,
   UpdateMemberBodySchema,
   type AccountMember,
+  type Role,
   type InvitePublic,
 } from '@chipperly/shared/schemas/account';
-import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema } from '@chipperly/shared/schemas/auth';
+import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema, type CreateProfileBody } from '@chipperly/shared/schemas/auth';
 import { LocationChangedBodySchema, RewardRequestBodySchema, type RewardRequestSource } from '@chipperly/shared/schemas/push';
 import { HOUSEHOLD_ADMIN_LIMIT, PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { FirstThenProgressBodySchema } from '@chipperly/shared/schemas/profile';
@@ -44,7 +45,7 @@ function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
-async function getMembership(accountId: string, userId: string) {
+export async function getMembership(accountId: string, userId: string) {
   const [row] = await db
     .select()
     .from(account_members)
@@ -53,13 +54,13 @@ async function getMembership(accountId: string, userId: string) {
   return row ?? null;
 }
 
-async function requireMember(accountId: string, userId: string) {
+export async function requireMember(accountId: string, userId: string) {
   const membership = await getMembership(accountId, userId);
   if (!membership) throw new AppError(403, 'forbidden', 'Not a member of this account');
   return membership;
 }
 
-async function requireAdmin(accountId: string, userId: string) {
+export async function requireAdmin(accountId: string, userId: string) {
   const membership = await requireMember(accountId, userId);
   if (membership.role === 'viewer') throw readOnlyError();
   if (membership.role !== 'admin') throw new AppError(403, 'forbidden', 'Admin role required');
@@ -121,6 +122,80 @@ async function sendInviteEmail(params: {
   return link;
 }
 
+/** Creates one person (profile row plus the starter day, in one transaction). Shared by POST /accounts/:id/profiles and the org bulk add. */
+export async function insertProfile(
+  accountId: string,
+  userId: string,
+  body: CreateProfileBody,
+  clusterId: string | null = null,
+): Promise<typeof profiles.$inferSelect> {
+  const now = Date.now();
+  const profileId = uuidv7();
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(profiles)
+      .values({
+        id: profileId,
+        account_id: accountId,
+        name: body.name,
+        avatar_emoji: body.emoji ?? null,
+        avatar_photo_id: body.photo_id ?? null,
+        share_token: null,
+        first_then_activity_id: null,
+        first_then_reward_id: null,
+        settings: {
+          ...(body.child_uses_app === false ? { child_uses_app: false } : {}),
+          ...(body.setup ? { age_band: body.setup.age_band, setup: body.setup } : {}),
+        },
+        cluster_id: clusterId,
+        client_updated_at: now,
+        updated_by: userId,
+        deleted_at: null,
+      })
+      .returning();
+    if (!body.skip_seed) await seedProfile(tx, profileId, userId, body.setup);
+    return row!;
+  });
+}
+
+/** Creates an invite row and mails the accept link. Shared by POST /accounts/:id/invites and the org bulk add. */
+export async function issueInvite(params: {
+  accountId: string;
+  accountName: string;
+  inviterId: string;
+  inviterName: string;
+  email: string;
+  role: Role;
+  profileIds: string[];
+  relationshipLabel?: string | null;
+  request: FastifyRequest;
+}): Promise<{ invite: typeof invites.$inferSelect; inviteUrl: string }> {
+  const rawToken = randomBytes(32).toString('base64url');
+  const [invite] = await db
+    .insert(invites)
+    .values({
+      id: uuidv7(),
+      account_id: params.accountId,
+      email: params.email.toLowerCase(),
+      role: params.role,
+      profile_ids: params.profileIds,
+      relationship_label: params.relationshipLabel ?? null,
+      token_hash: hashToken(rawToken),
+      expires_at: Date.now() + INVITE_TTL_MS,
+      accepted_at: null,
+      invited_by: params.inviterId,
+    })
+    .returning();
+  const inviteUrl = await sendInviteEmail({
+    to: invite!.email,
+    rawToken,
+    accountName: params.accountName,
+    inviterName: params.inviterName,
+    request: params.request,
+  });
+  return { invite: invite!, inviteUrl };
+}
+
 export default async function accountsRoutes(app: FastifyInstance): Promise<void> {
   app.post('/accounts', { preHandler: requireUser }, async (request, reply) => {
     const body = CreateAccountBodySchema.parse(request.body);
@@ -146,7 +221,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       return db
         .select()
         .from(profiles)
-        .where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at)));
+        .where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at), isNull(profiles.archived_at)));
     }
 
     const visibleIds = (
@@ -157,7 +232,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     return db
       .select()
       .from(profiles)
-      .where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at), inArray(profiles.id, visibleIds)));
+      .where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at), isNull(profiles.archived_at), inArray(profiles.id, visibleIds)));
   });
 
   app.post('/accounts/:id/profiles', { preHandler: requireUser }, async (request, reply) => {
@@ -179,32 +254,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       throw new AppError(409, 'profile_limit', `This ${account.kind} account is limited to ${limit} profile${limit === 1 ? '' : 's'}`);
     }
 
-    const now = Date.now();
-    const profileId = uuidv7();
-    const profile = await db.transaction(async (tx) => {
-      const [row] = await tx
-        .insert(profiles)
-        .values({
-          id: profileId,
-          account_id: accountId,
-          name: body.name,
-          avatar_emoji: body.emoji ?? null,
-          avatar_photo_id: body.photo_id ?? null,
-          share_token: null,
-          first_then_activity_id: null,
-          first_then_reward_id: null,
-          settings: {
-            ...(body.child_uses_app === false ? { child_uses_app: false } : {}),
-            ...(body.setup ? { age_band: body.setup.age_band, setup: body.setup } : {}),
-          },
-          client_updated_at: now,
-          updated_by: userId,
-          deleted_at: null,
-        })
-        .returning();
-      if (!body.skip_seed) await seedProfile(tx, profileId, userId, body.setup);
-      return row!;
-    });
+    const profile = await insertProfile(accountId, userId, body);
 
     reply.code(201);
     return profile;
@@ -224,28 +274,15 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     if (!account) throw new AppError(404, 'not_found', 'Account not found');
     const [inviter] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
-    const rawToken = randomBytes(32).toString('base64url');
-    const [invite] = await db
-      .insert(invites)
-      .values({
-        id: uuidv7(),
-        account_id: accountId,
-        email: body.email.toLowerCase(),
-        role: body.role,
-        profile_ids: body.profile_ids,
-        relationship_label: body.relationship_label ?? null,
-        token_hash: hashToken(rawToken),
-        expires_at: Date.now() + INVITE_TTL_MS,
-        accepted_at: null,
-        invited_by: userId,
-      })
-      .returning();
-
-    const inviteUrl = await sendInviteEmail({
-      to: invite!.email,
-      rawToken,
+    const { invite, inviteUrl } = await issueInvite({
+      accountId,
       accountName: account.name,
+      inviterId: userId,
       inviterName: inviter?.display_name ?? 'A team member',
+      email: body.email,
+      role: body.role,
+      profileIds: body.profile_ids,
+      relationshipLabel: body.relationship_label,
       request,
     });
 

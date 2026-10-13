@@ -30,6 +30,7 @@ import { issueIfEligible } from '../lib/earlyAccess.js';
 import { push_tokens } from '../db/schema/push.js';
 import { devices } from '../db/schema/devices.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
+import { clusters } from '../db/schema/clusters.js';
 import { locations } from '../db/schema/locations.js';
 import { activities, activity_steps, recurrence_skips } from '../db/schema/activities.js';
 import { rewards } from '../db/schema/rewards.js';
@@ -162,13 +163,13 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
         ? await db
             .select()
             .from(profiles)
-            .where(and(inArray(profiles.account_id, adminAccountIds), isNull(profiles.deleted_at)))
+            .where(and(inArray(profiles.account_id, adminAccountIds), isNull(profiles.deleted_at), isNull(profiles.archived_at)))
         : [];
     const memberProfileRows = await db
       .select({ profile: profiles })
       .from(profile_members)
       .innerJoin(profiles, eq(profile_members.profile_id, profiles.id))
-      .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at), inArray(profiles.account_id, accountIds)));
+      .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at), isNull(profiles.archived_at), inArray(profiles.account_id, accountIds)));
 
     const profileById = new Map<string, Profile>();
     for (const profile of adminProfiles) profileById.set(profile.id, profile);
@@ -604,6 +605,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
           await tx.execute(drizzleSql`delete from sync_rejections where profile_id in ${profileIds}`);
         }
         await tx.delete(profiles).where(eq(profiles.account_id, accountId));
+        await tx.delete(clusters).where(eq(clusters.account_id, accountId));
         await tx.delete(invites).where(eq(invites.account_id, accountId));
         await tx.delete(media).where(eq(media.account_id, accountId));
         await tx.delete(account_members).where(eq(account_members.account_id, accountId));
