@@ -56,6 +56,8 @@ export const users = pgTable(
     is_support: boolean('is_support').notNull().default(false),
     /** Set by a super admin: the person cannot sign in and is hidden, but nothing is erased until the admin erases them (30 days later at the earliest). */
     deactivated_at: bigint('deactivated_at', { mode: 'number' }),
+    /** Set when an admin created this login with a temporary password: every route except change-password refuses until they pick their own (migration 0052). */
+    must_change_password: boolean('must_change_password').notNull().default(false),
   },
   // Belt-and-suspenders: callers should already lowercase before insert.
   (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`)],

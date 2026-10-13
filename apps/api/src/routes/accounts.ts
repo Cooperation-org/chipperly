@@ -12,7 +12,7 @@ import {
   type Role,
   type InvitePublic,
 } from '@chipperly/shared/schemas/account';
-import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema, type CreateProfileBody } from '@chipperly/shared/schemas/auth';
+import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema, ProfileLoginBodySchema, type CreateProfileBody } from '@chipperly/shared/schemas/auth';
 import { LocationChangedBodySchema, RewardRequestBodySchema, type RewardRequestSource } from '@chipperly/shared/schemas/push';
 import { HOUSEHOLD_ADMIN_LIMIT, PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { FirstThenProgressBodySchema } from '@chipperly/shared/schemas/profile';
@@ -37,6 +37,7 @@ import { renderEmail } from '../lib/emailTemplate.js';
 import { sendDataMessage, sendPush, sendWebPush } from '../lib/push.js';
 import { seedProfile } from '../seed/seedProfile.js';
 import { env } from '../env.js';
+import { hashPassword } from '../lib/password.js';
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const idParamSchema = z.object({ id: uuidSchema });
@@ -288,6 +289,65 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
 
     reply.code(201);
     return { ...toInvitePublic(invite!), invite_url: inviteUrl, email_sent: env.mailEnabled };
+  });
+
+  /**
+   * Gives the person a profile is about their own login: an invite email (default) or a temporary
+   * password they must replace at first sign-in. Both make a Support team member limited to this profile.
+   */
+  app.post('/accounts/:id/profiles/:pid/login', { preHandler: requireUser }, async (request, reply) => {
+    const { id: accountId, pid } = z.object({ id: uuidSchema, pid: uuidSchema }).parse(request.params);
+    const body = ProfileLoginBodySchema.parse(request.body);
+    const userId = request.user!.id;
+    await requireAdmin(accountId, userId);
+    await assertCanCreate(accountId);
+
+    const [profile] = await db
+      .select({ name: profiles.name })
+      .from(profiles)
+      .where(and(eq(profiles.id, pid), eq(profiles.account_id, accountId), isNull(profiles.deleted_at)))
+      .limit(1);
+    if (!profile) throw new AppError(404, 'not_found', 'Person not found');
+
+    const email = body.email.toLowerCase();
+    const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+    if (taken) throw new AppError(409, 'email_taken', 'An account with this email already exists');
+
+    if (body.mode === 'invite') {
+      const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
+      const [inviter] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const { invite, inviteUrl } = await issueInvite({
+        accountId,
+        accountName: account?.name ?? '',
+        inviterId: userId,
+        inviterName: inviter?.display_name ?? 'A team member',
+        email,
+        role: 'member',
+        profileIds: [pid],
+        relationshipLabel: 'self',
+        request,
+      });
+      reply.code(201);
+      return { mode: 'invite' as const, ...toInvitePublic(invite), invite_url: inviteUrl, email_sent: env.mailEnabled };
+    }
+
+    if (!body.password) throw new AppError(400, 'password_required', 'Choose a temporary password');
+    const newUserId = uuidv7();
+    const passwordHash = await hashPassword(body.password);
+    await db.transaction(async (tx) => {
+      await tx.insert(users).values({
+        id: newUserId,
+        email,
+        password_hash: passwordHash,
+        display_name: profile.name,
+        must_change_password: true,
+        created_at: Date.now(),
+      });
+      await tx.insert(account_members).values({ account_id: accountId, user_id: newUserId, role: 'member' });
+      await tx.insert(profile_members).values({ profile_id: pid, user_id: newUserId, relationship_label: 'self' });
+    });
+    reply.code(201);
+    return { mode: 'password' as const, user_id: newUserId, email };
   });
 
   app.post('/accounts/:id/invites/:inviteId/resend', { preHandler: requireUser }, async (request) => {

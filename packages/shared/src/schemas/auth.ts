@@ -64,6 +64,20 @@ export const ResetPasswordBodySchema = z.object({
 });
 export type ResetPasswordBody = z.infer<typeof ResetPasswordBodySchema>;
 
+export const ChangePasswordBodySchema = z.object({
+  password: passwordSchema,
+});
+export type ChangePasswordBody = z.infer<typeof ChangePasswordBodySchema>;
+
+/** POST /accounts/:id/profiles/:pid/login: give the person their own login. */
+export const ProfileLoginBodySchema = z.object({
+  mode: z.enum(['invite', 'password']),
+  email: z.string().email(),
+  /** Required for mode 'password': the temporary password. */
+  password: passwordSchema.optional(),
+});
+export type ProfileLoginBody = z.infer<typeof ProfileLoginBodySchema>;
+
 export const PinBodySchema = z.object({
   pin: z.string().regex(/^\d{4,6}$/, 'expected 4 to 6 digits'),
 });
@@ -74,6 +88,8 @@ export const TokensResponseSchema = z.object({
   refresh_token: z.string(),
   token_type: z.literal('Bearer'),
   expires_in: z.literal(900),
+  /** Sign-in only: true when the account has a temporary password that must be replaced before anything else. */
+  must_change_password: z.boolean().optional(),
 });
 export type TokensResponse = z.infer<typeof TokensResponseSchema>;
 

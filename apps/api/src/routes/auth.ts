@@ -1,9 +1,10 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, ne } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import {
   AppleAuthBodySchema,
+  ChangePasswordBodySchema,
   ForgotPasswordBodySchema,
   GoogleAuthBodySchema,
   LoginBodySchema,
@@ -204,7 +205,23 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       throw new AppError(401, 'invalid_credentials', 'Incorrect email or password');
     }
 
-    return issueTokens(user.id, undefined, userAgentOf(request));
+    const tokens = await issueTokens(user.id, undefined, userAgentOf(request));
+    return user.must_change_password ? { ...tokens, must_change_password: true } : tokens;
+  });
+
+  /** Replaces a temporary password. Other sessions end, this one stays. Exempt from the must_change_password block (plugins/auth.ts). */
+  app.post('/me/change-password', { ...AUTH_RATE_LIMIT, preHandler: requireUser }, async (request) => {
+    const body = ChangePasswordBodySchema.parse(request.body);
+    const authUser = request.user!;
+    await db
+      .update(users)
+      .set({ password_hash: await hashPassword(body.password), must_change_password: false })
+      .where(eq(users.id, authUser.id));
+    await db
+      .update(sessions)
+      .set({ revoked_at: Date.now() })
+      .where(and(eq(sessions.user_id, authUser.id), isNull(sessions.revoked_at), ne(sessions.id, authUser.session_id)));
+    return { ok: true };
   });
 
   app.get('/auth/providers', async () => {
