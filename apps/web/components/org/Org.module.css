@@ -1,0 +1,238 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.orgName {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-xl, 1.5rem);
+  overflow-wrap: anywhere;
+}
+
+.seats {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--color-text-muted);
+}
+
+.seatsOver {
+  margin: 0;
+  padding: var(--space-3);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.seatsOver strong {
+  display: block;
+}
+
+.chips {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+}
+
+.chip {
+  flex-shrink: 0;
+  min-height: var(--tap);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.chipOn {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-ink);
+  font-weight: 600;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.list > li:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.personMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 72px;
+  padding: var(--space-2) 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.personText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.personName {
+  font-size: var(--text-md);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.personGroup {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.team {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--color-surface);
+  background: var(--color-secondary);
+  color: var(--color-primary-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty {
+  padding: var(--space-5) var(--space-3);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.sheetList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sheetRow {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.addForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.textarea {
+  width: 100%;
+  padding: var(--space-3);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  resize: vertical;
+}
+
+.select {
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.problems,
+.error {
+  margin: 0;
+  color: var(--color-danger);
+}
+
+.problems {
+  padding-left: var(--space-4);
+}
+
+.groupRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 64px;
+  padding: var(--space-2) 0;
+}
+
+.groupName {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.groupCount {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.groupActions {
+  display: flex;
+  gap: var(--space-2);
+}

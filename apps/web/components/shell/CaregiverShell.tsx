@@ -19,6 +19,7 @@ import { TopBar } from '@/components/ui/TopBar';
 import { TabBar } from '@/components/ui/TabBar';
 import { TabRail } from '@/components/ui/TabRail';
 import { TimerPill } from '@/components/timer/TimerPill';
+import { homePath } from '@/lib/org/roster';
 import { ProfileSearchField } from './ProfileSearchField';
 import { SyncSheet } from './SyncSheet';
 import { UnsavedBanner } from './UnsavedBanner';
@@ -26,6 +27,7 @@ import { GuestBanner } from './GuestBanner';
 import { ViewOnlyBanner } from './ViewOnlyBanner';
 import styles from './CaregiverShell.module.css';
 
+const ORG_TAB = { href: '/org/', label: 'People', icon: 'users' as const };
 const TABS = [
   { href: '/today/', label: 'Today', icon: 'home' as const },
   { href: '/chips/', label: 'Chips', icon: 'chips' as const },
@@ -152,6 +154,8 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   }
 
   if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !decided || !allowed) return null;
+  // An organization's home is its people list; Today stays one tap away.
+  const tabs = homePath(sessionAccounts) === '/org/' ? [ORG_TAB, ...TABS] : TABS;
   // Lock buttons only for a child who uses the app themselves.
   // A guest has no PIN or server to lock against, so no lock buttons.
   // A viewer cannot change anything, so no lock buttons either.
@@ -191,10 +195,10 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <div className={styles.tabbarSlot} data-shell-tabbar>
-        <TabBar items={TABS} />
+        <TabBar items={tabs} />
       </div>
       <div className={styles.railSlot} data-shell-nav>
-        <TabRail items={TABS} />
+        <TabRail items={tabs} />
       </div>
     </div>
   );
