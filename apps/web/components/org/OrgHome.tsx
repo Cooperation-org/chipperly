@@ -286,7 +286,7 @@ export function OrgHome() {
         </>
       )}
 
-      {admin ? (
+      {mover ? (
         <Button variant="secondary" onClick={() => router.push('/org/reports/')}>
           Reports
         </Button>

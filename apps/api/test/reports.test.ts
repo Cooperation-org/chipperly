@@ -4,7 +4,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { db } from '../src/db/client.js';
 import { attitude_checks } from '../src/db/schema/attitude.js';
 import { chip_ledger } from '../src/db/schema/chips.js';
-import { clusters } from '../src/db/schema/clusters.js';
+import { cluster_members, clusters } from '../src/db/schema/clusters.js';
 import { profile_members, profiles } from '../src/db/schema/profiles.js';
 import { day_plans, schedule_items } from '../src/db/schema/schedule.js';
 import type { AccountReport, ProfileReport } from '@chipperly/shared/schemas/report';
@@ -160,5 +160,17 @@ describe('reports', () => {
     const r = (await get(mum.token, `/api/accounts/${home}/report`)).json() as AccountReport;
     expect(r.people).toMatchObject([{ name: 'Kid', tasks_done: 1, group: null }]);
     expect((await get(mum.token, `/api/accounts/${accountId}/report`)).statusCode).toBe(403);
+  });
+
+  it('gives a moderator the account report for their groups only', async () => {
+    const { accountId, group } = await setup();
+    const mod = await createUser('Mo Moderator');
+    await addMember(accountId, mod.id, 'moderator');
+    await db.insert(cluster_members).values({ user_id: mod.id, cluster_id: group, account_id: accountId, created_at: Date.now() });
+    const r = (await get(mod.token, `/api/accounts/${accountId}/report`)).json() as AccountReport;
+    expect(r.people.map((p) => p.name)).toEqual(['Ava']);
+    const lone = await createUser('Lone Moderator');
+    await addMember(accountId, lone.id, 'moderator');
+    expect(((await get(lone.token, `/api/accounts/${accountId}/report`)).json() as AccountReport).people).toEqual([]);
   });
 });

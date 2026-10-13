@@ -23,6 +23,7 @@ import { profiles } from '../db/schema/profiles.js';
 import { day_plans, schedule_items, step_completions } from '../db/schema/schedule.js';
 import { canAccessProfile, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
+import { moderatorScope } from '../lib/groupAccess.js';
 import { requireMember } from './accounts.js';
 
 const DAY_MS = 86_400_000;
@@ -46,14 +47,12 @@ function sendCsv(reply: FastifyReply, name: string, body: string): string {
   return body;
 }
 
-/**
- * Who may read an account-wide report, and which profiles (null = all). Admins see everyone.
- * ponytail: moderators plug in here (their groups only) once the role and cluster_members land.
- */
-export async function accountReportScope(accountId: string, userId: string): Promise<{ clusterIds: string[] | null }> {
+/** Who may read an account-wide report, and which profiles (null = all). Admins see everyone, moderators their groups' people. */
+export async function accountReportScope(accountId: string, userId: string): Promise<{ profileIds: string[] | null }> {
   const membership = await requireMember(accountId, userId);
-  if (membership.role === 'admin') return { clusterIds: null };
-  throw new AppError(403, 'forbidden', 'Admin role required');
+  if (membership.role === 'admin') return { profileIds: null };
+  if (membership.role === 'moderator') return { profileIds: [...(await moderatorScope(accountId, userId)).profiles] };
+  throw new AppError(403, 'forbidden', 'Admin or moderator role required');
 }
 
 export default async function reportRoutes(app: FastifyInstance): Promise<void> {
@@ -122,18 +121,12 @@ export default async function reportRoutes(app: FastifyInstance): Promise<void> 
     const scope = await accountReportScope(accountId, request.user!.id);
 
     const w = window(q.days, q.tz_offset);
-    const allowed = scope.clusterIds;
-    const clusterFilter = q.cluster_id
-      ? allowed && !allowed.includes(q.cluster_id)
-        ? sql`false`
-        : eq(profiles.cluster_id, q.cluster_id)
-      : allowed
-        ? inArray(profiles.cluster_id, allowed.length ? allowed : ['00000000-0000-0000-0000-000000000000'])
-        : undefined;
+    const clusterFilter = q.cluster_id ? eq(profiles.cluster_id, q.cluster_id) : undefined;
+    const scopeFilter = scope.profileIds ? inArray(profiles.id, scope.profileIds.length ? scope.profileIds : ['00000000-0000-0000-0000-000000000000']) : undefined;
     const people = await db
       .select({ id: profiles.id, name: profiles.name, cluster_id: profiles.cluster_id })
       .from(profiles)
-      .where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at), isNull(profiles.archived_at), clusterFilter))
+      .where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at), isNull(profiles.archived_at), clusterFilter, scopeFilter))
       .orderBy(sql`lower(${profiles.name})`, profiles.id);
     const ids = people.map((p) => p.id);
 

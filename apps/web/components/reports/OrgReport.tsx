@@ -72,7 +72,7 @@ export function OrgReport() {
 
   const rows = useMemo(() => sortPeople(report?.people ?? [], sort), [report, sort]);
 
-  if (!mine || !canSeeAccountReport(mine.role)) return <p className={styles.muted}>Only admins can open this report.</p>;
+  if (!mine || !canSeeAccountReport(mine.role)) return <p className={styles.muted}>Only admins and moderators can open this report.</p>;
   if (error) return <EmptyState sentence={REPORT_ERROR} actions={[<Button key="r" onClick={() => setReloads((n) => n + 1)}>Try again</Button>]} />;
 
   const noun = isOrg ? 'people' : 'family members';
