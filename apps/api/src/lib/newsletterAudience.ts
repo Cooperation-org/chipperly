@@ -33,7 +33,14 @@ export async function newsletterUsers(now: number = Date.now()): Promise<{ email
     .select({ id: users.id, email: users.email, created_at: users.created_at, trial_ends_at: users.trial_ends_at, deactivated_at: users.deactivated_at })
     .from(users);
   const members = await db
-    .select({ user_id: account_members.user_id, account_id: account_members.account_id, role: account_members.role, kind: accounts.kind, comp_until: accounts.comp_until })
+    .select({
+      user_id: account_members.user_id,
+      account_id: account_members.account_id,
+      role: account_members.role,
+      kind: accounts.kind,
+      comp_until: accounts.comp_until,
+      owner_user_id: accounts.owner_user_id,
+    })
     .from(account_members)
     .innerJoin(accounts, eq(accounts.id, account_members.account_id));
   const subs = await db.select({ account_id: subscriptions.account_id, status: subscriptions.status, current_period_end: subscriptions.current_period_end }).from(subscriptions);

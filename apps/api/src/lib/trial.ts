@@ -40,7 +40,7 @@ export interface AccessInput {
   canCheckout: boolean;
   /** An admin of the account is a super admin. */
   exempt: boolean;
-  /** The latest trial end among the account's admins: one admin still in their trial keeps the account open. */
+  /** The account owner's trial end (the latest among its admins if the owner is no longer one). */
   trialEnd: number;
   sub: { status: SubscriptionStatus; current_period_end: number | null } | null;
   /** accounts.comp_until: free access a super admin gave by hand. */
@@ -66,10 +66,14 @@ export function accessState(input: AccessInput, now: number = Date.now()): Acces
 /** Loads what accessState needs. With Stripe unset it returns before touching the database. */
 export async function accountAccess(accountId: string, now: number = Date.now()): Promise<Access> {
   if (!env.stripeEnabled) return accessState({ billingOn: false, canCheckout: false, exempt: false, trialEnd: 0, sub: null }, now);
-  const [account] = await db.select({ kind: accounts.kind, comp_until: accounts.comp_until }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  const [account] = await db
+    .select({ kind: accounts.kind, comp_until: accounts.comp_until, owner_user_id: accounts.owner_user_id })
+    .from(accounts)
+    .where(eq(accounts.id, accountId))
+    .limit(1);
   if (!account) return accessState({ billingOn: false, canCheckout: false, exempt: false, trialEnd: 0, sub: null }, now);
   const admins = await db
-    .select({ email: users.email, created_at: users.created_at, trial_ends_at: users.trial_ends_at })
+    .select({ id: users.id, email: users.email, created_at: users.created_at, trial_ends_at: users.trial_ends_at })
     .from(account_members)
     .innerJoin(users, eq(users.id, account_members.user_id))
     .where(and(eq(account_members.account_id, accountId), eq(account_members.role, 'admin')));
@@ -83,17 +87,19 @@ export async function accountAccess(accountId: string, now: number = Date.now())
 
 /** Pure, with Stripe on. What accessState needs for one account, from its kind, its admins and its subscription row. */
 export function accessInputFor(
-  account: { kind: AccountKind; comp_until: number | null },
-  admins: { email: string; created_at: number; trial_ends_at: number | null }[],
+  account: { kind: AccountKind; comp_until: number | null; owner_user_id: string },
+  admins: { id: string; email: string; created_at: number; trial_ends_at: number | null }[],
   sub: AccessInput['sub'],
 ): AccessInput {
+  // The owner's trial is the account's, so inviting a newly signed-up admin never restarts it.
+  const owner = admins.find((a) => a.id === account.owner_user_id);
   return {
     billingOn: true,
     // An organization has no checkout price: it pays by arrangement, and a super admin then gives it
     // access by hand (comp_until). Its trial still runs out like anyone's.
     canCheckout: priceIdForKind(account.kind) !== undefined || account.kind === 'agency',
     exempt: admins.some((a) => isSuperAdmin(a.email)),
-    trialEnd: Math.max(0, ...admins.map(trialEndsAt)),
+    trialEnd: owner ? trialEndsAt(owner) : Math.max(0, ...admins.map(trialEndsAt)),
     sub,
     compUntil: account.comp_until,
   };

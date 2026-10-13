@@ -54,15 +54,17 @@ describe('/api/internal (cron routes)', () => {
     expect(newsletterSegment([])).toBe('trial');
   });
 
-  it('keeps an old second admin in trial while the account is still in its trial', () => {
+  it("the account's trial is its owner's: a newly signed-up admin neither restarts nor ends it", () => {
     const DAY = 86_400_000;
     const now = 100 * DAY;
-    const old = { email: 'old@example.com', created_at: now - 30 * DAY, trial_ends_at: null };
-    const fresh = { email: 'new@example.com', created_at: now - 5 * DAY, trial_ends_at: null };
+    const old = { id: 'old', email: 'old@example.com', created_at: now - 30 * DAY, trial_ends_at: null };
+    const fresh = { id: 'fresh', email: 'new@example.com', created_at: now - 5 * DAY, trial_ends_at: null };
     // An organization can always check out, so this does not depend on price ids in the test env.
-    const account = { kind: 'agency' as const, comp_until: null };
-    expect(accessState(accessInputFor(account, [old, fresh], null), now).state).toBe('trial');
-    expect(accessState(accessInputFor(account, [old], null), now).state).toBe('lapsed');
+    const ownedBy = (owner_user_id: string) => ({ kind: 'agency' as const, comp_until: null, owner_user_id });
+    expect(accessState(accessInputFor(ownedBy('old'), [old, fresh], null), now).state).toBe('lapsed');
+    expect(accessState(accessInputFor(ownedBy('fresh'), [old, fresh], null), now).state).toBe('trial');
+    // An owner who is no longer an admin: the latest admin trial, as before.
+    expect(accessState(accessInputFor(ownedBy('gone'), [old, fresh], null), now).state).toBe('trial');
   });
 
   it('is not registered at all without CRON_SECRET', async () => {

@@ -386,13 +386,13 @@ describe('a lapsed account against the real database', () => {
     expect(me.statusCode).toBe(200);
   });
 
-  it('one admin still inside their trial keeps the account open, and a live subscription does too', async () => {
+  it('a newly signed-up admin does not restart the owner\'s trial, and a live subscription keeps the account open', async () => {
     env.stripeEnabled = true;
     env.STRIPE_PRICE_HOUSEHOLD = 'price_h';
     const { accountId } = await lapsedAccount();
     const fresh = await createUser();
     await addMember(accountId, fresh.id, 'admin');
-    expect((await accountAccess(accountId)).state).toBe('trial');
+    expect((await accountAccess(accountId)).state).toBe('lapsed');
 
     const second = await lapsedAccount();
     await applyStripeEvent(subEvent(second.accountId, { status: 'active' }));
