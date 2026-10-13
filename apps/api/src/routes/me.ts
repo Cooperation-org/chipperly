@@ -188,7 +188,8 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
     return {
       user,
       accounts: meAccounts,
-      profiles: [...profileById.values()],
+      // Ids are time-ordered (uuid v7): oldest first, so the list is the order people were made in, not the order Postgres returns rows.
+      profiles: [...profileById.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
     };
   });
 

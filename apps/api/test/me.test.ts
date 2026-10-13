@@ -89,6 +89,8 @@ describe('me routes', () => {
     expect(profileIds).toContain(adminProfileId);
     expect(profileIds).toContain(memberProfileId);
     expect(profileIds).not.toContain(unlistedProfileId);
+    // Oldest first, whatever order Postgres returns the rows in.
+    expect(profileIds).toEqual([...profileIds].sort());
   });
 
   it('rejects an unauthenticated request', async () => {
