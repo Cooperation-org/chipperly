@@ -30,7 +30,7 @@ import { issueIfEligible } from '../lib/earlyAccess.js';
 import { push_tokens } from '../db/schema/push.js';
 import { devices } from '../db/schema/devices.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
-import { clusters } from '../db/schema/clusters.js';
+import { cluster_members, clusters } from '../db/schema/clusters.js';
 import { locations } from '../db/schema/locations.js';
 import { activities, activity_steps, recurrence_skips } from '../db/schema/activities.js';
 import { rewards } from '../db/schema/rewards.js';
@@ -172,10 +172,16 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
       .from(profile_members)
       .innerJoin(profiles, eq(profile_members.profile_id, profiles.id))
       .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at), isNull(profiles.archived_at), inArray(profiles.account_id, accountIds)));
+    const groupProfileRows = await db
+      .select({ profile: profiles })
+      .from(cluster_members)
+      .innerJoin(profiles, eq(profiles.cluster_id, cluster_members.cluster_id))
+      .where(and(eq(cluster_members.user_id, userId), isNull(profiles.deleted_at), isNull(profiles.archived_at), inArray(profiles.account_id, accountIds)));
 
     const profileById = new Map<string, Profile>();
     for (const profile of adminProfiles) profileById.set(profile.id, profile);
     for (const { profile } of memberProfileRows) profileById.set(profile.id, profile);
+    for (const { profile } of groupProfileRows) profileById.set(profile.id, profile);
 
     return {
       user,
@@ -222,10 +228,16 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
       .from(profile_members)
       .innerJoin(profiles, eq(profile_members.profile_id, profiles.id))
       .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at), inArray(profiles.account_id, accountIds)));
+    const groupProfileRows = await db
+      .select({ profile: profiles })
+      .from(cluster_members)
+      .innerJoin(profiles, eq(profiles.cluster_id, cluster_members.cluster_id))
+      .where(and(eq(cluster_members.user_id, userId), isNull(profiles.deleted_at), isNull(profiles.archived_at), inArray(profiles.account_id, accountIds)));
 
     const profileById = new Map<string, Profile>();
     for (const profile of adminProfiles) profileById.set(profile.id, profile);
     for (const { profile } of memberProfileRows) profileById.set(profile.id, profile);
+    for (const { profile } of groupProfileRows) profileById.set(profile.id, profile);
     const exportProfiles = [...profileById.values()];
 
     // ponytail: tombstoned (deleted_at set) rows are left out — a parent asking
@@ -607,6 +619,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
           await tx.execute(drizzleSql`delete from sync_rejections where profile_id in ${profileIds}`);
         }
         await tx.delete(profiles).where(eq(profiles.account_id, accountId));
+        await tx.delete(cluster_members).where(eq(cluster_members.account_id, accountId));
         await tx.delete(clusters).where(eq(clusters.account_id, accountId));
         await tx.delete(invites).where(eq(invites.account_id, accountId));
         await tx.delete(media).where(eq(media.account_id, accountId));
@@ -644,6 +657,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
             .delete(profile_members)
             .where(and(eq(profile_members.user_id, userId), inArray(profile_members.profile_id, profileIds)));
         }
+        await tx.delete(cluster_members).where(and(eq(cluster_members.account_id, accountId), eq(cluster_members.user_id, userId)));
         await tx
           .delete(account_members)
           .where(and(eq(account_members.account_id, accountId), eq(account_members.user_id, userId)));

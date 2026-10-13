@@ -77,6 +77,8 @@ export const invites = pgTable('invites', {
   email: text('email').notNull(),
   role: text('role').$type<Role>().notNull(),
   profile_ids: uuid('profile_ids').array().notNull(),
+  /** Groups (clusters) the invitee joins on accepting (migration 0051). */
+  cluster_ids: uuid('cluster_ids').array().notNull().default([]),
   relationship_label: text('relationship_label'),
   token_hash: text('token_hash').notNull().unique(),
   expires_at: bigint('expires_at', { mode: 'number' }).notNull(),

@@ -21,6 +21,7 @@ import { push_tokens } from '../db/schema/push.js';
 import { devices } from '../db/schema/devices.js';
 import { account_members, accounts, invites, users } from '../db/schema/accounts.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
+import { cluster_members, clusters } from '../db/schema/clusters.js';
 import { locations } from '../db/schema/locations.js';
 import { activities, activity_steps, recurrence_skips } from '../db/schema/activities.js';
 import { rewards } from '../db/schema/rewards.js';
@@ -31,6 +32,7 @@ import { attitude_checks } from '../db/schema/attitude.js';
 import { requireUser, canAccessProfile, assertCanWriteProfile, readOnlyError } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { assertCanCreate } from '../lib/trial.js';
+import { allLiveGroups, moderatorCanManage, moderatorScope, setGroups, visibleProfileIds } from '../lib/groupAccess.js';
 import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
 import { renderEmail } from '../lib/emailTemplate.js';
@@ -65,6 +67,34 @@ export async function requireAdmin(accountId: string, userId: string) {
   if (membership.role === 'viewer') throw readOnlyError();
   if (membership.role !== 'admin') throw new AppError(403, 'forbidden', 'Admin role required');
   return membership;
+}
+
+/** Admin, or a moderator (organizations). A viewer gets read_only, anyone else 403. Moderators are then limited to their groups by the callers. */
+export async function requireManager(accountId: string, userId: string) {
+  const membership = await requireMember(accountId, userId);
+  if (membership.role === 'viewer') throw readOnlyError();
+  if (membership.role !== 'admin' && membership.role !== 'moderator') throw new AppError(403, 'forbidden', 'Admin role required');
+  return membership;
+}
+
+/** 400 org_only unless the account is an organization (moderators and groups only exist there). */
+async function assertOrgAccount(accountId: string, message: string): Promise<void> {
+  const [account] = await db.select({ kind: accounts.kind }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  if (account?.kind !== 'agency') throw new AppError(400, 'org_only', message);
+}
+
+/** What a moderator may grant: Staff or Family, only inside their own groups and people. Admins skip this. */
+async function assertModeratorGrant(
+  accountId: string,
+  callerId: string,
+  grant: { role?: Role; profileIds?: readonly string[]; clusterIds?: readonly string[] },
+): Promise<void> {
+  if (grant.role !== undefined && grant.role !== 'member' && grant.role !== 'viewer') {
+    throw new AppError(403, 'forbidden', 'Moderators can only add Staff and Family');
+  }
+  const scope = await moderatorScope(accountId, callerId);
+  if ((grant.profileIds ?? []).some((id) => !scope.profiles.has(id))) throw new AppError(403, 'forbidden', 'Those people are outside your groups');
+  if ((grant.clusterIds ?? []).some((id) => !scope.groups.has(id))) throw new AppError(403, 'forbidden', 'Those groups are not yours');
 }
 
 /**
@@ -167,6 +197,7 @@ export async function issueInvite(params: {
   email: string;
   role: Role;
   profileIds: string[];
+  clusterIds?: string[];
   relationshipLabel?: string | null;
   request: FastifyRequest;
 }): Promise<{ invite: typeof invites.$inferSelect; inviteUrl: string }> {
@@ -179,6 +210,7 @@ export async function issueInvite(params: {
       email: params.email.toLowerCase(),
       role: params.role,
       profile_ids: params.profileIds,
+      cluster_ids: params.clusterIds ?? [],
       relationship_label: params.relationshipLabel ?? null,
       token_hash: hashToken(rawToken),
       expires_at: Date.now() + INVITE_TTL_MS,
@@ -224,9 +256,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
         .where(and(eq(profiles.account_id, accountId), isNull(profiles.deleted_at), isNull(profiles.archived_at)));
     }
 
-    const visibleIds = (
-      await db.select({ profile_id: profile_members.profile_id }).from(profile_members).where(eq(profile_members.user_id, userId))
-    ).map((r) => r.profile_id);
+    const visibleIds = await visibleProfileIds(accountId, userId);
     if (visibleIds.length === 0) return [];
 
     return db
@@ -264,11 +294,21 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const { id: accountId } = idParamSchema.parse(request.params);
     const body = InviteBodySchema.parse(request.body);
     const userId = request.user!.id;
-    await requireAdmin(accountId, userId);
+    const caller = await requireManager(accountId, userId);
     await assertCanCreate(accountId);
 
     const own = new Set(await accountProfileIds(accountId));
     if (body.profile_ids.some((id) => !own.has(id))) throw new AppError(400, 'invalid_profiles', 'Some of those people are not in this account');
+    const clusterIds = [...new Set(body.cluster_ids ?? [])];
+    if (body.role === 'moderator') await assertOrgAccount(accountId, 'Moderators are only for organizations');
+    if (clusterIds.length > 0) {
+      await assertOrgAccount(accountId, 'Groups are only for organizations');
+      if (!(await allLiveGroups(accountId, clusterIds))) throw new AppError(400, 'invalid_groups', 'Some of those groups are not in this account');
+    }
+    if (caller.role === 'moderator') {
+      await assertModeratorGrant(accountId, userId, { role: body.role, profileIds: body.profile_ids, clusterIds });
+      if (body.profile_ids.length + clusterIds.length === 0) throw new AppError(400, 'invalid_groups', 'Pick at least one group or person');
+    }
     if (body.role === 'admin') await assertAdminSeat(accountId, true);
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
     if (!account) throw new AppError(404, 'not_found', 'Account not found');
@@ -282,6 +322,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       email: body.email,
       role: body.role,
       profileIds: body.profile_ids,
+      clusterIds,
       relationshipLabel: body.relationship_label,
       request,
     });
@@ -294,7 +335,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const { id: accountId } = idParamSchema.parse(request.params);
     const { inviteId } = z.object({ inviteId: uuidSchema }).parse(request.params);
     const userId = request.user!.id;
-    await requireAdmin(accountId, userId);
+    const caller = await requireManager(accountId, userId);
 
     const [existing] = await db
       .select()
@@ -302,6 +343,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       .where(and(eq(invites.id, inviteId), eq(invites.account_id, accountId)))
       .limit(1);
     if (!existing) throw new AppError(404, 'not_found', 'Invite not found');
+    if (caller.role === 'moderator') await assertModeratorGrant(accountId, userId, { role: existing.role, profileIds: existing.profile_ids, clusterIds: existing.cluster_ids });
 
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
     const [inviter] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -328,8 +370,12 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const { id: accountId } = idParamSchema.parse(request.params);
     const { inviteId } = z.object({ inviteId: uuidSchema }).parse(request.params);
     const userId = request.user!.id;
-    await requireAdmin(accountId, userId);
+    const caller = await requireManager(accountId, userId);
 
+    if (caller.role === 'moderator') {
+      const [existing] = await db.select().from(invites).where(and(eq(invites.id, inviteId), eq(invites.account_id, accountId))).limit(1);
+      if (existing) await assertModeratorGrant(accountId, userId, { role: existing.role, profileIds: existing.profile_ids, clusterIds: existing.cluster_ids });
+    }
     await db.delete(invites).where(and(eq(invites.id, inviteId), eq(invites.account_id, accountId)));
     return { ok: true };
   });
@@ -351,6 +397,10 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       .from(account_members)
       .innerJoin(users, eq(users.id, account_members.user_id))
       .where(eq(account_members.account_id, accountId));
+
+    const groupRows = await db.select({ user_id: cluster_members.user_id, cluster_id: cluster_members.cluster_id }).from(cluster_members).where(eq(cluster_members.account_id, accountId));
+    const groupsByUser = new Map<string, string[]>();
+    for (const g of groupRows) groupsByUser.set(g.user_id, [...(groupsByUser.get(g.user_id) ?? []), g.cluster_id]);
 
     const members: AccountMember[] = [];
     for (const m of memberships) {
@@ -378,7 +428,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
             .where(and(eq(profile_members.user_id, m.user_id), inArray(profile_members.profile_id, profileIds)))
         );
       }
-      members.push({ user: { id: m.user_id, email: m.email, display_name: m.display_name }, role: m.role, profiles });
+      members.push({ user: { id: m.user_id, email: m.email, display_name: m.display_name }, role: m.role, profiles, cluster_ids: groupsByUser.get(m.user_id) ?? [] });
     }
 
     const pending = await db
@@ -446,6 +496,16 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
           .values({ profile_id: profileId, user_id: userId, relationship_label: invite.relationship_label })
           .onConflictDoNothing();
       }
+      if (invite.cluster_ids.length > 0) {
+        const live = new Set((await db.select({ id: clusters.id }).from(clusters).where(and(eq(clusters.account_id, invite.account_id), isNull(clusters.archived_at)))).map((c) => c.id));
+        const joined = invite.cluster_ids.filter((id) => live.has(id));
+        if (joined.length > 0) {
+          await tx
+            .insert(cluster_members)
+            .values(joined.map((cluster_id) => ({ user_id: userId, cluster_id, account_id: invite.account_id, created_at: Date.now() })))
+            .onConflictDoNothing();
+        }
+      }
       if (!invite.accepted_at) {
         await tx.update(invites).set({ accepted_at: Date.now() }).where(eq(invites.id, invite.id));
       }
@@ -459,10 +519,15 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const { user_id: targetId } = z.object({ user_id: uuidSchema }).parse(request.params);
     const body = UpdateMemberBodySchema.parse(request.body);
     const callerId = request.user!.id;
-    await requireAdmin(accountId, callerId);
+    const caller = await requireManager(accountId, callerId);
 
     const target = await getMembership(accountId, targetId);
     if (!target) throw new AppError(404, 'not_found', 'Member not found');
+    if (caller.role === 'moderator') {
+      if (!(await moderatorCanManage(accountId, callerId, targetId))) throw new AppError(403, 'forbidden', 'That person is outside your groups');
+      await assertModeratorGrant(accountId, callerId, { role: body.role, profileIds: body.profile_ids });
+    }
+    if (body.role === 'moderator') await assertOrgAccount(accountId, 'Moderators are only for organizations');
 
     if (body.profile_ids) {
       const own = new Set(await accountProfileIds(accountId));
@@ -483,6 +548,8 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
           .update(account_members)
           .set({ role: body.role })
           .where(and(eq(account_members.account_id, accountId), eq(account_members.user_id, targetId)));
+        // An admin sees everyone, so group assignments no longer mean anything.
+        if (body.role === 'admin') await setGroups(tx, accountId, targetId, []);
       }
       if (body.profile_ids) {
         const profileIds = await accountProfileIds(accountId);
@@ -537,10 +604,13 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const { id: accountId } = idParamSchema.parse(request.params);
     const { user_id: targetId } = z.object({ user_id: uuidSchema }).parse(request.params);
     const callerId = request.user!.id;
-    await requireAdmin(accountId, callerId);
+    const caller = await requireManager(accountId, callerId);
 
     const target = await getMembership(accountId, targetId);
     if (!target) throw new AppError(404, 'not_found', 'Member not found');
+    if (caller.role === 'moderator' && !(await moderatorCanManage(accountId, callerId, targetId))) {
+      throw new AppError(403, 'forbidden', 'That person is outside your groups');
+    }
 
     if (target.role === 'admin') {
       const admins = await db
@@ -558,6 +628,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
           .delete(profile_members)
           .where(and(eq(profile_members.user_id, targetId), inArray(profile_members.profile_id, profileIds)));
       }
+      await setGroups(tx, accountId, targetId, []);
       await tx
         .delete(account_members)
         .where(and(eq(account_members.account_id, accountId), eq(account_members.user_id, targetId)));

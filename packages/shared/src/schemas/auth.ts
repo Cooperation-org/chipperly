@@ -144,6 +144,8 @@ export const InviteBodySchema = z.object({
   email: z.string().email(),
   role: Role,
   profile_ids: z.array(uuidSchema),
+  /** Groups to join on accepting (organizations only). */
+  cluster_ids: z.array(uuidSchema).max(200).optional(),
   relationship_label: z.string().nullable().optional(),
 });
 export type InviteBody = z.infer<typeof InviteBodySchema>;

@@ -12,7 +12,10 @@ import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
-import { missingPersonError, profileIdsToSave,ROLE_HINT, ROLE_ITEMS } from './roles';
+import { roleHint } from '@/lib/auth/roleRules';
+import type { Cluster } from '@/lib/org/roster';
+import { GroupChecklist } from './GroupChecklist';
+import { groupIdsToSave, missingPersonError, profileIdsToSave, roleItemsFor } from './roles';
 import styles from './InviteSheet.module.css';
 
 export interface EditMemberSheetProps {
@@ -23,14 +26,23 @@ export interface EditMemberSheetProps {
   canRemove: boolean;
   onSaved: () => void;
   onRemove: () => void;
+  /** 'agency' offers Moderator, org role names and groups. */
+  accountKind?: string;
+  /** A moderator can only set Staff and Family, inside their own groups. */
+  callerRole?: Role;
+  /** The groups the signed-in user can hand out (a moderator is only sent their own). */
+  groups?: Cluster[];
 }
 
-/** Change a team member's role, which people they see, and their relationship label. */
-export function EditMemberSheet({ accountId, member, profiles, canRemove, onSaved, onRemove }: EditMemberSheetProps) {
+/** Change a team member's role, which groups and people they see, and their relationship label. */
+export function EditMemberSheet({ accountId, member, profiles, canRemove, onSaved, onRemove, accountKind, callerRole = 'admin', groups = [] }: EditMemberSheetProps) {
   const { close } = useSheet();
+  const inOrg = accountKind === 'agency';
   const initialIds = member.profiles.map((p) => p.profile_id);
+  const initialGroups = member.cluster_ids ?? [];
   const [role, setRole] = useState<Role>(member.role);
   const [ids, setIds] = useState<Set<string>>(() => new Set(initialIds));
+  const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set(initialGroups));
   const [relationship, setRelationship] = useState(member.profiles[0]?.relationship_label ?? '');
   const [error, setError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
@@ -44,8 +56,17 @@ export function EditMemberSheet({ accountId, member, profiles, canRemove, onSave
     });
   }
 
+  function toggleGroup(id: string): void {
+    setGroupIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   async function save(): Promise<void> {
-    const missing = missingPersonError(role, ids);
+    const missing = missingPersonError(role, ids, inOrg ? groupIds.size : 0, inOrg);
     if (missing) {
       setError(missing);
       return;
@@ -54,17 +75,30 @@ export function EditMemberSheet({ accountId, member, profiles, canRemove, onSave
     setSaving(true);
     // Only send the list when it changed: the server rebuilds the rows, which clears location assignments.
     const profile_ids = profileIdsToSave(member.role, role, initialIds, ids);
+    const cluster_ids = inOrg ? groupIdsToSave(role, initialGroups, groupIds) : undefined;
     try {
-      await api.patch(`/accounts/${accountId}/members/${member.user.id}`, {
-        role,
-        relationship_label: relationship.trim() || null,
-        ...(profile_ids ? { profile_ids } : {}),
-      });
+      const patch = (): Promise<unknown> =>
+        api.patch(`/accounts/${accountId}/members/${member.user.id}`, {
+          role,
+          relationship_label: relationship.trim() || null,
+          ...(profile_ids ? { profile_ids } : {}),
+        });
+      const putGroups = (): Promise<unknown> => api.put(`/accounts/${accountId}/members/${member.user.id}/groups`, { cluster_ids });
+      // A moderator can only edit someone who still has access inside their groups, so add groups before the
+      // list is saved and drop them after. An admin has no groups to set until the role change lands, so it goes first.
+      if (cluster_ids && cluster_ids.length > 0 && member.role !== 'admin') {
+        await putGroups();
+        await patch();
+      } else {
+        await patch();
+        if (cluster_ids) await putGroups();
+      }
       onSaved();
       close();
     } catch (err) {
       // The server words the limit and last-admin messages, so show them as sent.
       if (err instanceof ApiError && (err.code === 'admin_limit' || err.code === 'last_admin')) setError(err.message);
+      else if (err instanceof ApiError && err.status === 403) setError('You can only change Staff and Family inside your own groups.');
       else setError("Couldn't save. Check your connection and try again.");
     } finally {
       setSaving(false);
@@ -75,12 +109,13 @@ export function EditMemberSheet({ accountId, member, profiles, canRemove, onSave
     <div className={styles.sheet}>
       <div>
         <span className={styles.label}>Role</span>
-        <Segmented label="Role" value={role} onChange={(v) => setRole(v as Role)} items={ROLE_ITEMS} />
-        <p className={styles.hint}>{ROLE_HINT[role]}</p>
+        <Segmented label="Role" value={role} onChange={(v) => setRole(v as Role)} items={roleItemsFor(accountKind, callerRole)} />
+        <p className={styles.hint}>{roleHint(role, accountKind)}</p>
       </div>
+      {inOrg && role !== 'admin' && groups.length > 0 ? <GroupChecklist groups={groups} selected={groupIds} onToggle={toggleGroup} /> : null}
       {role !== 'admin' ? (
         <div>
-          <span className={styles.label}>Who they see</span>
+          <span className={styles.label}>{inOrg && groups.length > 0 ? 'Or people one by one' : 'Who they see'}</span>
           <div className={styles.checklist}>
             {profiles.map((p) => (
               <ListRow

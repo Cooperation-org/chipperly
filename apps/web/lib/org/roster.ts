@@ -21,6 +21,8 @@ export interface Cluster {
   name: string;
   archived_at: number | null;
   profile_count: number;
+  /** Staff, moderators and families assigned to the group. Only sent to admins and moderators. */
+  staff?: { user_id: string; display_name: string; role: string }[];
 }
 
 export type StatusFilter = 'active' | 'archived' | 'all';
@@ -74,9 +76,19 @@ export function homePath(accounts: { account: { kind: string } }[]): string {
   return accounts.some((a) => a.account.kind === 'agency') ? '/org/' : '/today/';
 }
 
-/** Who may do what on the Org screens: admins manage; members and viewers only see their people. */
+/** Who may do what on the Org screens: admins manage everything; members and viewers only see their people. */
 export function canManageOrg(role: string | undefined): boolean {
   return role === 'admin';
+}
+
+/** Admins and moderators move and archive people (a moderator only inside their own groups, which the server checks). */
+export function canMovePeople(role: string | undefined): boolean {
+  return role === 'admin' || role === 'moderator';
+}
+
+/** Names of the staff on a person's team (everyone but families), for the line under their name. */
+export function staffNames(team: RosterPerson['team']): string {
+  return team.filter((t) => t.role !== 'viewer').map((t) => t.display_name).join(', ');
 }
 
 /** Server error codes turned into plain text. */

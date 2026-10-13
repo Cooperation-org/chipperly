@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { account_members, accounts, sessions } from '../db/schema/accounts.js';
 import { profiles, profile_members } from '../db/schema/profiles.js';
+import { cluster_members } from '../db/schema/clusters.js';
 import { verifyAccessToken } from '../lib/tokens.js';
 import { AppError } from './errors.js';
 
@@ -83,10 +84,14 @@ export async function requireAccount(request: FastifyRequest, reply: FastifyRepl
   }
 }
 
-/** True when `userId` is an admin of the profile's account, or a member listed in profile_members. */
+/**
+ * True when `userId` is an admin of the profile's account, is listed in profile_members for it, or is
+ * assigned to the group (cluster) the person is in and the person is not archived.
+ * The single place for read access. Writes use the same rule; a viewer is then refused as read_only.
+ */
 export async function canAccessProfile(userId: string, profileId: string): Promise<boolean> {
   const [profile] = await db
-    .select({ account_id: profiles.account_id })
+    .select({ account_id: profiles.account_id, cluster_id: profiles.cluster_id, archived_at: profiles.archived_at })
     .from(profiles)
     .where(eq(profiles.id, profileId))
     .limit(1);
@@ -105,7 +110,18 @@ export async function canAccessProfile(userId: string, profileId: string): Promi
     .from(profile_members)
     .where(and(eq(profile_members.profile_id, profileId), eq(profile_members.user_id, userId)))
     .limit(1);
-  return Boolean(profileMember);
+  if (profileMember) return true;
+
+  // Group rule: anyone assigned to the person's group sees them while they are not archived.
+  if (profile.cluster_id && profile.archived_at === null) {
+    const [inGroup] = await db
+      .select({ id: cluster_members.cluster_id })
+      .from(cluster_members)
+      .where(and(eq(cluster_members.user_id, userId), eq(cluster_members.cluster_id, profile.cluster_id)))
+      .limit(1);
+    return Boolean(inGroup);
+  }
+  return false;
 }
 
 /**

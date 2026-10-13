@@ -8,21 +8,24 @@ import {
   BulkProfilesBodySchema,
   CreateClusterBodySchema,
   RosterQuerySchema,
+  SetMemberGroupsBodySchema,
   UpdateClusterBodySchema,
   UpdateOrgBodySchema,
   UpdateOrgProfileBodySchema,
   type BulkProfilesResponse,
+  type Cluster as ClusterWithStaff,
   type RosterPerson,
 } from '@chipperly/shared/schemas/org';
 import { db } from '../db/client.js';
 import { account_members, accounts, users } from '../db/schema/accounts.js';
-import { clusters } from '../db/schema/clusters.js';
+import { cluster_members, clusters } from '../db/schema/clusters.js';
 import { profile_members, profiles } from '../db/schema/profiles.js';
-import { requireUser } from '../plugins/auth.js';
+import { readOnlyError, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { assertCanCreate } from '../lib/trial.js';
 import { notifyIfOverSeats, seatLimitFor, seatsUsed } from '../lib/orgSeats.js';
-import { insertProfile, issueInvite, requireAdmin, requireMember } from './accounts.js';
+import { allLiveGroups, moderatorCanManage, moderatorScope, setGroups, visibleProfileIds as visibleIdsOf } from '../lib/groupAccess.js';
+import { getMembership, insertProfile, issueInvite, requireAdmin, requireMember } from './accounts.js';
 
 const idParamSchema = z.object({ id: uuidSchema });
 const clusterParamSchema = z.object({ id: uuidSchema, cid: uuidSchema });
@@ -47,11 +50,22 @@ async function orgAdmin(accountId: string, userId: string): Promise<void> {
   await requireAdmin(accountId, userId);
 }
 
-/** Profile ids a non-admin may see (their assignments); null for an admin, who sees everyone. */
-async function visibleProfileIds(role: string, userId: string): Promise<string[] | null> {
+/** Admin or moderator of an organization. A viewer gets read_only, Staff get 403. Moderators are limited to their groups by the callers. */
+async function orgManager(accountId: string, userId: string) {
+  const membership = await requireMember(accountId, userId);
+  await assertOrg(accountId);
+  if (membership.role === 'viewer') throw readOnlyError();
+  if (membership.role !== 'admin' && membership.role !== 'moderator') throw new AppError(403, 'forbidden', 'Admin role required');
+  return membership;
+}
+
+/**
+ * Profile ids a non-admin may see: their assignments plus everyone in their groups; null for an admin,
+ * who sees everyone. A moderator also gets archived people in their groups, so they can restore them.
+ */
+async function visibleProfileIds(accountId: string, role: string, userId: string): Promise<string[] | null> {
   if (role === 'admin') return null;
-  const rows = await db.select({ profile_id: profile_members.profile_id }).from(profile_members).where(eq(profile_members.user_id, userId));
-  return rows.map((r) => r.profile_id);
+  return visibleIdsOf(accountId, userId, { archivedGroupPeople: role === 'moderator' });
 }
 
 const alive = isNull(profiles.deleted_at);
@@ -113,7 +127,8 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
   app.get('/accounts/:id/clusters', { preHandler: requireUser }, async (request) => {
     const { id: accountId } = idParamSchema.parse(request.params);
     const membership = await orgMember(accountId, request.user!.id);
-    const visible = await visibleProfileIds(membership.role, request.user!.id);
+    const userId = request.user!.id;
+    const visible = await visibleProfileIds(accountId, membership.role, userId);
 
     const people = await db
       .select({ cluster_id: profiles.cluster_id })
@@ -123,9 +138,31 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
     for (const p of people) counts.set(p.cluster_id!, (counts.get(p.cluster_id!) ?? 0) + 1);
 
     const rows = await db.select().from(clusters).where(eq(clusters.account_id, accountId)).orderBy(asc(sql`lower(${clusters.name})`));
-    // A team member or family only hears about the clusters their own people are in.
-    const shown = visible ? rows.filter((c) => counts.has(c.id)) : rows;
-    return { clusters: shown.map((c) => ({ id: c.id, name: c.name, archived_at: c.archived_at, profile_count: counts.get(c.id) ?? 0 })) };
+    // Everyone but an admin only hears about their own groups and the clusters their own people are in.
+    const mine = visible ? new Set((await db.select({ id: cluster_members.cluster_id }).from(cluster_members).where(and(eq(cluster_members.user_id, userId), eq(cluster_members.account_id, accountId)))).map((r) => r.id)) : null;
+    const shown = visible ? rows.filter((c) => counts.has(c.id) || mine?.has(c.id)) : rows;
+
+    // Admins and moderators also see who is assigned to each group they can see.
+    const staff = new Map<string, NonNullable<ClusterWithStaff['staff']>>();
+    if (!visible || membership.role === 'moderator') {
+      const links = await db
+        .select({ cluster_id: cluster_members.cluster_id, user_id: users.id, display_name: users.display_name, role: account_members.role })
+        .from(cluster_members)
+        .innerJoin(account_members, and(eq(account_members.user_id, cluster_members.user_id), eq(account_members.account_id, accountId)))
+        .innerJoin(users, eq(users.id, cluster_members.user_id))
+        .where(eq(cluster_members.account_id, accountId))
+        .orderBy(asc(users.display_name));
+      for (const l of links) staff.set(l.cluster_id, [...(staff.get(l.cluster_id) ?? []), { user_id: l.user_id, display_name: l.display_name, role: l.role }]);
+    }
+    return {
+      clusters: shown.map((c) => ({
+        id: c.id,
+        name: c.name,
+        archived_at: c.archived_at,
+        profile_count: counts.get(c.id) ?? 0,
+        ...(!visible || membership.role === 'moderator' ? { staff: staff.get(c.id) ?? [] } : {}),
+      })),
+    };
   });
 
   app.post('/accounts/:id/clusters', { preHandler: requireUser }, async (request, reply) => {
@@ -175,7 +212,7 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
     const query = RosterQuerySchema.parse(request.query);
     const userId = request.user!.id;
     const membership = await orgMember(accountId, userId);
-    const visible = await visibleProfileIds(membership.role, userId);
+    const visible = await visibleProfileIds(accountId, membership.role, userId);
 
     const where: (SQL | undefined)[] = [eq(profiles.account_id, accountId), alive];
     if (visible) where.push(inArray(profiles.id, visible.length > 0 ? visible : [uuidv7()]));
@@ -200,9 +237,29 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
         .innerJoin(users, eq(users.id, profile_members.user_id))
         .where(inArray(profile_members.profile_id, rows.map((r) => r.id)))
         .orderBy(asc(users.display_name));
-      for (const l of links) {
-        // Admins see everyone on the team. Anyone else sees staff and themselves, not other families.
-        if (membership.role !== 'admin' && l.role === 'viewer' && l.user_id !== userId) continue;
+      // Staff assigned to a person's group are part of that person's team too.
+      const clusterIds = [...new Set(rows.map((r) => r.cluster_id).filter((c): c is string => c !== null))];
+      const groupLinks =
+        clusterIds.length === 0
+          ? []
+          : await db
+              .select({ cluster_id: cluster_members.cluster_id, user_id: users.id, display_name: users.display_name, role: account_members.role })
+              .from(cluster_members)
+              .innerJoin(account_members, and(eq(account_members.user_id, cluster_members.user_id), eq(account_members.account_id, accountId)))
+              .innerJoin(users, eq(users.id, cluster_members.user_id))
+              .where(inArray(cluster_members.cluster_id, clusterIds))
+              .orderBy(asc(users.display_name));
+      const all = [
+        ...links,
+        ...rows.flatMap((r) => groupLinks.filter((g) => g.cluster_id === r.cluster_id).map((g) => ({ profile_id: r.id, user_id: g.user_id, display_name: g.display_name, role: g.role }))),
+      ];
+      const seen = new Set<string>();
+      for (const l of all) {
+        // Admins and moderators see everyone on the team. Anyone else sees staff and themselves, not other families.
+        if (membership.role !== 'admin' && membership.role !== 'moderator' && l.role === 'viewer' && l.user_id !== userId) continue;
+        const key = `${l.profile_id}:${l.user_id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
         const list = team.get(l.profile_id) ?? [];
         list.push({ user_id: l.user_id, display_name: l.display_name, role: l.role });
         team.set(l.profile_id, list);
@@ -317,7 +374,7 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
     const { id: accountId, pid } = profileParamSchema.parse(request.params);
     const body = UpdateOrgProfileBodySchema.parse(request.body);
     const userId = request.user!.id;
-    await orgAdmin(accountId, userId);
+    const caller = await orgManager(accountId, userId);
 
     const [profile] = await db
       .select()
@@ -325,6 +382,14 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
       .where(and(eq(profiles.id, pid), eq(profiles.account_id, accountId), alive))
       .limit(1);
     if (!profile) throw new AppError(404, 'not_found', 'Person not found');
+    if (caller.role === 'moderator') {
+      // A moderator works inside their own groups: the person must be in one, and can only move to another.
+      const scope = await moderatorScope(accountId, userId);
+      if (!profile.cluster_id || !scope.groups.has(profile.cluster_id)) throw new AppError(404, 'not_found', 'Person not found');
+      if (body.cluster_id !== undefined && (body.cluster_id === null || !scope.groups.has(body.cluster_id))) {
+        throw new AppError(403, 'forbidden', 'You can only move people between your own groups');
+      }
+    }
 
     const patch: Partial<typeof profiles.$inferInsert> = {};
     if (body.cluster_id !== undefined) {
@@ -355,5 +420,29 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
     }
     return row!;
   });
-}
 
+  /** Replaces the groups a person is assigned to. Admin: anyone but another admin. Moderator: Staff and Family inside their own groups. */
+  app.put('/accounts/:id/members/:user_id/groups', { preHandler: requireUser }, async (request) => {
+    const { id: accountId } = idParamSchema.parse(request.params);
+    const { user_id: targetId } = z.object({ user_id: uuidSchema }).parse(request.params);
+    const body = SetMemberGroupsBodySchema.parse(request.body);
+    const userId = request.user!.id;
+    const caller = await orgManager(accountId, userId);
+
+    const target = await getMembership(accountId, targetId);
+    if (!target) throw new AppError(404, 'not_found', 'Member not found');
+    if (caller.role === 'moderator' && !(await moderatorCanManage(accountId, userId, targetId))) {
+      throw new AppError(403, 'forbidden', 'That person is outside your groups');
+    }
+    if (target.role === 'admin') throw new AppError(409, 'admin_sees_all', 'Admins see every group');
+    const clusterIds = [...new Set(body.cluster_ids)];
+    if (!(await allLiveGroups(accountId, clusterIds))) throw new AppError(400, 'invalid_groups', 'Some of those groups are not in this account');
+    if (caller.role === 'moderator') {
+      const scope = await moderatorScope(accountId, userId);
+      if (clusterIds.some((id) => !scope.groups.has(id))) throw new AppError(403, 'forbidden', 'Those groups are not yours');
+    }
+
+    await db.transaction((tx) => setGroups(tx, accountId, targetId, clusterIds));
+    return { user_id: targetId, cluster_ids: clusterIds };
+  });
+}

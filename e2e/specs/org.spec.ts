@@ -87,7 +87,7 @@ test.describe('organization', () => {
     await page?.close();
   });
 
-  test('sign-up lands on Org home with 3 people and the family invite as Viewer', async () => {
+  test('sign-up lands on Org home with 3 people and the family invite as Family', async () => {
     await expect(page.getByRole('heading', { name: 'Sunrise Therapy' })).toBeVisible();
     await expect(page.getByText(/\b3 (of \d+ )?people\b/).first()).toBeVisible();
     await expectNoOverflow(page, 'org home');
@@ -96,7 +96,7 @@ test.describe('organization', () => {
     await expect(page.getByText('Pending invites')).toBeVisible();
     const row = page.locator('div[class*="inviteRow"]', { hasText: parentEmail });
     await expect(row).toBeVisible();
-    await expect(row).toContainText('Viewer');
+    await expect(row).toContainText('Family');
   });
 
   test('Org home searches, filters by group, archives and restores', async () => {
