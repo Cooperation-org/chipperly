@@ -295,6 +295,13 @@
       "when": 1790600000000,
       "tag": "0051_group_access",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790700000000,
+      "tag": "0052_must_change_password",
+      "breakpoints": true
     }
   ]
 }

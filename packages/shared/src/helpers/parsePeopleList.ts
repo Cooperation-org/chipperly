@@ -65,8 +65,11 @@ function readRecords(text: string): Rec[] {
 
 /**
  * Turns pasted text or a CSV file into people for a bulk add. Two shapes:
- * one name per line, or CSV whose first row is a header with a name column and
- * optional cluster and parent email columns (any order, any case). A BOM,
+ * CSV whose first row is a header with a name column and optional cluster and
+ * parent email columns (any order, any case), or no header: each line is
+ * "name", "name, group" or "name, group, parent email" ("Benny, North clinic,
+ * mom@x.com"). Without a header a second field that looks like an email is the
+ * parent email, not a group. A BOM,
  * blank lines, quoted fields and commas inside quotes are fine. Bad rows go to
  * `errors` and the rest still come through.
  */
@@ -85,11 +88,26 @@ export function parsePeopleList(input: string): PeopleListResult {
 
   const rows = hasHeader ? records.slice(1) : records;
   for (const rec of rows) {
-    // Without a header a line is just a name, even one with a comma in it ("Lee, Sam").
-    const name = (hasHeader ? (rec.cells[nameCol] ?? '') : rec.cells.join(',')).trim();
-    const cluster = hasHeader && clusterCol >= 0 ? (rec.cells[clusterCol] ?? '').trim() : '';
-    const email = hasHeader && emailCol >= 0 ? (rec.cells[emailCol] ?? '').trim() : '';
-    if (!name) errors.push({ row: rec.line, message: 'Name is empty' });
+    let name: string;
+    let cluster = '';
+    let email = '';
+    let extra = false;
+    if (hasHeader) {
+      name = (rec.cells[nameCol] ?? '').trim();
+      if (clusterCol >= 0) cluster = (rec.cells[clusterCol] ?? '').trim();
+      if (emailCol >= 0) email = (rec.cells[emailCol] ?? '').trim();
+    } else {
+      const [first = '', second = '', third = '', ...rest] = rec.cells.map((c) => c.trim());
+      name = first;
+      if (EMAIL.test(second) && !third) email = second;
+      else {
+        cluster = second;
+        email = third;
+      }
+      extra = rest.some((c) => c !== '');
+    }
+    if (extra) errors.push({ row: rec.line, message: 'Too many fields. Use name, group, parent email' });
+    else if (!name) errors.push({ row: rec.line, message: 'Name is empty' });
     else if (name.length > PERSON_NAME_MAX) errors.push({ row: rec.line, message: `Name is longer than ${PERSON_NAME_MAX} characters` });
     else if (cluster.length > CLUSTER_NAME_MAX) errors.push({ row: rec.line, message: `Cluster is longer than ${CLUSTER_NAME_MAX} characters` });
     else if (email && !EMAIL.test(email)) errors.push({ row: rec.line, message: `"${email}" is not an email address` });

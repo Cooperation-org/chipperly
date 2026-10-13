@@ -70,6 +70,8 @@ export async function signUp(page: Page, opts: { name: string; email?: string })
   // lists, so sign-up always takes the skip path. onboarding-setup.spec.ts
   // covers the questions themselves.
   await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
+  // My family ends with the optional second admin and viewers step.
+  await page.getByRole('button', { name: 'Skip', exact: true }).click();
 
   await page.waitForURL('**/onboarding/ready/');
   await page.getByRole('button', { name: 'Go to Today', exact: true }).click();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canContinueAbout, peopleInGroups, splitEmails, stepFromState, suggestedPlanLine } from './orgSetup';
+import { canContinueAbout, familyInvitesLine, peopleInGroups, splitEmails, stepFromState, suggestedPlanLine } from './orgSetup';
 
 describe('suggestedPlanLine', () => {
   it.each([
@@ -47,6 +47,12 @@ describe('step navigation', () => {
 describe('invite helpers', () => {
   it('splits and dedupes emails', () => {
     expect(splitEmails('a@x.org, b@y.org\na@x.org;;')).toEqual(['a@x.org', 'b@y.org']);
+  });
+
+  it('counts family invites per parent', () => {
+    expect(familyInvitesLine(0)).toContain('No family emails');
+    expect(familyInvitesLine(1)).toContain('1 family invite,');
+    expect(familyInvitesLine(3)).toContain('3 family invites');
   });
 
   it('picks people by group', () => {

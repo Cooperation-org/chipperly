@@ -27,6 +27,17 @@ export interface GuidedPicks {
 export const DEFAULT_EARNED_COST = 5;
 export const MAX_PICKS = 3;
 
+/**
+ * Pure: a copy of one person's picks for another ("Same as Ava"). Places get new ids, because a
+ * location row belongs to one profile, and the items follow their places to the new ids.
+ */
+export function cloneGuidedPicks(picks: GuidedPicks, makeId: () => string): GuidedPicks {
+  const ids = new Map(picks.places.map((p) => [p.id, makeId()]));
+  const places = picks.places.map((p) => ({ ...p, id: ids.get(p.id)! }));
+  const item = (i: GuidedItem): GuidedItem => ({ ...i, location_ids: i.location_ids.flatMap((id) => (ids.has(id) ? [ids.get(id)!] : [])) });
+  return { places, free: picks.free.map(item), earned: picks.earned.map(item) };
+}
+
 /** Pure: the item's places that still exist; never empty (falls back to the first place) so nothing is left unassigned. */
 export function placeIdsFor(item: GuidedItem, places: readonly GuidedPlace[]): string[] {
   const kept = item.location_ids.filter((id) => places.some((p) => p.id === id));

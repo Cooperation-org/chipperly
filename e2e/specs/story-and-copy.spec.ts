@@ -290,6 +290,7 @@ test.describe('starter plan wording and shape', () => {
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Things Mia can always choose' })).toBeVisible();
     await page.getByRole('button', { name: "Create Mia's plan", exact: true }).click();
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
 
     // Ready summary (Ready.tsx:54): one Morning Routine with the six steps, and no standalone teeth/dressed line.
     await page.waitForURL('**/onboarding/ready/');
@@ -363,6 +364,7 @@ test.describe('self-managed wording', () => {
     await createAccount(page, 'Solo Copy');
     await page.getByRole('button', { name: /Myself/ }).click();
     await page.waitForURL('**/onboarding/profile/');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Skip setup', exact: true }).click();
     await page.waitForURL('**/onboarding/ready/');
     await page.getByRole('button', { name: 'Go to Today', exact: true }).click();

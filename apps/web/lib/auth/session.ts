@@ -185,10 +185,13 @@ export async function refreshMe(): Promise<void> {
   await applyMe(me);
 }
 
-export async function signInWithPassword(email: string, password: string): Promise<void> {
+/** `mustChangePassword`: a temporary password. Nothing but /change-password/ works yet, so /me is not fetched. */
+export async function signInWithPassword(email: string, password: string): Promise<{ mustChangePassword: boolean }> {
   const tokens = await api.post<TokensResponse>('/auth/login', { email, password }, { schema: TokensResponseSchema });
   await setTokens(tokens);
+  if (tokens.must_change_password) return { mustChangePassword: true };
   await refreshMe();
+  return { mustChangePassword: false };
 }
 
 /** `invite` carries the closed-beta gate (see docs/CONTRACTS.md): a code the owner hands out, or a

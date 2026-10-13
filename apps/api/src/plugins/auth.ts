@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { account_members, accounts, sessions } from '../db/schema/accounts.js';
+import { account_members, accounts, sessions, users } from '../db/schema/accounts.js';
 import { profiles, profile_members } from '../db/schema/profiles.js';
 import { cluster_members } from '../db/schema/clusters.js';
 import { verifyAccessToken } from '../lib/tokens.js';
@@ -19,6 +19,9 @@ declare module 'fastify' {
     locked: boolean;
   }
 }
+
+/** Routes a person with a temporary password may still call (matched on the end of the route pattern). */
+const MUST_CHANGE_EXEMPT = ['/me/change-password', '/auth/logout'];
 
 /**
  * Not wrapped with `fastify-plugin` (not a project dependency): called
@@ -49,7 +52,14 @@ export default async function registerAuth(app: FastifyInstance): Promise<void> 
           .where(eq(sessions.id, payload.sid))
           .limit(1);
         request.locked = session?.locked_profile_id != null;
-      } catch {
+
+        // A login an admin created with a temporary password does nothing until its owner picks their own.
+        const [person] = await db.select({ must: users.must_change_password }).from(users).where(eq(users.id, payload.sub)).limit(1);
+        if (person?.must && !MUST_CHANGE_EXEMPT.some((suffix) => request.routeOptions.url?.endsWith(suffix))) {
+          throw new AppError(403, 'must_change_password', 'Choose a new password first.');
+        }
+      } catch (err) {
+        if (err instanceof AppError) throw err;
         // Invalid or expired token: request.user stays null, requireUser rejects it.
       }
     }

@@ -17,6 +17,7 @@ import {
   ORG_STEP_COUNT,
   ORG_TYPES,
   canContinueAbout,
+  familyInvitesLine,
   peopleInGroups,
   splitEmails,
   stepFromState,
@@ -442,7 +443,7 @@ export function OrgSetup() {
               {tab === 'paste' ? (
                 <div className={styles.form}>
                   <label className={styles.select}>
-                    <span className={styles.label}>One name per line, or start with a header row: name, group, parent email</span>
+                    <span className={styles.label}>One person per line: name, group, parent email (group and email are optional)</span>
                     <textarea className={styles.textarea} rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)} />
                   </label>
                   <Button variant="secondary" fullWidth disabled={!pasteText.trim()} onClick={() => addParsed(pasteText)}>
@@ -569,13 +570,7 @@ export function OrgSetup() {
       {step === 5 ? (
         <>
           <h1 className={styles.title} tabIndex={-1}>Families</h1>
-          {(saved?.invites_sent ?? 0) > 0 ? (
-            <p className={styles.lead}>
-              We sent {saved?.invites_sent} family {saved?.invites_sent === 1 ? 'invite' : 'invites'}. Families see their child&apos;s schedule, notes and reports. They are free.
-            </p>
-          ) : (
-            <p className={styles.lead}>No family emails yet. You can invite families any time. They are free.</p>
-          )}
+          <p className={styles.lead}>{familyInvitesLine(saved?.invites_sent ?? 0)}</p>
           <Button fullWidth loading={busy} onClick={() => void finish()}>
             Done
           </Button>

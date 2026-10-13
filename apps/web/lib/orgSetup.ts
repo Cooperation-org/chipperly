@@ -44,6 +44,13 @@ export function peopleInGroups(people: { profile_id: string; cluster_id: string 
   return people.filter((p) => all || (p.cluster_id !== null && groupIds.has(p.cluster_id))).map((p) => p.profile_id);
 }
 
+/** Step 6 text. `invites` counts parents, not children: one email goes to each parent and covers all of their children. */
+export function familyInvitesLine(invites: number): string {
+  if (invites < 1) return 'No family emails yet. You can invite families any time. They are free.';
+  const what = invites === 1 ? '1 family invite' : `${invites} family invites`;
+  return `We sent ${what}, one email per parent that covers all of their children. Families see the schedule, notes and reports. They are free.`;
+}
+
 /** Splits "a@x.org, b@y.org\nc@z.org" into emails, dropping blanks and repeats. */
 export function splitEmails(text: string): string[] {
   return Array.from(new Set(text.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean)));

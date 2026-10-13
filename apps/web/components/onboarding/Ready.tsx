@@ -7,11 +7,14 @@ import { useActiveProfile } from '@/lib/profile/active';
 import { useLocations } from '@/lib/data/locations';
 import { useRewards } from '@/lib/data/rewards';
 import { useKv } from '@/lib/db/kv';
+import { useSession } from '@/lib/auth/session';
 import { startSync } from '@/lib/sync/engine';
 import { enterParentMode } from '@/lib/device/settings';
 import { asksDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
 import { BigButton } from '@/components/ui/BigButton';
+import { Button } from '@/components/ui/Button';
 import { useSheet } from '@/components/ui/Sheet';
+import { InviteSheet } from '@/components/careTeam/InviteSheet';
 import { GuideScreen } from '@/components/guide/GuideScreen';
 import { Picture } from '@/components/media/Picture';
 import { SETUP_ANSWERS_KEY } from './FirstProfileForm';
@@ -23,6 +26,9 @@ export function Ready() {
   const { open } = useSheet();
   const { profile } = useActiveProfile();
   const name = profile?.name ?? 'them';
+  const { accounts, profiles } = useSession();
+  const accountKind = accounts.find((a) => a.account.id === profile?.account_id)?.account.kind;
+  const accountPeople = profiles.filter((p) => p.account_id === profile?.account_id);
   const answers = useKv<SetupAnswers | null>(SETUP_ANSWERS_KEY, null);
   const plan = answers ? buildSeed(answers) : null;
   const routines = plan?.activities.filter((a) => a.steps && a.steps.length > 0) ?? [];
@@ -91,6 +97,18 @@ export function Ready() {
       ) : (
         <p className={styles.text}>We added starter activities, rewards and a daily plan for {name}. Change anything later.</p>
       )}
+      {accountKind === 'household' && accountPeople.length > 1 ? (
+        <p className={styles.text}>{accountPeople.length} people are set up: {accountPeople.map((p) => p.name).join(', ')}.</p>
+      ) : null}
+      {accountKind === 'individual' && profile ? (
+        <Button
+          variant="secondary"
+          fullWidth
+          onClick={() => open(<InviteSheet accountId={profile.account_id} profiles={accountPeople} onSent={() => undefined} />, { title: 'Invite' })}
+        >
+          Add someone to your support team
+        </Button>
+      ) : null}
       <BigButton fullWidth onClick={() => void goToToday()}>
         Go to Today
       </BigButton>
