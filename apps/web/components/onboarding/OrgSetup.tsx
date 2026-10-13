@@ -17,8 +17,8 @@ import {
   ORG_STEP_COUNT,
   ORG_TYPES,
   canContinueAbout,
+  everyoneAccess,
   familyInvitesLine,
-  peopleInGroups,
   splitEmails,
   stepFromState,
   suggestedPlanLine,
@@ -260,9 +260,10 @@ export function OrgSetup() {
     if (!accountId) return;
     const list = splitEmails(emails);
     if (list.length === 0) return setError('Enter at least one email address.');
-    // Groups are sent as groups, so people added to them later are covered too. "Everyone" lists each person.
-    const ids = role === 'admin' ? roster.map((p) => p.profile_id) : Array.from(new Set([...peopleInGroups(roster, new Set(), everyone), ...personIds]));
-    const clusterIds = role === 'admin' || everyone ? [] : Array.from(groupIds);
+    // Groups are sent as groups, so people added to them later are covered too.
+    const all = everyoneAccess(roster, clusters);
+    const ids = role === 'admin' ? roster.map((p) => p.profile_id) : Array.from(new Set([...(everyone ? all.profileIds : []), ...personIds]));
+    const clusterIds = role === 'admin' ? [] : everyone ? all.clusterIds : Array.from(groupIds);
     const missing = missingPersonError(role, new Set(ids), clusterIds.length, true);
     if (missing) return setError(missing);
     setBusy(true);

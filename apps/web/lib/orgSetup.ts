@@ -39,9 +39,12 @@ export function canContinueAbout(name: string, orgType: OrgType | null): boolean
 /** The CSV a person fills in and uploads. */
 export const CSV_TEMPLATE = 'name,group,parent email\nAva Smith,North site,parent@example.com\nBen Jones,North site,\n';
 
-/** Roster people in the chosen groups. `all` means everyone. */
-export function peopleInGroups(people: { profile_id: string; cluster_id: string | null }[], groupIds: Set<string>, all: boolean): string[] {
-  return people.filter((p) => all || (p.cluster_id !== null && groupIds.has(p.cluster_id))).map((p) => p.profile_id);
+/**
+ * What "Everyone" grants: every group, so people added to a group later are seen too, and by name the people
+ * in no group. A group made later is not included.
+ */
+export function everyoneAccess(people: { profile_id: string; cluster_id: string | null }[], groups: { id: string }[]): { profileIds: string[]; clusterIds: string[] } {
+  return { profileIds: people.filter((p) => p.cluster_id === null).map((p) => p.profile_id), clusterIds: groups.map((g) => g.id) };
 }
 
 /** Step 6 text. `invites` counts parents, not children: one email goes to each parent and covers all of their children. */

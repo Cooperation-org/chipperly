@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canContinueAbout, familyInvitesLine, peopleInGroups, splitEmails, stepFromState, suggestedPlanLine } from './orgSetup';
+import { canContinueAbout, everyoneAccess, familyInvitesLine, splitEmails, stepFromState, suggestedPlanLine } from './orgSetup';
 
 describe('suggestedPlanLine', () => {
   it.each([
@@ -55,13 +55,12 @@ describe('invite helpers', () => {
     expect(familyInvitesLine(3)).toContain('3 family invites');
   });
 
-  it('picks people by group', () => {
+  it('"Everyone" is every group, plus the people in no group', () => {
     const people = [
       { profile_id: 'p1', cluster_id: 'c1' },
       { profile_id: 'p2', cluster_id: 'c2' },
       { profile_id: 'p3', cluster_id: null },
     ];
-    expect(peopleInGroups(people, new Set(['c1']), false)).toEqual(['p1']);
-    expect(peopleInGroups(people, new Set(), true)).toEqual(['p1', 'p2', 'p3']);
+    expect(everyoneAccess(people, [{ id: 'c1' }, { id: 'c2' }])).toEqual({ profileIds: ['p3'], clusterIds: ['c1', 'c2'] });
   });
 });
