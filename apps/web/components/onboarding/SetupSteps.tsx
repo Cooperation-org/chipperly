@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { Role } from '@chipperly/shared/schemas/account';
 import { AVATAR_EMOJI } from '@chipperly/shared/constants/emoji';
 import { newId } from '@/lib/ids';
-import { addHelper, canAddRow, familyCounter, familyPeople, looksLikeEmail, tempPasswordError, type HelperInvite, type PersonDraft } from '@/lib/setupFlow';
+import { addHelper, canAddMe, canAddRow, familyCounter, familyPeople, looksLikeEmail, tempPasswordError, type HelperInvite, type PersonDraft } from '@/lib/setupFlow';
 import { PicturePicker } from '@/components/picture/PicturePicker';
 import { ROLE_HINT, ROLE_ITEMS, ROLE_LABEL } from '@/components/careTeam/roles';
 import { Button } from '@/components/ui/Button';
@@ -70,14 +70,13 @@ export function FamilyStep({ rows, onRows, meOn, onMeOn, me, onMe, onContinue, o
           <Switch
             label="I will use Chipperly too"
             checked={meOn}
-            onChange={(on) => {
-              // The admin takes a place, so a full list drops its last blank row to make room.
-              if (on && rows.length >= 6) onRows(rows.slice(0, 5));
-              onMeOn(on);
-            }}
+            disabled={!meOn && !canAddMe(rows.length)}
+            onChange={onMeOn}
           />
         </div>
-        <p className={styles.hint}>You get your own routine and count as one of the 6.</p>
+        <p className={styles.hint}>
+          {!meOn && !canAddMe(rows.length) ? 'You have 6 people. Remove one to add yourself.' : 'You get your own routine and count as one of the 6.'}
+        </p>
         {meOn ? (
           <>
             <TextField label="Your name" autoComplete="off" maxLength={80} value={me.name} onChange={(e) => onMe({ ...me, name: e.target.value })} />

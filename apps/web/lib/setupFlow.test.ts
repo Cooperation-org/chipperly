@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addHelper, canAddRow, familyCounter, familyPeople, prefillName, tempPasswordError, type PersonDraft } from './setupFlow';
+import { addHelper, canAddMe, canAddRow, sendsOwnLogin, familyCounter, familyPeople, prefillName, tempPasswordError, type PersonDraft } from './setupFlow';
 
 const p = (id: string, name: string): PersonDraft => ({ id, name, emoji: null, photo_id: null });
 
@@ -57,5 +57,17 @@ describe('addHelper', () => {
     const one = addHelper([], 'a@x.org', 'admin');
     expect(addHelper(one, 'nope', 'admin')).toEqual(one);
     expect(addHelper(one, 'A@x.org', 'viewer')).toEqual(one);
+  });
+});
+
+describe('household and login guards', () => {
+  it('blocks "I will use Chipperly too" when 6 people are listed', () => {
+    expect(canAddMe(5)).toBe(true);
+    expect(canAddMe(6)).toBe(false);
+  });
+  it('sends the own login only when the person uses the app', () => {
+    expect(sendsOwnLogin(true, true)).toBe(true);
+    expect(sendsOwnLogin(false, true)).toBe(false);
+    expect(sendsOwnLogin(true, false)).toBe(false);
   });
 });
