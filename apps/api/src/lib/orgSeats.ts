@@ -8,12 +8,12 @@ import { sendMail } from './mailer.js';
 
 /**
  * How many people (Primary Users) an organization may have, or null for no limit.
- * Always null for now: the limit arrives with the org tier columns (accounts.seat_limit),
- * and this is the one place that will read it. A limit never blocks adding people; it
- * only shows "27 of 25" and tells the super admins.
+ * accounts.seat_limit is set from the admin site when the org's plan is paid. A limit never
+ * blocks adding people; it only shows "27 of 25" and tells the super admins.
  */
-export async function seatLimitFor(_accountId: string): Promise<number | null> {
-  return null;
+export async function seatLimitFor(accountId: string): Promise<number | null> {
+  const [row] = await db.select({ limit: accounts.seat_limit }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  return row?.limit ?? null;
 }
 
 /** People in the account who count toward the limit: not archived, not deleted. */
