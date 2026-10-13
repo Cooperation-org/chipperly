@@ -185,11 +185,11 @@ test.describe('organization', () => {
   });
 });
 
-test('a household sign-up still asks the child name first', async ({ browser }) => {
+test('a household sign-up still starts with the family list', async ({ browser }) => {
   const page = await browser.newPage();
   await createAccount(page, 'Family Owner');
   await page.getByRole('button', { name: /My family/ }).click();
   await page.waitForURL('**/onboarding/profile/');
-  await expect(page.getByRole('heading', { name: "What's their name?" })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Who is in your family?' })).toBeVisible();
   await page.close();
 });
