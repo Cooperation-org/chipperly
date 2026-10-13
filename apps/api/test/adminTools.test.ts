@@ -69,6 +69,9 @@ describe('admin tools', () => {
 
       const setup = (await request(app, { method: 'POST', url: '/api/admin/2fa/setup', headers: auth(boss.token) })).json() as { secret: string; otpauth_url: string };
       expect(setup.otpauth_url).toContain(`secret=${setup.secret}`);
+      // Asking again before confirming gives the same secret, so a scanned QR code stays good.
+      const again = (await request(app, { method: 'POST', url: '/api/admin/2fa/setup', headers: auth(boss.token) })).json() as { secret: string };
+      expect(again.secret).toBe(setup.secret);
       expect((await request(app, { method: 'POST', url: '/api/admin/2fa/confirm', headers: auth(boss.token), payload: { code: '000000' } })).statusCode).toBe(400);
       const confirmed = (await request(app, { method: 'POST', url: '/api/admin/2fa/confirm', headers: auth(boss.token), payload: { code: totp(base32Decode(setup.secret), Date.now()) } })).json() as {
         token: string;

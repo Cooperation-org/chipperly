@@ -36,6 +36,8 @@ async function go(page: Page, label: string, path: string): Promise<void> {
 }
 
 test('a super admin sets up two-step sign-in, then runs the admin site', async ({ page, browser }, testInfo) => {
+  // It walks every admin page and signs up a second person, so it gets longer than the default.
+  test.setTimeout(180_000);
   await signUp(page, { name: 'Boss', email: `admin-${testInfo.project.name}@example.com` });
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
