@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { bigint, boolean, check, integer, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
 import type { AccountKind, Role } from '@chipperly/shared/schemas/account';
+import type { OrgType } from '@chipperly/shared/schemas/org';
 
 export const accounts = pgTable('accounts', {
   id: uuid('id').primaryKey(),
@@ -19,6 +20,9 @@ export const accounts = pgTable('accounts', {
   comp_until: bigint('comp_until', { mode: 'number' }),
   /** Why it was given, for whoever looks later. */
   comp_note: text('comp_note'),
+  /** Organizations only (migration 0050): what kind of organization, and the size it guessed at sign-up. */
+  org_type: text('org_type').$type<OrgType>(),
+  org_size_estimate: integer('org_size_estimate'),
 });
 
 export const users = pgTable(

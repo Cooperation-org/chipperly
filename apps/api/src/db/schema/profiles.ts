@@ -17,6 +17,9 @@ export const profiles = pgTable('profiles', {
   first_then_activity_id: uuid('first_then_activity_id'),
   first_then_reward_id: uuid('first_then_reward_id'),
   settings: jsonb('settings').$type<ProfileSettings>().notNull().default({}),
+  /** Organizations only (migration 0050). Archived people are hidden from lists and the switcher but never deleted. */
+  cluster_id: uuid('cluster_id'),
+  archived_at: bigint('archived_at', { mode: 'number' }),
   version: bigint('version', { mode: 'number' }).notNull().default(0),
   client_updated_at: bigint('client_updated_at', { mode: 'number' }).notNull(),
   updated_by: uuid('updated_by').notNull(),

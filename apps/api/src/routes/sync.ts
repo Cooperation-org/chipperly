@@ -61,7 +61,7 @@ export const TABLE_SCHEMAS: Record<MutationTable, z.ZodType> = {
  * name is unambiguous across tables (see db/schema/*.ts).
  */
 /** Exported for routes/me.ts's GET /me/export, which reads the same tables the same raw way. */
-export const BIGINT_FIELDS = ['version', 'client_updated_at', 'deleted_at', 'created_at', 'completed_at'] as const;
+export const BIGINT_FIELDS = ['version', 'client_updated_at', 'deleted_at', 'created_at', 'completed_at', 'archived_at'] as const;
 
 export function normalizeRow(row: postgres.Row): SyncRow {
   const out: SyncRow = { ...row };
