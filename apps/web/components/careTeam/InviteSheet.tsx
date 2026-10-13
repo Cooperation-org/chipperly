@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { InviteIssuedSchema, type InviteIssued } from '@chipperly/shared/schemas/account';
+import { InviteIssuedSchema, type InviteIssued, type Role } from '@chipperly/shared/schemas/account';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { Picture } from '@/components/media/Picture';
 import { BigButton } from '@/components/ui/BigButton';
@@ -15,6 +15,7 @@ import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
 import { toast } from '@/lib/toast';
 import { useOnline } from '@/lib/device/online';
+import { ROLE_HINT, ROLE_ITEMS } from './roles';
 import styles from './InviteSheet.module.css';
 
 export interface InviteSheetProps {
@@ -32,7 +33,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
   const { close } = useSheet();
   const online = useOnline();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'member'>('member');
+  const [role, setRole] = useState<Role>('member');
   const [profileIds, setProfileIds] = useState<Set<string>>(
     () => new Set(profiles.length === 1 ? [profiles[0].id] : []),
   );
@@ -63,7 +64,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
         {
           email: email.trim(),
           role,
-          profile_ids: role === 'member' ? Array.from(profileIds) : profiles.map((p) => p.id),
+          profile_ids: role !== 'admin' ? Array.from(profileIds) : profiles.map((p) => p.id),
           relationship_label: relationship.trim() || null,
         },
         { schema: InviteIssuedSchema },
@@ -71,7 +72,7 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
       onSent();
       setIssued(result);
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'admin_limit') setError('A household can have 2 admins. Invite them as a member instead, or remove an admin first.');
+      if (err instanceof ApiError && err.code === 'admin_limit') setError(`${err.message}. Invite them as Support team or Viewer instead, or remove an admin first.`);
       else setError(err instanceof ApiError ? "Couldn't send the invite. Check the email address and try again." : "Couldn't send the invite. Try again.");
     } finally {
       setSending(false);
@@ -114,24 +115,12 @@ export function InviteSheet({ accountId, profiles, onSent }: InviteSheetProps) {
       <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} error={error} autoFocus />
       <div>
         <span className={styles.label}>Role</span>
-        <Segmented
-          label="Role"
-          value={role}
-          onChange={(v) => setRole(v as 'admin' | 'member')}
-          items={[
-            { value: 'admin', label: 'Admin' },
-            { value: 'member', label: 'Member' },
-          ]}
-        />
-        <p className={styles.hint}>
-          {role === 'admin'
-            ? 'Admin: manages everything, including the team.'
-            : 'Member: sees and checks off the schedule for the chosen profiles.'}
-        </p>
+        <Segmented label="Role" value={role} onChange={(v) => setRole(v as Role)} items={ROLE_ITEMS} />
+        <p className={styles.hint}>{ROLE_HINT[role]}</p>
       </div>
-      {role === 'member' ? (
+      {role !== 'admin' ? (
         <div>
-          <span className={styles.label}>Which profiles</span>
+          <span className={styles.label}>Who they see</span>
           <div className={styles.checklist}>
             {profiles.map((p) => (
               <ListRow
