@@ -40,8 +40,9 @@ export function SignInForm() {
     setError(null);
     submittingRef.current = true;
     try {
-      await signInWithPassword(email, password);
-      await redirectAfterAuth(router);
+      const { mustChangePassword } = await signInWithPassword(email, password);
+      if (mustChangePassword) router.push('/change-password/');
+      else await redirectAfterAuth(router);
     } catch (err) {
       setError(
         err instanceof TimeoutError

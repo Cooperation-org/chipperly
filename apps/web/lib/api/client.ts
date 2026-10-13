@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import { TokensResponseSchema, type TokensResponse } from '@chipperly/shared/schemas/auth';
-import { apiBase } from './base';
+import { apiBase, withBase } from './base';
 import { getKv, setKv } from '../db/kv';
 import { setServerDate } from '../clock';
 import { GUEST_MESSAGE, isGuestMode } from '../auth/guest';
@@ -247,6 +247,10 @@ async function send<T>(
 
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as ErrorPayload | null;
+    // A login made with a temporary password does nothing until its owner picks their own.
+    if (res.status === 403 && payload?.error?.code === 'must_change_password' && typeof window !== 'undefined' && !window.location.pathname.includes('/change-password')) {
+      window.location.assign(withBase('/change-password/'));
+    }
     throw new ApiError(res.status, payload?.error?.code ?? 'unknown_error', payload?.error?.message);
   }
 
