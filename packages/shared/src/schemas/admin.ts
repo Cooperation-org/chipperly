@@ -323,3 +323,4 @@ export const DiscountBodySchema = z.object({
   note: z.string().trim().max(300).default(''),
 });
 export type DiscountBody = z.infer<typeof DiscountBodySchema>;
+

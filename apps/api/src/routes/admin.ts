@@ -76,6 +76,8 @@ async function requireAdminRole(request: FastifyRequest, allowed: ReadonlySet<st
 
 /** The signed-in admin's email, for the audit log. */
 export async function adminEmail(request: FastifyRequest): Promise<string> {
+  // The route writes its own audit line, so plugins/adminAudit.ts does not add a generic one.
+  request.adminAudited = true;
   const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, request.user!.id)).limit(1);
   return user?.email ?? 'unknown';
 }
@@ -232,12 +234,20 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   /** Erases for good: only a closed sign-in, only 30 days after it was closed, and only with the email typed again. */
   app.delete('/admin/users/:id', guard, async (request): Promise<EraseResult> => {
     const user = await target(request, true);
-    const { confirm_email } = AdminEraseUserBodySchema.parse(request.body);
+    const { confirm_email, now } = AdminEraseUserBodySchema.parse(request.body);
     if (confirm_email !== user.email) throw new AppError(400, 'confirm_mismatch', 'The email does not match');
-    if (user.deactivated_at === null) throw new AppError(409, 'not_closed', 'Close the sign-in first');
-    if (Date.now() < eraseAllowedAt(user.deactivated_at)) throw new AppError(409, 'too_soon', 'This person can be erased 30 days after their sign-in was closed');
+    if (!now) {
+      if (user.deactivated_at === null) throw new AppError(409, 'not_closed', 'Close the sign-in first');
+      if (Date.now() < eraseAllowedAt(user.deactivated_at)) throw new AppError(409, 'too_soon', 'This person can be erased 30 days after their sign-in was closed');
+    }
     const result = await eraseUser(user.id);
     request.log.warn({ erased_user: user.id, by: request.user?.id, ...result }, 'user erased');
+    await recordAdminAction(
+      await adminEmail(request),
+      now ? 'erased_now' : 'erased',
+      user.email,
+      `${result.accounts_removed.length} account(s) removed, ${result.accounts_left.length} kept for others, ${result.rows_removed} rows, ${result.files_removed} files`,
+    );
     return result;
   });
 

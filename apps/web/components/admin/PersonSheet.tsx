@@ -100,9 +100,9 @@ export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser;
       setClosedAt(null);
     }, 'Sign-in reopened');
 
-  const erase = () =>
+  const erase = (now = false) =>
     act(async () => {
-      await api.delete(`/admin/users/${person.id}`, { confirm_email: confirmEmail.trim().toLowerCase() });
+      await api.delete(`/admin/users/${person.id}`, { confirm_email: confirmEmail.trim().toLowerCase(), now });
       onClose();
     }, `${person.display_name} was erased`);
 
@@ -216,7 +216,7 @@ export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser;
           {due.due ? (
             <>
               <p className={styles.muted}>
-                Erasing removes them, and any account nobody else uses, with everything in it. It cannot be undone except from a backup. Type their email to confirm.
+                Erasing removes them, any account nobody else uses with everything in it, and their uploaded photos and videos. It cannot be undone; the nightly backups keep a copy for 30 days. Type their email to confirm.
               </p>
               <TextField label="Their email" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} autoCapitalize="none" />
               <Button variant="danger" disabled={busy || confirmEmail.trim().toLowerCase() !== person.email} onClick={() => void erase()}>
@@ -226,6 +226,19 @@ export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser;
           ) : null}
         </>
       )}
+      {due === null || !due.due ? (
+        <details className={styles.eraseNow}>
+          <summary>Erase now, without waiting 30 days</summary>
+          <p className={styles.muted}>
+            For test accounts, or someone who asked to be deleted. Removes them, any account nobody else uses with everything in it, and their uploaded photos and videos.
+            Photos another account still uses are kept. It cannot be undone; the nightly backups keep a copy for 30 days. Type their email to confirm.
+          </p>
+          <TextField label="Their email" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} autoCapitalize="none" />
+          <Button variant="danger" disabled={busy || confirmEmail.trim().toLowerCase() !== person.email} onClick={() => void erase(true)}>
+            Erase {person.display_name} now
+          </Button>
+        </details>
+      ) : null}
         </>
       ) : null}
       {error ? (

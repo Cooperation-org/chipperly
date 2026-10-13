@@ -269,3 +269,45 @@
     width: 15.5rem;
   }
 }
+
+.eraseNow {
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.eraseNow > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-danger);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.eraseNow[open] {
+  gap: var(--space-3);
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+
+.filterRow select {
+  min-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
