@@ -130,6 +130,8 @@ export function CareTeamScreen() {
       <BigButton
         fullWidth
         icon="plus"
+        // The sheet is opened with the groups known right now, so wait for the members and groups fetch.
+        disabled={!data}
         onClick={() =>
           open(<InviteSheet accountId={accountId} profiles={profiles} onSent={() => refetch()} accountKind={accountKind} callerRole={callerRole} groups={offered} />, { title: 'Invite' })
         }
