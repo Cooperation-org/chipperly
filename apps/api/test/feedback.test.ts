@@ -109,7 +109,7 @@ describe('feedback', () => {
     const mail = getLastMailMessage();
     expect(mail).toMatchObject({ to: 'team@example.com', subject: 'Chipperly feedback: A question' });
     expect(mail?.text).toContain('How do I add a second child?');
-    expect(mail?.html).toContain('/settings/admin/feedback/');
+    expect(mail?.html).toContain('admin.chipperlyapp.com/admin/feedback/');
     env.FEEDBACK_EMAIL_TO = undefined;
   });
 

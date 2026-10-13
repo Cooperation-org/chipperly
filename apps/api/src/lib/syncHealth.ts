@@ -2,7 +2,7 @@ import { v7 as uuidv7 } from 'uuid';
 import type { AdminSyncDevice, AdminSyncHealth, AdminSyncOrphan, AdminSyncRejection } from '@chipperly/shared/schemas/syncHealth';
 import { sql } from '../db/client.js';
 import { env } from '../env.js';
-import { renderEmail, siteOrigin } from './emailTemplate.js';
+import { adminOrigin, renderEmail } from './emailTemplate.js';
 import { sendMail } from './mailer.js';
 
 // Nothing a device writes may vanish without a trace. Three records make
@@ -89,7 +89,7 @@ export function alertRecipients(): string[] {
   return explicit.length > 0 ? explicit : [...env.superAdminEmails];
 }
 
-const adminUrl = (): string => `${siteOrigin()}/settings/admin/sync/`;
+const adminUrl = (): string => `${adminOrigin()}/admin/sync/`;
 
 let lastAlertAt = 0;
 /** At most one "refused just now" mail in this long; the rest wait for the next one or the daily mail. */
