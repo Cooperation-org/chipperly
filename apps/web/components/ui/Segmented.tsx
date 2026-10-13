@@ -23,6 +23,11 @@ export function Segmented({ items, value, onChange, label }: SegmentedProps) {
       <label className={styles.selectWrap}>
         <VisuallyHidden>{label}</VisuallyHidden>
         <select className={styles.select} value={value} onChange={(e) => onChange(e.target.value)}>
+          {items.some((item) => item.value === value) ? null : (
+            <option value="" disabled>
+              Choose one
+            </option>
+          )}
           {items.map((item) => (
             <option key={item.value} value={item.value}>
               {item.label}
