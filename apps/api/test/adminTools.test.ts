@@ -163,7 +163,7 @@ describe('admin tools', () => {
     vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
       calls.push({ url, init });
       if (url.endsWith('/internal/waitlist')) {
-        return Response.json({ entries: [{ email: known.email, created_at: 1, invited_at: null }, { email: 'new@example.com', name: 'Ana', created_at: 2, invited_at: null }] });
+        return Response.json({ entries: [{ email: known.email, created_at: 1, invited_at: null }, { email: 'waitlist-new@example.com', name: 'Ana', created_at: 2, invited_at: null }] });
       }
       return Response.json({ ok: true });
     });
@@ -171,18 +171,18 @@ describe('admin tools', () => {
       const list = (await request(app, { method: 'GET', url: '/api/admin/waitlist', headers: auth(boss.token) })).json() as { entries: Array<{ email: string; has_account: boolean }>; code_required: boolean };
       expect(list.code_required).toBe(true);
       expect(list.entries.find((e) => e.email === known.email)?.has_account).toBe(true);
-      expect(list.entries.find((e) => e.email === 'new@example.com')?.has_account).toBe(false);
+      expect(list.entries.find((e) => e.email === 'waitlist-new@example.com')?.has_account).toBe(false);
       expect((calls[0]!.init?.headers as Record<string, string>)['x-cron-secret']).toBe('x'.repeat(40));
 
-      const sent = (await request(app, { method: 'POST', url: '/api/admin/waitlist/send-code', headers: auth(boss.token), payload: { emails: ['new@example.com'] } })).json() as { sent: string[] };
-      expect(sent.sent).toEqual(['new@example.com']);
+      const sent = (await request(app, { method: 'POST', url: '/api/admin/waitlist/send-code', headers: auth(boss.token), payload: { emails: ['waitlist-new@example.com'] } })).json() as { sent: string[] };
+      expect(sent.sent).toEqual(['waitlist-new@example.com']);
       const marked = calls.find((c) => c.url.endsWith('/internal/waitlist/invited'))!;
-      expect(JSON.parse(String(marked.init?.body))).toEqual({ emails: ['new@example.com'] });
+      expect(JSON.parse(String(marked.init?.body))).toEqual({ emails: ['waitlist-new@example.com'] });
     } finally {
       (env as { CRON_SECRET?: string }).CRON_SECRET = prevSecret;
       (env as { BETA_INVITE_CODE?: string }).BETA_INVITE_CODE = prevCode;
     }
-    const [mail] = await db.select().from(email_log).where(eq(email_log.to_email, 'new@example.com'));
+    const [mail] = await db.select().from(email_log).where(eq(email_log.to_email, 'waitlist-new@example.com'));
     expect(mail?.subject).toBe('Your Chipperly beta invite');
     expect((await db.select().from(admin_actions).where(eq(admin_actions.action, 'beta_code_sent'))).length).toBeGreaterThan(0);
   });
