@@ -22,6 +22,8 @@ if (!existsSync(path.join(webOutDir, 'index.html'))) {
 }
 
 const DB_NAME = 'chipperly_e2e';
+// E2E_PORT lets two e2e runs share a machine (default 8123, as before); EMBEDDED_PG_PORT does the same for Postgres.
+const PORT = process.env.E2E_PORT || '8123';
 const dbUrl = connectionUrl(DB_NAME);
 
 const env = {
@@ -29,10 +31,10 @@ const env = {
   DATABASE_URL: dbUrl,
   DATABASE_URL_OWNER: dbUrl,
   JWT_SECRET: 'e2e-only-jwt-secret-at-least-forty-characters-long',
-  PORT: '8123',
+  PORT,
   HOST: '127.0.0.1',
   WEB_DIR: webOutDir,
-  APP_ORIGIN: 'http://127.0.0.1:8123',
+  APP_ORIGIN: `http://127.0.0.1:${PORT}`,
   UPLOAD_DIR: uploadDir,
   BETA_INVITE_CODE: 'e2e-beta-code',
   // admin.spec.ts signs up as these (one per Playwright project, same database).
@@ -76,7 +78,7 @@ function run(args, label) {
 console.log('e2e: running migrations against chipperly_e2e...');
 await run(['--env-file-if-exists=.env', '--import', 'tsx', 'src/db/migrate.ts'], 'db:migrate');
 
-console.log('e2e: starting API on http://127.0.0.1:8123 ...');
+console.log(`e2e: starting API on http://127.0.0.1:${PORT} ...`);
 const server = spawn(process.execPath, ['--env-file-if-exists=.env', '--import', 'tsx', 'src/server.ts'], {
   cwd: apiDir,
   env,
