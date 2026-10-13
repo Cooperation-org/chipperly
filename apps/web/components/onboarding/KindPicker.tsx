@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Account, AccountKind, Role } from '@chipperly/shared/schemas/account';
 import { api } from '@/lib/api/client';
 import { refreshMe, useSession } from '@/lib/auth/session';
@@ -28,9 +29,13 @@ interface CreateAccountResponse {
   role: Role;
 }
 
-/** S3: who is Chipperly for. Tapping a tile creates the account and, for "Myself", the profile too. */
+/**
+ * S3: who is Chipperly for. Tapping a tile creates the account and, for "Myself", the profile too.
+ * `?another` is Settings' "Start another account": someone who already has people starts a separate account.
+ */
 export function KindPicker() {
   const router = useRouter();
+  const another = useSearchParams().has('another');
   const { status, user, profiles } = useSession();
   const { setActiveAccountId } = useActiveAccount();
   const [busy, setBusy] = useState<AccountKind | null>(null);
@@ -42,10 +47,10 @@ export function KindPicker() {
     // 'loading' or momentarily-signed_out read doesn't get treated as
     // "still needs onboarding" and bounced back here right after
     // ChildShell already bounced away from it.
-    if (status === 'signed_in' && profiles.length > 0) router.replace('/child/');
-  }, [status, profiles, router]);
+    if (!another && status === 'signed_in' && profiles.length > 0) router.replace('/child/');
+  }, [another, status, profiles, router]);
 
-  if (status === 'signed_in' && profiles.length > 0) return null;
+  if (!another && status === 'signed_in' && profiles.length > 0) return null;
 
   async function choose(kind: AccountKind): Promise<void> {
     if (!user || busy) return;
@@ -75,7 +80,7 @@ export function KindPicker() {
   return (
     <div>
       <h1 className={styles.title}>Who is Chipperly for?</h1>
-      <p className={styles.subtitle}>You can add more people later.</p>
+      <p className={styles.subtitle}>{another ? 'This starts a separate account, with its own people and plan.' : 'You can add more people later.'}</p>
       <div className={styles.grid}>
         {OPTIONS.map((option) => (
           <button
@@ -96,6 +101,11 @@ export function KindPicker() {
         <p className={styles.error} role="alert">
           {error}
         </p>
+      ) : null}
+      {another ? (
+        <Link href="/settings/account/" className={styles.cancel}>
+          Cancel
+        </Link>
       ) : null}
     </div>
   );

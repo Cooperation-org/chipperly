@@ -51,7 +51,7 @@ function DevicePinSheet({ onDone }: { onDone: () => void }) {
 export function AccountScreen() {
   const router = useRouter();
   const { open, close } = useSheet();
-  const { user, accounts } = useSession();
+  const { user, accounts, guest } = useSession();
   const { profiles, setActiveProfileId } = useActiveProfile();
   const { setActiveAccountId } = useActiveAccount();
   const [deleting, setDeleting] = useState(false);
@@ -161,6 +161,15 @@ export function AccountScreen() {
             }
           />
         ) : null}
+        {guest ? null : (
+          <ListRow
+            tile={<Icon name="plus" size={20} />}
+            name="Start another account"
+            secondary="For another family, someone you support, or your organization"
+            trailing={<Icon name="chevron" size={20} />}
+            onTap={() => router.push('/onboarding/kind/?another')}
+          />
+        )}
         <ListRow
           tile={<Icon name="share" size={20} />}
           name="Download my data"

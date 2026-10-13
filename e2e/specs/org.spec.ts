@@ -183,6 +183,16 @@ test.describe('organization', () => {
     await expect(group('West clinic')).toHaveCount(0);
     await expectNoOverflow(page, 'org groups');
   });
+
+  test('Settings starts another account: the org owner sets up a family too', async () => {
+    await gotoCaregiver(page, '/settings/account/', PASSWORD);
+    await page.getByRole('button', { name: /Start another account/ }).click();
+    await page.waitForURL('**/onboarding/kind/**');
+    await expect(page.getByText('This starts a separate account, with its own people and plan.')).toBeVisible();
+    await page.getByRole('button', { name: /My family/ }).click();
+    await page.waitForURL('**/onboarding/profile/');
+    await expect(page.getByRole('heading', { name: 'Who is in your family?' })).toBeVisible();
+  });
 });
 
 test('an organization that skips adding people lands on an empty Org home and stays there', async ({ browser }) => {
