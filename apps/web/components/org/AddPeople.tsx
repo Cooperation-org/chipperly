@@ -65,7 +65,7 @@ export function AddPeople({
   return (
     <div className={styles.addForm}>
       <label className={styles.fieldLabel} htmlFor="org-add-people">
-        Names, one per line
+        People, one per line
       </label>
       <textarea
         id="org-add-people"
