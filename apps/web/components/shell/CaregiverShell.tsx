@@ -1,11 +1,12 @@
 'use client';
 
 import { useCanEdit } from '@/lib/auth/permissions';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { useSession } from '@/lib/auth/session';
-import { useActiveProfile } from '@/lib/profile/active';
+import { useActiveAccount, useActiveProfile } from '@/lib/profile/active';
+import { filterByName, groupByAccount, needsSearch } from '@/lib/profile/switcher';
 import { useMediaUrl } from '@/lib/data/media';
 import { useLock, useLockLoaded, useParentMode, useParentModeLoaded } from '@/lib/device/settings';
 import { usesApp, useCaregiverDevice } from '@/lib/device/role';
@@ -18,6 +19,7 @@ import { TopBar } from '@/components/ui/TopBar';
 import { TabBar } from '@/components/ui/TabBar';
 import { TabRail } from '@/components/ui/TabRail';
 import { TimerPill } from '@/components/timer/TimerPill';
+import { ProfileSearchField } from './ProfileSearchField';
 import { SyncSheet } from './SyncSheet';
 import { UnsavedBanner } from './UnsavedBanner';
 import { GuestBanner } from './GuestBanner';
@@ -34,22 +36,46 @@ const TABS = [
 
 function ProfileSwitcherSheet({
   profiles,
+  accounts,
   onPick,
 }: {
   profiles: Profile[];
-  onPick: (id: string) => void;
+  accounts: { id: string; name: string }[];
+  onPick: (p: Profile) => void;
 }): ReactNode {
+  const [query, setQuery] = useState('');
+  const shown = filterByName(profiles, query);
+  const groups = groupByAccount(shown, accounts);
+  // One account looks as before: no heading.
+  const headed = accounts.length > 1;
+  const rows = (list: Profile[]): ReactNode =>
+    list.map((p) => (
+      <li key={p.id}>
+        <button type="button" className={styles.profileRow} onClick={() => onPick(p)}>
+          <span aria-hidden>{p.avatar_emoji ?? '🙂'}</span>
+          {p.name}
+        </button>
+      </li>
+    ));
   return (
-    <ul className={styles.profileList}>
-      {profiles.map((p) => (
-        <li key={p.id}>
-          <button type="button" className={styles.profileRow} onClick={() => onPick(p.id)}>
-            <span aria-hidden>{p.avatar_emoji ?? '🙂'}</span>
-            {p.name}
-          </button>
-        </li>
-      ))}
-    </ul>
+    <>
+      {needsSearch(profiles.length) ? (
+        <div className={styles.profileSearch}>
+          <ProfileSearchField value={query} onChange={setQuery} />
+        </div>
+      ) : null}
+      <ul className={styles.profileList}>
+        {shown.length === 0 ? <li className={styles.profileEmpty}>No one matches.</li> : null}
+        {headed
+          ? groups.map((g) => (
+              <li key={g.accountId} role="presentation">
+                <h3 className={styles.accountHeading}>{g.accountName}</h3>
+                <ul className={styles.profileList}>{rows(g.profiles)}</ul>
+              </li>
+            ))
+          : rows(shown)}
+      </ul>
+    </>
   );
 }
 
@@ -61,9 +87,10 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   // mount) gates the redirect so it can't flicker true while Dexie's live
   // query for `useActiveProfile().profiles` (used for the switcher list) is
   // still resolving its first result.
-  const { status: sessionStatus, profiles: sessionProfiles, user, guest } = useSession();
+  const { status: sessionStatus, profiles: sessionProfiles, accounts: sessionAccounts, user, guest } = useSession();
   const blockingReady = useBlockingReady();
   const { profile, profiles, setActiveProfileId } = useActiveProfile();
+  const { setActiveAccountId } = useActiveAccount();
   // TopBar is a dumb tile: without a resolved URL a photo avatar stays a skeleton forever.
   const avatarUrl = useMediaUrl(profile?.avatar_photo_id);
   const sync = useSyncStatus();
@@ -143,8 +170,11 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
           open(
             <ProfileSwitcherSheet
               profiles={profiles}
-              onPick={(id) => {
-                setActiveProfileId(id);
+              accounts={sessionAccounts.map((a) => ({ id: a.account.id, name: a.account.name }))}
+              onPick={(p) => {
+                // A profile from another account makes that account the active one too.
+                if (p.account_id !== profile?.account_id) setActiveAccountId(p.account_id);
+                setActiveProfileId(p.id);
                 close();
               }}
             />,
