@@ -15,6 +15,8 @@ export default async function globalSetup(): Promise<void> {
   process.env.DATABASE_URL = url;
   process.env.DATABASE_URL_OWNER = url;
   process.env.JWT_SECRET ??= 'test-only-jwt-secret-not-for-production-use';
+  // Admin tests sign in with a password only; twoStep.test.ts turns the authenticator step on itself.
+  process.env.ADMIN_TWO_STEP ??= 'off';
 
   const { default: postgres } = await import('postgres');
   const sql = postgres(url);

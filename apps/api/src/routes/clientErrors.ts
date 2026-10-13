@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { storeClientError } from './adminTools.js';
 
 // What a browser may report: what broke, on which screen, in which build. Nothing about who.
 const ClientErrorBodySchema = z.object({
@@ -13,7 +14,7 @@ const ClientErrorBodySchema = z.object({
  * Uncaught errors from the web app land in the server log, so a broken screen
  * is seen without waiting for someone to describe it:
  *   journalctl -u chipperly | grep client_error
- * No session is read and nothing is stored in the database. Open to anyone,
+ * No session is read. Kept 30 days in client_errors for the admin site's Errors page. Open to anyone,
  * so it is small, capped and rate limited.
  */
 export default async function clientErrorRoutes(app: FastifyInstance): Promise<void> {
@@ -23,6 +24,7 @@ export default async function clientErrorRoutes(app: FastifyInstance): Promise<v
     async (request, reply) => {
       const client_error = ClientErrorBodySchema.parse(request.body);
       request.log.error({ client_error, user_agent: request.headers['user-agent'] }, 'client error');
+      await storeClientError({ ...client_error, user_agent: request.headers['user-agent'] });
       return reply.code(204).send();
     },
   );

@@ -1,4 +1,5 @@
 import { env } from '../env.js';
+import { v7 as uuidv7 } from 'uuid';
 
 export interface MailMessage {
   readonly to: string;
@@ -39,7 +40,7 @@ export function textToHtml(text: string): string {
   return `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#2b2b2b">${body}</div>`;
 }
 
-async function sendViaResend(message: MailMessage): Promise<void> {
+async function sendViaResend(message: MailMessage): Promise<string | null> {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -57,6 +58,19 @@ async function sendViaResend(message: MailMessage): Promise<void> {
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Resend send failed: ${response.status} ${body}`);
+  }
+  const sent = (await response.json().catch(() => null)) as { id?: unknown } | null;
+  return typeof sent?.id === 'string' ? sent.id : null;
+}
+
+/** One row per send for the admin site's email log. A failure here is logged and never fails the send. */
+async function logMail(message: MailMessage, result: 'sent' | 'failed' | 'logged', providerId: string | null): Promise<void> {
+  try {
+    const { db } = await import('../db/client.js');
+    const { email_log } = await import('../db/schema/adminTools.js');
+    await db.insert(email_log).values({ id: uuidv7(), at: Date.now(), to_email: message.to.toLowerCase(), subject: message.subject, result, provider_id: providerId });
+  } catch (err) {
+    console.error('sendMail: could not write the email log', err);
   }
 }
 
@@ -78,13 +92,15 @@ export async function sendMail(message: MailMessage): Promise<boolean> {
   lastMessage = message;
   if (env.mailEnabled) {
     try {
-      await sendViaResend(message);
+      await logMail(message, 'sent', await sendViaResend(message));
       return true;
     } catch (err) {
       console.error('sendMail: Resend send failed', err);
+      await logMail(message, 'failed', null);
       return false;
     }
   }
   sendViaConsole(message);
+  await logMail(message, 'logged', null);
   return true;
 }

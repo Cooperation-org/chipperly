@@ -19,6 +19,7 @@ import { admin_actions, org_billing, subscriptions } from '../db/schema/subscrip
 import { env } from '../env.js';
 import { cancelSubscription, createOrgBilling, listCharges, listSubscriptions, refundCharge, toBilling, withdrawOrgBilling } from '../lib/adminStripe.js';
 import { siteOrigin } from '../lib/emailTemplate.js';
+import { orgOwnerPending } from '../lib/orgOwner.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { adminEmail, requireAdminRead, requireSuperAdmin } from './admin.js';
@@ -79,10 +80,12 @@ export default async function adminBillingRoutes(app: FastifyInstance): Promise<
       : [];
     const bills = ids.length ? await db.select().from(org_billing).where(inArray(org_billing.account_id, ids)).orderBy(desc(org_billing.created_at)) : [];
     const n = new Map(counts.map((c) => [c.account_id, c.n]));
+    const pending = new Map(await Promise.all(ids.map(async (id) => [id, await orgOwnerPending(id)] as const)));
     return {
       orgs: rows.map((r) => ({
         ...r,
         primary_users: n.get(r.id) ?? 0,
+        owner_invite_pending: pending.get(r.id) ?? false,
         billing: bills.filter((b) => b.account_id === r.id).map(toBilling),
       })),
     };

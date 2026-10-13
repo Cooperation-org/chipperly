@@ -59,7 +59,7 @@ function newRawToken(): string {
 }
 
 /** False when the mail provider refused it; the token row is removed so a failed send never blocks a resend. */
-async function sendVerificationEmail(userId: string, email: string, request: FastifyRequest): Promise<boolean> {
+export async function sendVerificationEmail(userId: string, email: string, request: FastifyRequest): Promise<boolean> {
   const rawToken = newRawToken();
   const id = uuidv7();
   await db.insert(email_verifications).values({

@@ -22,6 +22,7 @@ import { env } from '../env.js';
 import { isSuperAdmin, trialEndsAt } from '../lib/trial.js';
 import { issuePersonalCode } from '../lib/earlyAccess.js';
 import { recordAdminAction } from '../lib/adminStripe.js';
+import { checkPass } from '../lib/twoStep.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 
@@ -30,15 +31,35 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Only people in SUPER_ADMIN_EMAILS, and never from a device locked to a child. */
 export async function requireSuperAdmin(request: FastifyRequest): Promise<void> {
   if (!request.user) throw new AppError(401, 'unauthorized', 'Sign-in required');
-  const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, request.user.id)).limit(1);
+  const [user] = await db.select({ email: users.email, totp_enabled_at: users.totp_enabled_at }).from(users).where(eq(users.id, request.user.id)).limit(1);
   if (!user || !isSuperAdmin(user.email) || request.locked) throw new AppError(403, 'forbidden', 'Super admins only');
+  requireTwoStep(request, user.totp_enabled_at);
+}
+
+/**
+ * Every admin route but /admin/2fa/* also needs X-Admin-Step: a pass from
+ * lib/twoStep.ts, given after an authenticator code was accepted. 403, not
+ * 401, so the client does not take it for an expired sign-in.
+ */
+function requireTwoStep(request: FastifyRequest, enabledAt: number | null): void {
+  if (!env.adminTwoStep) return;
+  const header = request.headers['x-admin-step'];
+  if (checkPass(request.user!.id, Array.isArray(header) ? header[0] : header)) return;
+  throw enabledAt === null
+    ? new AppError(403, 'two_step_setup', 'Set up two-step sign-in first')
+    : new AppError(403, 'two_step_required', 'Enter the code from your authenticator app');
 }
 
 /** Super admins, or people with users.is_support: the admin site's read-only screens. Never from a device locked to a child. */
 export async function requireAdminRead(request: FastifyRequest): Promise<void> {
   if (!request.user) throw new AppError(401, 'unauthorized', 'Sign-in required');
-  const [user] = await db.select({ email: users.email, is_support: users.is_support }).from(users).where(eq(users.id, request.user.id)).limit(1);
+  const [user] = await db
+    .select({ email: users.email, is_support: users.is_support, totp_enabled_at: users.totp_enabled_at })
+    .from(users)
+    .where(eq(users.id, request.user.id))
+    .limit(1);
   if (!user || !(isSuperAdmin(user.email) || user.is_support) || request.locked) throw new AppError(403, 'forbidden', 'Admins only');
+  requireTwoStep(request, user.totp_enabled_at);
 }
 
 /** The signed-in admin's email, for the audit log. */

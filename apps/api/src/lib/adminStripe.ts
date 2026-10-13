@@ -36,6 +36,7 @@ const SubList = z.object({
         cancel_at_period_end: z.boolean().default(false),
         current_period_end: z.number().int().optional(),
         created: z.number().int(),
+        canceled_at: z.number().int().nullish(),
         collection_method: z.string().default('charge_automatically'),
         metadata: z.record(z.string(), z.string()).default({}),
         items: z.object({
@@ -93,6 +94,7 @@ export async function listSubscriptions(call: StripeCall = stripeRequest): Promi
       current_period_end: periodEnd === undefined ? null : periodEnd * 1000,
       cancel_at_period_end: s.cancel_at_period_end,
       created: s.created * 1000,
+      canceled_at: s.canceled_at ? s.canceled_at * 1000 : null,
       collection_method: s.collection_method,
     };
   });

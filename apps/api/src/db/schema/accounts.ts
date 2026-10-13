@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, check, integer, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, check, integer, jsonb, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
 import type { AccountKind, Role } from '@chipperly/shared/schemas/account';
 import type { OrgType } from '@chipperly/shared/schemas/org';
 
@@ -56,6 +56,12 @@ export const users = pgTable(
     is_support: boolean('is_support').notNull().default(false),
     /** Set by a super admin: the person cannot sign in and is hidden, but nothing is erased until the admin erases them (30 days later at the earliest). */
     deactivated_at: bigint('deactivated_at', { mode: 'number' }),
+    /** Admin site two-step sign-in (migration 0060): the authenticator secret, AES-GCM sealed (lib/twoStep.ts). */
+    totp_secret: text('totp_secret'),
+    /** When a code from it was first confirmed; null = not set up. */
+    totp_enabled_at: bigint('totp_enabled_at', { mode: 'number' }),
+    /** SHA-256 hashes of the unused recovery codes. */
+    totp_recovery: jsonb('totp_recovery').$type<string[]>(),
   },
   // Belt-and-suspenders: callers should already lowercase before insert.
   (t) => [check('users_email_lowercase', sql`${t.email} = lower(${t.email})`)],
