@@ -274,7 +274,7 @@ export default async function adminToolRoutes(app: FastifyInstance): Promise<voi
   // ---- waitlist (on the marketing site) ----
 
   async function site<T>(method: 'GET' | 'POST', path: string, schema: z.ZodType<T>, body?: unknown): Promise<T> {
-    if (!env.CRON_SECRET) throw new AppError(409, 'site_unlinked', 'The website is not linked to this server (CRON_SECRET is not set)');
+    if (!env.CRON_SECRET) throw new AppError(409, 'site_unlinked', "The website isn't connected to the admin site yet, so the waitlist can't be read. It needs the same secret on both (see the deploy notes).");
     const res = await fetch(`${env.SITE_ORIGIN}${path}`, {
       method,
       headers: { 'x-cron-secret': env.CRON_SECRET, ...(body ? { 'content-type': 'application/json' } : {}) },

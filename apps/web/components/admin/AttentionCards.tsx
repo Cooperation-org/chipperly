@@ -12,6 +12,8 @@ type Count = number | 'error' | null;
 
 interface Card {
   key: string;
+  /** For "Couldn't check {what}". */
+  what: string;
   href: string;
   label: (n: number) => string;
   calm: string;
@@ -23,6 +25,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const CARDS: Card[] = [
   {
     key: 'trials',
+    what: 'trials',
     href: '/admin/growth/',
     label: (n) => `${n} trial${n === 1 ? '' : 's'} end this week`,
     calm: 'No trials end this week',
@@ -30,6 +33,7 @@ const CARDS: Card[] = [
   },
   {
     key: 'failed',
+    what: 'payments',
     href: '/admin/failed-payments/',
     label: (n) => `${n} failed or overdue payment${n === 1 ? '' : 's'}`,
     calm: 'No failed payments',
@@ -37,6 +41,7 @@ const CARDS: Card[] = [
   },
   {
     key: 'waitlist',
+    what: 'the waitlist',
     href: '/admin/waitlist/',
     label: (n) => `${n} ${n === 1 ? 'person is' : 'people are'} waiting for a beta code`,
     calm: 'Nobody is waiting for a beta code',
@@ -44,6 +49,7 @@ const CARDS: Card[] = [
   },
   {
     key: 'feedback',
+    what: 'feedback',
     href: '/admin/feedback/',
     label: (n) => `${n} new feedback message${n === 1 ? '' : 's'}`,
     calm: 'No new feedback',
@@ -51,6 +57,7 @@ const CARDS: Card[] = [
   },
   {
     key: 'errors',
+    what: 'app errors',
     href: '/admin/errors/',
     label: (n) => `${n} app error${n === 1 ? '' : 's'} in the last day`,
     calm: 'No app errors in the last day',
@@ -79,10 +86,11 @@ export function AttentionCards() {
   if (!role) return null;
   const busy = CARDS.filter((c) => typeof counts[c.key] === 'number' && (counts[c.key] as number) > 0);
   const loaded = CARDS.every((c) => counts[c.key] !== undefined);
+  const failed = CARDS.some((c) => counts[c.key] === 'error');
 
   return (
     <section aria-label="Needs attention" className={styles.wrap}>
-      <h2 className={styles.heading}>{loaded && busy.length === 0 ? 'All clear' : 'Needs attention'}</h2>
+      <h2 className={styles.heading}>{loaded && busy.length === 0 && !failed ? 'All clear' : 'Needs attention'}</h2>
       <ul className={styles.list}>
         {CARDS.map((card) => {
           const n = counts[card.key];
@@ -91,10 +99,10 @@ export function AttentionCards() {
             <li key={card.key}>
               <Link href={card.href} className={styles.card} data-tone={tone}>
                 <span className={styles.count} aria-hidden="true">
-                  {typeof n === 'number' ? n : n === 'error' ? '!' : '…'}
+                  {tone === 'act' ? n : tone === 'calm' ? '✓' : tone === 'error' ? '!' : '…'}
                 </span>
                 <span className={styles.text}>
-                  {n === undefined ? 'Checking…' : n === 'error' ? `Couldn't check (${card.calm.toLowerCase()}?)` : n === 0 || n === null ? card.calm : card.label(n)}
+                  {n === undefined ? 'Checking…' : n === 'error' ? `Couldn't check ${card.what}` : n === 0 || n === null ? card.calm : card.label(n)}
                 </span>
               </Link>
             </li>

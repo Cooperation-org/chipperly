@@ -88,13 +88,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
     );
   }
 
-  const current = NAV.flatMap((g) => g.items).find((n) => n.href === path);
-
   return (
     <TwoStepGate email={user?.email ?? ''}>
       <div className={styles.shell}>
         <header className={styles.bar}>
-          <span className={styles.title}>Chipperly admin</span>
+          <span className={styles.brand}>Chipperly admin</span>
           <button
             type="button"
             className={styles.menuButton}
@@ -102,7 +100,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             aria-controls="admin-menu"
             onClick={() => setMenuOpen((o) => !o)}
           >
-            {menuOpen ? 'Close menu' : `Menu${current ? `: ${current.label}` : ''}`}
+            {menuOpen ? 'Close' : 'Menu'}
           </button>
         </header>
         <div className={styles.body}>

@@ -78,3 +78,7 @@
   background: var(--color-danger);
   color: #fff;
 }
+
+.card[data-tone='calm'] .count {
+  color: var(--color-success);
+}

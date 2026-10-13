@@ -28,7 +28,7 @@ function totp(key: string, at = Date.now()): string {
 
 /** Opens a page from the admin menu (behind the Menu button on a phone). */
 async function go(page: Page, label: string, path: string): Promise<void> {
-  const menu = page.getByRole('button', { name: /^Menu/ });
+  const menu = page.getByRole('button', { name: 'Menu', exact: true });
   if (await menu.isVisible()) await menu.click();
   await page.getByRole('navigation', { name: 'Admin' }).getByRole('link', { name: label, exact: true }).click();
   await page.waitForURL(`**/admin/${path}`);
@@ -45,6 +45,7 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
   // First visit: scan (here: read the key), type a code, save the recovery codes.
   await expect(page.getByRole('heading', { name: 'Set up two-step sign-in' })).toBeVisible();
   await expectNoOverflow(page, 'two-step setup');
+  await page.screenshot({ path: `e2e/screenshots/admin-two-step-${testInfo.project.name}.png`, fullPage: true });
   const key = (await page.locator('code').first().textContent()) ?? '';
   await page.getByLabel('6-digit code').fill('000000');
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
@@ -60,6 +61,7 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
   await expect(page.getByRole('region', { name: 'Needs attention' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Sign-ups, last 30 days' })).toBeVisible();
   await expectNoOverflow(page, 'admin today');
+  await page.screenshot({ path: `e2e/screenshots/admin-today-${testInfo.project.name}.png`, fullPage: true });
 
   // People: the early access offer and a trial extension.
   await go(page, 'People', 'people/');
@@ -103,6 +105,7 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
   ] as const) {
     await go(page, label, path);
     await expectNoOverflow(page, `admin ${path}`);
+    await page.screenshot({ path: `e2e/screenshots/admin-${path.replace('/', '')}-${testInfo.project.name}.png`, fullPage: true });
   }
 
   // The pass is kept: a reload goes straight back in, no code asked.
