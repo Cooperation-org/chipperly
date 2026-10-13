@@ -274,6 +274,13 @@
       "when": 1790370000000,
       "tag": "0040_reward_positions",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790370100000,
+      "tag": "0041_admin_site",
+      "breakpoints": true
     }
   ]
 }

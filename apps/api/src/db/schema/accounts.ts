@@ -19,6 +19,10 @@ export const accounts = pgTable('accounts', {
   comp_until: bigint('comp_until', { mode: 'number' }),
   /** Why it was given, for whoever looks later. */
   comp_note: text('comp_note'),
+  /** Organization plan (constants/orgTiers.ts ORG_TIERS key, or 'custom'), set from the admin site. Null for other kinds. */
+  org_tier: text('org_tier'),
+  /** How many Primary Users the organization paid for. */
+  seat_limit: integer('seat_limit'),
 });
 
 export const users = pgTable(
