@@ -20,12 +20,14 @@ import {
   PAGE_SIZE,
   activeClusters,
   canManageOrg,
+  canMovePeople,
   filterRoster,
   initials,
   isOverSeats,
   orgErrorMessage,
   pickOrgAccount,
   seatLabel,
+  staffNames,
   type Cluster,
   type RosterPerson,
   type RosterResponse,
@@ -37,18 +39,21 @@ import styles from './Org.module.css';
 function PersonSheet({
   person,
   clusters,
+  canUnassign,
   onMove,
   onArchive,
 }: {
   person: RosterPerson;
   clusters: Cluster[];
+  /** Taking someone out of every group is for admins; a moderator moves people between their own groups. */
+  canUnassign: boolean;
   onMove: (clusterId: string | null) => void;
   onArchive: () => void;
 }) {
   return (
     <div className={styles.sheetList}>
       <p className={styles.hint}>Move to group</p>
-      {person.cluster_id ? (
+      {person.cluster_id && canUnassign ? (
         <button type="button" className={styles.sheetRow} onClick={() => onMove(null)}>
           No group
         </button>
@@ -77,6 +82,7 @@ export function OrgHome() {
   const org = pickOrgAccount(accounts, activeAccount?.id);
   const accountId = org?.account.id;
   const admin = canManageOrg(org?.role);
+  const mover = canMovePeople(org?.role);
 
   const [roster, setRoster] = useState<RosterResponse | null>(null);
   const [clusters, setClusters] = useState<Cluster[]>([]);
@@ -231,6 +237,7 @@ export function OrgHome() {
                   <span className={styles.personText}>
                     <span className={styles.personName}>{p.name}</span>
                     <span className={styles.personGroup}>{p.cluster_id ? (groupName.get(p.cluster_id) ?? '') : 'No group'}</span>
+                    {staffNames(p.team) ? <span className={styles.personGroup}>Staff: {staffNames(p.team)}</span> : null}
                   </span>
                   <span className={styles.team} aria-label={p.team.length > 0 ? `Team: ${p.team.map((t) => t.display_name).join(', ')}` : undefined}>
                     {p.team.slice(0, 3).map((t) => (
@@ -241,7 +248,7 @@ export function OrgHome() {
                     {p.team.length > 3 ? <span className={styles.avatar} aria-hidden>+{p.team.length - 3}</span> : null}
                   </span>
                 </button>
-                {admin ? (
+                {mover ? (
                   <IconButton
                     icon="more"
                     aria-label={`Actions for ${p.name}`}
@@ -250,6 +257,7 @@ export function OrgHome() {
                         <PersonSheet
                           person={p}
                           clusters={groups}
+                          canUnassign={admin}
                           onMove={(id) => void patchPerson(p, { cluster_id: id })}
                           onArchive={() => void patchPerson(p, { archived: p.archived_at === null })}
                         />,
@@ -269,7 +277,7 @@ export function OrgHome() {
         </>
       )}
 
-      {admin ? (
+      {mover ? (
         <Button variant="secondary" onClick={() => router.push('/org/clusters/')}>
           Groups
         </Button>

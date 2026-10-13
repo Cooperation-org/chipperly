@@ -2,14 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { CheckCircle } from '@/components/ui/CheckCircle';
+import { Icon } from '@/components/ui/Icon';
+import { ListRow } from '@/components/ui/ListRow';
 import { IconButton } from '@/components/ui/IconButton';
 import { TextField } from '@/components/ui/TextField';
 import { Confirm, useSheet } from '@/components/ui/Sheet';
+import type { AccountMembersResponse, Role } from '@chipperly/shared/schemas/account';
 import { api, ApiError } from '@/lib/api/client';
+import { roleLabel } from '@/lib/auth/roleRules';
 import { useSession } from '@/lib/auth/session';
 import { useActiveAccount } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
-import { activeClusters, canManageOrg, orgErrorMessage, pickOrgAccount, type Cluster } from '@/lib/org/roster';
+import { activeClusters, canManageOrg, canMovePeople, orgErrorMessage, pickOrgAccount, type Cluster } from '@/lib/org/roster';
 import styles from './Org.module.css';
 
 function NameSheet({ initial, label, onSave }: { initial: string; label: string; onSave: (name: string) => Promise<void> }) {
@@ -32,7 +37,95 @@ function NameSheet({ initial, label, onSave }: { initial: string; label: string;
   );
 }
 
-/** Groups (clusters) of an organization: list with counts, add, rename, archive when empty. Admins only. */
+interface StaffRow {
+  user_id: string;
+  name: string;
+  role: Role;
+  clusterIds: string[];
+}
+
+/** Tick the staff who cover one group. Saves one change per person whose groups changed. */
+function StaffSheet({ accountId, group, onDone }: { accountId: string; group: Cluster; onDone: () => void }) {
+  const { close } = useSheet();
+  const [rows, setRows] = useState<StaffRow[] | null>(null);
+  const [on, setOn] = useState<Set<string>>(new Set());
+  const [initial, setInitial] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api.get<AccountMembersResponse>(`/accounts/${accountId}/members`);
+        if (cancelled) return;
+        // Admins see every group, and families are added from their own invite, so only Moderators and Staff are listed.
+        const list = res.members
+          .filter((m) => m.role === 'moderator' || m.role === 'member')
+          .map((m) => ({ user_id: m.user.id, name: m.user.display_name, role: m.role, clusterIds: m.cluster_ids ?? [] }));
+        const current = new Set(list.filter((r) => r.clusterIds.includes(group.id)).map((r) => r.user_id));
+        setRows(list);
+        setOn(new Set(current));
+        setInitial(current);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, group.id]);
+
+  function toggle(id: string): void {
+    setOn((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function save(): Promise<void> {
+    if (!rows) return;
+    setSaving(true);
+    try {
+      for (const r of rows) {
+        if (on.has(r.user_id) === initial.has(r.user_id)) continue;
+        const next = on.has(r.user_id) ? [...r.clusterIds, group.id] : r.clusterIds.filter((id) => id !== group.id);
+        await api.put(`/accounts/${accountId}/members/${r.user_id}/groups`, { cluster_ids: next });
+      }
+      close();
+      toast('Staff updated');
+      onDone();
+    } catch {
+      setSaving(false);
+      toast('Could not save. Try again.');
+    }
+  }
+
+  if (error) return <p className={styles.empty}>Could not load the team.</p>;
+  if (!rows) return <p className={styles.empty}>Loading</p>;
+  if (rows.length === 0) return <p className={styles.empty}>No Staff or Moderators yet. Invite them from Team.</p>;
+  return (
+    <div className={styles.sheetList}>
+      {rows.map((r) => (
+        <ListRow
+          key={r.user_id}
+          tile={<Icon name="users" size={20} />}
+          name={r.name}
+          secondary={roleLabel(r.role, 'agency')}
+          trailing={<CheckCircle checked={on.has(r.user_id)} onChange={() => toggle(r.user_id)} name={r.name} />}
+          onTap={() => toggle(r.user_id)}
+        />
+      ))}
+      <Button loading={saving} onClick={() => void save()}>
+        Save
+      </Button>
+    </div>
+  );
+}
+
+/** Groups (clusters) of an organization: list with counts and staff. Admins add, rename, archive when empty and assign staff; moderators see their own groups. */
 export function GroupsScreen() {
   const { open, close } = useSheet();
   const { accounts } = useSession();
@@ -62,7 +155,8 @@ export function GroupsScreen() {
   }, [accountId, reloads]);
 
   if (!org || !accountId) return null;
-  if (!canManageOrg(org.role)) return <p className={styles.empty}>Only an admin can change groups.</p>;
+  const admin = canManageOrg(org.role);
+  if (!canMovePeople(org.role)) return <p className={styles.empty}>Only an admin or moderator can see groups.</p>;
 
   /** Runs a write; a server refusal is shown as text and the sheet stays open. */
   async function run(call: () => Promise<unknown>, done: string): Promise<void> {
@@ -92,16 +186,20 @@ export function GroupsScreen() {
       />,
     );
 
+  const assign = (c: Cluster): void => open(<StaffSheet accountId={accountId} group={c} onDone={load} />, { title: `Staff in ${c.name}` });
+
   const list = activeClusters(clusters ?? []);
   return (
     <div className={styles.page}>
-      <Button icon="plus" size="lg" fullWidth onClick={add}>
-        Add group
-      </Button>
+      {admin ? (
+        <Button icon="plus" size="lg" fullWidth onClick={add}>
+          Add group
+        </Button>
+      ) : null}
       {clusters === null ? (
         <p className={styles.empty}>Loading</p>
       ) : list.length === 0 ? (
-        <p className={styles.empty}>No groups yet. People can work without one.</p>
+        <p className={styles.empty}>{admin ? 'No groups yet. People can work without one.' : 'No groups are assigned to you yet.'}</p>
       ) : (
         <ul className={styles.list}>
           {list.map((c) => (
@@ -110,11 +208,20 @@ export function GroupsScreen() {
                 {c.name}
                 <br />
                 <span className={styles.groupCount}>{c.profile_count} {c.profile_count === 1 ? 'person' : 'people'}</span>
+                <br />
+                <span className={styles.groupCount}>
+                  {(c.staff ?? []).filter((x) => x.role !== 'viewer').length > 0
+                    ? `Staff: ${(c.staff ?? []).filter((x) => x.role !== 'viewer').map((x) => x.display_name).join(', ')}`
+                    : 'No staff yet'}
+                </span>
               </span>
-              <span className={styles.groupActions}>
-                <IconButton icon="edit" aria-label={`Rename ${c.name}`} onClick={() => rename(c)} />
-                <IconButton icon="trash" aria-label={`Archive ${c.name}`} onClick={() => archive(c)} />
-              </span>
+              {admin ? (
+                <span className={styles.groupActions}>
+                  <IconButton icon="users" aria-label={`Staff in ${c.name}`} onClick={() => assign(c)} />
+                  <IconButton icon="edit" aria-label={`Rename ${c.name}`} onClick={() => rename(c)} />
+                  <IconButton icon="trash" aria-label={`Archive ${c.name}`} onClick={() => archive(c)} />
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>
