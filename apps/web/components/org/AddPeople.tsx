@@ -96,7 +96,7 @@ export function AddPeople({
       {parsed.errors.length > 0 ? (
         <ul className={styles.problems}>
           {parsed.errors.map((p) => (
-            <li key={`${p.row}-${p.message}`}>{`Line ${p.row}: ` : ''}{p.message}</li>
+            <li key={`${p.row}-${p.message}`}>Line {p.row}: {p.message}</li>
           ))}
         </ul>
       ) : null}
