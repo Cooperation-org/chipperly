@@ -103,9 +103,13 @@ export async function countBackupRows(source: BackupSource, date: string, table:
 
 type Tx = TransactionSql;
 
+/** From pg_attribute, not information_schema.columns: the same answer, without the slow view under load. */
 async function liveColumns(tx: Tx, table: string): Promise<string[]> {
   const rows = await tx<{ column_name: string }[]>`
-    select column_name from information_schema.columns where table_schema = 'public' and table_name = ${table} order by ordinal_position`;
+    select a.attname as column_name
+    from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relname = ${table} and c.relkind = 'r' and a.attnum > 0 and not a.attisdropped
+    order by a.attnum`;
   return rows.map((r) => r.column_name);
 }
 
