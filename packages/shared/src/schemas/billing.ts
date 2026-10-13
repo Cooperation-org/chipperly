@@ -93,6 +93,9 @@ export const AdminUserSchema = z.object({
   last_seen_at: msTimestampSchema.nullable(),
   /** Set when a super admin closed this person's sign-in; they can be erased 30 days after it. */
   deactivated_at: msTimestampSchema.nullable().default(null),
+  /** users.is_support: may open the admin site, read-only. */
+  is_support: z.boolean().default(false),
+  is_super_admin: z.boolean().default(false),
   /** The accounts they belong to, so free access can be given to the right one. */
   accounts: z
     .array(z.object({ id: uuidSchema, name: z.string(), kind: z.string(), role: z.string(), comp_until: msTimestampSchema.nullable() }))
