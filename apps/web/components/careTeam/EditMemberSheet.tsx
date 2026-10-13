@@ -12,7 +12,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
-import { ROLE_HINT, ROLE_ITEMS } from './roles';
+import { profileIdsToSave, ROLE_HINT, ROLE_ITEMS } from './roles';
 import styles from './InviteSheet.module.css';
 
 export interface EditMemberSheetProps {
@@ -48,12 +48,12 @@ export function EditMemberSheet({ accountId, member, profiles, canRemove, onSave
     setError(undefined);
     setSaving(true);
     // Only send the list when it changed: the server rebuilds the rows, which clears location assignments.
-    const listChanged = ids.size !== initialIds.length || initialIds.some((id) => !ids.has(id));
+    const profile_ids = profileIdsToSave(member.role, role, initialIds, ids);
     try {
       await api.patch(`/accounts/${accountId}/members/${member.user.id}`, {
         role,
         relationship_label: relationship.trim() || null,
-        ...(role !== 'admin' && listChanged ? { profile_ids: Array.from(ids) } : {}),
+        ...(profile_ids ? { profile_ids } : {}),
       });
       onSaved();
       close();

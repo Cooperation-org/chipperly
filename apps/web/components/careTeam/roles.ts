@@ -10,3 +10,13 @@ export const ROLE_HINT: Record<Role, string> = {
 };
 
 export const ROLE_ITEMS = (['admin', 'member', 'viewer'] as const).map((value) => ({ value, label: ROLE_LABEL[value] }));
+
+/**
+ * The profile_ids to send when saving a member, or undefined to leave their list alone.
+ * An admin has no profile_members rows (they see everyone implicitly), so demoting one must send the list.
+ */
+export function profileIdsToSave(wasRole: Role, newRole: Role, initialIds: string[], ids: Set<string>): string[] | undefined {
+  if (newRole === 'admin') return undefined;
+  const listChanged = ids.size !== initialIds.length || initialIds.some((id) => !ids.has(id));
+  return listChanged || wasRole === 'admin' ? Array.from(ids) : undefined;
+}
