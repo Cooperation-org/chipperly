@@ -255,14 +255,14 @@ export default async function syncRoutes(app: FastifyInstance): Promise<void> {
 }
 
 /** Admin of the profile's account, or a member with no role at all (not a member/admin) -> null. */
-export async function getRole(userId: string, profileId: string): Promise<'admin' | 'member' | 'viewer' | null> {
+export async function getRole(userId: string, profileId: string): Promise<'admin' | 'moderator' | 'member' | 'viewer' | null> {
   const [row] = await sql`
     select m.role from account_members m
     join profiles p on p.account_id = m.account_id
     where p.id = ${profileId} and m.user_id = ${userId}
     limit 1
   `;
-  return (row?.role as 'admin' | 'member' | 'viewer' | undefined) ?? null;
+  return (row?.role as 'admin' | 'moderator' | 'member' | 'viewer' | undefined) ?? null;
 }
 
 export type RejectReason = 'stale' | 'locked' | 'forbidden' | 'invalid' | 'lapsed' | 'read_only';
@@ -274,7 +274,7 @@ export async function applyMutation(
   profileId: string,
   userId: string,
   locked: boolean,
-  role: 'admin' | 'member' | 'viewer' | null,
+  role: 'admin' | 'moderator' | 'member' | 'viewer' | null,
   paused: boolean,
 ): Promise<ApplyResult> {
   const { table } = mutation;
@@ -496,7 +496,7 @@ async function applyUpsert(
   mutation: Mutation,
   profileId: string,
   userId: string,
-  role: 'admin' | 'member' | 'viewer' | null,
+  role: 'admin' | 'moderator' | 'member' | 'viewer' | null,
 ): Promise<ApplyResult> {
   if (!mutation.row) return { ok: false, reason: 'invalid', server_row: null };
 

@@ -85,6 +85,7 @@ export async function eraseUser(userId: string): Promise<EraseResult> {
       }
       await run(tx`delete from media where account_id = any(${aloneIds})`);
       await run(tx`delete from invites where account_id = any(${aloneIds})`);
+      await run(tx`delete from cluster_members where account_id = any(${aloneIds})`);
       await run(tx`delete from subscriptions where account_id = any(${aloneIds})`);
       await run(tx`delete from account_members where account_id = any(${aloneIds})`);
       await run(tx`delete from accounts where id = any(${aloneIds})`);
@@ -112,7 +113,7 @@ export async function eraseUser(userId: string): Promise<EraseResult> {
     await run(tx`delete from community_reports where reporter_user_id = ${userId}`);
     await run(tx`delete from community_profiles where user_id = ${userId}`);
 
-    for (const table of ['sessions', 'devices', 'push_tokens', 'email_verifications', 'password_resets', 'review_reminders', 'event_reminder_sent', 'profile_members']) {
+    for (const table of ['sessions', 'devices', 'push_tokens', 'email_verifications', 'password_resets', 'review_reminders', 'event_reminder_sent', 'profile_members', 'cluster_members']) {
       await run(tx`delete from ${tx(table)} where user_id = ${userId}`);
     }
     await run(tx`delete from sync_rejections where user_id = ${userId}`);
