@@ -73,9 +73,9 @@ export function AddPeople({
         rows={8}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={'Ava\nBen, North clinic\nCy, North clinic, cy.parent@example.com'}
+        placeholder={'name, group, parent email\nAva, North clinic\nCy, North clinic, cy.parent@example.com'}
       />
-      <p className={styles.hint}>Optional after the name: a group, then a parent email. We send the parent a link to view.</p>
+      <p className={styles.hint}>To add a group or a parent email, start with a header row: name, group, parent email. We send the parent a link to view.</p>
       <label className={styles.fieldLabel}>
         Or choose a CSV file
         <input type="file" accept=".csv,text/csv,text/plain" onChange={(e) => void readFile(e.target.files?.[0])} />
