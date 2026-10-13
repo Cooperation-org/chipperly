@@ -32,7 +32,7 @@ import { attitude_checks } from '../db/schema/attitude.js';
 import { requireUser, canAccessProfile, assertCanWriteProfile, readOnlyError } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { assertCanCreate } from '../lib/trial.js';
-import { allLiveGroups, moderatorCanManage, moderatorScope, setGroups, visibleProfileIds } from '../lib/groupAccess.js';
+import { allLiveGroups, inviteWithinScope, moderatorCanManage, moderatorScope, setGroups, visibleProfileIds, visibleTeamUserIds } from '../lib/groupAccess.js';
 import { familyLinksOf, offerHandoversForLinks } from '../lib/familyHandover.js';
 import { linkBase } from '../lib/links.js';
 import { sendMail } from '../lib/mailer.js';
@@ -444,11 +444,12 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
   app.get('/accounts/:id/members', { preHandler: requireUser }, async (request) => {
     const { id: accountId } = idParamSchema.parse(request.params);
     const userId = request.user!.id;
-    await requireMember(accountId, userId);
+    const caller = await requireMember(accountId, userId);
+    const visibleUsers = await visibleTeamUserIds(accountId, userId, caller.role);
 
     const profileIds = await accountProfileIds(accountId);
 
-    const memberships = await db
+    const allMemberships = await db
       .select({
         user_id: account_members.user_id,
         role: account_members.role,
@@ -458,6 +459,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       .from(account_members)
       .innerJoin(users, eq(users.id, account_members.user_id))
       .where(eq(account_members.account_id, accountId));
+    const memberships = visibleUsers ? allMemberships.filter((m) => visibleUsers.has(m.user_id)) : allMemberships;
 
     const groupRows = await db.select({ user_id: cluster_members.user_id, cluster_id: cluster_members.cluster_id }).from(cluster_members).where(eq(cluster_members.account_id, accountId));
     const groupsByUser = new Map<string, string[]>();
@@ -497,7 +499,10 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       .from(invites)
       .where(and(eq(invites.account_id, accountId), isNull(invites.accepted_at)));
 
-    return { members, invites: pending.map(toInvitePublic) };
+    // Admins see every invite, a moderator the ones inside their scope, everyone else none.
+    const scope = caller.role === 'moderator' ? await moderatorScope(accountId, userId) : null;
+    const shown = caller.role === 'admin' ? pending : scope ? pending.filter((i) => inviteWithinScope(scope, i)) : [];
+    return { members, invites: shown.map(toInvitePublic) };
   });
 
   app.get(
