@@ -283,13 +283,13 @@ export default async function adminToolRoutes(app: FastifyInstance): Promise<voi
     return { sent_to: [...to] };
   });
 
-  // ---- waitlist (on the marketing site) ----
+  // ---- waitlist (on the marketing site, read with ADMIN_LINK_SECRET) ----
 
   async function site<T>(method: 'GET' | 'POST', path: string, schema: z.ZodType<T>, body?: unknown): Promise<T> {
-    if (!env.CRON_SECRET) throw new AppError(409, 'site_unlinked', "The website isn't connected to the admin site yet, so the waitlist can't be read. It needs the same secret on both (see the deploy notes).");
+    if (!env.ADMIN_LINK_SECRET) throw new AppError(409, 'site_unlinked', "The website isn't connected to the admin site yet, so the waitlist can't be read. It needs the same secret on both (see the deploy notes).");
     const res = await fetch(`${env.SITE_ORIGIN}${path}`, {
       method,
-      headers: { 'x-cron-secret': env.CRON_SECRET, ...(body ? { 'content-type': 'application/json' } : {}) },
+      headers: { 'x-admin-link': env.ADMIN_LINK_SECRET, ...(body ? { 'content-type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(15_000),
     });
