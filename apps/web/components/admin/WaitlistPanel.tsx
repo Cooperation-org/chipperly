@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AdminWaitlistEntry } from '@chipperly/shared/schemas/admin';
 import { api, ApiError } from '@/lib/api/client';
-import { useAdminRole } from '@/lib/admin/role';
+import { canAct, useAdminRole } from '@/lib/admin/role';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
@@ -138,7 +138,7 @@ export function WaitlistPanel() {
   if (notice) return <p className={styles.muted}>{notice}</p>;
   if (!entries) return null;
 
-  const canSend = role === 'super';
+  const canSend = canAct(role);
   const count = (f: Filter) => (f === 'all' ? entries.length : entries.filter((e) => stateOf(e) === f).length);
   const pickable = shown.filter((e) => !e.has_account);
   const allPicked = pickable.length > 0 && pickable.every((e) => picked.has(e.email));

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminChargesPage, AdminInsights, AdminSubscription } from '@chipperly/shared/schemas/admin';
 import { api, ApiError } from '@/lib/api/client';
-import { useAdminRole } from '@/lib/admin/role';
+import { canAct, useAdminRole } from '@/lib/admin/role';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { money, NOT_TEAM } from './format';
@@ -229,7 +229,7 @@ export function GrowthPanel() {
                     <td data-label="Accounts">{t.accounts.map((a) => a.name).join(', ') || 'None yet'}</td>
                     <td data-label="">
                       <div className={styles.actions}>
-                        {role === 'super' ? (
+                        {canAct(role) ? (
                           <Button variant="secondary" onClick={() => void extend(t.user_id, t.display_name)}>
                             +7 days
                           </Button>

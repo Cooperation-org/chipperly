@@ -35,7 +35,7 @@ async function go(page: Page, label: string, path: string): Promise<void> {
   await expect(page.getByRole('heading', { level: 1, name: label })).toBeVisible();
 }
 
-test('a super admin sets up two-step sign-in, then runs the admin site', async ({ page }, testInfo) => {
+test('a super admin sets up two-step sign-in, then runs the admin site', async ({ page, browser }, testInfo) => {
   await signUp(page, { name: 'Boss', email: `admin-${testInfo.project.name}@example.com` });
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -100,6 +100,7 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
     ['Moderation', 'moderation/'],
     ['App errors', 'errors/'],
     ['Activity', 'activity/'],
+    ['Admin team', 'team/'],
     ['Sync health', 'sync/'],
     ['Backups', 'backups/'],
   ] as const) {
@@ -111,6 +112,29 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
   // The pass is kept: a reload goes straight back in, no code asked.
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: 'Backups' })).toBeVisible();
+  // A moderator, given the role by email before they have an account.
+  const modEmail = `mod-${testInfo.project.name}-${Date.now()}@example.com`;
+  await go(page, 'Admin team', 'team/');
+  await page.getByLabel('Email', { exact: true }).fill(modEmail);
+  await page.getByRole('radio', { name: 'Moderator' }).click();
+  await page.getByRole('button', { name: 'Add as Moderator' }).click();
+  await expect(page.getByRole('row', { name: new RegExp(modEmail) })).toContainText('Not signed up yet');
+
+  const modPage = await browser.newPage({ viewport: page.viewportSize() ?? undefined });
+  await signUp(modPage, { name: 'Mod', email: modEmail });
+  await modPage.goto('/admin/');
+  await expect(modPage.getByRole('heading', { name: 'Set up two-step sign-in' })).toBeVisible();
+  const modKey = (await modPage.locator('code').first().textContent()) ?? '';
+  await modPage.getByLabel('6-digit code').fill(totp(modKey));
+  await modPage.getByRole('button', { name: 'Continue', exact: true }).click();
+  await modPage.getByRole('button', { name: 'I saved them, continue' }).click();
+  // Today is not theirs: they land on Moderation, and it is the only page in their menu.
+  await modPage.waitForURL('**/admin/moderation/');
+  await expect(modPage.getByRole('heading', { level: 1, name: 'Moderation' })).toBeVisible();
+  const menu = modPage.getByRole('button', { name: 'Menu', exact: true });
+  if (await menu.isVisible()) await menu.click();
+  await expect(modPage.getByRole('navigation', { name: 'Admin' }).getByRole('link')).toHaveText(['Moderation']);
+  await modPage.close();
 });
 
 test('everyone else gets no admin row and no admin site', async ({ page }) => {

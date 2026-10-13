@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminFailedPayment } from '@chipperly/shared/schemas/admin';
 import { api, ApiError } from '@/lib/api/client';
-import { useAdminRole } from '@/lib/admin/role';
+import { canAct, useAdminRole } from '@/lib/admin/role';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { useSheet } from '@/components/ui/Sheet';
@@ -149,7 +149,7 @@ export function FailedPaymentsPanel() {
                     <td data-label="Reminder">{p.reminded_at ? `Last sent ${day(p.reminded_at)}` : 'Not reminded yet'}</td>
                     <td data-label="">
                       <div className={styles.actions}>
-                        {role === 'super' ? <Button onClick={() => remind(p)}>Send reminder</Button> : null}
+                        {canAct(role) ? <Button onClick={() => remind(p)}>Send reminder</Button> : null}
                         {p.pay_url ? (
                           <Button variant="secondary" onClick={() => copy(p.pay_url!)}>
                             Copy pay link

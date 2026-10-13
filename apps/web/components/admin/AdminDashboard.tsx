@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminOverview, AdminUser, PromoCode } from '@chipperly/shared/schemas/billing';
 import { api } from '@/lib/api/client';
-import { useAdminRole } from '@/lib/admin/role';
+import { canAct, useAdminRole } from '@/lib/admin/role';
 import { trialDaysLeft } from '@/lib/billing/promo';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
@@ -36,6 +36,8 @@ function ago(ms: number | null): string {
 export function AdminDashboard({ show }: { show: 'today' | 'people' }) {
   const role = useAdminRole();
   const canChange = role === 'super';
+  // Trials, codes and the person sheet are support work too; offers stay with super admins.
+  const canHelp = canAct(role);
   const sheet = useSheet();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [people, setPeople] = useState<AdminUser[] | null>(null);
@@ -228,7 +230,7 @@ export function AdminDashboard({ show }: { show: 'today' | 'people' }) {
                         </span>
                       </td>
                       <td data-label="" className={styles.rowActions}>
-                        {canChange ? <div className={styles.actions}>
+                        {canHelp ? <div className={styles.actions}>
                           {!p.personal_code && offers.length > 0 ? (
                             <Button variant="secondary" onClick={() => void issue(p)}>
                               Give code

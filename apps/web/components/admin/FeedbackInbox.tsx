@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FeedbackListSchema, SURVEY_QUESTIONS, type FeedbackItem, type FeedbackList } from '@chipperly/shared/schemas/feedback';
 import { api } from '@/lib/api/client';
-import { useAdminRole } from '@/lib/admin/role';
+import { canAct, useAdminRole } from '@/lib/admin/role';
 import { median } from '@/lib/feedback/median';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
@@ -97,7 +97,7 @@ export function FeedbackInbox() {
               </p>
             ),
           )}
-          {role === 'super' ? (
+          {canAct(role) ? (
             <Button variant="secondary" onClick={() => void mark(item, item.status === 'new' ? 'done' : 'new')}>
               {item.status === 'new' ? 'Mark done' : 'Reopen'}
             </Button>
