@@ -217,6 +217,44 @@ test('an organization that skips adding people lands on an empty Org home and st
   await page.close();
 });
 
+test('org setup invites staff to a group, and the invite waits in Team as Staff', async ({ browser }) => {
+  const page = await browser.newPage();
+  const staffEmail = `e2e-staff-${Date.now()}@example.com`;
+  await createAccount(page, 'Staffing Owner');
+  await page.getByRole('button', { name: /My organization/ }).click();
+  await page.waitForURL('**/onboarding/org/');
+  await page.getByLabel('Organization name', { exact: true }).fill('Staffed Clinic');
+  await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'ABA' });
+  await next(page).click();
+  await next(page).click();
+  await page.getByLabel('Group name', { exact: true }).fill('North clinic');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await next(page).click();
+  await page.getByLabel('Name', { exact: true }).fill('Ava');
+  await page.getByRole('button', { name: 'Add to list', exact: true }).click();
+  await page.getByRole('button', { name: 'Add 1 person', exact: true }).click();
+  await expect(page.getByText('Added 1 person.')).toBeVisible();
+  await next(page).click();
+
+  await expect(page.getByRole('heading', { name: 'Invite staff' })).toBeVisible();
+  await page.getByLabel('Emails, one per line').fill(staffEmail);
+  await page.getByRole('radio', { name: 'Staff', exact: true }).check();
+  // Staff must see someone: sending with nothing ticked is refused.
+  await page.getByRole('button', { name: 'Send invites', exact: true }).click();
+  await expect(page.getByText('Pick at least one group or person they can see.')).toBeVisible();
+  await page.getByRole('checkbox', { name: 'North clinic', exact: true }).check();
+  await page.getByRole('button', { name: 'Send invites', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Families' })).toBeVisible();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.waitForURL('**/org/');
+
+  await gotoCaregiver(page, '/settings/team/', PASSWORD);
+  const row = page.locator('div[class*="inviteRow"]', { hasText: staffEmail });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('Staff');
+  await page.close();
+});
+
 test('a household sign-up still starts with the family list', async ({ browser }) => {
   const page = await browser.newPage();
   await createAccount(page, 'Family Owner');
