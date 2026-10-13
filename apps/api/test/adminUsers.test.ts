@@ -49,6 +49,14 @@ describe('super admin: people', () => {
     expect((await userRow(a.id))!.email).toBe(fresh);
   });
 
+  it('finds a person by the name of an account they are in', async () => {
+    const setup = await setupProfile();
+    const family = `The Searchable ${uuidv7()} family`;
+    await db.update(accounts).set({ name: family }).where(eq(accounts.id, setup.accountId));
+    const found = ((await call('GET', `/admin/users?q=${encodeURIComponent(family.toUpperCase())}`)).json() as { users: { id: string }[] }).users;
+    expect(found.map((u) => u.id)).toEqual([setup.admin.id]);
+  });
+
   it('closing a sign-in stops new sign-ins and open sessions, keeps everything, and can be undone', async () => {
     const setup = await setupProfile();
     const email = `close-${uuidv7()}@example.com`;
