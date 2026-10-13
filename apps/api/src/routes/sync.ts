@@ -543,6 +543,19 @@ async function applyUpsert(
     }
   }
 
+  if (mutation.table === 'profiles') {
+    // cluster_id and archived_at are org-admin fields (PATCH /accounts/:id/profiles/:pid); a pushed copy must not set them.
+    const storedCluster = stored ? (stored.cluster_id ?? null) : null;
+    if (role !== 'admin') {
+      row.cluster_id = storedCluster;
+      row.archived_at = stored ? (stored.archived_at ?? null) : null;
+    } else if (row.cluster_id != null && row.cluster_id !== storedCluster) {
+      const accountId = stored ? stored.account_id : row.account_id;
+      const [ok] = await tx`select 1 as x from clusters where id = ${row.cluster_id as string} and account_id = ${accountId as string} and archived_at is null`;
+      if (!ok) row.cluster_id = storedCluster;
+    }
+  }
+
   if (!stored) {
     await tx`insert into ${tx(mutation.table)} ${tx(row)}`;
     return { ok: true };
