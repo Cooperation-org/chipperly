@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import type { AdminEmail } from '@chipperly/shared/schemas/admin';
-import type { AdminUser } from '@chipperly/shared/schemas/billing';
+import type { AdminUser, PromoCode } from '@chipperly/shared/schemas/billing';
 import { compUntilAfter, eraseDue } from '@/lib/admin/person';
+import { trialDaysLeft } from '@/lib/billing/promo';
 import { canAct, canChange, useAdminRole } from '@/lib/admin/role';
 import { api, ApiError } from '@/lib/api/client';
 import { toast } from '@/lib/toast';
@@ -33,16 +34,20 @@ function day(ms: number): string {
 }
 
 /**
- * One person, for a super admin: their name and email, free access for their accounts, and closing
- * or erasing their sign-in. Every action saves at once and reloads the list behind the sheet.
+ * One person: their name and email, their trial and early access code, free access for their
+ * accounts, and closing or erasing their sign-in. Every action saves at once and reloads the list
+ * behind the sheet.
  */
-export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser; onChanged: () => void; onClose: () => void }) {
+export function PersonSheet({ person, offers, onChanged, onClose }: { person: AdminUser; offers: readonly PromoCode[]; onChanged: () => void; onClose: () => void }) {
   const sheet = useSheet();
   const [name, setName] = useState(person.display_name);
   const [email, setEmail] = useState(person.email);
   const [verified, setVerified] = useState(person.email_verified);
   const [accounts, setAccounts] = useState(person.accounts);
   const [closedAt, setClosedAt] = useState(person.deactivated_at);
+  const [trialEndsAt, setTrialEndsAt] = useState(person.trial_ends_at);
+  const [code, setCode] = useState(person.personal_code);
+  const [offer, setOffer] = useState(offers[0]?.code ?? '');
   const [confirmEmail, setConfirmEmail] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -80,6 +85,18 @@ export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser;
       await api.put(`/admin/accounts/${accountId}/comp`, { until, note: null });
       setAccounts((all) => all.map((a) => (a.id === accountId ? { ...a, comp_until: until } : a)));
     }, until === null ? 'Free access removed' : `Free access until ${day(until)}`);
+
+  const extendTrial = (days: number) =>
+    act(async () => {
+      const { trial_ends_at } = await api.post<{ trial_ends_at: number }>(`/admin/users/${person.id}/extend-trial`, { days });
+      setTrialEndsAt(trial_ends_at);
+    }, `Added ${days} days to ${person.display_name}'s trial`);
+
+  const giveCode = () =>
+    act(async () => {
+      const r = await api.post<{ code: string }>(`/admin/users/${person.id}/issue-code`, { offer });
+      setCode(r.code);
+    }, `Gave ${person.display_name} a code`);
 
   const resendVerification = () => act(() => api.post(`/admin/users/${person.id}/resend-verification`), 'Verification email sent');
 
@@ -128,6 +145,49 @@ export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser;
           {verified ? '' : ' (email not verified)'}
         </p>
       )}
+
+      {canAct(role) ? (
+        <>
+          <h3 className={styles.subheading}>Trial</h3>
+          <p className={styles.muted}>
+            {trialDaysLeft(trialEndsAt) > 0 ? `Ends ${day(trialEndsAt)}, ${trialDaysLeft(trialEndsAt)} days from now.` : `Ended ${day(trialEndsAt)}.`}
+          </p>
+          <span className={styles.actions}>
+            <Button variant="secondary" disabled={busy} onClick={() => void extendTrial(7)}>
+              Add 7 days
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => void extendTrial(21)}>
+              Add 21 days
+            </Button>
+          </span>
+
+          <h3 className={styles.subheading}>Early access code</h3>
+          {code ? (
+            <p className={styles.muted}>
+              Their code is <strong>{code}</strong>. It is used once their trial ends.
+            </p>
+          ) : offers.length === 0 ? (
+            <p className={styles.muted}>No offer is running, so there is no code to give. Offers are on the Offers page.</p>
+          ) : (
+            <>
+              <label className={styles.cellStack}>
+                <span className={styles.muted}>Offer</span>
+                <select value={offer} onChange={(e) => setOffer(e.target.value)}>
+                  {offers.map((o) => (
+                    <option key={o.code} value={o.code}>
+                      {o.code}
+                      {o.percent_off ? ` (${o.percent_off}% off)` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button variant="secondary" disabled={busy || !offer} onClick={() => void giveCode()}>
+                Give them a code
+              </Button>
+            </>
+          )}
+        </>
+      ) : null}
 
       <h3 className={styles.subheading}>Free access</h3>
       <p className={styles.muted}>Counts as a subscription until the date, with no payment. It matters once payments are switched on.</p>

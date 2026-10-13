@@ -35,6 +35,7 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
       { href: '/admin/subscriptions/', label: 'Subscriptions', roles: STAFF },
       { href: '/admin/payments/', label: 'Payments', roles: STAFF },
       { href: '/admin/failed-payments/', label: 'Failed payments', roles: STAFF },
+      { href: '/admin/offers/', label: 'Offers', roles: STAFF },
     ],
   },
   {
