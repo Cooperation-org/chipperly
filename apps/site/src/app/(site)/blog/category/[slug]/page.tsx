@@ -5,6 +5,7 @@ import { getCategories } from '../../../../../lib/blog';
 import { breadcrumbs } from '../../../../../lib/jsonld';
 import { getCategory, payload } from '../../../../../lib/payload';
 import { buildMetadata } from '../../../../../lib/seo';
+import { firstMention } from '../../../../../lib/trademark';
 
 export const revalidate = 3600;
 
@@ -38,7 +39,8 @@ export default async function CategoryPage({ params }: Props) {
     <>
       <BlogList
         title={cat.title}
-        intro={cat.description || `Articles about ${cat.title.toLowerCase()} from the Chipperly™ team.`}
+        // ™ on the first mention, as on posts and pages.
+        intro={cat.description ? firstMention().text(cat.description) : `Articles about ${cat.title.toLowerCase()} from the Chipperly™ team.`}
         posts={posts.docs}
         categories={categories}
         activeCategory={cat.slug ?? undefined}

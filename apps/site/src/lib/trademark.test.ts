@@ -19,6 +19,11 @@ describe('firstMention', () => {
     expect(texts(tm.lexical(doc('Chipperly is simple')))).toEqual(['Chipperly is simple']);
   });
 
+  it('marks the first mention in a plain description, such as a blog category', () => {
+    expect(firstMention().text('Tips from Chipperly families. Chipperly helps.')).toBe('Tips from Chipperly™ families. Chipperly helps.');
+    expect(firstMention().text('Routines that stick')).toBe('Routines that stick');
+  });
+
   it('keeps a mark an editor already typed', () => {
     expect(texts(firstMention().lexical(doc('Chipperly™ first, Chipperly second')))).toEqual(['Chipperly™ first, Chipperly second']);
   });
