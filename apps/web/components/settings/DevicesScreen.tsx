@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Device } from '@chipperly/shared/schemas/device';
 import { api } from '@/lib/api/client';
 import { getDeviceId } from '@/lib/device/identity';
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useActiveProfile } from '@/lib/profile/active';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -39,6 +40,7 @@ function defaultName(platform: Device['platform']): string {
 export function DevicesScreen() {
   const { profiles } = useActiveProfile();
   const sheet = useSheet();
+  const canEdit = useCanEdit();
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [thisDeviceId, setThisDeviceId] = useState<string | null>(null);
 
@@ -57,6 +59,7 @@ export function DevicesScreen() {
       <DeviceEditSheet
         device={device}
         profiles={profiles}
+        canEdit={canEdit}
         onSaved={() => {
           sheet.close();
           void refresh();
@@ -109,10 +112,13 @@ const LOCATE_POLL_INTERVAL_MS = 3_000;
 function DeviceEditSheet({
   device,
   profiles,
+  canEdit,
   onSaved,
 }: {
   device: Device;
   profiles: { id: string; name: string }[];
+  /** False for a viewer: only Locate stays, the server refuses everything else. */
+  canEdit: boolean;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(device.name ?? '');
@@ -223,32 +229,36 @@ function DeviceEditSheet({
 
   return (
     <div className={styles.editSheet}>
-      <TextField label="Name" placeholder={defaultName(device.platform)} value={name} onChange={(e) => setName(e.target.value)} />
+      {canEdit && (
+        <>
+        <TextField label="Name" placeholder={defaultName(device.platform)} value={name} onChange={(e) => setName(e.target.value)} />
 
-      <p className={styles.label}>Used by</p>
-      <div className={styles.profilePicker}>
-        <button
-          type="button"
-          className={[styles.profileChip, profileId === null ? styles.profileChipActive : ''].filter(Boolean).join(' ')}
-          onClick={() => setProfileId(null)}
-        >
-          Not assigned
-        </button>
-        {profiles.map((p) => (
+        <p className={styles.label}>Used by</p>
+        <div className={styles.profilePicker}>
           <button
-            key={p.id}
             type="button"
-            className={[styles.profileChip, profileId === p.id ? styles.profileChipActive : ''].filter(Boolean).join(' ')}
-            onClick={() => setProfileId(p.id)}
+            className={[styles.profileChip, profileId === null ? styles.profileChipActive : ''].filter(Boolean).join(' ')}
+            onClick={() => setProfileId(null)}
           >
-            {p.name}
+            Not assigned
           </button>
-        ))}
-      </div>
+          {profiles.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={[styles.profileChip, profileId === p.id ? styles.profileChipActive : ''].filter(Boolean).join(' ')}
+              onClick={() => setProfileId(p.id)}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
 
-      <Button fullWidth loading={saving} onClick={() => void save()}>
-        Save
-      </Button>
+        <Button fullWidth loading={saving} onClick={() => void save()}>
+          Save
+        </Button>
+        </>
+      )}
 
       {device.platform === 'android' && (
         <div className={styles.locateSection}>
@@ -273,7 +283,7 @@ function DeviceEditSheet({
         </div>
       )}
 
-      {device.platform === 'android' && (
+      {canEdit && device.platform === 'android' && (
         <div className={styles.locateSection}>
           <div className={styles.controlRow}>
             <p className={styles.label}>Lock</p>
@@ -320,9 +330,11 @@ function DeviceEditSheet({
         </div>
       )}
 
-      <Button variant="danger" fullWidth onClick={() => void remove()}>
-        Remove this device
-      </Button>
+      {canEdit && (
+        <Button variant="danger" fullWidth onClick={() => void remove()}>
+          Remove this device
+        </Button>
+      )}
     </div>
   );
 }
