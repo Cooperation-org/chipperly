@@ -67,8 +67,9 @@ export function InviteAccept() {
     setAcceptError(null);
     try {
       const result = await api.post<AcceptInviteResponse>(`/invites/${encodeURIComponent(token)}/accept`);
-      // Accepted already; a slow refresh must not leave this button dead (sync fills the rest in).
-      void refreshMe().catch(() => undefined);
+      // Accepted already; a slow refresh must not leave this button dead (sync fills the rest in), so wait at most 4s.
+      // The cached /me is what a reload reads first, and without the new account it sends the person to onboarding.
+      await Promise.race([refreshMe().catch(() => undefined), new Promise((resolve) => setTimeout(resolve, 4000))]);
       setActiveAccountId(result.account_id);
       if (result.profile_ids[0]) setActiveProfileId(result.profile_ids[0]);
       // They signed in here to manage a child's schedule, so this is a caregiver device
