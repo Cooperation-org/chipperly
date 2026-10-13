@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Role } from '@chipperly/shared/schemas/account';
 import { AVATAR_EMOJI } from '@chipperly/shared/constants/emoji';
@@ -63,6 +63,7 @@ export function OrgSetup() {
   const router = useRouter();
   const accountId = useKv<string | null>(ACTIVE_ACCOUNT_KEY, null);
   const [step, setStep] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +110,13 @@ export function OrgSetup() {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+
+  // The button that changed the step is gone: move focus to the new heading so it is read out.
+  const firstStep = useRef(true);
+  useEffect(() => {
+    if (firstStep.current) firstStep.current = false;
+    else wrapRef.current?.querySelector('h1')?.focus();
+  }, [step]);
 
   // Staff step needs the real ids of the people and groups just saved.
   useEffect(() => {
@@ -293,12 +301,12 @@ export function OrgSetup() {
   ) : null;
 
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} ref={wrapRef}>
       {dots}
 
       {step === 0 ? (
         <>
-          <h1 className={styles.title}>About your organization</h1>
+          <h1 className={styles.title} tabIndex={-1}>About your organization</h1>
           <TextField label="Organization name" value={orgName} maxLength={80} onChange={(e) => setOrgName(e.target.value)} autoComplete="organization" />
           <div>
             <span className={styles.label}>Type</span>
@@ -315,7 +323,7 @@ export function OrgSetup() {
 
       {step === 1 ? (
         <>
-          <h1 className={styles.title}>Your role</h1>
+          <h1 className={styles.title} tabIndex={-1}>Your role</h1>
           <p className={styles.lead}>You are the owner of {orgName.trim()}. You can add staff next.</p>
           <Button fullWidth onClick={() => go(2)}>
             Continue
@@ -326,7 +334,7 @@ export function OrgSetup() {
 
       {step === 2 ? (
         <>
-          <h1 className={styles.title}>Groups</h1>
+          <h1 className={styles.title} tabIndex={-1}>Groups</h1>
           <p className={styles.lead}>Do you group people by site, team or caseload?</p>
           <div className={styles.addRow}>
             <TextField
@@ -367,7 +375,7 @@ export function OrgSetup() {
 
       {step === 3 ? (
         <>
-          <h1 className={styles.title}>Add people</h1>
+          <h1 className={styles.title} tabIndex={-1}>Add people</h1>
           {saved ? (
             <>
               <p className={styles.lead}>
@@ -499,7 +507,7 @@ export function OrgSetup() {
 
       {step === 4 ? (
         <>
-          <h1 className={styles.title}>Invite staff</h1>
+          <h1 className={styles.title} tabIndex={-1}>Invite staff</h1>
           <label className={styles.select}>
             <span className={styles.label}>Emails, one per line</span>
             <textarea className={styles.textarea} rows={3} value={emails} onChange={(e) => setEmails(e.target.value)} />
@@ -545,7 +553,7 @@ export function OrgSetup() {
 
       {step === 5 ? (
         <>
-          <h1 className={styles.title}>Families</h1>
+          <h1 className={styles.title} tabIndex={-1}>Families</h1>
           {(saved?.invites_sent ?? 0) > 0 ? (
             <p className={styles.lead}>
               We sent {saved?.invites_sent} family {saved?.invites_sent === 1 ? 'invite' : 'invites'}. Families see their child&apos;s schedule, notes and reports. They are free.
