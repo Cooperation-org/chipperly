@@ -140,7 +140,9 @@ async function applyMe(me: MeResponse): Promise<void> {
   await db.users.put(me.user);
 
   const activeAccount = await getKv<string>(ACTIVE_ACCOUNT_KEY);
-  if (!activeAccount && me.accounts[0]) await setKv(ACTIVE_ACCOUNT_KEY, me.accounts[0].account.id);
+  // The default account is the default profile's, so the two never start out disagreeing.
+  const defaultAccount = me.profiles[0]?.account_id ?? me.accounts[0]?.account.id;
+  if (!activeAccount && defaultAccount) await setKv(ACTIVE_ACCOUNT_KEY, defaultAccount);
 
   const activeProfile = await getKv<string>(ACTIVE_PROFILE_KEY);
   if (!activeProfile && me.profiles[0]) await setKv(ACTIVE_PROFILE_KEY, me.profiles[0].id);
