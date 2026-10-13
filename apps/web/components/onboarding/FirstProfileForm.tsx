@@ -11,7 +11,7 @@ import { setKv, useKv } from '@/lib/db/kv';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
 import { saveGuidedSetup, type GuidedPicks } from '@/lib/profile/guidedSetup';
-import { familyPeople, prefillName, type HelperInvite, type PersonDraft } from '@/lib/setupFlow';
+import { familyPeople, prefillName, sendsOwnLogin, type HelperInvite, type PersonDraft } from '@/lib/setupFlow';
 import { toast } from '@/lib/toast';
 import { PicturePicker, type PicturePickerValue } from '@/components/picture/PicturePicker';
 import { Button } from '@/components/ui/Button';
@@ -128,7 +128,7 @@ export function FirstProfileForm() {
     const first = made_[0];
     if (kind === 'supported' && first) {
       for (const h of helpers) await invite(h.email, h.role, [first.id]);
-      if (login.on) {
+      if (sendsOwnLogin(usesApp, login.on)) {
         try {
           await api.post(`/accounts/${accId}/profiles/${first.id}/login`, {
             mode: login.mode,
@@ -339,7 +339,14 @@ export function FirstProfileForm() {
       </div>
       <TextField label="Name" hint="A first name or nickname is fine. It stays in your account and isn't shared." autoComplete="off" autoFocus required value={name} onChange={(e) => setName(e.target.value)} />
       <PicturePicker value={picture} onChange={setPicture} name={name} choices={AVATAR_EMOJI} />
-      <UsesAppSwitch name={name} checked={usesApp} onChange={setUsesApp} />
+      <UsesAppSwitch
+        name={name}
+        checked={usesApp}
+        onChange={(on) => {
+          setUsesApp(on);
+          if (!on) setLogin(NO_LOGIN);
+        }}
+      />
       {errorLine}
       <Button type="submit" fullWidth disabled={name.trim().length === 0}>
         Continue
