@@ -8,8 +8,29 @@ describe('parsePeopleList', () => {
     expect(r.errors).toEqual([]);
   });
 
-  it('keeps a comma inside a name when there is no header', () => {
-    expect(parsePeopleList('Lee, Sam').people).toEqual([{ name: 'Lee, Sam' }]);
+  it('reads name, group, parent email without a header row', () => {
+    const r = parsePeopleList('Benny, North clinic, mom@x.com\nAva, South\nCal\n"Lee, Sam", East, Dad@X.com');
+    expect(r.people).toEqual([
+      { name: 'Benny', cluster_name: 'North clinic', parent_email: 'mom@x.com' },
+      { name: 'Ava', cluster_name: 'South' },
+      { name: 'Cal' },
+      { name: 'Lee, Sam', cluster_name: 'East', parent_email: 'dad@x.com' },
+    ]);
+    expect(r.errors).toEqual([]);
+  });
+
+  it('reads a second field that looks like an email as the parent email', () => {
+    expect(parsePeopleList('Ben, mom@x.com').people).toEqual([{ name: 'Ben', parent_email: 'mom@x.com' }]);
+  });
+
+  it('skips the group with an empty second field', () => {
+    expect(parsePeopleList('Ben,,mom@x.com').people).toEqual([{ name: 'Ben', parent_email: 'mom@x.com' }]);
+  });
+
+  it('reports a bad third field or too many fields without a header', () => {
+    const r = parsePeopleList('Ben, North, nope\nAva, A, a@b.co, extra\nCal');
+    expect(r.people).toEqual([{ name: 'Cal' }]);
+    expect(r.errors.map((e) => e.row)).toEqual([1, 2]);
   });
 
   it('reads a header row in any order and case, with a BOM', () => {

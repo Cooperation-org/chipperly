@@ -439,7 +439,7 @@ export function OrgSetup() {
               {tab === 'paste' ? (
                 <div className={styles.form}>
                   <label className={styles.select}>
-                    <span className={styles.label}>One name per line, or start with a header row: name, group, parent email</span>
+                    <span className={styles.label}>One person per line: name, group, parent email (group and email are optional)</span>
                     <textarea className={styles.textarea} rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)} />
                   </label>
                   <Button variant="secondary" fullWidth disabled={!pasteText.trim()} onClick={() => addParsed(pasteText)}>
