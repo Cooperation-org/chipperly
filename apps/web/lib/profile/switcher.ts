@@ -16,6 +16,11 @@ export function filterByName<T extends { name: string }>(items: T[], query: stri
   return q ? items.filter((i) => fold(i.name).includes(q)) : items;
 }
 
+/** A copy sorted by folded name (accents and case ignored). */
+export function sortByName<T extends { name: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => fold(a.name).localeCompare(fold(b.name)));
+}
+
 export interface AccountGroup<T> {
   accountId: string;
   accountName: string;
@@ -23,11 +28,11 @@ export interface AccountGroup<T> {
 }
 
 /** Groups by account in the order of `accounts`; accounts with no match are dropped. */
-export function groupByAccount<T extends { account_id: string }>(
+export function groupByAccount<T extends { account_id: string; name: string }>(
   profiles: T[],
   accounts: { id: string; name: string }[],
 ): AccountGroup<T>[] {
   return accounts
-    .map((a) => ({ accountId: a.id, accountName: a.name, profiles: profiles.filter((p) => p.account_id === a.id) }))
+    .map((a) => ({ accountId: a.id, accountName: a.name, profiles: sortByName(profiles.filter((p) => p.account_id === a.id)) }))
     .filter((g) => g.profiles.length > 0);
 }
