@@ -12,6 +12,7 @@ import meRoutes from './routes/me.js';
 import accountsRoutes from './routes/accounts.js';
 import orgRoutes from './routes/org.js';
 import reportRoutes from './routes/reports.js';
+import handoverRoutes from './routes/handovers.js';
 import syncRoutes from './routes/sync.js';
 import mediaRoutes from './routes/media.js';
 import shareRoutes from './routes/share.js';
@@ -39,6 +40,7 @@ const routePlugins: FastifyPluginAsync[] = [
   accountsRoutes,
   orgRoutes,
   reportRoutes,
+  handoverRoutes,
   syncRoutes,
   mediaRoutes,
   shareRoutes,

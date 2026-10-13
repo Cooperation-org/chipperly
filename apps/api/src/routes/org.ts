@@ -23,6 +23,7 @@ import { profile_members, profiles } from '../db/schema/profiles.js';
 import { readOnlyError, requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 import { assertCanCreate } from '../lib/trial.js';
+import { offerHandoversForProfile } from '../lib/familyHandover.js';
 import { notifyIfOverSeats, seatLimitFor, seatsUsed } from '../lib/orgSeats.js';
 import { allLiveGroups, moderatorCanManage, moderatorScope, setGroups, visibleProfileIds as visibleIdsOf } from '../lib/groupAccess.js';
 import { getMembership, insertProfile, issueInvite, requireAdmin, requireMember } from './accounts.js';
@@ -417,6 +418,10 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
       .returning();
     if (body.archived === false && profile.archived_at !== null) {
       await notifyIfOverSeats(accountId, before, before + 1, await seatLimitFor(accountId));
+    }
+    // The org stopped covering this person: their family may keep a copy.
+    if (body.archived === true && profile.archived_at === null) {
+      await offerHandoversForProfile(pid, 'archived').catch((err: unknown) => request.log.error(err));
     }
     return row!;
   });
