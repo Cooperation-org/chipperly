@@ -1137,7 +1137,8 @@ export interface Setting {
           | 'bluesky'
           | 'whatsapp'
           | 'reddit'
-          | 'linkedin';
+          | 'linkedin'
+          | 'substack';
         url: string;
         id?: string | null;
       }[]
