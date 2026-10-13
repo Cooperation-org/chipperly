@@ -12,7 +12,7 @@ import { stripeRequest, type StripeEvent } from './stripe.js';
 // Stripe Connect for selling a shared item. Same rules as lib/stripe.ts: no SDK,
 // REST through `stripeRequest`, signature checked by `verifyStripeSignature`.
 // Gating is the caller's job (routes/community.ts): every selling route 404s
-// unless `env.stripeEnabled`.
+// unless `sellingEnabled()`.
 
 // ---- configuration ----
 
@@ -30,6 +30,11 @@ export function platformFeePercent(): number | null {
   if (raw === undefined || raw.trim() === '') return null;
   const parsed = FeePercentSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
+}
+
+/** Selling exists once Stripe is set up AND the owner has chosen a fee; live billing keys alone must not show it. */
+export function sellingEnabled(): boolean {
+  return env.stripeEnabled && platformFeePercent() !== null;
 }
 
 /** Whole minor units, rounded to nearest, never more than the price. Pure. */
