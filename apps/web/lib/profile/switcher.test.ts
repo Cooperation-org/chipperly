@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterByName, groupByAccount, needsSearch, sortByName } from './switcher';
+import { filterByName, groupByAccount, needsSearch, sortByName, withoutArchived } from './switcher';
 
 describe('switcher helpers', () => {
   it('shows search only above 8 people', () => {
@@ -42,5 +42,10 @@ describe('switcher helpers', () => {
       [{ id: 'a', name: 'Home' }],
     );
     expect(g[0]!.profiles.map((p) => p.name)).toEqual(['abe', 'Zed']);
+  });
+
+  it('drops archived people', () => {
+    const list = [{ name: 'A' }, { name: 'B', archived_at: null }, { name: 'C', archived_at: 5 }];
+    expect(withoutArchived(list).map((i) => i.name)).toEqual(['A', 'B']);
   });
 });

@@ -36,3 +36,8 @@ export function groupByAccount<T extends { account_id: string; name: string }>(
     .map((a) => ({ accountId: a.id, accountName: a.name, profiles: sortByName(profiles.filter((p) => p.account_id === a.id)) }))
     .filter((g) => g.profiles.length > 0);
 }
+
+/** Drops archived people (archived_at set) from the switcher list. */
+export function withoutArchived<T extends { archived_at?: number | null }>(items: T[]): T[] {
+  return items.filter((i) => i.archived_at == null);
+}

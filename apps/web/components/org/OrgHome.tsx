@@ -12,7 +12,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { useSheet } from '@/components/ui/Sheet';
 import { api, ApiError } from '@/lib/api/client';
 import { useSession } from '@/lib/auth/session';
-import { useActiveAccount, useActiveProfile } from '@/lib/profile/active';
+import { selectProfile, useActiveAccount } from '@/lib/profile/active';
 import { toast } from '@/lib/toast';
 import {
   OVER_PLAN_MESSAGE,
@@ -73,7 +73,6 @@ export function OrgHome() {
   const { open, close } = useSheet();
   const { accounts } = useSession();
   const { account: activeAccount } = useActiveAccount();
-  const { setActiveProfileId } = useActiveProfile();
   const org = pickOrgAccount(accounts, activeAccount?.id);
   const accountId = org?.account.id;
   const admin = canManageOrg(org?.role);
@@ -134,8 +133,8 @@ export function OrgHome() {
     }
   }
 
-  function openPerson(p: RosterPerson): void {
-    setActiveProfileId(p.profile_id);
+  async function openPerson(p: RosterPerson): Promise<void> {
+    await selectProfile(p.profile_id);
     router.push('/today/');
   }
 

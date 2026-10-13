@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
-import { filterByName, groupByAccount, needsSearch } from '@/lib/profile/switcher';
+import { filterByName, groupByAccount, needsSearch, withoutArchived } from '@/lib/profile/switcher';
 import { useMediaUrl } from '@/lib/data/media';
 import { useLock, useLockLoaded, useParentMode, useParentModeLoaded } from '@/lib/device/settings';
 import { usesApp, useCaregiverDevice } from '@/lib/device/role';
@@ -172,7 +172,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
         onProfileTap={() =>
           open(
             <ProfileSwitcherSheet
-              profiles={profiles}
+              profiles={withoutArchived(profiles)}
               accounts={sessionAccounts.map((a) => ({ id: a.account.id, name: a.account.name }))}
               onPick={(p) => {
                 setActiveProfileId(p.id);
