@@ -63,9 +63,9 @@ export function KindPicker() {
       await refreshMe();
       setActiveAccountId(account.id);
 
-      // Every kind continues to S4: "Myself" skips the name form there and
-      // goes straight to the setup interview, which creates the profile.
-      router.push('/onboarding/profile/');
+      // Organizations have their own six-step setup. Every other kind continues to S4:
+      // "Myself" skips the name form there and goes straight to the setup interview.
+      router.push(kind === 'agency' ? '/onboarding/org/' : '/onboarding/profile/');
     } catch {
       setError("Couldn't set that up. Try again.");
       setBusy(null);
