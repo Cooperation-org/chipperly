@@ -4,6 +4,7 @@ export const AUDIENCES = [
   { label: 'Everyone (waitlist and app users)', value: 'all' },
   { label: 'Waitlist only', value: 'waitlist' },
   { label: 'App users only', value: 'app_users' },
+  { label: 'In trial', value: 'trial' },
   { label: 'Expired trials', value: 'trial_expired' },
   { label: 'Active subscribers', value: 'subscribed' },
 ] as const;
@@ -13,7 +14,7 @@ export type Audience = (typeof AUDIENCES)[number]['value'];
  * The app sets the segment per account, by the same rule that pauses an account.
  * `trial_expired` = an admin (only admins can pay) whose account's trial and grace
  * days are over. `trial` = everyone else who is not subscribed: in a trial or its
- * grace days, or a member who cannot pay. "Everyone" and "App users only" reach them.
+ * grace days, or a member who cannot pay. "In trial", "Everyone" and "App users only" reach them.
  */
 export type Recipient = { email: string; segment: 'waitlist' | 'trial' | 'trial_expired' | 'subscribed' };
 

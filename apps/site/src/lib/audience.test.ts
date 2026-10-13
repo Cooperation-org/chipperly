@@ -17,6 +17,7 @@ describe('pickAudience', () => {
   it('one segment only', () => {
     expect(pickAudience('waitlist', people, new Set())).toEqual(['w@example.com']);
     expect(pickAudience('trial_expired', people, new Set())).toEqual(['x@example.com']);
+    expect(pickAudience('trial', people, new Set())).toEqual(['t@example.com']);
     expect(pickAudience('subscribed', people, new Set()).sort()).toEqual(['s@example.com', 'w@example.com']);
   });
   it('app users only: every app segment, no waitlist', () => {
