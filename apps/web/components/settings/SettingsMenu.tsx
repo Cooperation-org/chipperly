@@ -154,6 +154,12 @@ export function SettingsMenu() {
               onTap={() => router.push('/settings/attitude/')}
             />
             <ListRow
+              tile={<Icon name="clipboard" size={20} />}
+              name="Reports"
+              trailing={<Icon name="chevron" size={20} />}
+              onTap={() => router.push(`/reports/?id=${profile.id}`)}
+            />
+            <ListRow
               tile={<span aria-hidden="true">😊</span>}
               name="Chipper Chart"
               trailing={<Icon name="chevron" size={20} />}
@@ -215,6 +221,9 @@ export function SettingsMenu() {
         <div className={styles.section}>
           <span className={styles.sectionTitle}>Team</span>
           <div className={styles.card}>
+            {homePath(accounts) === '/org/' ? null : (
+              <ListRow tile={<Icon name="clipboard" size={20} />} name="Family report" secondary="Everyone in one place" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/org/reports/')} />
+            )}
             <ListRow tile={<Icon name="users" size={20} />} name="Team" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/team/')} />
           </div>
         </div>

@@ -39,14 +39,19 @@ function PersonSheet({
   clusters,
   onMove,
   onArchive,
+  onReport,
 }: {
   person: RosterPerson;
   clusters: Cluster[];
   onMove: (clusterId: string | null) => void;
   onArchive: () => void;
+  onReport: () => void;
 }) {
   return (
     <div className={styles.sheetList}>
+      <button type="button" className={styles.sheetRow} onClick={onReport}>
+        Report
+      </button>
       <p className={styles.hint}>Move to group</p>
       {person.cluster_id ? (
         <button type="button" className={styles.sheetRow} onClick={() => onMove(null)}>
@@ -252,6 +257,10 @@ export function OrgHome() {
                           clusters={groups}
                           onMove={(id) => void patchPerson(p, { cluster_id: id })}
                           onArchive={() => void patchPerson(p, { archived: p.archived_at === null })}
+                          onReport={() => {
+                            close();
+                            router.push(`/reports/?id=${p.profile_id}`);
+                          }}
                         />,
                         { title: p.name },
                       )
@@ -270,9 +279,14 @@ export function OrgHome() {
       )}
 
       {admin ? (
-        <Button variant="secondary" onClick={() => router.push('/org/clusters/')}>
-          Groups
-        </Button>
+        <>
+          <Button variant="secondary" onClick={() => router.push('/org/reports/')}>
+            Reports
+          </Button>
+          <Button variant="secondary" onClick={() => router.push('/org/clusters/')}>
+            Groups
+          </Button>
+        </>
       ) : null}
     </div>
   );

@@ -1,0 +1,91 @@
+.figure {
+  margin: 0;
+  padding: var(--space-3);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.title {
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.axis {
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+}
+
+.grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.tick,
+.label {
+  fill: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.done {
+  fill: var(--color-primary);
+}
+
+.planned {
+  fill: var(--color-surface-2);
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.line {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.dot {
+  fill: var(--color-primary);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm, 0.875rem);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.swatch,
+.keyDone,
+.keyPlanned {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.keyDone {
+  background: var(--color-primary);
+}
+
+.keyPlanned {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
