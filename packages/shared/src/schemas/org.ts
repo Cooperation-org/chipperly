@@ -81,6 +81,9 @@ export const BulkPersonSchema = z.object({
   cluster_id: uuidSchema.nullish(),
   cluster_name: z.string().trim().min(1).max(CLUSTER_NAME_MAX).nullish(),
   parent_email: z.string().trim().email().max(254).nullish(),
+  /** Picture chosen in org setup; same fields as a single create. */
+  emoji: z.string().max(32).nullish(),
+  photo_id: uuidSchema.nullish(),
 });
 export type BulkPerson = z.infer<typeof BulkPersonSchema>;
 

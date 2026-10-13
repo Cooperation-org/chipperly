@@ -32,9 +32,7 @@ const ACTIVE_ACCOUNT_KEY = 'active_account_id';
 const DEFAULT_GROUP = 'Everyone';
 const MAX_GROUPS = 50;
 
-interface Row extends BulkPerson {
-  emoji?: string;
-}
+type Row = BulkPerson;
 interface RosterPerson {
   profile_id: string;
   name: string;
@@ -191,7 +189,7 @@ export function OrgSetup() {
     setError(null);
     setRows([
       ...rows,
-      { name, ...(oneGroup ? { cluster_name: oneGroup } : {}), ...(email ? { parent_email: email } : {}), ...(onePicture.emoji ? { emoji: onePicture.emoji } : {}) },
+      { name, ...(oneGroup ? { cluster_name: oneGroup } : {}), ...(email ? { parent_email: email } : {}), ...(onePicture.emoji ? { emoji: onePicture.emoji } : {}), ...(onePicture.photo_id ? { photo_id: onePicture.photo_id } : {}) },
     ]);
     setOneName('');
     setOneEmail('');
@@ -469,7 +467,7 @@ export function OrgSetup() {
                       {rows.map((r, i) => (
                         <tr key={i}>
                           <td>
-                            {r.emoji ? `${r.emoji} ` : ''}
+                            {r.photo_id ? '(photo) ' : r.emoji ? `${r.emoji} ` : ''}
                             {r.name}
                           </td>
                           <td>{r.cluster_name ?? (groups.length === 1 ? groups[0] : '')}</td>
