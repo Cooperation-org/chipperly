@@ -7,7 +7,7 @@ import type { Role } from '@chipperly/shared/schemas/account';
 import type { Profile, SetupAnswers } from '@chipperly/shared/schemas/profile';
 import { AVATAR_EMOJI } from '@chipperly/shared/constants/emoji';
 import { api, ApiError, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
-import { setKv, useKv } from '@/lib/db/kv';
+import { setKv, useKv, useKvLoaded } from '@/lib/db/kv';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveProfile } from '@/lib/profile/active';
 import { saveGuidedSetup, type GuidedPicks } from '@/lib/profile/guidedSetup';
@@ -49,6 +49,7 @@ const SAVE_ERROR = "Couldn't save that. Try again.";
 export function FirstProfileForm() {
   const router = useRouter();
   const accountId = useKv<string | null>(ACTIVE_ACCOUNT_KEY, null);
+  const accountIdLoaded = useKvLoaded(ACTIVE_ACCOUNT_KEY);
   const { status, user, accounts, profiles: sessionProfiles } = useSession();
   const { setActiveProfileId } = useActiveProfile();
   const account = accounts.find((a) => a.account.id === accountId)?.account;
@@ -233,7 +234,8 @@ export function FirstProfileForm() {
 
   // The account row hasn't loaded yet; rendering the wrong branch for a
   // moment would flash the wrong form at the person.
-  if (accountId && !account) return null;
+  // The active-account row is read from the local database too: until it has, the kind is unknown.
+  if (!accountIdLoaded || (accountId && !account)) return null;
 
   const people = familyMode ? familyPeople(rows, meOn ? me : null) : [];
   const shownName = name.trim() || (selfMode ? 'you' : 'them');
