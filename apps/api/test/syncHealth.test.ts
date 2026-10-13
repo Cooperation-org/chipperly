@@ -8,7 +8,7 @@ import { AdminSyncHealthSchema } from '@chipperly/shared/schemas/syncHealth';
 import { sql } from '../src/db/client.js';
 import { env } from '../src/env.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
-import { alertNewRejections, digestLines, findOrphans, resetAlertThrottle, sendSyncHealthDigest } from '../src/lib/syncHealth.js';
+import { alertNewRejections, digestLines, findOrphans, orphanNeedsAttention, resetAlertThrottle, sendSyncHealthDigest } from '../src/lib/syncHealth.js';
 import { buildTestApp, expectShape, request } from './helpers.js';
 import { createUser, setupProfile, type TestUser } from './fixtures.js';
 
@@ -366,7 +366,11 @@ describe('nothing a device writes vanishes without a trace', () => {
       // A tick whose schedule item never arrived: what Benny's phone left behind.
       const { admin, profileId } = await setupProfile();
       await push(admin, profileId, [stepCompletion(uuidv7(), profileId, uuidv7(), admin.id, Date.now())]);
-      expect((await findOrphans()).filter((o) => o.profile_id === profileId)).toMatchObject([{ kind: 'Ticked steps with no schedule item', count: 1 }]);
+      const [orphan] = (await findOrphans()).filter((o) => o.profile_id === profileId);
+      expect(orphan).toMatchObject({ kind: 'Ticked steps with no schedule item', count: 1 });
+      // Fresh leftovers wait for the device to send the rest; only old ones need a person.
+      expect(orphanNeedsAttention(orphan!, Date.now())).toBe(false);
+      expect(orphanNeedsAttention(orphan!, Date.now() + 3 * 24 * 60 * 60 * 1000)).toBe(true);
 
       const afternoon = Date.UTC(2031, 0, 5, 14);
       await sql`delete from sync_health_digests where day = '2031-01-05'`;
