@@ -37,7 +37,7 @@ async function orgSignUp(page: Page): Promise<void> {
   }
   await next(page).click();
   await page.getByRole('button', { name: 'Paste a list', exact: true }).click();
-  await page.getByLabel(/One name per line/).fill('name, group\nAva, North\nBen, North\nCy, South');
+  await page.getByLabel(/One person per line/).fill('name, group\nAva, North\nBen, North\nCy, South');
   await page.getByRole('button', { name: 'Add to list', exact: true }).click();
   await page.getByRole('button', { name: 'Add 3 people', exact: true }).click();
   await expect(page.getByText('Added 3 people.')).toBeVisible();
@@ -69,6 +69,7 @@ test.describe('organization moderators', () => {
     for (const label of ['Org admin', 'Moderator', 'Staff', 'Family']) await expect(roles.getByRole('radio', { name: label })).toBeVisible();
 
     const email = `e2e-moderator-${Date.now()}@example.com`;
+    const staffEmail = `e2e-staff-${Date.now()}@example.com`;
     await sheet.getByLabel('Email', { exact: true }).fill(email);
     await roles.getByRole('radio', { name: 'Moderator' }).click();
     await sheet.getByRole('checkbox', { name: /^North,/ }).click();
@@ -112,6 +113,40 @@ test.describe('organization moderators', () => {
       await expect(roles2.getByRole('radio', { name: 'Staff' })).toBeVisible();
       await expect(roles2.getByRole('radio', { name: 'Moderator' })).toHaveCount(0);
       await expect(roles2.getByRole('radio', { name: 'Org admin' })).toHaveCount(0);
+
+      // The moderator hands out Staff in group North. South is not offered.
+      const invSheet = page.getByRole('dialog', { name: 'Invite' });
+      await expect(invSheet.getByRole('checkbox', { name: /^South,/ })).toHaveCount(0);
+      await invSheet.getByLabel('Email', { exact: true }).fill(staffEmail);
+      await roles2.getByRole('radio', { name: 'Staff' }).click();
+      await invSheet.getByRole('checkbox', { name: /^North,/ }).click();
+      await invSheet.getByRole('button', { name: 'Send', exact: true }).click();
+      await expect(invSheet.getByLabel('Invite link')).toHaveValue(/token=/);
+      await invSheet.getByRole('button', { name: 'Done', exact: true }).click();
+      const staffMail = await page.request.get('/api/testing/last-mail').then((r) => r.json());
+      expect(staffMail?.to).toBe(staffEmail);
+      const staffToken = /token=([\w-]+)/.exec(staffMail?.text ?? '')?.[1] ?? '';
+      expect(staffToken).not.toBe('');
+
+      // That Staff member sees North's people, and only them.
+      const staffContext = await browser.newContext();
+      const staff = await staffContext.newPage();
+      try {
+        await staff.goto(`/invite/?token=${staffToken}`);
+        await staff.getByRole('link', { name: 'Create account', exact: true }).click();
+        await staff.waitForURL('**/sign-up/');
+        await fillSignUp(staff, 'Sol Staff', staffEmail);
+        await staff.waitForURL('**/invite/?token=**');
+        await staff.getByRole('button', { name: 'Accept invite', exact: true }).click();
+        await staff.waitForURL(/\/(today|org)\//, { timeout: 10_000 });
+        await gotoCaregiver(staff, '/org/', PASSWORD);
+        const sp = (n: string) => staff.locator('li[class*="Org_person"]', { hasText: n });
+        await expect(sp('Ava')).toBeVisible({ timeout: 20_000 });
+        await expect(sp('Ben')).toBeVisible();
+        await expect(sp('Cy')).toHaveCount(0);
+      } finally {
+        await staffContext.close();
+      }
     } finally {
       await context.close();
     }
