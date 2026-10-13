@@ -68,6 +68,8 @@ const REF_KEYS = new Set([
   'requires_activity_id',
   'ref_id',
 ]);
+/** Refs that are NOT NULL: a live row whose parent is gone (soft-deleted, or itself skipped) is left behind. */
+const REQUIRED_REFS = ['activity_id', 'schedule_item_id', 'activity_step_id', 'story_id'];
 /** Who did it: in the new account there is only the family user. */
 const WHO_KEYS = new Set(['updated_by', 'created_by', 'completed_by']);
 
@@ -98,6 +100,17 @@ export async function copyProfileToAccount(
   // Old id -> new id for every copied row, then for every media row they use.
   const ids = new Map<string, string>();
   for (const rows of rowsByTable.values()) for (const r of rows) ids.set(r.id as string, uuidv7());
+  // Drop live rows orphaned by a soft-deleted parent, repeating because dropping a row can orphan its children.
+  for (let dropped = true; dropped; ) {
+    dropped = false;
+    for (const [name, rows] of rowsByTable) {
+      const keep = rows.filter((r) => REQUIRED_REFS.every((k) => !(k in r) || ids.has(r[k] as string)));
+      if (keep.length === rows.length) continue;
+      for (const r of rows) if (!keep.includes(r)) ids.delete(r.id as string);
+      rowsByTable.set(name, keep);
+      dropped = true;
+    }
+  }
   const settings = (profile.settings ?? {}) as Record<string, unknown>;
   const mediaIds = new Set<string>();
   const addMedia = (v: unknown): void => {

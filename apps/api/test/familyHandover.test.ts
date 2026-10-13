@@ -115,6 +115,28 @@ describe('family keeps a copy', () => {
   }
 
   describe('the copy', () => {
+    it('leaves behind live rows whose parent was soft-deleted, and the copy still succeeds', async () => {
+      const s = await setup();
+      const sync = (over: Record<string, unknown>): never => ({ id: uuidv7(), profile_id: s.ava, client_updated_at: 1, updated_by: s.admin.id, deleted_at: null, ...over }) as never;
+      const deadAct = uuidv7();
+      const deadStory = uuidv7();
+      const orphanItem = uuidv7();
+      const orphanStep = uuidv7();
+      await db.insert(activities).values(sync({ id: deadAct, name: 'Gone', position: 9, chip_value: 1, location_ids: [], deleted_at: 2 }));
+      await db.insert(social_stories).values(sync({ id: deadStory, title: 'Gone', position: 9, deleted_at: 2 }));
+      await db.insert(activity_steps).values(sync({ id: orphanStep, activity_id: deadAct, position: 0, name: 'Orphan step' }));
+      await db.insert(recurrence_skips).values(sync({ activity_id: deadAct, date: '2026-10-09' }));
+      await db.insert(story_pages).values(sync({ story_id: deadStory, position: 0, text: 'Orphan page' }));
+      await db.insert(schedule_items).values(sync({ id: orphanItem, date: '2026-10-09', position: 0, activity_id: deadAct, source: 'manual' }));
+      await db.insert(step_completions).values(sync({ schedule_item_id: orphanItem, activity_step_id: orphanStep, completed_at: 3, completed_by: s.admin.id }));
+      const token = await archiveAva(s);
+      const accept = await post(s.family.token, `/api/handovers/${token}/accept`);
+      expect(accept.statusCode).toBe(201);
+      const copy = await counts((accept.json() as { profile_id: string }).profile_id);
+      // The seeded person's own rows came across; the orphans did not.
+      expect(copy).toMatchObject({ activities: 1, activity_steps: 2, recurrence_skips: 1, schedule_items: 1, step_completions: 1, social_stories: 1, story_pages: 1 });
+    });
+
     it('copies a seeded person into a new supported account with new ids, and leaves the org copy alone', async () => {
       const s = await setup();
       const before = await counts(s.ava);
