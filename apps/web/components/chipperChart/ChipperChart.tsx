@@ -1,5 +1,6 @@
 'use client';
 
+import { useCanEdit } from '@/lib/auth/permissions';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatDayLabel, todayIso } from '@chipperly/shared/helpers/date';
@@ -28,6 +29,7 @@ export function ChipperChart() {
   const { profile } = useActiveProfile();
   const { user } = useSession();
   const deviceSettings = useDeviceSettings();
+  const canEdit = useCanEdit();
 
   const profileId = profile?.id ?? '';
   const userId = user?.id ?? '';
@@ -66,7 +68,7 @@ export function ChipperChart() {
           </button>
         </div>
 
-        <MoodMeter level={level} onChange={handleChange} />
+        <MoodMeter level={level} onChange={handleChange} readOnly={!canEdit} />
 
         <span className={styles.bigEmoji} aria-hidden="true">
           {levelEmoji(level)}

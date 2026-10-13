@@ -24,7 +24,7 @@ import {
   verifyStripeSignature,
 } from '../lib/stripe.js';
 import { accountAccess } from '../lib/trial.js';
-import { requireAccount } from '../plugins/auth.js';
+import { readOnlyError, requireAccount } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
 
 const PriceSchema = z.object({
@@ -74,7 +74,7 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
       .where(and(eq(account_members.account_id, accountId), eq(account_members.user_id, userId)))
       .limit(1);
     const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.account_id, accountId)).limit(1);
-    return { kind: account.kind, isAdmin: member?.role === 'admin', sub: sub ?? null };
+    return { kind: account.kind, isAdmin: member?.role === 'admin', isViewer: member?.role === 'viewer', sub: sub ?? null };
   }
 
   app.get('/billing', { preHandler: requireAccount }, async (request): Promise<BillingStatus> => {
@@ -121,7 +121,8 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
 
   app.post('/billing/checkout', { preHandler: requireAccount }, async (request) => {
     const { accountId, userId } = caller(request);
-    const { kind, isAdmin, sub } = await accountContext(accountId, userId);
+    const { kind, isAdmin, isViewer, sub } = await accountContext(accountId, userId);
+    if (isViewer) throw readOnlyError();
     if (!isAdmin) throw new AppError(403, 'forbidden', 'Admin role required');
     const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
     const { plan, kind: chosen } = BillingCheckoutBodySchema.parse(request.body ?? {});
@@ -163,7 +164,8 @@ export default async function billingRoutes(app: FastifyInstance): Promise<void>
 
   app.post('/billing/portal', { preHandler: requireAccount }, async (request) => {
     const { accountId, userId } = caller(request);
-    const { isAdmin, sub } = await accountContext(accountId, userId);
+    const { isAdmin, isViewer, sub } = await accountContext(accountId, userId);
+    if (isViewer) throw readOnlyError();
     if (!isAdmin) throw new AppError(403, 'forbidden', 'Admin role required');
     if (!sub) throw new AppError(409, 'no_subscription', 'This account has no subscription to manage');
     const { url } = await stripeRequest('POST', '/billing_portal/sessions', UrlSchema, {

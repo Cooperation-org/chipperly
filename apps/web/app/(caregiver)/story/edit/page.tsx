@@ -1,3 +1,4 @@
+import { RequireEditor } from '@/components/shell/RequireEditor';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { StoryForm } from '@/components/story/StoryForm';
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function StoryEditPage() {
   return (
     <Suspense fallback={null}>
-      <StoryForm />
+      <RequireEditor>
+        <StoryForm />
+      </RequireEditor>
     </Suspense>
   );
 }

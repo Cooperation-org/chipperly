@@ -1,5 +1,6 @@
 'use client';
 
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
 import { Picture } from '@/components/media/Picture';
@@ -63,6 +64,7 @@ export function SettingsMenu() {
 
   const role = accounts.find((a) => a.account.id === profile?.account_id)?.role;
   const isAdmin = role === 'admin';
+  const canEdit = useCanEdit();
   const viewTitle = settingsCopy(isSelfManaged(accounts.find((a) => a.account.id === profile?.account_id)?.account), profile?.name ?? '').viewTitle;
 
   // Also drops the service worker and its caches: without that, a "cleared"
@@ -119,13 +121,15 @@ export function SettingsMenu() {
         <div className={styles.section}>
           <span className={styles.sectionTitle}>{profile.name}</span>
           <div className={styles.card}>
-            <ListRow
-              tile={<Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="list" />}
-              name="Edit profile"
-              trailing={<Icon name="chevron" size={20} />}
-              onTap={() => router.push(`/settings/profile/edit/?id=${profile.id}`)}
-            />
-            {usesApp(profile) && !guest ? (
+            {canEdit ? (
+              <ListRow
+                tile={<Picture emoji={profile.avatar_emoji} photo_id={profile.avatar_photo_id} name={profile.name} size="list" />}
+                name="Edit profile"
+                trailing={<Icon name="chevron" size={20} />}
+                onTap={() => router.push(`/settings/profile/edit/?id=${profile.id}`)}
+              />
+            ) : null}
+            {usesApp(profile) && !guest && canEdit ? (
               <>
                 <ListRow
                   tile={<Icon name="gear" size={20} />}
@@ -162,7 +166,7 @@ export function SettingsMenu() {
                 onTap={() => router.push('/settings/credits/')}
               />
             )}
-            {guest ? null : (
+            {guest || !canEdit ? null : (
               <ListRow
                 tile={<Icon name="share" size={20} />}
                 name="Share link"
@@ -228,7 +232,7 @@ export function SettingsMenu() {
               )
             }
           />
-          {guest ? null : (
+          {guest || !canEdit ? null : (
             <ListRow tile={<Icon name="plus" size={20} />} name="Add profile" trailing={<Icon name="chevron" size={20} />} onTap={() => router.push('/settings/profiles/')} />
           )}
         </div>
@@ -333,7 +337,7 @@ export function SettingsMenu() {
       <div className={styles.section}>
         <span className={styles.sectionTitle}>This device</span>
         <div className={styles.card}>
-          {guest ? null : (
+          {guest || !canEdit ? null : (
             <ListRow
               tile={<span aria-hidden="true">📱</span>}
               name="Who uses this device"

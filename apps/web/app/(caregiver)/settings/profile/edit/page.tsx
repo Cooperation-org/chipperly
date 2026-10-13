@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { RequireEditor } from '@/components/shell/RequireEditor';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EditProfileClient } from './EditProfileClient';
 
@@ -13,7 +14,9 @@ export default function EditProfilePage() {
     <>
       <PageHeader title="Edit profile" backHref="/settings/" />
       <Suspense>
-        <EditProfileClient />
+        <RequireEditor>
+          <EditProfileClient />
+        </RequireEditor>
       </Suspense>
     </>
   );

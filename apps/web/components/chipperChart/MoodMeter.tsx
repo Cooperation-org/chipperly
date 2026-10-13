@@ -10,6 +10,8 @@ import styles from './MoodMeter.module.css';
 export interface MoodMeterProps {
   level: number;
   onChange: (next: number) => void;
+  /** A viewer sees the meter but cannot move it. */
+  readOnly?: boolean;
 }
 
 const TICKS = [-3, -1, 1, 3];
@@ -28,7 +30,7 @@ function levelFromClientX(clientX: number, rect: DOMRect): number {
  * Chart, `audio-snippet.js`): minus / bar / plus, all driving the same
  * `level`. Reused by the caregiver page and the child-mode sheet.
  */
-export function MoodMeter({ level, onChange }: MoodMeterProps) {
+export function MoodMeter({ level, onChange, readOnly = false }: MoodMeterProps) {
   const barRef = useRef<HTMLDivElement>(null);
 
   // `level` is driven by an async Dexie live query (upstream `useMoodLevel`):
@@ -49,6 +51,7 @@ export function MoodMeter({ level, onChange }: MoodMeterProps) {
   const [celebrating, setCelebrating] = useState(false);
 
   function request(next: number): void {
+    if (readOnly) return;
     // Already at the top and asking for more: nothing to persist, so cheer instead.
     if (next > MOOD_MAX) {
       setCelebrating(true);
@@ -92,7 +95,7 @@ export function MoodMeter({ level, onChange }: MoodMeterProps) {
         type="button"
         className={styles.minus}
         aria-label="Decrease mood"
-        disabled={level <= MOOD_MIN}
+        disabled={readOnly || level <= MOOD_MIN}
         onClick={() => request(requestedRef.current - 1)}
       >
         <Icon name="minus" size={24} />
@@ -104,6 +107,7 @@ export function MoodMeter({ level, onChange }: MoodMeterProps) {
         role="slider"
         tabIndex={0}
         aria-label="Mood level"
+        aria-readonly={readOnly || undefined}
         aria-valuemin={MOOD_MIN}
         aria-valuemax={MOOD_MAX}
         aria-valuenow={level}

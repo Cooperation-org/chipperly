@@ -1,5 +1,6 @@
 'use client';
 
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { todayIso } from '@chipperly/shared/helpers/date';
@@ -62,6 +63,7 @@ export function RoutineGoals({ profileId }: RoutineGoalsProps) {
 
 function RoutineGoalCard({ day }: { day: DayItem }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const rewardId = day.activity.goal_reward_id;
   const reward = useLiveQuery(() => (rewardId ? db.rewards.get(rewardId) : undefined), [rewardId]);
   const progress = stepProgress(day);
@@ -75,6 +77,7 @@ function RoutineGoalCard({ day }: { day: DayItem }) {
         type="button"
         className={styles.cardMain}
         onClick={() => router.push(`/activity/edit/?id=${day.activity.id}`)}
+        disabled={!canEdit}
       >
         <Picture emoji={day.activity.emoji} photo_id={day.activity.photo_id} name={day.activity.name} size="grid" />
         <div className={styles.cardBody}>

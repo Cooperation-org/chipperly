@@ -1,5 +1,6 @@
 'use client';
 
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { SocialStory } from '@chipperly/shared/schemas/story';
@@ -40,6 +41,7 @@ export function StoriesScreen() {
   const router = useRouter();
   const { profile } = useActiveProfile();
   const stories = useStories(profile?.id ?? '');
+  const canEdit = useCanEdit();
   const sheet = useSheet();
   const [viewingId, setViewingId] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -126,6 +128,8 @@ export function StoriesScreen() {
       <h1 className={styles.heading}>Stories</h1>
       <ScreenHint id="stories" title="Writing social stories" body="A short story with pictures helps someone get ready for something new. Read it together on a calm day." section="stories" />
 
+      {canEdit ? (
+        <>
       <input
         ref={fileInput}
         type="file"
@@ -143,11 +147,13 @@ export function StoriesScreen() {
         </Button>
         <p className={styles.uploadNote}>{UPLOAD_NOTE}</p>
       </div>
+        </>
+      ) : null}
 
       {stories.length === 0 ? (
         <>
           <EmptyState sentence="No stories yet" />
-          <section className={styles.templates}>
+          {canEdit ? <section className={styles.templates}>
             <h2 className={styles.sectionLabel}>Start from a template</h2>
             <div className={styles.templateRow}>
               {TEMPLATES.map((t) => (
@@ -156,16 +162,18 @@ export function StoriesScreen() {
                 </Button>
               ))}
             </div>
-          </section>
+          </section> : null}
         </>
       ) : (
         <div className={styles.grid}>
-          <button type="button" className={styles.newTile} onClick={() => router.push('/story/edit/')}>
-            <span className={styles.newIcon}>
-              <Icon name="plus" size={24} />
-            </span>
-            <span>New story</span>
-          </button>
+          {canEdit ? (
+            <button type="button" className={styles.newTile} onClick={() => router.push('/story/edit/')}>
+              <span className={styles.newIcon}>
+                <Icon name="plus" size={24} />
+              </span>
+              <span>New story</span>
+            </button>
+          ) : null}
           {stories.map((story) => (
             <div key={story.id} className={styles.cover}>
               <button type="button" className={styles.coverMain} onClick={() => setViewingId(story.id)} aria-label={story.title}>
@@ -174,9 +182,11 @@ export function StoriesScreen() {
                   {story.title}
                 </span>
               </button>
-              <button type="button" className={styles.more} onClick={() => openMore(story)} aria-label={`More for ${story.title}`}>
-                <span aria-hidden="true">⋯</span>
-              </button>
+              {canEdit ? (
+                <button type="button" className={styles.more} onClick={() => openMore(story)} aria-label={`More for ${story.title}`}>
+                  <span aria-hidden="true">⋯</span>
+                </button>
+              ) : null}
             </div>
           ))}
         </div>

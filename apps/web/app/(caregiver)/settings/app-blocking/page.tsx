@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { AppBlockingScreen } from '@/components/settings/AppBlockingScreen';
 import { GuestGate } from '@/components/auth/GuestGate';
+import { RequireEditor } from '@/components/shell/RequireEditor';
 import { PageHeader } from '@/components/ui/PageHeader';
 
 export const metadata: Metadata = {
@@ -12,7 +13,7 @@ export default function AppBlockingPage() {
   return (
     <>
       <PageHeader title="App blocking" backHref="/settings/" />
-      <GuestGate><AppBlockingScreen /></GuestGate>
+      <GuestGate><RequireEditor><AppBlockingScreen /></RequireEditor></GuestGate>
     </>
   );
 }

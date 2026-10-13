@@ -1,5 +1,6 @@
 'use client';
 
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { Profile } from '@chipperly/shared/schemas/profile';
@@ -20,6 +21,7 @@ import { TimerPill } from '@/components/timer/TimerPill';
 import { SyncSheet } from './SyncSheet';
 import { UnsavedBanner } from './UnsavedBanner';
 import { GuestBanner } from './GuestBanner';
+import { ViewOnlyBanner } from './ViewOnlyBanner';
 import styles from './CaregiverShell.module.css';
 
 const TABS = [
@@ -65,6 +67,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   // TopBar is a dumb tile: without a resolved URL a photo avatar stays a skeleton forever.
   const avatarUrl = useMediaUrl(profile?.avatar_photo_id);
   const sync = useSyncStatus();
+  const canEdit = useCanEdit();
   const { open, close } = useSheet();
   // The app's default is the child view (lib/device/settings.ts's
   // useParentMode); caregiver screens are the thing UnlockOverlay's PIN/
@@ -125,7 +128,8 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
   if (sessionStatus !== 'signed_in' || sessionProfiles.length === 0 || !decided || !allowed) return null;
   // Lock buttons only for a child who uses the app themselves.
   // A guest has no PIN or server to lock against, so no lock buttons.
-  const lockable = profile && usesApp(profile) && !guest ? profile : null;
+  // A viewer cannot change anything, so no lock buttons either.
+  const lockable = profile && usesApp(profile) && !guest && canEdit ? profile : null;
 
   return (
     <div className={styles.shell}>
@@ -155,6 +159,7 @@ export function CaregiverShell({ children }: { children: ReactNode }) {
       <TimerPill />
       <main className={styles.content}>
         <GuestBanner />
+        <ViewOnlyBanner />
         <UnsavedBanner onOpen={() => open(<SyncSheet />, { title: 'Sync' })} />
         {children}
       </main>

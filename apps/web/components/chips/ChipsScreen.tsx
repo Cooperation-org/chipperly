@@ -6,6 +6,7 @@ import type { Location } from '@chipperly/shared/schemas/location';
 import { COST_MAX } from '@chipperly/shared/constants/limits';
 import { todayIso } from '@chipperly/shared/helpers/date';
 import { useActiveProfile } from '@/lib/profile/active';
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useLocations, useActiveLocation, saveLocation } from '@/lib/data/locations';
 import { useWorkingFor, setWorkingFor, addChip, redeem, setFilled, useBalance, useLedger, chipTones } from '@/lib/data/chips';
 import { useMaterializedDay } from '@/lib/data/schedule';
@@ -90,6 +91,7 @@ export function ChipsScreen() {
   const sheet = useSheet();
   const { profile } = useActiveProfile();
   const profileId = profile?.id ?? '';
+  const canEdit = useCanEdit();
   const view = useKv<ChipsView>(chipsViewKey(profileId), 'place');
   // The Routine and Day views read today's items, and this tab is reachable
   // from a cold start (the view is remembered per profile).
@@ -213,7 +215,7 @@ export function ChipsScreen() {
 
           {/* Two tap targets, one action: the big picture and the chips beneath it both open the picker. */}
           <div className={styles.workingFor}>
-            <button type="button" className={styles.workingForButton} onClick={openRewardPicker}>
+            <button type="button" className={styles.workingForButton} onClick={openRewardPicker} disabled={!canEdit}>
               <span className={styles.workingForLabel}>I am working for...</span>
               {working.reward ? (
                 <>
@@ -225,7 +227,7 @@ export function ChipsScreen() {
                   <span className={styles.heroEmpty} aria-hidden="true">
                     <span className={styles.heroEmptyEmoji}>🎁</span>
                   </span>
-                  <span className={styles.choose}>Choose a reward</span>
+                  <span className={styles.choose}>{canEdit ? 'Choose a reward' : 'No reward chosen'}</span>
                 </>
               )}
               {/* The strip below announces the count; this is the same number in words for reading. */}
@@ -233,10 +235,10 @@ export function ChipsScreen() {
                 {working.filled} of {working.goal} earned
               </span>
             </button>
-            <ChipStrip filled={working.filled} total={working.goal} onTap={openRewardPicker} size="lg" chipSize={chipSize} />
+            <ChipStrip filled={working.filled} total={working.goal} onTap={canEdit ? openRewardPicker : undefined} size="lg" chipSize={chipSize} />
           </div>
 
-          {working.reward ? (
+          {working.reward && canEdit ? (
             <div className={styles.links}>
               <Button variant="secondary" onClick={() => router.push(`/reward/edit/?id=${working.reward!.id}`)}>
                 Edit {working.reward.name}
@@ -245,7 +247,7 @@ export function ChipsScreen() {
           ) : null}
 
           <div className={styles.boardWrap}>
-            <ChipBoard filled={working.filled} total={working.goal} tones={tones} chipSize={chipSize} onSetFilled={(next) => void handleSetFilled(next)} />
+            <ChipBoard filled={working.filled} total={working.goal} tones={tones} chipSize={chipSize} onSetFilled={canEdit ? (next) => void handleSetFilled(next) : undefined} />
             {celebrateMessage ? (
               <div className={styles.celebrationWrap}>
                 <Celebration kind="redeem" message={celebrateMessage} onDone={() => setCelebrateMessage(null)} />
@@ -253,25 +255,29 @@ export function ChipsScreen() {
             ) : null}
           </div>
 
-          {!working.reward ? (
+          {!working.reward && canEdit ? (
             <Button variant="ghost" onClick={openGoalSheet}>
               Goal: {working.goal}
             </Button>
           ) : null}
-          <Button variant="ghost" onClick={openChipSizeSheet}>
-            Chip size
-          </Button>
+          {canEdit ? (
+            <Button variant="ghost" onClick={openChipSizeSheet}>
+              Chip size
+            </Button>
+          ) : null}
 
-          {canRedeem && working.reward ? (
+          {canEdit && canRedeem && working.reward ? (
             <BigButton variant="accent" fullWidth className={styles.redeemButton} onClick={handleRedeem}>
               Redeem {working.reward.emoji ?? '🎁'}
             </BigButton>
           ) : null}
 
           <div className={styles.links}>
-            <Button variant="secondary" onClick={openFreeTimeSheet}>
-              Free time choices
-            </Button>
+            {canEdit ? (
+              <Button variant="secondary" onClick={openFreeTimeSheet}>
+                Free time choices
+              </Button>
+            ) : null}
             <Button variant="secondary" onClick={() => router.push('/chips/history/')}>
               History
             </Button>

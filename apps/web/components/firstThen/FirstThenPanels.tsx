@@ -1,5 +1,6 @@
 'use client';
 
+import { useCanEdit } from '@/lib/auth/permissions';
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useRouter } from 'next/navigation';
@@ -52,6 +53,9 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
   const [celebrating, setCelebrating] = useState(false);
 
   const caregiver = mode === 'caregiver';
+  const canEdit = useCanEdit(profileId);
+  // A viewer sees the caregiver screen but changes nothing on it.
+  const editor = caregiver && canEdit;
   const bothSet = Boolean(first && then);
 
   function openFirstPicker() {
@@ -154,7 +158,7 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
 
   return (
     <div className={styles.wrap}>
-      {caregiver ? (
+      {editor ? (
         <div className={styles.toolbar}>
           <IconButton icon="more" aria-label="More" onClick={openMenu} />
         </div>
@@ -171,7 +175,7 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
               : 'First-Then is not ready yet. Ask your team to set it up.'
           }
           actions={
-            caregiver
+            editor
               ? [
                   ...(first ? [] : [<Button key="first" onClick={openFirstPicker}>Pick what comes first</Button>]),
                   ...(then ? [] : [<Button key="then" onClick={openThenPicker}>Pick the reward that comes after</Button>]),
@@ -185,12 +189,12 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
         <div className={[styles.panel, done ? styles.dimmed : ''].filter(Boolean).join(' ')}>
           <span className={styles.label}>First</span>
           {first ? (
-            <PanelBody name={first.name} emoji={first.emoji} photoId={first.photo_id} onTap={caregiver ? openFirstPicker : undefined} />
+            <PanelBody name={first.name} emoji={first.emoji} photoId={first.photo_id} onTap={editor ? openFirstPicker : undefined} />
           ) : (
-            <EmptyPanel sentence="Choose an activity" onTap={caregiver ? openFirstPicker : undefined} />
+            <EmptyPanel sentence="Choose an activity" onTap={editor ? openFirstPicker : undefined} />
           )}
-          {first ? <PanelVoice profileId={profileId} panel="first" mode={mode} label={`First, ${first.name}`} /> : null}
-          {bothSet ? <CheckCircle checked={done} onChange={(next) => void handleToggleDone(next)} name="Done" size="lg" /> : null}
+          {first ? <PanelVoice profileId={profileId} panel="first" mode={editor || !caregiver ? mode : 'child'} label={`First, ${first.name}`} /> : null}
+          {bothSet ? <CheckCircle checked={done} onChange={(next) => void handleToggleDone(next)} name="Done" size="lg" disabled={!canEdit} /> : null}
         </div>
 
         <div className={[styles.panel, done ? styles.enlarged : ''].filter(Boolean).join(' ')}>
@@ -200,13 +204,13 @@ export function FirstThenPanels({ profileId, mode, onStartTimer }: FirstThenPane
               name={then.name}
               emoji={then.emoji}
               photoId={then.photo_id}
-              onTap={caregiver ? openThenPicker : canAsk ? () => void askForReward() : undefined}
+              onTap={editor ? openThenPicker : canAsk ? () => void askForReward() : undefined}
               tapLabel={canAsk ? `Ask for ${then.name}` : undefined}
             />
           ) : (
-            <EmptyPanel sentence="Choose a reward" onTap={caregiver ? openThenPicker : undefined} />
+            <EmptyPanel sentence="Choose a reward" onTap={editor ? openThenPicker : undefined} />
           )}
-          {then ? <PanelVoice profileId={profileId} panel="then" mode={mode} label={`Then, ${then.name}`} /> : null}
+          {then ? <PanelVoice profileId={profileId} panel="then" mode={editor || !caregiver ? mode : 'child'} label={`Then, ${then.name}`} /> : null}
           {canAsk ? <span className={styles.hint}>Tap to ask for it</span> : null}
           {!caregiver && asked ? <span className={styles.hint}>{told ? 'You asked for it. Your team has been told.' : 'You asked for it.'}</span> : null}
         </div>

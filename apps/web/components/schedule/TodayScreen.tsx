@@ -6,6 +6,7 @@ import { addDays, isWeekend, todayIso } from '@chipperly/shared/helpers/date';
 import type { Activity } from '@chipperly/shared/schemas/activity';
 import { useActiveProfile } from '@/lib/profile/active';
 import { useSession } from '@/lib/auth/session';
+import { useCanEdit } from '@/lib/auth/permissions';
 import { VerifyBanner } from '@/components/auth/VerifyBanner';
 import { RewardAlertsBanner } from './RewardAlertsBanner';
 import {
@@ -61,6 +62,7 @@ export function TodayScreen() {
   const router = useRouter();
   const { profile } = useActiveProfile();
   const { user } = useSession();
+  const canEdit = useCanEdit();
   const { open, close } = useSheet();
   const [isoDate, setIsoDate] = useState<string>(() => todayIso());
 
@@ -138,7 +140,7 @@ export function TodayScreen() {
           tile={<Picture emoji={step.emoji} photo_id={step.photo_id} name={step.name} size="list" />}
           name={step.name}
           checked={node.done}
-          onChange={(next) => void setStepCompleted(itemId, step.id, next, userId)}
+          onChange={canEdit ? (next) => void setStepCompleted(itemId, step.id, next, userId) : () => undefined}
           durationMinutes={step.duration_minutes}
           depth={depth}
           hasChildren={hasChildren}
@@ -318,8 +320,8 @@ export function TodayScreen() {
               🗓️
             </span>
           }
-          sentence={`Nothing planned for ${weekdayName(isoDate)}. Add a task, or an appointment or lesson, whenever you like.`}
-          actions={[
+          sentence={canEdit ? `Nothing planned for ${weekdayName(isoDate)}. Add a task, or an appointment or lesson, whenever you like.` : `Nothing planned for ${weekdayName(isoDate)}.`}
+          actions={!canEdit ? [] : [
             <Button key="add" onClick={openPicker}>
               Add activity
             </Button>,
@@ -364,6 +366,7 @@ export function TodayScreen() {
                   >
                     <ListRow
                       handle={
+                        canEdit ? (
                         <button
                           type="button"
                           className={styles.dragHandle}
@@ -384,6 +387,7 @@ export function TodayScreen() {
                         >
                           <Icon name="drag" size={20} />
                         </button>
+                        ) : undefined
                       }
                       tile={
                         <Picture emoji={day.activity.emoji} photo_id={day.activity.photo_id} name={day.activity.name} size="list" />
@@ -400,7 +404,7 @@ export function TodayScreen() {
                         )
                       }
                       dimmed={dimmed}
-                      onTap={() => openItem(day)}
+                      onTap={canEdit ? () => openItem(day) : day.steps.length > 0 ? () => toggleExpanded(day.item.id) : undefined}
                       trailing={
                         <div className={styles.trailingGroup}>
                           {day.steps.length > 0 ? (
@@ -417,6 +421,7 @@ export function TodayScreen() {
                             name={day.activity.name}
                             progress={day.steps.length > 0 ? stepTree(day.steps).filter((node) => node.done).length / stepTree(day.steps).length : undefined}
                             onChange={(next) => void onToggleComplete(day, next)}
+                            disabled={!canEdit}
                           />
                         </div>
                       }
@@ -430,7 +435,7 @@ export function TodayScreen() {
             </section>
           ))}
           {isAllDone ? <p className={styles.allDone}>All done for today</p> : null}
-          <div className={styles.checkupRow}>
+          {canEdit ? <div className={styles.checkupRow}>
             <Button
               variant={isAllDone ? 'primary' : 'secondary'}
               onClick={() =>
@@ -439,7 +444,7 @@ export function TodayScreen() {
             >
               Day check-up
             </Button>
-          </div>
+          </div> : null}
         </div>
       )}
 
@@ -452,9 +457,11 @@ export function TodayScreen() {
 
       <ComingUp profileId={profileId} isoDate={isoDate} />
 
-      <Button icon="plus" size="lg" aria-label="Add activity" className={styles.addButton} onClick={openPicker}>
-        Add
-      </Button>
+      {canEdit ? (
+        <Button icon="plus" size="lg" aria-label="Add activity" className={styles.addButton} onClick={openPicker}>
+          Add
+        </Button>
+      ) : null}
     </div>
   );
 }

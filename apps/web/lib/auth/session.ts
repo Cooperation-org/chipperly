@@ -51,6 +51,9 @@ function getSnapshot(): SessionState {
   return state;
 }
 
+/** The current session without React, for the sync layer. */
+export const getSessionState = getSnapshot;
+
 /** Live session state; tokens and `/me` are cached in kv, so this reads signed_in immediately offline. */
 export function useSession(): SessionState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
