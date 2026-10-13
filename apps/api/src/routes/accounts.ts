@@ -220,6 +220,8 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     const own = new Set(await accountProfileIds(accountId));
     if (body.profile_ids.some((id) => !own.has(id))) throw new AppError(400, 'invalid_profiles', 'Some of those people are not in this account');
     if (body.role === 'admin') await assertAdminSeat(accountId, true);
+    const own = new Set(await accountProfileIds(accountId));
+    if (body.profile_ids.some((id) => !own.has(id))) throw new AppError(400, 'invalid_profiles', 'Some of those people are not in this account');
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
     if (!account) throw new AppError(404, 'not_found', 'Account not found');
     const [inviter] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -401,7 +403,9 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
         if (invite.role === 'admin') await assertAdminSeat(invite.account_id);
         await tx.insert(account_members).values({ account_id: invite.account_id, user_id: userId, role: invite.role });
       }
-      for (const profileId of invite.profile_ids) {
+      // Second guard: only profiles that belong to the invite's account.
+      const own = new Set(await accountProfileIds(invite.account_id));
+      for (const profileId of invite.profile_ids.filter((id) => own.has(id))) {
         await tx
           .insert(profile_members)
           .values({ profile_id: profileId, user_id: userId, relationship_label: invite.relationship_label })

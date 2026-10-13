@@ -8,6 +8,7 @@ import {
   InvitePublicSchema,
 } from '@chipperly/shared/schemas/account';
 import { buildTestApp, expectShape, request } from './helpers.js';
+import { createProfile } from './fixtures.js';
 import { db } from '../src/db/client.js';
 import { account_members, users } from '../src/db/schema/accounts.js';
 import { activities, activity_steps } from '../src/db/schema/activities.js';
@@ -656,6 +657,20 @@ describe('household limits', () => {
   const invite = (token: string, accountId: string, role: 'admin' | 'member', email: string) =>
     request(app, { method: 'POST', url: `/api/accounts/${accountId}/invites`, headers: auth(token), payload: { email, role, profile_ids: [] } });
   const codeOf = (res: { json: () => unknown }) => (res.json() as { error: { code: string } }).error.code;
+
+  it('refuses an invite that names a profile from another account', async () => {
+    const { admin, accountId } = await makeAccount('household');
+    const other = await makeAccount('household');
+    const foreign = await createProfile(other.accountId, other.admin.id, 'Foreign kid');
+    const res = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${accountId}/invites`,
+      headers: auth(admin.token),
+      payload: { email: 'sneaky@example.com', role: 'member', profile_ids: [foreign] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(codeOf(res)).toBe('invalid_profiles');
+  });
 
   it('stops at 6 profiles with profile_limit', async () => {
     const { admin, accountId } = await makeAccount('household');

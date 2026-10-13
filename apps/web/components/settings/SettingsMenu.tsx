@@ -322,13 +322,15 @@ export function SettingsMenu() {
                   onTap={() => router.push('/settings/admin/backups/')}
                 />
               ) : null}
-              <ListRow
-                tile={<span aria-hidden="true">📱</span>}
-                name="Devices"
-                secondary="See and name every device that's signed in"
-                trailing={<Icon name="chevron" size={20} />}
-                onTap={() => router.push('/settings/devices/')}
-              />
+              {canEdit ? (
+                <ListRow
+                  tile={<span aria-hidden="true">📱</span>}
+                  name="Devices"
+                  secondary="See and name every device that's signed in"
+                  trailing={<Icon name="chevron" size={20} />}
+                  onTap={() => router.push('/settings/devices/')}
+                />
+              ) : null}
             </div>
           </div>
         </>
