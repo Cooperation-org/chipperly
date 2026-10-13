@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FeedbackListSchema, SURVEY_QUESTIONS, type FeedbackItem, type FeedbackList } from '@chipperly/shared/schemas/feedback';
 import { api } from '@/lib/api/client';
-import { useSession } from '@/lib/auth/session';
+import { useAdminRole } from '@/lib/admin/role';
 import { median } from '@/lib/feedback/median';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
@@ -20,7 +20,7 @@ function when(ms: number): string {
 
 /** Super admins only: what beta testers sent from Settings > Send feedback, plus what they said about price. */
 export function FeedbackInbox() {
-  const { user } = useSession();
+  const role = useAdminRole();
   const [items, setItems] = useState<FeedbackItem[] | null>(null);
   const [show, setShow] = useState<'new' | 'all'>('new');
 
@@ -32,12 +32,12 @@ export function FeedbackInbox() {
   }, []);
 
   useEffect(() => {
-    if (user?.is_super_admin) load();
-  }, [user?.is_super_admin, load]);
+    if (role) load();
+  }, [role, load]);
 
   const prices = useMemo(() => (items ?? []).map((i) => i.q_price_monthly).filter((v): v is number => v !== null), [items]);
 
-  if (!user?.is_super_admin) return <p>Only super admins can see this.</p>;
+  if (!role) return <p>Only Chipperly&rsquo;s team can see this.</p>;
   if (!items) return null;
 
   const shown = show === 'new' ? items.filter((i) => i.status === 'new') : items;
@@ -97,9 +97,11 @@ export function FeedbackInbox() {
               </p>
             ),
           )}
-          <Button variant="secondary" onClick={() => void mark(item, item.status === 'new' ? 'done' : 'new')}>
-            {item.status === 'new' ? 'Mark done' : 'Reopen'}
-          </Button>
+          {role === 'super' ? (
+            <Button variant="secondary" onClick={() => void mark(item, item.status === 'new' ? 'done' : 'new')}>
+              {item.status === 'new' ? 'Mark done' : 'Reopen'}
+            </Button>
+          ) : null}
         </article>
       ))}
     </div>

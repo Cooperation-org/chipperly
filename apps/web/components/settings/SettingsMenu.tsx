@@ -25,6 +25,7 @@ import { isSelfManaged, settingsCopy } from './settingsCopy';
 import { ShareSheet } from './ShareSheet';
 import { SyncSheet } from '@/components/shell/SyncSheet';
 import styles from './SettingsMenu.module.css';
+import { ADMIN_URL, isLocalHost } from '@/lib/admin/host';
 
 function ProfileSwitchSheet({
   profiles,
@@ -277,49 +278,15 @@ export function SettingsMenu() {
                 trailing={<Icon name="chevron" size={20} />}
                 onTap={() => router.push('/settings/billing/')}
               />
-              {user?.is_super_admin ? (
+              {user?.is_super_admin || user?.is_support ? (
                 <ListRow
                   tile={<Icon name="gear" size={20} />}
-                  name="Admin dashboard"
-                  secondary="Sign-ups, trials, early access codes"
+                  name="Admin site"
+                  secondary="People, organizations, subscriptions, payments"
                   trailing={<Icon name="chevron" size={20} />}
-                  onTap={() => router.push('/settings/admin/')}
-                />
-              ) : null}
-              {user?.is_super_admin ? (
-                <ListRow
-                  tile={<Icon name="clipboard" size={20} />}
-                  name="Feedback inbox"
-                  secondary="What beta testers have sent"
-                  trailing={<Icon name="chevron" size={20} />}
-                  onTap={() => router.push('/settings/admin/feedback/')}
-                />
-              ) : null}
-              {user?.is_super_admin ? (
-                <ListRow
-                  tile={<Icon name="clipboard" size={20} />}
-                  name="Payments log"
-                  secondary="Subscriptions, and what Stripe has sent us"
-                  trailing={<Icon name="chevron" size={20} />}
-                  onTap={() => router.push('/settings/admin/payments/')}
-                />
-              ) : null}
-              {user?.is_super_admin ? (
-                <ListRow
-                  tile={<Icon name="clipboard" size={20} />}
-                  name="Sync health"
-                  secondary="Changes a device made that are not saved yet"
-                  trailing={<Icon name="chevron" size={20} />}
-                  onTap={() => router.push('/settings/admin/sync/')}
-                />
-              ) : null}
-              {user?.is_super_admin ? (
-                <ListRow
-                  tile={<Icon name="sync" size={20} />}
-                  name="Backups"
-                  secondary="See a day's backup and restore from it"
-                  trailing={<Icon name="chevron" size={20} />}
-                  onTap={() => router.push('/settings/admin/backups/')}
+                  // Another site (admin.chipperlyapp.com), so a full page load; a local server shows it in place.
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                  onTap={() => (isLocalHost() ? router.push('/admin/') : window.location.assign(`${ADMIN_URL}/admin/`))}
                 />
               ) : null}
               {canEdit ? (

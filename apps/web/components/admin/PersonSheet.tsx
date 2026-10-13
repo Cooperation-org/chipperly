@@ -24,6 +24,7 @@ export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser;
   const [verified, setVerified] = useState(person.email_verified);
   const [accounts, setAccounts] = useState(person.accounts);
   const [closedAt, setClosedAt] = useState(person.deactivated_at);
+  const [support, setSupport] = useState(person.is_support);
   const [confirmEmail, setConfirmEmail] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -52,6 +53,12 @@ export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser;
       await api.put(`/admin/accounts/${accountId}/comp`, { until, note: null });
       setAccounts((all) => all.map((a) => (a.id === accountId ? { ...a, comp_until: until } : a)));
     }, until === null ? 'Free access removed' : `Free access until ${day(until)}`);
+
+  const setSupportRole = (on: boolean) =>
+    act(async () => {
+      await api.put(`/admin/users/${person.id}/support`, { is_support: on });
+      setSupport(on);
+    }, on ? 'Support role on' : 'Support role off');
 
   const close = () =>
     act(async () => {
@@ -110,6 +117,14 @@ export function PersonSheet({ person, onChanged, onClose }: { person: AdminUser;
           </span>
         </div>
       ))}
+
+      {person.is_super_admin ? null : (
+        <>
+          <h3 className={styles.subheading}>Admin site</h3>
+          <p className={styles.muted}>Support can open admin.chipperlyapp.com and see people, organizations, subscriptions, payments and feedback, but cannot change anything.</p>
+          <Switch label="Support, view only" checked={support} disabled={busy} onChange={(on) => void setSupportRole(on)} />
+        </>
+      )}
 
       <h3 className={styles.subheading}>Sign-in</h3>
       {due === null ? (
