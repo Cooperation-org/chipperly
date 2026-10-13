@@ -151,7 +151,9 @@ One-time setup:
 
 - Two-step sign-in is on by default (`ADMIN_TWO_STEP`, set `off` only on a local or test server). Each admin
   sets it up at their first visit; a super admin can reset someone's from their person sheet.
-- Waitlist: the admin site reads the website's waitlist with the API's `CRON_SECRET`. The website must have the
-  same value as `NEWSLETTER_API_SECRET` (`wrangler secret put NEWSLETTER_API_SECRET` in apps/site), and its
-  migration `20261013_100000_waitlist_invited` runs on the next "Deploy site".
+- Waitlist: the admin site reads the website's waitlist with `ADMIN_LINK_SECRET` (at least 32 characters), the
+  same value in `apps/api/.env` and on the website (`wrangler secret put ADMIN_LINK_SECRET` in apps/site). Do not
+  use `CRON_SECRET` for this: setting `CRON_SECRET` on the API hands reminders and sync-health checks to an outside
+  cron, which nothing runs today. The website's migration `20261013_100000_waitlist_invited` runs on the next
+  "Deploy site".
 - `SITE_ORIGIN` defaults to https://chipperlyapp.com.

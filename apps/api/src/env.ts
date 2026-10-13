@@ -71,7 +71,12 @@ const EnvSchema = z.object({
   ADMIN_ORIGIN: z.string().min(1).optional(),
   /** off = the admin site does not ask for an authenticator code (tests, a local server). Default on. */
   ADMIN_TWO_STEP: z.enum(['on', 'off']).default('on'),
-  /** The marketing site, which holds the waitlist (read with CRON_SECRET). */
+  /**
+   * Links the admin site to the marketing site's waitlist (same value as ADMIN_LINK_SECRET there).
+   * Its own secret on purpose: setting CRON_SECRET would hand reminders to an outside cron.
+   */
+  ADMIN_LINK_SECRET: z.string().min(32).optional(),
+  /** The marketing site, which holds the waitlist. */
   SITE_ORIGIN: z.string().min(1).default('https://chipperlyapp.com'),
   /** Set = reminders run from an outside cron via POST /api/internal/reminders (routes/internal.ts) instead of the in-process timer. */
   CRON_SECRET: z.string().min(32).optional(),
