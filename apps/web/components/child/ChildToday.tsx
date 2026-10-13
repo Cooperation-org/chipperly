@@ -690,25 +690,35 @@ export function ChildToday() {
             return (
               <div key={day.item.id} className={isNow ? `${styles.card} ${styles.now}` : styles.card} aria-current={isNow ? 'step' : undefined}>
                 <div className={styles.row}>
-                  {/* The picture opens the row's options; the check circle stays the one-tap tick. */}
-                  <button type="button" className={styles.pictureTap} aria-label={`Options, ${day.activity.name}`} onClick={() => openRowOptions(day, stepsDone)}>
-                    {picture}
-                  </button>
+                  {/* The name sits under the picture, like the tiles home. The picture opens the row's options;
+                      the name does what the rest of the bar does; the check circle stays the one-tap tick. */}
+                  <div className={styles.pictureColumn}>
+                    <button type="button" className={styles.pictureTap} aria-label={`Options, ${day.activity.name}`} onClick={() => openRowOptions(day, stepsDone)}>
+                      {picture}
+                    </button>
+                    {/* Pointer-only, like the bar: the picture and the circle carry the name for keyboards and screen readers. */}
+                    <button
+                      type="button"
+                      className={styles.nameTap}
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      onClick={hasSteps ? () => toggleExpanded(day.item.id) : () => void handleToggle(day, !dimmed)}
+                    >
+                      {nameLabel}
+                    </button>
+                  </div>
                   {hasSteps ? (
                     <button
                       type="button"
                       className={styles.rowTap}
                       aria-expanded={expanded}
+                      aria-label={`${day.activity.name}, ${stepsDone} of ${topSteps.length} steps done`}
                       onClick={() => toggleExpanded(day.item.id)}
                     >
-                      <span className={styles.rowText}>
-                        {nameLabel}
-                        {/* Progress shows even collapsed (the old beta's "0/3 steps done"); the chevron rides
-                            on this line, not beside the name, so the name keeps the row's width. */}
-                        <span className={styles.stepProgress}>
-                          {stepsDone}/{topSteps.length} steps done
-                          <Icon name="chevron" size={18} className={[styles.expandChevron, expanded ? styles.open : ''].filter(Boolean).join(' ')} />
-                        </span>
+                      {/* Progress shows even collapsed (the old beta's "0/3 steps done"). */}
+                      <span className={styles.stepProgress}>
+                        {stepsDone}/{topSteps.length} steps done
+                        <Icon name="chevron" size={18} className={[styles.expandChevron, expanded ? styles.open : ''].filter(Boolean).join(' ')} />
                       </span>
                     </button>
                   ) : (
@@ -720,9 +730,7 @@ export function ChildToday() {
                       tabIndex={-1}
                       aria-hidden="true"
                       onClick={() => void handleToggle(day, !dimmed)}
-                    >
-                      {nameLabel}
-                    </button>
+                    />
                   )}
                   {readAloud ? (
                     <IconButton icon="speaker" aria-label={`Say ${day.activity.name}`} onClick={() => speak(day.activity.name)} />

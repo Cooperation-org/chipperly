@@ -367,6 +367,9 @@ export interface Waitlist {
    * Page the form was sent from.
    */
   source?: string | null;
+  /**
+   * Set by the admin site when it emails the beta code.
+   */
   invitedAt?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -385,10 +388,10 @@ export interface Newsletter {
   /**
    * App segments need the app connected (NEWSLETTER_API_SECRET); until then they say "not connected yet".
    */
-  audience: 'all' | 'waitlist' | 'app_users' | 'trial_expired' | 'subscribed';
+  audience: 'all' | 'waitlist' | 'app_users' | 'trial' | 'trial_expired' | 'subscribed';
   status?: ('draft' | 'scheduled' | 'sent') | null;
   /**
-   * Goes out with the daily send, the next morning after this time.
+   * Goes out at the next daily send (9am Arizona time) after this time.
    */
   scheduledFor?: string | null;
   sendTest?: boolean | null;

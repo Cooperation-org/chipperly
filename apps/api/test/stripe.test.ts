@@ -620,6 +620,18 @@ describe('choosing a plan at checkout', () => {
     expect(kindForPriceId('price_other')).toBeUndefined();
   });
 
+  it('a price Individual and Supported share keeps a supported account supported', () => {
+    const saved = env.STRIPE_PRICE_SUPPORTED;
+    env.STRIPE_PRICE_SUPPORTED = 'price_ind';
+    try {
+      expect(kindForPriceId('price_ind', 'supported')).toBe('supported');
+      expect(kindForPriceId('price_ind', 'individual')).toBe('individual');
+      expect(kindForPriceId('price_ind', 'household')).toBe('individual');
+    } finally {
+      env.STRIPE_PRICE_SUPPORTED = saved;
+    }
+  });
+
   it('buys the kind that was asked for, from our own price ids, and lists what can be bought', async () => {
     const sessions: string[] = [];
     stubStripe(sessions);

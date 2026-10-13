@@ -17,6 +17,7 @@ describe('pickAudience', () => {
   it('one segment only', () => {
     expect(pickAudience('waitlist', people, new Set())).toEqual(['w@example.com']);
     expect(pickAudience('trial_expired', people, new Set())).toEqual(['x@example.com']);
+    expect(pickAudience('trial', people, new Set())).toEqual(['t@example.com']);
     expect(pickAudience('subscribed', people, new Set()).sort()).toEqual(['s@example.com', 'w@example.com']);
   });
   it('app users only: every app segment, no waitlist', () => {
@@ -39,6 +40,6 @@ describe('fetchAppUsers', () => {
   it('sends the secret header and returns the users', async () => {
     const f = vi.fn(async () => new Response(JSON.stringify({ users: people.slice(0, 1) })));
     expect(await fetchAppUsers('https://app.test', 'sek', f as never)).toEqual(people.slice(0, 1));
-    expect(f).toHaveBeenCalledWith('https://app.test/api/internal/newsletter-audience', { headers: { 'x-cron-secret': 'sek' } });
+    expect(f).toHaveBeenCalledWith('https://app.test/api/internal/newsletter-audience', { headers: { 'x-newsletter-secret': 'sek' } });
   });
 });

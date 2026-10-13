@@ -36,12 +36,9 @@ describe('/api/internal (cron routes)', () => {
     expect(busy.json()).toEqual({ busy: false });
   });
 
-  it('lists newsletter users only with the secret', async () => {
-    const none = await app.inject({ method: 'GET', url: '/api/internal/newsletter-audience' });
-    expect(none.statusCode).toBe(404);
-    const ok = await app.inject({ method: 'GET', url: '/api/internal/newsletter-audience', headers: { 'x-cron-secret': secret } });
-    expect(ok.statusCode).toBe(200);
-    expect(Array.isArray(ok.json().users)).toBe(true);
+  it('does not list newsletter users with the cron secret', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/internal/newsletter-audience', headers: { 'x-cron-secret': secret } });
+    expect(res.statusCode).toBe(404);
   });
 
   it('puts a user in the segment of their best account, and only an admin in expired trials', () => {
@@ -65,6 +62,19 @@ describe('/api/internal (cron routes)', () => {
     expect(accessState(accessInputFor(ownedBy('fresh'), [old, fresh], null), now).state).toBe('trial');
     // An owner who is no longer an admin: the latest admin trial, as before.
     expect(accessState(accessInputFor(ownedBy('gone'), [old, fresh], null), now).state).toBe('trial');
+  });
+
+  it('lists newsletter users with NEWSLETTER_API_SECRET alone, and leaves the cron routes off', async () => {
+    const newsletterSecret = 'newsletter-secret-for-tests-at-least-32';
+    const site = await buildApp({ env: { ...env, CRON_SECRET: undefined, NEWSLETTER_API_SECRET: newsletterSecret } });
+    const none = await site.inject({ method: 'GET', url: '/api/internal/newsletter-audience' });
+    const ok = await site.inject({ method: 'GET', url: '/api/internal/newsletter-audience', headers: { 'x-newsletter-secret': newsletterSecret } });
+    const cron = await site.inject({ method: 'POST', url: '/api/internal/reminders', headers: { 'x-cron-secret': newsletterSecret } });
+    await site.close();
+    expect(none.statusCode).toBe(404);
+    expect(ok.statusCode).toBe(200);
+    expect(Array.isArray(ok.json().users)).toBe(true);
+    expect(cron.statusCode).toBe(404);
   });
 
   it('is not registered at all without CRON_SECRET', async () => {

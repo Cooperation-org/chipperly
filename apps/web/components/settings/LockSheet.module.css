@@ -85,10 +85,22 @@
   }
 }
 
+/* The name under the picture, as in the child's list (ChildToday .pictureColumn). */
+.previewTask {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: max-content;
+  max-width: 55%;
+}
+
 .previewName {
-  flex: 1;
-  min-width: 0;
+  text-align: center;
+  font-family: var(--font-heading);
+  line-height: 1.2;
   overflow-wrap: break-word;
+  hyphens: auto;
   /* --text-lg, in the child's rem. */
   font-size: calc(clamp(1.0625 * var(--child-rem), 0.95 * var(--child-rem) + 1.2vw, 1.25 * var(--child-rem)) * var(--text-scale, 1));
 }

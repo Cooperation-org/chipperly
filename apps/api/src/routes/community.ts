@@ -48,6 +48,7 @@ import {
   platformFeeAmount,
   platformFeePercent,
   refreshSeller,
+  sellingEnabled,
   sellerStatus,
   webhookSecrets,
 } from '../lib/stripeConnect.js';
@@ -278,10 +279,10 @@ const idParamSchema = z.object({ id: uuidSchema });
 
 /**
  * A seller who has not finished Stripe onboarding cannot set a price, and the error says why.
- * Selling is invisible without Stripe: the same 404 the /billing routes give.
+ * Selling is invisible until it is enabled (Stripe set up and a fee chosen): a 404, like an unknown route.
  */
 async function assertMaySell(userId: string): Promise<void> {
-  if (!env.stripeEnabled) throw new AppError(404, 'not_found', 'Selling is not enabled');
+  if (!sellingEnabled()) throw new AppError(404, 'not_found', 'Selling is not enabled');
   let seller = await getSeller(userId);
   // Onboarding may have finished after the last webhook; ask Stripe once before saying no.
   if (seller && !(seller.charges_enabled && seller.payouts_enabled)) {
@@ -303,7 +304,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
     const conditions: SQL[] = [eq(community_posts.status, 'published')];
     if (query.kind) conditions.push(eq(community_posts.kind, query.kind));
     // With Stripe unset selling does not exist: paid items stay out of the feed and the free path is unchanged.
-    if (!env.stripeEnabled) conditions.push(isNull(community_posts.price_amount));
+    if (!sellingEnabled()) conditions.push(isNull(community_posts.price_amount));
     if (query.cursor) {
       const c = decodeCursor(query.cursor);
       conditions.push(drizzleSql`(${community_posts.created_at}, ${community_posts.id}) < (${c.created_at}::bigint, ${c.id}::uuid)`);
@@ -421,7 +422,7 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
 
     // Same visibility rules as the feed, so the count matches what the list can show.
     const base: SQL[] = [eq(community_posts.author_user_id, person.user_id), eq(community_posts.status, 'published')];
-    if (!env.stripeEnabled) base.push(isNull(community_posts.price_amount));
+    if (!sellingEnabled()) base.push(isNull(community_posts.price_amount));
     const conditions = [...base];
     if (query.cursor) {
       const c = decodeCursor(query.cursor);
@@ -822,12 +823,12 @@ export default async function communityRoutes(app: FastifyInstance): Promise<voi
 }
 
 /**
- * Selling, gated the way /billing is: with Stripe unset every route in this scope
+ * Selling: until sellingEnabled() (Stripe set up and a fee chosen) every route in this scope
  * 404s (checked per request), so the web sees no selling at all.
  */
 async function sellingRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', async () => {
-    if (!env.stripeEnabled) throw new AppError(404, 'not_found', 'Selling is not enabled');
+    if (!sellingEnabled()) throw new AppError(404, 'not_found', 'Selling is not enabled');
   });
 
   app.get('/community/selling', { preHandler: requireUser }, async (request): Promise<SellerStatus> => {

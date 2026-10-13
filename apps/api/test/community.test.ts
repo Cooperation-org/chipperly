@@ -596,6 +596,8 @@ describe('community', () => {
       const post = expectShape(story, CommunityPostSchema);
       await db.update(community_posts).set({ price_amount: 500, price_currency: 'usd' }).where(eq(community_posts.id, post.id));
       env.stripeEnabled = true;
+      const savedFee = process.env.COMMUNITY_PLATFORM_FEE_PERCENT;
+      process.env.COMMUNITY_PLATFORM_FEE_PERCENT = '10';
       try {
         const stranger = await createUser();
         const asStranger = await getProfile(nickname, auth(stranger));
@@ -609,6 +611,8 @@ describe('community', () => {
         expect(asAuthor.posts.find((p) => p.id === post.id)?.payload).not.toBeNull();
       } finally {
         env.stripeEnabled = saved;
+        if (savedFee === undefined) delete process.env.COMMUNITY_PLATFORM_FEE_PERCENT;
+        else process.env.COMMUNITY_PLATFORM_FEE_PERCENT = savedFee;
       }
     });
 
@@ -933,13 +937,13 @@ describe('community selling (Stripe Connect)', () => {
       expect(res.json().error.message).toContain('payouts');
     });
 
-    it('refuses to price anything while no platform fee is configured', async () => {
+    it('hides selling entirely while no platform fee is configured, even with Stripe set up', async () => {
       const seller = await nicknamed();
       await seedSeller(seller, { charges: true, payouts: true });
       delete process.env.COMMUNITY_PLATFORM_FEE_PERCENT;
-      const res = await postPaid(seller);
-      expect(res.statusCode).toBe(409);
-      expect(res.json().error.code).toBe('fee_not_set');
+      expect((await postPaid(seller)).statusCode).toBe(404);
+      const status = await request(app, { method: 'GET', url: '/api/community/selling', headers: authHeader(seller) });
+      expect(status.statusCode).toBe(404);
     });
 
     it('lets a finished seller price a story, and only a story or routine', async () => {
