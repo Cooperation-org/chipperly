@@ -4,69 +4,9 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import styles from './toast.module.css';
 
-export interface ToastOptions {
-  /** Shorthand for an "Undo" action button. */
-  undo?: () => void;
-  /** Custom action label; defaults to "Undo" when `undo` is set instead. */
-  action?: string;
-  onAction?: () => void;
-  duration_ms?: number;
-  /** Fired just before a navigation and meant for the screen being opened: survives that one route change. */
-  carry?: boolean;
-}
+import { dismiss, getServerSnapshot, getSnapshot, hold, release, routeChanged, subscribe } from './toastStore';
 
-interface ToastState {
-  id: number;
-  message: string;
-  actionLabel?: string;
-  onAction?: () => void;
-  carry?: boolean;
-}
-
-// Module singleton: one toast at a time, read via useSyncExternalStore so any
-// number of client components can call toast() without a provider.
-let current: ToastState | null = null;
-let counter = 0;
-let hideTimer: ReturnType<typeof setTimeout> | null = null;
-const listeners = new Set<() => void>();
-
-function emit() {
-  for (const listener of listeners) listener();
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function getSnapshot() {
-  return current;
-}
-
-function getServerSnapshot() {
-  return null;
-}
-
-export function toast(message: string, opts: ToastOptions = {}): void {
-  const { undo, action, onAction, duration_ms = 5000, carry } = opts;
-  const actionLabel = action ?? (undo ? 'Undo' : undefined);
-  const handler = onAction ?? undo;
-
-  if (hideTimer) clearTimeout(hideTimer);
-  counter += 1;
-  current = { id: counter, message, actionLabel, onAction: handler, carry };
-  emit();
-  hideTimer = setTimeout(() => {
-    current = null;
-    emit();
-  }, duration_ms);
-}
-
-function dismiss() {
-  if (hideTimer) clearTimeout(hideTimer);
-  current = null;
-  emit();
-}
+export { currentToast, toast, type ToastOptions } from './toastStore';
 
 /** Mounted once near the app root. Shows the current toast above the tab bar. */
 export function ToastHost() {
@@ -76,15 +16,14 @@ export function ToastHost() {
   // A toast fired on one screen must never bleed onto the next screen the
   // caregiver navigates to, unless it was fired for that screen (`carry`).
   useEffect(() => {
-    if (current?.carry) current.carry = false;
-    else dismiss();
+    routeChanged();
   }, [pathname]);
 
   if (!state) return null;
 
   return (
     <div className={styles.host}>
-      <div className={styles.toast} role="status">
+      <div className={styles.toast} role="status" onPointerEnter={hold} onPointerLeave={release} onFocus={hold} onBlur={release}>
         <span className={styles.message}>{state.message}</span>
         {state.actionLabel && state.onAction ? (
           <button
