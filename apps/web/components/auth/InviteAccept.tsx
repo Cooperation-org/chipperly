@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { InviteDetails, AcceptInviteResponse } from '@chipperly/shared/schemas/account';
+import { inviteHeadline } from '@chipperly/shared/helpers/inviteHeadline';
 import { api, ApiError, TimeoutError, TIMEOUT_MESSAGE } from '@/lib/api/client';
 import { refreshMe, useSession } from '@/lib/auth/session';
 import { useActiveAccount, useActiveProfile } from '@/lib/profile/active';
@@ -19,14 +20,8 @@ import styles from './InviteAccept.module.css';
 
 type LoadState = { status: 'loading' } | { status: 'not_found' } | { status: 'ready'; invite: InviteDetails };
 
-/** The account is auto-named after its owner, so "Sam invited you to Sam" reads oddly: name the profiles instead. */
 function headline({ inviter_name, account_name, profiles }: InviteDetails): string {
-  const names = profiles.map((p) => p.name);
-  if (names.length > 0 && inviter_name === account_name) {
-    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-    return `${inviter_name} invited you to help with ${list}`;
-  }
-  return inviter_name === account_name ? `${inviter_name} invited you to Chipperly` : `${inviter_name} invited you to ${account_name}`;
+  return inviteHeadline(inviter_name, account_name, profiles.map((p) => p.name));
 }
 
 /** S33: accept invite. Reads the token via useSearchParams (page wraps this in Suspense). */

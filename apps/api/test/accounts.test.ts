@@ -724,6 +724,15 @@ describe('household limits', () => {
     expect(row?.name).toBe('Grandpa Joe');
   });
 
+  it('a family invite email names the children, not the account', async () => {
+    const admin = await createUser('sam');
+    const res = await request(app, { method: 'POST', url: '/api/accounts', headers: auth(admin.token), payload: { kind: 'household', name: 'sam tester' } });
+    const accountId = (res.json() as { account: { id: string } }).account.id;
+    const ava = await createProfile(accountId, admin.id, 'Ava');
+    await request(app, { method: 'POST', url: `/api/accounts/${accountId}/invites`, headers: auth(admin.token), payload: { email: 'gran@example.com', role: 'viewer', profile_ids: [ava] } });
+    expect(getLastMailMessage()?.subject).toBe('sam tester invited you to help with Ava on Chipperly');
+  });
+
   it('migration 0062 names existing placeholder supported accounts after their person', async () => {
     const admin = await createUser('supported-old');
     const res = await request(app, { method: 'POST', url: '/api/accounts', headers: auth(admin.token), payload: { kind: 'supported', name: 'Someone I support' } });

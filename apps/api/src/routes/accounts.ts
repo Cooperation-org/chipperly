@@ -16,6 +16,7 @@ import { CreateAccountBodySchema, CreateProfileBodySchema, InviteBodySchema, Pro
 import { LocationChangedBodySchema, RewardRequestBodySchema, type RewardRequestSource } from '@chipperly/shared/schemas/push';
 import { HOUSEHOLD_ADMIN_LIMIT, PROFILE_LIMITS } from '@chipperly/shared/constants/limits';
 import { FirstThenProgressBodySchema } from '@chipperly/shared/schemas/profile';
+import { inviteHeadline } from '@chipperly/shared/helpers/inviteHeadline';
 import { db } from '../db/client.js';
 import { push_tokens } from '../db/schema/push.js';
 import { devices } from '../db/schema/devices.js';
@@ -140,15 +141,22 @@ async function sendInviteEmail(params: {
   rawToken: string;
   accountName: string;
   inviterName: string;
+  profileIds: readonly string[];
   request: FastifyRequest;
 }): Promise<string> {
   const link = `${linkBase(params.request)}/invite/?token=${params.rawToken}`;
+  const names =
+    params.profileIds.length === 0
+      ? []
+      : (await db.select({ name: profiles.name }).from(profiles).where(inArray(profiles.id, [...params.profileIds]))).map((p) => p.name);
+  const headline = inviteHeadline(params.inviterName, params.accountName, names);
+  const subject = headline.endsWith('Chipperly') ? headline : `${headline} on Chipperly`;
   await sendMail({
     to: params.to,
-    subject: `${params.inviterName} invited you to ${params.accountName} on Chipperly`,
+    subject,
     ...renderEmail({
-      heading: `Join ${params.accountName} on Chipperly`,
-      paragraphs: [`${params.inviterName} invited you to join ${params.accountName} on Chipperly.`],
+      heading: subject,
+      paragraphs: ['Accept the invite to join them on Chipperly.'],
       action: { label: 'Accept the invite', url: link },
       note: 'This link expires in 7 days.',
     }),
@@ -236,6 +244,7 @@ export async function issueInvite(
     rawToken,
     accountName: params.accountName,
     inviterName: params.inviterName,
+    profileIds: invite.profile_ids,
     request: params.request,
   });
   return { invite, inviteUrl };
@@ -434,6 +443,7 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
       rawToken,
       accountName: account?.name ?? '',
       inviterName: inviter?.display_name ?? 'A team member',
+      profileIds: invite!.profile_ids,
       request,
     });
 
