@@ -67,7 +67,7 @@ test.describe('viewer and support team', () => {
   });
 
   test.afterAll(async () => {
-    await admin.close();
+    await admin?.close();
   });
 
   test('a viewer sees View only, has no edit buttons, and a check does not change', async ({ browser }) => {
