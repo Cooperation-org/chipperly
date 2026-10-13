@@ -7,7 +7,7 @@ import { db } from '../db/client.js';
 import { accounts, users } from '../db/schema/accounts.js';
 import { feedback } from '../db/schema/feedback.js';
 import { env } from '../env.js';
-import { renderEmail, siteOrigin } from '../lib/emailTemplate.js';
+import { adminOrigin, renderEmail } from '../lib/emailTemplate.js';
 import { sendMail } from '../lib/mailer.js';
 import { requireUser } from '../plugins/auth.js';
 import { AppError } from '../plugins/errors.js';
@@ -66,7 +66,7 @@ export default async function feedbackRoutes(app: FastifyInstance): Promise<void
           `${who}${body.rating ? `, rated it ${body.rating} of 5` : ''}${body.page ? `, from ${body.page}` : ''}.`,
           contactEmail ? `They said you may write back: ${contactEmail}` : 'They did not leave a way to write back.',
         ],
-        action: { label: 'Open the feedback inbox', url: `${siteOrigin()}/settings/admin/feedback/` },
+        action: { label: 'Open the feedback inbox', url: `${adminOrigin()}/admin/feedback/` },
       });
       for (const address of to) await sendMail({ to: address, subject: `Chipperly feedback: ${KIND_LABEL[body.kind]}`, ...mail });
     }

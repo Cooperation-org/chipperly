@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import type { AdminInsights } from '@chipperly/shared/schemas/admin';
 import type { AdminOverview, AdminUser, PromoCode } from '@chipperly/shared/schemas/billing';
 import { api } from '@/lib/api/client';
-import { canAct, useAdminRole } from '@/lib/admin/role';
+import { useAdminRole } from '@/lib/admin/role';
 import { trialDaysLeft } from '@/lib/billing/promo';
-import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
@@ -13,6 +13,7 @@ import { PromoCodeSheet } from './PromoCodeSheet';
 import { PersonSheet } from './PersonSheet';
 import styles from './AdminDashboard.module.css';
 import { csvName, downloadCsv, toCsv } from './csv';
+import { weekOverWeek } from './weeks';
 
 /** Plural label per account kind, for the counts line. Unknown kinds read as individuals. */
 const KIND_LABELS: Record<string, string> = {
@@ -26,36 +27,61 @@ function day(ms: number): string {
   return new Date(ms).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function shortDay(isoDay: string): string {
+  return new Date(`${isoDay}T00:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short' });
+}
+
 function ago(ms: number | null): string {
   if (ms === null) return 'never';
   const days = Math.floor((Date.now() - ms) / 86_400_000);
   return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
 }
 
-/** Super admins only (the server's SUPER_ADMIN_EMAILS): sign-ups, trials, early access codes. */
-export function AdminDashboard({ show }: { show: 'today' | 'people' }) {
+/** Today's numbers, the People list, and the early access offers: one page each. */
+export function AdminDashboard({ show }: { show: 'today' | 'people' | 'offers' }) {
   const role = useAdminRole();
   const canChange = role === 'super';
-  // Trials, codes and the person sheet are support work too; offers stay with super admins.
-  const canHelp = canAct(role);
   const sheet = useSheet();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [insights, setInsights] = useState<AdminInsights | null>(null);
   const [people, setPeople] = useState<AdminUser[] | null>(null);
   const [codes, setCodes] = useState<PromoCode[] | null>(null);
-  const [query, setQuery] = useState('');
+  const [failed, setFailed] = useState(false);
+  // A name clicked elsewhere in the admin arrives as ?q=.
+  const [query, setQuery] = useState(() => (typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('q') ?? '')));
 
   const loadCodes = useCallback(() => {
-    void api.get<{ codes: PromoCode[] }>('/admin/promo-codes').then((r) => setCodes(r.codes));
+    api.get<{ codes: PromoCode[] }>('/admin/promo-codes').then(
+      (r) => setCodes(r.codes),
+      () => setFailed(true),
+    );
   }, []);
   const loadPeople = useCallback((q: string) => {
-    void api.get<{ users: AdminUser[] }>(`/admin/users?q=${encodeURIComponent(q)}`).then((r) => setPeople(r.users));
+    api.get<{ users: AdminUser[] }>(`/admin/users?q=${encodeURIComponent(q)}`).then(
+      (r) => {
+        setPeople(r.users);
+        setFailed(false);
+      },
+      () => setFailed(true),
+    );
+  }, []);
+  const loadToday = useCallback(() => {
+    api.get<AdminOverview>('/admin/overview').then(
+      (r) => {
+        setOverview(r);
+        setFailed(false);
+      },
+      () => setFailed(true),
+    );
+    // Paying customers is a nice-to-have here; Growth has it in full.
+    api.get<AdminInsights>('/admin/insights').then(setInsights, () => undefined);
   }, []);
 
   useEffect(() => {
     if (!role) return;
-    if (show === 'today') void api.get<AdminOverview>('/admin/overview').then(setOverview);
+    if (show === 'today') loadToday();
     else loadCodes();
-  }, [role, show, loadCodes]);
+  }, [role, show, loadToday, loadCodes]);
 
   // Search as you type, a beat after the last key.
   useEffect(() => {
@@ -66,31 +92,7 @@ export function AdminDashboard({ show }: { show: 'today' | 'people' }) {
 
   if (!role) return <p className={styles.muted}>This page is for Chipperly&rsquo;s own team.</p>;
 
-  async function extend(person: AdminUser, days: number): Promise<void> {
-    try {
-      await api.post(`/admin/users/${person.id}/extend-trial`, { days });
-      toast(`Added ${days} days to ${person.display_name}'s trial`);
-      loadPeople(query);
-    } catch {
-      toast("Couldn't extend the trial.");
-    }
-  }
-
   const offers = (codes ?? []).filter((c) => c.active);
-
-  async function issue(person: AdminUser): Promise<void> {
-    // ponytail: the first active offer; a picker once there's more than one running at a time.
-    const offer = offers[0];
-    if (!offer) return;
-    try {
-      const { code } = await api.post<{ code: string }>(`/admin/users/${person.id}/issue-code`, { offer: offer.code });
-      toast(`Gave ${person.display_name} ${code}`);
-      loadPeople(query);
-      loadCodes();
-    } catch {
-      toast("Couldn't give a code.");
-    }
-  }
 
   function editCode(code: PromoCode | null): void {
     sheet.open(
@@ -106,78 +108,118 @@ export function AdminDashboard({ show }: { show: 'today' | 'people' }) {
   }
 
   function manage(person: AdminUser): void {
-    sheet.open(<PersonSheet person={person} onChanged={() => loadPeople(query)} onClose={() => sheet.close()} />, { title: person.display_name });
+    sheet.open(
+      <PersonSheet
+        person={person}
+        offers={offers}
+        onChanged={() => {
+          loadPeople(query);
+          loadCodes();
+        }}
+        onClose={() => sheet.close()}
+      />,
+      { title: person.display_name },
+    );
   }
 
-  const peak = Math.max(1, ...(overview?.signups_by_day.map((d) => d.count) ?? [1]));
+  const retry = () => (show === 'today' ? loadToday() : show === 'people' ? loadPeople(query) : loadCodes());
+  const failure = failed ? (
+    <div className={styles.headRow} role="alert">
+      <p className={styles.error}>Couldn&rsquo;t load this. Check your connection, then try again.</p>
+      <Button variant="secondary" onClick={retry}>
+        Try again
+      </Button>
+    </div>
+  ) : null;
+
+  if (show === 'today') {
+    if (!overview) return failure;
+    const peak = Math.max(1, ...overview.signups_by_day.map((d) => d.count));
+    const { thisWeek, lastWeek } = weekOverWeek(overview.signups_by_day);
+    const first = overview.signups_by_day[0]?.day;
+    const last = overview.signups_by_day.at(-1)?.day;
+    return (
+      <div className={styles.page} data-wide>
+        {failure}
+        <div className={styles.stats}>
+          {insights ? <Stat label="Paying now" value={insights.active_subscriptions} note={`${insights.comp_accounts} with free access`} /> : null}
+          <Stat label="Signed up this week" value={thisWeek} note={`${lastWeek} the week before`} />
+          <Stat label="Active this week" value={overview.active_7d} note={`of ${overview.users} people`} />
+          <Stat label="On trial" value={overview.trials_active} note={`${overview.trials_ended} trials ended`} />
+          <Stat label="Profiles" value={overview.children} note="people being supported" />
+        </div>
+
+        <section className={styles.card} aria-label="Sign-ups, last 30 days">
+          <h2 className={styles.heading}>Sign-ups, last 30 days: {overview.signups_30d}</h2>
+          <div className={styles.chart}>
+            {overview.signups_by_day.map((d) => (
+              <div key={d.day} className={styles.barSlot} title={`${d.day}: ${d.count}`}>
+                <div className={styles.bar} style={{ height: `${(d.count / peak) * 100}%` }} />
+              </div>
+            ))}
+          </div>
+          {first && last ? (
+            <div className={styles.chartAxis}>
+              <span>{shortDay(first)}</span>
+              <span>Busiest day: {peak}</span>
+              <span>{shortDay(last)}</span>
+            </div>
+          ) : null}
+          <p className={styles.muted}>
+            {Object.entries(overview.accounts_by_kind)
+              .map(([kind, n]) => `${n} ${KIND_LABELS[kind] ?? 'individuals'}`)
+              .join(' · ') || 'No accounts yet'}
+            {overview.promo_claims ? ` · ${overview.promo_claims} early access codes given` : ''}
+          </p>
+        </section>
+      </div>
+    );
+  }
+
+  if (show === 'offers') {
+    return (
+      <div className={styles.page} data-wide>
+        {failure}
+        <section className={styles.card} aria-label="Early access offers">
+          <div className={styles.headRow}>
+            <h2 className={styles.heading}>Early access offers</h2>
+            {canChange ? (
+              <Button variant="secondary" onClick={() => editCode(null)}>
+                New offer
+              </Button>
+            ) : null}
+          </div>
+          <p className={styles.muted}>
+            Nobody types these. Each person gets their own code under an offer, used once their trial ends. To give one person a code, open them on People.
+          </p>
+          {codes?.length === 0 ? <p className={styles.muted}>No offers yet.</p> : null}
+          {codes?.map((c) => (
+            <button key={c.code} type="button" className={styles.codeRow} disabled={!canChange} onClick={() => editCode(c)}>
+              <span className={styles.code}>{c.code}</span>
+              <span>{c.percent_off ? `${c.percent_off}% off ${c.applies_to === 'annual' ? 'annual' : 'any plan'}` : 'Discount not set'}</span>
+              <span className={styles.muted}>
+                {c.auto_issue ? 'Everyone who signs up ' : 'Given by hand, '}
+                {day(c.valid_from)} to {day(c.valid_until)} · {c.issued} code{c.issued === 1 ? '' : 's'} given{c.active ? '' : ' · off'}
+              </span>
+            </button>
+          ))}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page} data-wide>
-      {show === 'today' && overview ? (
-        <>
-          <div className={styles.stats}>
-            <Stat label="People" value={overview.users} />
-            <Stat label="Signed up, 7 days" value={overview.signups_7d} />
-            <Stat label="Signed up, 30 days" value={overview.signups_30d} />
-            <Stat label="Active, 7 days" value={overview.active_7d} />
-            <Stat label="Profiles" value={overview.children} />
-            <Stat label="On trial" value={overview.trials_active} />
-            <Stat label="Trial ended" value={overview.trials_ended} />
-            <Stat label="Early access codes given" value={overview.promo_claims} />
-          </div>
-
-          <section className={styles.card} aria-label="Sign-ups, last 30 days">
-            <h2 className={styles.heading}>Sign-ups, last 30 days</h2>
-            <div className={styles.chart}>
-              {overview.signups_by_day.map((d) => (
-                <div key={d.day} className={styles.barSlot} title={`${d.day}: ${d.count}`}>
-                  <div className={styles.bar} style={{ height: `${(d.count / peak) * 100}%` }} />
-                </div>
-              ))}
-            </div>
-            <p className={styles.muted}>
-              {Object.entries(overview.accounts_by_kind)
-                .map(([kind, n]) => `${n} ${KIND_LABELS[kind] ?? 'individuals'}`)
-                .join(' · ') || 'No accounts yet'}
-            </p>
-          </section>
-        </>
-      ) : null}
-
-      {show === 'people' ? (
-        <>
-      <section className={styles.card} aria-label="Early access offers">
-        <div className={styles.headRow}>
-          <h2 className={styles.heading}>Early access offers</h2>
-          {canChange ? (
-            <Button variant="secondary" onClick={() => editCode(null)}>
-              New offer
-            </Button>
-          ) : null}
-        </div>
-        <p className={styles.muted}>Nobody types these. Each person gets their own code under an offer, used once their trial ends.</p>
-        {codes?.map((c) => (
-          <button key={c.code} type="button" className={styles.codeRow} disabled={!canChange} onClick={() => editCode(c)}>
-            <span className={styles.code}>{c.code}</span>
-            <span>{c.percent_off ? `${c.percent_off}% off ${c.applies_to === 'annual' ? 'annual' : 'any plan'}` : 'Discount not set'}</span>
-            <span className={styles.muted}>
-              {c.auto_issue ? 'Everyone who signs up ' : 'Given by hand, '}
-              {day(c.valid_from)} to {day(c.valid_until)} · {c.issued} code{c.issued === 1 ? '' : 's'} given{c.active ? '' : ' · off'}
-            </span>
-          </button>
-        ))}
-      </section>
-
       <section className={styles.card} aria-label="People">
         <div className={styles.headRow}>
-          <h2 className={styles.heading}>People</h2>
+          <TextField label="Search name, email or family" value={query} onChange={(e) => setQuery(e.target.value)} />
           {people && people.length > 0 ? (
             <Button variant="secondary" onClick={() => downloadPeople(people)}>
               Download CSV
             </Button>
           ) : null}
         </div>
-        <TextField label="Search name or email" value={query} onChange={(e) => setQuery(e.target.value)} />
+        {failure}
         {people && people.length > 0 ? (
           <div className={styles.tableWrap}>
             <table className={styles.table}>
@@ -224,28 +266,13 @@ export function AdminDashboard({ show }: { show: 'today' | 'people' }) {
                         {ago(p.last_seen_at)}
                       </td>
                       <td data-label="Trial">
-                        <span>
-                          {left > 0 ? `Trial: ${left} day${left === 1 ? '' : 's'} left` : 'Trial ended'}
-                          {p.personal_code ? ` · ${p.personal_code}` : ''}
-                        </span>
+                        {left > 0 ? `${left} day${left === 1 ? '' : 's'} left` : 'Ended'}
+                        {p.personal_code ? ` · ${p.personal_code}` : ''}
                       </td>
                       <td data-label="" className={styles.rowActions}>
-                        {canHelp ? <div className={styles.actions}>
-                          {!p.personal_code && offers.length > 0 ? (
-                            <Button variant="secondary" onClick={() => void issue(p)}>
-                              Give code
-                            </Button>
-                          ) : null}
-                          <Button variant="secondary" onClick={() => void extend(p, 7)}>
-                            +7 days
-                          </Button>
-                          <Button variant="secondary" onClick={() => void extend(p, 21)}>
-                            +21 days
-                          </Button>
-                          <Button variant="secondary" onClick={() => manage(p)}>
-                            Manage
-                          </Button>
-                        </div> : <span className={styles.muted}>{p.is_super_admin ? 'Super admin' : p.is_support ? 'Support' : ''}</span>}
+                        <Button variant="secondary" onClick={() => manage(p)}>
+                          Open
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -256,8 +283,6 @@ export function AdminDashboard({ show }: { show: 'today' | 'people' }) {
         ) : null}
         {people?.length === 0 ? <p className={styles.muted}>Nobody matches.</p> : null}
       </section>
-        </>
-      ) : null}
     </div>
   );
 }
@@ -285,11 +310,12 @@ function downloadPeople(people: AdminUser[]): void {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, note }: { label: string; value: number; note?: string }) {
   return (
     <div className={styles.stat}>
       <span className={styles.statValue}>{value}</span>
       <span className={styles.statLabel}>{label}</span>
+      {note ? <span className={styles.statLabel}>{note}</span> : null}
     </div>
   );
 }

@@ -65,8 +65,8 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
   await expectNoOverflow(page, 'admin today');
   await page.screenshot({ path: `e2e/screenshots/admin-today-${testInfo.project.name}.png`, fullPage: true });
 
-  // People: the early access offer and a trial extension.
-  await go(page, 'People', 'people/');
+  // Offers: the early access offer.
+  await go(page, 'Offers', 'offers/');
   const codes = page.getByRole('region', { name: 'Early access offers' });
   await codes.getByRole('button', { name: /^EARLYCHIPPER/ }).click();
   const sheet = page.getByRole('dialog');
@@ -74,20 +74,28 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
   await sheet.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(codes.getByRole('button', { name: /^EARLYCHIPPER/ })).toContainText('25% off annual');
 
+  // People: a trial extension, from the person's sheet.
+  await go(page, 'People', 'people/');
+
   const people = page.getByRole('region', { name: 'People' });
-  await people.getByLabel('Search name or email').fill(`admin-${testInfo.project.name}`);
+  await people.getByLabel('Search name, email or family').fill(`admin-${testInfo.project.name}`);
   await expect(people.getByText(/@example\.com$/)).toHaveCount(1);
   // Signed up inside EARLYCHIPPER's dates, they already have their own code. The offer ends on 24 Oct 2026; after that there is no code.
   const offerOpen = Date.now() <= Date.UTC(2026, 9, 24, 23, 59, 59);
-  await expect(people.getByText(offerOpen ? /^Trial: 21 days left · EARLY-/ : /^Trial: 21 days left$/)).toBeVisible();
-  await people.getByRole('button', { name: '+7 days', exact: true }).click();
-  await expect(people.getByText(/^Trial: 28 days left/)).toBeVisible();
+  await expect(people.getByText(offerOpen ? /^21 days left · EARLY-/ : /^21 days left$/)).toBeVisible();
+  await people.getByRole('button', { name: 'Open', exact: true }).click();
+  const trialSheet = page.getByRole('dialog');
+  await trialSheet.getByRole('button', { name: 'Add 7 days', exact: true }).click();
+  await expect(trialSheet.getByText(/28 days from now/)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(people.getByText(/^28 days left/)).toBeVisible();
   await expectNoOverflow(page, 'admin people');
   await page.screenshot({ path: `e2e/screenshots/admin-people-${testInfo.project.name}.png`, fullPage: true });
 
-  // Payments: with no Stripe keys in the harness it says so and lists nothing.
+  // Payments and Stripe messages: with no Stripe keys in the harness they say so and list nothing.
   await go(page, 'Payments', 'payments/');
   await expect(page.getByText('Payments are switched off on this server.').first()).toBeVisible();
+  await go(page, 'Stripe messages', 'stripe/');
   await expect(page.getByRole('region', { name: 'Messages from Stripe' })).toContainText('Nothing has arrived yet.');
   await expectNoOverflow(page, 'payments log');
 
@@ -141,9 +149,9 @@ test('a super admin sets up two-step sign-in, then runs the admin site', async (
   // Erase now: the throwaway moderator goes at once, and the Activity log has it under this admin.
   await go(page, 'People', 'people/');
   const people2 = page.getByRole('region', { name: 'People' });
-  await people2.getByLabel('Search name or email').fill(modEmail);
+  await people2.getByLabel('Search name, email or family').fill(modEmail);
   await expect(people2.getByText(modEmail)).toHaveCount(1);
-  await people2.getByRole('button', { name: 'Manage', exact: true }).click();
+  await people2.getByRole('button', { name: 'Open', exact: true }).click();
   const personSheet = page.getByRole('dialog');
   await personSheet.getByText('Erase now, without waiting 30 days').click();
   await personSheet.getByLabel('Their email').fill(modEmail);

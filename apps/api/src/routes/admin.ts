@@ -167,6 +167,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         (select max(d.last_seen_at) from devices d where d.user_id = u.id) as last_seen_at
       from users u
       where lower(u.email) like ${like} or lower(u.display_name) like ${like}
+        or exists (select 1 from account_members m join accounts a on a.id = m.account_id where m.user_id = u.id and lower(a.name) like ${like})
       order by u.created_at desc
       limit 500`;
     return {

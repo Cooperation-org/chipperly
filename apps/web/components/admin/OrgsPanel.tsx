@@ -11,6 +11,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { TextField } from '@/components/ui/TextField';
 import { useSheet } from '@/components/ui/Sheet';
 import { day, money, NOT_TEAM } from './format';
+import { PersonLink } from './PersonLink';
 import styles from './AdminDashboard.module.css';
 import local from './OrgsPanel.module.css';
 import { CustomerBillingSheet } from './CustomerBillingSheet';
@@ -369,7 +370,9 @@ export function OrgsPanel() {
       {orgs.map((org) => (
         <section key={org.id} className={styles.card} aria-label={org.name}>
           <div className={styles.headRow}>
-            <h2 className={styles.heading}>{org.name}</h2>
+            <h2 className={styles.heading}>
+              <PersonLink q={org.name}>{org.name}</PersonLink>
+            </h2>
             <div className={styles.actions}>
               <Button variant="secondary" onClick={() => sheet.open(<CustomerBillingSheet accountId={org.id} />, { title: org.name })}>
                 Billing

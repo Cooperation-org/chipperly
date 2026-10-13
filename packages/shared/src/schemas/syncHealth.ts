@@ -92,6 +92,8 @@ export const AdminSyncOrphanSchema = z.object({
   /** e.g. "step_completions without a schedule item". */
   kind: z.string(),
   count: z.number().int(),
+  /** When the oldest of them was written. */
+  oldest_at: msTimestampSchema,
 });
 export type AdminSyncOrphan = z.infer<typeof AdminSyncOrphanSchema>;
 

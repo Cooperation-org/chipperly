@@ -2,7 +2,7 @@ import { v7 as uuidv7 } from 'uuid';
 import type { AdminSyncDevice, AdminSyncHealth, AdminSyncOrphan, AdminSyncRejection } from '@chipperly/shared/schemas/syncHealth';
 import { sql } from '../db/client.js';
 import { env } from '../env.js';
-import { renderEmail, siteOrigin } from './emailTemplate.js';
+import { adminOrigin, renderEmail } from './emailTemplate.js';
 import { sendMail } from './mailer.js';
 
 // Nothing a device writes may vanish without a trace. Three records make
@@ -89,7 +89,7 @@ export function alertRecipients(): string[] {
   return explicit.length > 0 ? explicit : [...env.superAdminEmails];
 }
 
-const adminUrl = (): string => `${siteOrigin()}/settings/admin/sync/`;
+const adminUrl = (): string => `${adminOrigin()}/admin/sync/`;
 
 let lastAlertAt = 0;
 /** At most one "refused just now" mail in this long; the rest wait for the next one or the daily mail. */
@@ -132,30 +132,40 @@ export async function alertNewRejections(now = Date.now()): Promise<number> {
 
 /** Rows that point at a row the server does not have, counted per person. */
 export async function findOrphans(): Promise<AdminSyncOrphan[]> {
-  return sql<AdminSyncOrphan[]>`
+  const rows = await sql<(Omit<AdminSyncOrphan, 'oldest_at'> & { oldest_at: string })[]>`
     with found as (
-      select c.profile_id, 'Ticked steps with no schedule item' as kind, count(*)::int as count
+      select c.profile_id, 'Ticked steps with no schedule item' as kind, count(*)::int as count, min(c.client_updated_at) as oldest_at
       from step_completions c
       where c.deleted_at is null and not exists (select 1 from schedule_items s where s.id = c.schedule_item_id)
       group by c.profile_id
       union all
-      select l.profile_id, 'Chips for a task with no schedule item', count(*)::int
+      select l.profile_id, 'Chips for a task the server never got', count(*)::int, min(l.client_updated_at)
       from chip_ledger l
       where l.deleted_at is null and l.reason in ('task', 'routine') and l.ref_id is not null
         and not exists (select 1 from schedule_items s where s.id = l.ref_id)
+        -- First-Then chips point at the activity, not a schedule item (lib/data/firstThen.ts).
+        and not exists (select 1 from activities a where a.id = l.ref_id)
       group by l.profile_id
       union all
-      select s.profile_id, 'Schedule items with no activity', count(*)::int
+      select s.profile_id, 'Schedule items with no activity', count(*)::int, min(s.client_updated_at)
       from schedule_items s
       where s.deleted_at is null and not exists (select 1 from activities a where a.id = s.activity_id)
       group by s.profile_id
     )
-    select f.profile_id, p.name as profile_name, a.name as account_name, f.kind, f.count
+    select f.profile_id, p.name as profile_name, a.name as account_name, f.kind, f.count, f.oldest_at
     from found f
     left join profiles p on p.id = f.profile_id
     left join accounts a on a.id = p.account_id
     order by f.count desc, f.profile_id
   `;
+  return rows.map((r) => ({ ...r, oldest_at: Number(r.oldest_at) }));
+}
+
+/** Leftovers usually fill in when the device that made them next opens the app; ones older than this will not by themselves. */
+const ORPHAN_OLD_MS = 2 * DAY_MS;
+
+export function orphanNeedsAttention(orphan: Pick<AdminSyncOrphan, 'oldest_at'>, now: number): boolean {
+  return now - orphan.oldest_at > ORPHAN_OLD_MS;
 }
 
 /** Devices that say they hold unsent writes. */
@@ -217,7 +227,7 @@ export async function syncHealth(now = Date.now()): Promise<AdminSyncHealth> {
   const [rejections, devices, orphans] = await Promise.all([listRejections(), devicesWithBacklog(), findOrphans()]);
   const [{ open } = { open: 0 }] = await sql<{ open: number }[]>`select count(*)::int as open from sync_rejections where resolved_at is null`;
   const attention =
-    orphans.length > 0 || rejections.some((r) => rejectionNeedsAttention(r, now)) || devices.some((d) => backlogNeedsAttention(d, now));
+    orphans.some((o) => orphanNeedsAttention(o, now)) || rejections.some((r) => rejectionNeedsAttention(r, now)) || devices.some((d) => backlogNeedsAttention(d, now));
   return { attention, open_rejections: open, rejections, devices, orphans };
 }
 
@@ -257,8 +267,9 @@ export async function sendSyncHealthDigest(now = Date.now()): Promise<boolean> {
   const health = await syncHealth(now);
   const stuck = health.rejections.filter((r) => rejectionNeedsAttention(r, now));
   const devices = health.devices.filter((d) => backlogNeedsAttention(d, now));
-  const orphanRows = health.orphans.reduce((sum, o) => sum + o.count, 0);
-  const summary: DigestSummary = { rejections: stuck.length, devices: devices.length, orphan_rows: orphanRows, orphan_people: new Set(health.orphans.map((o) => o.profile_id)).size };
+  const orphans = health.orphans.filter((o) => orphanNeedsAttention(o, now));
+  const orphanRows = orphans.reduce((sum, o) => sum + o.count, 0);
+  const summary: DigestSummary = { rejections: stuck.length, devices: devices.length, orphan_rows: orphanRows, orphan_people: new Set(orphans.map((o) => o.profile_id)).size };
 
   const claimed = await sql`
     insert into sync_health_digests (day, sent_at, summary) values (${day}, ${now}, ${JSON.stringify(summary)}::jsonb)

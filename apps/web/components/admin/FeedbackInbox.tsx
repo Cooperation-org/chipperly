@@ -8,6 +8,7 @@ import { median } from '@/lib/feedback/median';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
+import { PersonLink } from './PersonLink';
 import styles from './FeedbackInbox.module.css';
 
 const KIND_LABEL: Record<FeedbackItem['kind'], string> = { bug: 'Broken', idea: 'Idea', question: 'Question', love: 'Love it', nps: 'Recommend?' };
@@ -89,6 +90,12 @@ export function FeedbackInbox() {
             {item.signed_in ? `Signed in${item.account_kind ? `, ${item.account_kind} account` : ''}` : 'Guest'}
             {item.page ? `, on ${item.page}` : ''}
             {item.contact_email ? <>. Write back: <a href={`mailto:${item.contact_email}`}>{item.contact_email}</a></> : '. No way to write back.'}
+            {item.signed_in && item.contact_email ? (
+              <>
+                {' '}
+                (<PersonLink q={item.contact_email}>open in People</PersonLink>)
+              </>
+            ) : null}
           </p>
           {SURVEY_QUESTIONS.map(({ key, label }) =>
             item[key] === null ? null : (

@@ -311,3 +311,37 @@
   color: var(--color-text);
   font: inherit;
 }
+
+.chartAxis {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* The one-line answer at the top of a status page: a coloured edge, the text stays in the text colour. */
+.verdict {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 6px solid var(--color-success);
+  border-radius: var(--radius-lg);
+}
+
+.verdict[data-tone='watch'] {
+  border-left-color: var(--color-accent);
+}
+
+.verdict[data-tone='act'] {
+  border-left-color: var(--color-danger);
+}
+
+details.card > summary {
+  cursor: pointer;
+}
