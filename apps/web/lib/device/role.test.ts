@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Profile } from '@chipperly/shared/schemas/profile';
-import { childViewProfileId, isCaregiverDevice } from './role';
+import { childViewProfileId, isCaregiverDevice, someoneElseUsesApp } from './role';
 
 const p = (id: string, uses = true) => ({ id, settings: uses ? {} : { child_uses_app: false } }) as Profile;
 
@@ -42,5 +42,20 @@ describe('isCaregiverDevice', () => {
   });
   it('a caregiver role always wins', () => {
     expect(isCaregiverDevice({ kind: 'caregiver' }, [kid], solo)).toBe(true);
+  });
+});
+
+describe('someoneElseUsesApp', () => {
+  const accounts = [{ account: { id: 'solo', kind: 'individual' } }, { account: { id: 'fam', kind: 'household' } }];
+  const mine = { id: 'me', account_id: 'solo', settings: {} } as Profile;
+  const kid = { id: 'kid', account_id: 'fam', settings: {} } as Profile;
+  const quietKid = { id: 'q', account_id: 'fam', settings: { child_uses_app: false } } as Profile;
+
+  it('a Myself person is not asked who uses their own phone', () => {
+    expect(someoneElseUsesApp([mine], accounts)).toBe(false);
+  });
+  it('a child who uses the app is someone else', () => {
+    expect(someoneElseUsesApp([mine, kid], accounts)).toBe(true);
+    expect(someoneElseUsesApp([quietKid], accounts)).toBe(false);
   });
 });

@@ -10,7 +10,7 @@ import { useKv } from '@/lib/db/kv';
 import { useSession } from '@/lib/auth/session';
 import { startSync } from '@/lib/sync/engine';
 import { enterParentMode } from '@/lib/device/settings';
-import { asksDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
+import { asksDeviceRole, setDeviceRole, someoneElseUsesApp, usesApp } from '@/lib/device/role';
 import { BigButton } from '@/components/ui/BigButton';
 import { Button } from '@/components/ui/Button';
 import { useSheet } from '@/components/ui/Sheet';
@@ -47,7 +47,7 @@ export function Ready() {
   // need to unlock past.
   async function goToToday(dest = '/today/'): Promise<void> {
     // A phone or tablet could be the child's; ask. Otherwise this is the caregiver's device.
-    if (asksDeviceRole() && profile && usesApp(profile)) {
+    if (asksDeviceRole() && profile && someoneElseUsesApp([profile], accounts)) {
       router.push('/onboarding/device/');
       return;
     }
@@ -119,7 +119,9 @@ export function Ready() {
       <button type="button" className={styles.link} onClick={() => open(<GuideScreen embedded />, { title: 'How to use Chipperly' })}>
         New here? Read the short guide
       </button>
-      {profile && usesApp(profile) ? (
+      {profile && accountKind === 'individual' ? (
+        <p className={styles.quiet}>Want the simple picture view? Tap the lock button at the top.</p>
+      ) : profile && usesApp(profile) ? (
         <p className={styles.quiet}>Sharing this device with {name}? You can lock it to their view from the lock button at the top.</p>
       ) : null}
     </div>

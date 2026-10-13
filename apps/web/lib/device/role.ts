@@ -43,6 +43,15 @@ export async function setDeviceRole(role: DeviceRole): Promise<void> {
   })();
 }
 
+/**
+ * Whether "Who uses this device?" has an answer to choose between: someone other than the signed-in person uses the
+ * app. A "Myself" profile is the person holding the phone, so it never counts.
+ */
+export function someoneElseUsesApp(profiles: readonly Pick<Profile, 'settings' | 'account_id'>[], accounts: readonly { account: { id: string; kind: string } }[]): boolean {
+  const individual = new Set(accounts.filter((a) => a.account.kind === 'individual').map((a) => a.account.id));
+  return profiles.some((p) => usesApp(p) && !individual.has(p.account_id));
+}
+
 /** A browser starts as a caregiver device; the app on a phone or tablet asks. */
 export function asksDeviceRole(): boolean {
   return Capacitor.isNativePlatform();

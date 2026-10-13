@@ -2,7 +2,7 @@ import type { useRouter } from 'next/navigation';
 import type { MeResponse } from '@chipperly/shared/schemas/auth';
 import { api } from '@/lib/api/client';
 import { getKv, setKv } from '@/lib/db/kv';
-import { asksDeviceRole, getDeviceRole, setDeviceRole, usesApp } from '@/lib/device/role';
+import { asksDeviceRole, getDeviceRole, setDeviceRole, someoneElseUsesApp } from '@/lib/device/role';
 import { homePath, needsOnboarding } from '@/lib/org/roster';
 import { inviteTokenFromRedirect } from './inviteToken';
 import { isAdminHost } from '@/lib/admin/host';
@@ -54,7 +54,7 @@ export async function redirectAfterAuth(router: Router): Promise<void> {
     return;
   }
   // First sign-in here: a phone or tablet asks who it's for; a browser, or an account with no child using the app, is the caregiver's.
-  if (asksDeviceRole() && me.profiles.some(usesApp)) {
+  if (asksDeviceRole() && someoneElseUsesApp(me.profiles, me.accounts)) {
     router.push('/onboarding/device/');
     return;
   }
