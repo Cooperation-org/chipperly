@@ -270,7 +270,7 @@ export default async function orgRoutes(app: FastifyInstance): Promise<void> {
             liveIds.add(clusterId);
           }
         }
-        const profile = await insertProfile(accountId, userId, { name: person.name }, clusterId);
+        const profile = await insertProfile(accountId, userId, { name: person.name, emoji: person.emoji, photo_id: person.photo_id }, clusterId);
         created.push({ profile_id: profile.id, name: profile.name });
         if (person.parent_email) {
           const email = person.parent_email.toLowerCase();

@@ -362,6 +362,14 @@ describe('organization routes', () => {
   });
 
   describe('POST /accounts/:id/profiles/bulk', () => {
+    it('saves the picture chosen for a person', async () => {
+      const { admin, accountId } = await setup();
+      const res = await send('POST', admin.token, `/api/accounts/${accountId}/profiles/bulk`, { people: [{ name: 'Pic', emoji: '\u{1F98A}' }] });
+      expect(res.statusCode).toBe(201);
+      const [row] = await db.select().from(profiles).where(and(eq(profiles.account_id, accountId), eq(profiles.name, 'Pic')));
+      expect(row?.avatar_emoji).toBe('\u{1F98A}');
+    });
+
     it('creates people with a starter day, makes clusters by name once, and reuses existing ones', async () => {
       const { admin, accountId } = await setup();
       const existing = (await send('POST', admin.token, `/api/accounts/${accountId}/clusters`, { name: 'North' })).json() as { id: string };
