@@ -217,6 +217,8 @@ export default async function accountsRoutes(app: FastifyInstance): Promise<void
     await requireAdmin(accountId, userId);
     await assertCanCreate(accountId);
 
+    const own = new Set(await accountProfileIds(accountId));
+    if (body.profile_ids.some((id) => !own.has(id))) throw new AppError(400, 'invalid_profiles', 'Some of those people are not in this account');
     if (body.role === 'admin') await assertAdminSeat(accountId, true);
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
     if (!account) throw new AppError(404, 'not_found', 'Account not found');

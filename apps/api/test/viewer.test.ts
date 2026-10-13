@@ -3,7 +3,9 @@ import type { FastifyInstance } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { MUTATION_TABLE_NAMES } from '@chipperly/shared/constants/tables';
 import { db, sql } from '../src/db/client.js';
-import { profile_members } from '../src/db/schema/profiles.js';
+import { profile_members, profiles } from '../src/db/schema/profiles.js';
+
+import { eq } from 'drizzle-orm';
 import { buildTestApp, request } from './helpers.js';
 import { addMember, createProfile, createUser, setupProfile } from './fixtures.js';
 import { getLastMailMessage } from '../src/lib/mailer.js';
@@ -205,5 +207,27 @@ describe('viewer role', () => {
       expect(patch.statusCode).toBe(200);
     });
   });
-});
+  it('refuses an invite naming a profile from another account', async () => {
+    const { admin, accountId } = await setup();
+    const foreign = await setupProfile();
+    const res = await request(app, {
+      method: 'POST',
+      url: `/api/accounts/${accountId}/invites`,
+      headers: auth(admin.token),
+      payload: { email: 'x@example.com', role: 'viewer', profile_ids: [foreign.profileId] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(codeOf(res)).toBe('invalid_profiles');
+  });
 
+  it('GET /me and /me/export ignore a profile_members row pointing at another account', async () => {
+    const { viewer, profileId } = await setup();
+    const foreign = await setupProfile();
+    await db.insert(profile_members).values({ profile_id: foreign.profileId, user_id: viewer.id, relationship_label: null });
+    const me = await request(app, { method: 'GET', url: '/api/me', headers: auth(viewer.token) });
+    expect((me.json() as { profiles: Array<{ id: string }> }).profiles.map((p) => p.id)).toEqual([profileId]);
+    const exp = await request(app, { method: 'GET', url: '/api/me/export', headers: auth(viewer.token) });
+    expect((exp.json() as { profiles: Array<{ id: string }> }).profiles.map((p) => p.id)).toEqual([profileId]);
+  });
+
+});

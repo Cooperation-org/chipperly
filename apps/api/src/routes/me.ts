@@ -168,7 +168,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
       .select({ profile: profiles })
       .from(profile_members)
       .innerJoin(profiles, eq(profile_members.profile_id, profiles.id))
-      .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at)));
+      .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at), inArray(profiles.account_id, accountIds)));
 
     const profileById = new Map<string, Profile>();
     for (const profile of adminProfiles) profileById.set(profile.id, profile);
@@ -218,7 +218,7 @@ export default async function meRoutes(app: FastifyInstance): Promise<void> {
       .select({ profile: profiles })
       .from(profile_members)
       .innerJoin(profiles, eq(profile_members.profile_id, profiles.id))
-      .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at)));
+      .where(and(eq(profile_members.user_id, userId), isNull(profiles.deleted_at), inArray(profiles.account_id, accountIds)));
 
     const profileById = new Map<string, Profile>();
     for (const profile of adminProfiles) profileById.set(profile.id, profile);
