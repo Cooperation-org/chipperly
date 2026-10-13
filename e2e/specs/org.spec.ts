@@ -185,6 +185,28 @@ test.describe('organization', () => {
   });
 });
 
+test('an organization that skips adding people lands on an empty Org home and stays there', async ({ browser }) => {
+  const page = await browser.newPage();
+  await createAccount(page, 'Empty Org Owner');
+  await page.getByRole('button', { name: /My organization/ }).click();
+  await page.waitForURL('**/onboarding/org/');
+  await page.getByLabel('Organization name', { exact: true }).fill('Quiet Start');
+  await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'School' });
+  await next(page).click();
+  await next(page).click();
+  for (const heading of ['Groups', 'Add people', 'Invite staff']) {
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
+  }
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.waitForURL('**/org/');
+  await expect(page.getByText('No people yet. Tap + to add some.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('No people yet. Tap + to add some.')).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe('/org/');
+  await page.close();
+});
+
 test('a household sign-up still starts with the family list', async ({ browser }) => {
   const page = await browser.newPage();
   await createAccount(page, 'Family Owner');
