@@ -5,7 +5,7 @@ import nextTypescript from 'eslint-config-next/typescript';
 const eslintConfig = [
   ...coreWebVitals,
   ...nextTypescript,
-  { ignores: ['.next/**', 'out/**', 'out.*/**', 'public/sw.js', 'android/**', 'ios/**'] },
+  { ignores: ['.next/**', 'out/**', 'out.*/**', 'public/sw.js', 'public/pdfjs/**', 'android/**', 'ios/**'] },
 ];
 
 export default eslintConfig;
