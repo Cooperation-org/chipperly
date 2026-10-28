@@ -103,7 +103,7 @@ dialog input[type=text], dialog select { width: 100%; }
   <div class="top">
     <div class="logo" aria-hidden="true"></div>
     <div class="crumb">Chipperly<span>/</span>Ops</div>
-    <div class="who"><span id="who"></span><button class="btn" id="theme" title="Switch light or dark">◐</button></div>
+    <div class="who"><span id="who"></span><button class="btn" id="theme" title="Switch light or dark" aria-label="Switch light or dark">◐</button><button class="btn" id="signout">Sign out</button></div>
   </div>
   <nav aria-label="Sections">
     <button data-tab="overview">Overview</button>
@@ -125,6 +125,7 @@ const dur = (a, b) => { const s = Math.round((new Date(b || Date.now()) - new Da
 
 async function api(path, body) {
   const res = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {});
+  if (res.status === 401) { location.reload(); throw new Error('Signed out'); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
@@ -411,6 +412,7 @@ $('#theme').onclick = () => {
 };
 try { const t = localStorage.getItem('ops-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
 api('/api/me').then((m) => ($('#who').textContent = m.email)).catch(() => {});
+$('#signout').onclick = async () => { await fetch('/logout', { method: 'POST', headers: { 'content-type': 'application/json' } }); location.reload(); };
 const [tab, qs] = location.hash.slice(1).split('?');
 go(tabs[tab] ? tab : 'overview', Object.fromEntries(new URLSearchParams(qs || '')));
 </script>

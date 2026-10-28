@@ -2,8 +2,8 @@
 // manage Cloudflare. No dependencies on purpose: it must keep working when the app is down, and
 // stay small on a server it shares with live. Runs as the `ops` user (deploy/contabo/README.md, "Ops panel").
 //
-// Cloudflare Access signs every request that reaches us; we check that signature ourselves, so a
-// request sent straight to the server's IP gets nothing.
+// Sign-in: the panel's own (email, password, authenticator code; auth.mjs), or Cloudflare Access
+// once it is switched on for ops.chipperlyapp.com (its signature is checked here, access.mjs).
 import { spawn, execFile } from 'node:child_process';
 import { createPublicKey } from 'node:crypto';
 import { readFileSync, writeFileSync, statfsSync, existsSync, mkdirSync } from 'node:fs';
@@ -12,6 +12,7 @@ import { request as httpsRequest } from 'node:https';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { verifyAccessJwt } from './access.mjs';
+import { createAuth } from './auth.mjs';
 
 const run = promisify(execFile);
 const env = process.env;
@@ -25,6 +26,12 @@ const CF_ZONE = env.CF_ZONE_ID || '9f961107ff719cdefb274757754dd8cc';
 const GH_TOKEN = env.GH_TOKEN;
 const GH_REPO = env.GH_REPO || 'Cooperation-org/chipperly';
 const HTML = readFileSync(new URL('./index.html', import.meta.url));
+const LOGIN = readFileSync(new URL('./login.html', import.meta.url));
+const auth = createAuth(path.join(DATA_DIR, 'users.json'));
+const COOKIE = 'ops_session';
+const cookieOf = (req) => (/(?:^|;\s*)ops_session=([\w-]+)/.exec(req.headers.cookie || '') || [])[1];
+// Caddy is the only client (we listen on 127.0.0.1) and puts the visitor's address last.
+const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',').pop().trim();
 
 // What we watch. `restart` is what the panel may do to it (/etc/sudoers.d/ops allows exactly these).
 const UNITS = [
@@ -410,13 +417,28 @@ function streamLogs(req, res, q) {
 
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  const user = await accessUser(req);
+  const sec = { 'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store' };
+  if (req.method === 'POST' && url.pathname === '/login') {
+    if (!String(req.headers['content-type']).startsWith('application/json')) return json(res, 415, { error: 'JSON only' });
+    const r = auth.signIn(await readBody(req), clientIp(req));
+    console.log(JSON.stringify({ msg: r.token ? 'ops sign-in' : 'ops sign-in refused', who: r.email, ip: clientIp(req) }));
+    if (!r.token) return json(res, 401, { error: r.error });
+    res.writeHead(200, { 'content-type': 'application/json', 'set-cookie': `${COOKIE}=${r.token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200`, ...sec });
+    return res.end('{"ok":true}');
+  }
+  if (req.method === 'POST' && url.pathname === '/logout') {
+    auth.signOut(cookieOf(req));
+    res.writeHead(200, { 'content-type': 'application/json', 'set-cookie': `${COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`, ...sec });
+    return res.end('{"ok":true}');
+  }
+  const user = (await accessUser(req)) || auth.user(cookieOf(req));
   if (!user) {
-    res.writeHead(403, { 'content-type': 'text/plain' });
-    return res.end('Sign in through Cloudflare Access.');
+    if (url.pathname.startsWith('/api/')) return json(res, 401, { error: 'Signed out' });
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...sec });
+    return res.end(LOGIN);
   }
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer' });
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...sec });
     return res.end(HTML);
   }
   if (req.method === 'GET' && url.pathname === '/api/logs/stream') return streamLogs(req, res, url.searchParams);

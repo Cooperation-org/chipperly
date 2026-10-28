@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Chipperly Ops</title>
+<style>
+:root { --bg: #fafafa; --panel: #fff; --line: #eaeaea; --line2: #d4d4d4; --fg: #111; --muted: #666; --bad: #c61b1b; --badbg: #fdecec; --accent: #111; --accentfg: #fff; --focus: #0060df;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg: #000; --panel: #0a0a0a; --line: #1f1f1f; --line2: #333; --fg: #ededed; --muted: #a1a1a1; --bad: #ff6166; --badbg: #2c0b0e; --accent: #ededed; --accentfg: #000; --focus: #52a8ff; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--fg); font-size: 14px; padding: 16px; }
+form { width: min(360px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+.logo { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #f6c445, #ef6c3a); margin-bottom: 16px; }
+h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.02em; }
+p { color: var(--muted); margin: 0 0 20px; }
+label { display: block; color: var(--muted); font-size: 13px; margin: 14px 0 6px; }
+input { width: 100%; font: inherit; border: 1px solid var(--line2); background: var(--panel); color: var(--fg); border-radius: 6px; padding: 9px 12px; }
+input:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+button { width: 100%; margin-top: 20px; font: inherit; font-weight: 500; background: var(--accent); color: var(--accentfg); border: 0; border-radius: 6px; padding: 10px; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+.err { background: var(--badbg); color: var(--bad); border-radius: 6px; padding: 9px 12px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<form id="f">
+  <div class="logo" aria-hidden="true"></div>
+  <h1>Chipperly Ops</h1>
+  <p>Sign in to see the servers, sites and deployments.</p>
+  <label for="email">Email</label><input id="email" type="email" autocomplete="username" required autofocus>
+  <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
+  <label for="code">Authenticator code</label><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+  <button id="go">Sign in</button>
+  <div class="err" id="err" role="alert" hidden></div>
+</form>
+<script>
+document.getElementById('f').onsubmit = async (e) => {
+  e.preventDefault();
+  const b = document.getElementById('go'), err = document.getElementById('err');
+  b.disabled = true; err.hidden = true;
+  const body = { email: email.value, password: password.value, code: code.value };
+  const res = await fetch('/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
+  if (res && res.ok) return location.reload();
+  err.textContent = res ? (await res.json().catch(() => ({}))).error || 'Could not sign in.' : 'No connection.';
+  err.hidden = false; b.disabled = false; code.value = ''; code.focus();
+};
+</script>
+</body>
+</html>

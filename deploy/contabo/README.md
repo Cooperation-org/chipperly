@@ -243,12 +243,18 @@ Worker logs, DNS, D1 and R2, traffic, cache purge). Code in `ops/`, no dependenc
 It runs as the user `ops` (no login, in `systemd-journal` to read logs) from `/opt/ops`, with its
 secrets in `/etc/ops/ops.env` (root, 600):
 
-- `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`: the Cloudflare Access application. Every request must carry a
-  valid Access token for it; without these two set, the panel refuses everyone.
+- `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` (later): the Cloudflare Access application for ops, once
+  Taymar (Super Administrator) switches Zero Trust on. A valid Access token then also signs people in.
 - `CF_API_TOKEN`: the "ops-panel" token (Workers, D1, R2, Worker logs, DNS, cache purge, analytics
   for chipperlyapp.com only), usable only from this server's IPv4 address.
 - `GH_TOKEN` (optional): a fine-grained token for Cooperation-org/chipperly with Actions read and
   write. Without it the Deployments tab is read-only.
+
+Until then it has its own sign-in: email, password and a 6-digit authenticator code, a 12-hour
+session cookie, and 15 minutes locked out after 5 misses (by email and by address). Add a person,
+or reset one (prints a new password and authenticator key once):
+
+    sudo -u ops OPS_DATA_DIR=/var/lib/ops node /opt/ops/adduser.mjs someone@example.com
 
 `/etc/sudoers.d/ops` lets it run exactly `systemctl restart chipperly`, `systemctl restart
 chipperly-dev` and `systemctl reload caddy`. Every change made from the panel is logged with the
@@ -256,4 +262,4 @@ person's email: `journalctl -u ops | grep "ops action"`.
 
 Update after changing `ops/`:
 
-    sudo install -m 644 ~/chipperly-dev/ops/*.mjs ~/chipperly-dev/ops/index.html /opt/ops/ && sudo systemctl restart ops
+    sudo install -m 644 ~/chipperly-dev/ops/*.mjs ~/chipperly-dev/ops/*.html /opt/ops/ && sudo systemctl restart ops

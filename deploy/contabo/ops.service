@@ -7,7 +7,7 @@ User=ops
 Group=ops
 SupplementaryGroups=systemd-journal
 WorkingDirectory=/opt/ops
-# CF_API_TOKEN, GH_TOKEN, ACCESS_TEAM_DOMAIN, ACCESS_AUD (root-only file, README.md "Ops panel").
+# CF_API_TOKEN, and later GH_TOKEN, ACCESS_TEAM_DOMAIN, ACCESS_AUD (root-only file, README.md "Ops panel").
 EnvironmentFile=/etc/ops/ops.env
 Environment=OPS_PORT=8070 OPS_DATA_DIR=/var/lib/ops
 ExecStart=/usr/bin/node /opt/ops/server.mjs
