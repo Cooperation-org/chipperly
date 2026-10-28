@@ -1,8 +1,9 @@
 name: Deploy site
 
 # chipperlyapp.com (apps/site) to Cloudflare: migrates the live D1, builds
-# with OpenNext on Linux, deploys the Worker. Run it from the Actions tab.
-# Also deploys the chipperly-mail Email Worker.
+# with OpenNext on Linux, deploys the Worker. Run it from the Actions tab; it waits for an
+# approval on the production environment. Also deploys the chipperly-mail Email Worker.
+# Runs on our runner on the Contabo server (see ci.yml).
 on:
   workflow_dispatch:
 
@@ -12,7 +13,8 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, chipperly]
+    environment: production
     timeout-minutes: 30
     env:
       CLOUDFLARE_ACCOUNT_ID: e576a82e9534f6dcf627eeaf15adf6d7
