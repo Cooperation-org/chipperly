@@ -221,6 +221,17 @@ function cf(pathname, { method = 'GET', body, query } = {}) {
 }
 const acct = (p) => `/accounts/${CF_ACCOUNT}${p}`;
 
+// Rollback: a live Worker can go back to one of its last MAX_ROLLBACK versions; a dev Worker not at all.
+const MAX_ROLLBACK = 10;
+const isDevWorker = (id) => id.endsWith('-dev');
+async function workerVersions(id) {
+  const deployments = (await cf(acct(`/workers/scripts/${id}/deployments`)).catch(() => ({ result: { deployments: [] } }))).result.deployments || [];
+  const live = deployments[0]?.versions?.[0]?.version_id ?? null;
+  if (isDevWorker(id)) return { deployments, live, targets: [] };
+  const items = (await cf(acct(`/workers/scripts/${id}/versions`), { query: { per_page: String(MAX_ROLLBACK + 1) } }).catch(() => ({ result: { items: [] } }))).result.items || [];
+  return { deployments, live, targets: items.filter((v) => v.id !== live).slice(0, MAX_ROLLBACK) };
+}
+
 // ---- Site checks -----------------------------------------------------------------------------
 
 async function checkSite(s) {
@@ -329,15 +340,16 @@ const routes = {
     const scripts = (await cf(acct('/workers/scripts'))).result;
     return Promise.all(
       scripts.map(async (s) => {
-        const deps = await cf(acct(`/workers/scripts/${s.id}/deployments`)).catch(() => ({ result: { deployments: [] } }));
-        const versions = await cf(acct(`/workers/scripts/${s.id}/versions`), { query: { per_page: '10' } }).catch(() => ({ result: { items: [] } }));
-        return { id: s.id, modified: s.modified_on, created: s.created_on, deployments: (deps.result.deployments || []).slice(0, 5), versions: versions.result.items || [] };
+        const { deployments, live, targets } = await workerVersions(s.id);
+        return { id: s.id, modified: s.modified_on, created: s.created_on, deployments: deployments.slice(0, 5), live, rollback: !isDevWorker(s.id), versions: targets };
       }),
     );
   },
 
   'POST /api/cf/workers/rollback': async ({ body, user }) => {
     if (!/^[a-z0-9-]+$/.test(body.script || '') || !/^[0-9a-f-]{36}$/.test(body.version || '')) throw Object.assign(new Error('Bad request'), { status: 400 });
+    if (isDevWorker(body.script)) throw Object.assign(new Error('Dev Workers are not rolled back; push a fix to dev instead.'), { status: 400 });
+    if (!(await workerVersions(body.script)).targets.some((v) => v.id === body.version)) throw Object.assign(new Error(`Only the last ${MAX_ROLLBACK} versions can be rolled back to.`), { status: 400 });
     audit(user, `rollback ${body.script} to ${body.version}`);
     return (await cf(acct(`/workers/scripts/${body.script}/deployments`), { method: 'POST', body: { strategy: 'percentage', versions: [{ version_id: body.version, percentage: 100 }], annotations: { 'workers/message': `Rollback from ops panel by ${user}` } } })).result;
   },

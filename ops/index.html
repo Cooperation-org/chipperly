@@ -324,15 +324,15 @@ async function cloudflare(params) {
       const ws = await api('/api/cf/workers');
       box.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${ws.map((w) => {
         const live = w.deployments[0];
-        const liveV = live?.versions?.[0]?.version_id;
-        return `<div class="card"><h3><span class="dot ok"></span>${esc(w.id)}</h3><div class="meta">changed ${esc(ago(w.modified))}${live ? ` · deployed ${esc(ago(live.created_on))} by ${esc(live.author_email || live.source || '')}` : ''}</div>
-          ${w.versions.length ? `<details style="margin-top:10px"><summary>Versions (${w.versions.length})</summary><div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Version</th><th>Created</th><th>Message</th><th></th></tr></thead><tbody>
-          ${w.versions.map((v) => `<tr><td class="mono">${esc(v.id.slice(0, 8))}${v.id === liveV ? ' <span class="pill live">live</span>' : ''}</td><td>${esc(ago(v.metadata?.created_on))}</td><td>${esc(v.annotations?.['workers/message'] || v.metadata?.source || '')}</td>
-            <td>${v.id === liveV ? '' : `<button class="btn" data-rb="${esc(w.id)}" data-ver="${esc(v.id)}">Roll back to this</button>`}</td></tr>`).join('')}</tbody></table></div></details>` : ''}</div>`;
+        const rb = !w.rollback ? '<div class="meta">Dev: no rollback. Push a fix to dev instead.</div>'
+          : !w.versions.length ? '<div class="meta">No earlier versions to roll back to.</div>'
+          : `<details style="margin-top:10px"><summary>Roll back (last ${w.versions.length} versions)</summary><div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Version</th><th>Created</th><th>Message</th><th></th></tr></thead><tbody>
+          ${w.versions.map((v) => `<tr><td class="mono">${esc(v.id.slice(0, 8))}</td><td>${esc(ago(v.metadata?.created_on))}</td><td>${esc(v.annotations?.['workers/message'] || v.metadata?.source || '')}</td>
+            <td><button class="btn" data-rb="${esc(w.id)}" data-ver="${esc(v.id)}">Roll back to this</button></td></tr>`).join('')}</tbody></table></div></details>`;
+        return `<div class="card"><h3><span class="dot ok"></span>${esc(w.id)} <span class="pill ${w.rollback ? 'live' : 'dev'}">${w.rollback ? 'live' : 'dev'}</span></h3><div class="meta">changed ${esc(ago(w.modified))}${live ? ` · deployed ${esc(ago(live.created_on))} by ${esc(live.author_email || live.source || '')}` : ''}${w.live ? ` · running <span class="mono">${esc(w.live.slice(0, 8))}</span>` : ''}</div>${rb}</div>`;
       }).join('')}</div>`;
       box.querySelectorAll('[data-rb]').forEach((b) => (b.onclick = async () => {
-        const live = !b.dataset.rb.endsWith('-dev');
-        if (!(await confirmBox(`Roll ${b.dataset.rb} back?`, `Version ${b.dataset.ver.slice(0, 8)} takes all traffic right away.${live ? ' This is a LIVE Worker.' : ''}`, 'Roll back', live))) return;
+        if (!(await confirmBox(`Roll ${b.dataset.rb} back?`, `Version ${b.dataset.ver.slice(0, 8)} takes all traffic right away. This is a LIVE Worker.`, 'Roll back', true))) return;
         try { await api('/api/cf/workers/rollback', { script: b.dataset.rb, version: b.dataset.ver }); toast('Rolled back'); views.workers(); } catch (e) { toast(e.message); }
       }));
     },
