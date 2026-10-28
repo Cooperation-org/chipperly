@@ -2,6 +2,8 @@
 
 One page with every link. Written 19 Sept 2026, last updated 1 Oct 2026; keep it current when something moves.
 
+For setup, environments (live and dev), CI, deploys, rollback and the ops panel, [README.md](README.md) is the current guide (29 Oct 2026). Where the two disagree, the README is right.
+
 ## What it is
 
 Visual supports for neurodivergent children (Today schedule, chip board, timer, first-then, social stories, Chipper Chart), used by parents, teachers and therapists and, in a locked view, by the child. Client: Chipperly LLC (Taymar Pixley, Tucson). Built by Cooperation-org as an offline-first PWA (Next.js static export) on a Fastify + Postgres API. MIT licence, public repo.
@@ -10,7 +12,7 @@ Visual supports for neurodivergent children (Today schedule, chip board, timer, 
 
 | What | Where |
 | --- | --- |
-| Code | <https://github.com/Cooperation-org/chipperly> (`main` is the only branch; every push runs CI) |
+| Code | <https://github.com/Cooperation-org/chipperly> (work goes to `dev`, live runs `main`; see the README) |
 | Live app | <https://app.chipperlyapp.com> on Chipperly's own Contabo VPS since 29 Sept 2026 (`~/chipperly`, systemd unit `chipperly`, Caddy, system PostgreSQL 18, uploads on disk). Setup, update, backups and restore are in `deploy/contabo/README.md`. `/api/health` names the running commit |
 | Marketing site | <https://chipperlyapp.com>, `apps/site` (Next.js + Payload on a Cloudflare Worker, D1 and R2, with the blog). Deployed by hand from the Actions tab, workflow "Deploy site" |
 | Old demo | `demos.linkedtrust.us/chipperly-next/` on the shared dev VM 200 was switched off on 29 Sept 2026 and redirects to the live app. `deploy/vm200/` is kept for reference. Not the old Rails demo (`chipperly`, golda's) |
@@ -36,20 +38,14 @@ Checks: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`, then `pnpm e2e
 
 ## Deploy
 
-```bash
-ssh mhany@89.117.20.203                          # the Contabo VPS, key only
-bash ~/chipperly/deploy/contabo/deploy.sh        # pull main, install, build, migrate, restart
-curl -s https://app.chipperlyapp.com/api/health  # "commit" is the build that is live
-```
-
-The script only moves forward from `main` (`git pull --ff-only`), so going back means reverting on `main`, pushing, and running it again. A database and uploads backup runs every night at 03:17 server time and can be run by hand before a risky deploy (`~/bin/chipperly-backup.sh`).
+See README.md, "Deploying to live": the "Deploy app" and "Deploy site" workflows (with an approval), or `bash /usr/local/lib/chipperly/deploy.sh` on the server, and rollback from the ops panel. A database and uploads backup runs every night at 03:17 server time and can be run by hand before a risky deploy (`~/bin/chipperly-backup.sh`).
 
 ## Things to know about the live app
 
 - Real families use it. The database is not a throwaway.
 - Email is on (Resend). Invites also show the accept link to copy and send by hand.
 - Google and Apple sign-in are built but hidden until their client ids are set.
-- Billing and community selling are built but return 404 until the Stripe keys are set. Nothing locks anyone out meanwhile.
+- Live Stripe payments are on since 10 Oct 2026. Community selling stays hidden until a platform fee is set (`COMMUNITY_PLATFORM_FEE_PERCENT`).
 - In-app image search (Openverse) and push notifications (Firebase) are configured.
 - Backups run nightly on the server and a copy goes to the R2 bucket `chipperly-app-backups`, kept 30 days (`deploy/contabo/README.md`, "Backups").
 - Errors: server errors and uncaught browser errors from signed-in sessions both land in the server log. `journalctl -u chipperly | grep client_error` shows the browser ones. Guests and signed-out visitors send nothing.
