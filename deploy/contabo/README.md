@@ -194,3 +194,31 @@ One-time setup:
     bash ~/chipperly-dev/deploy/contabo/deploy-dev.sh
 
 Cloudflare DNS: `dev-app` and `dev-admin` A records to this server, DNS only, like `app`.
+
+## CI runner (GitHub Actions)
+
+Every workflow runs here, on a self-hosted runner (`contabo-chipperly`, label `chipperly`), not on
+GitHub's machines. It runs as the user `ghrunner`, which cannot read `/home/mhany` (so no `.env`,
+no backups). `github-runner.service` caps it at 2 CPUs and 4 GB, at low CPU and disk priority, and
+the kernel kills its jobs before anything else when memory runs out. With one runner, jobs queue.
+
+`/etc/sudoers.d/ghrunner` lets it run exactly three things as mhany: `deploy-dev.sh`, `deploy.sh`
+and `~/bin/chipperly-backup.sh`. The repo is public, so pull requests from forks never run here:
+each job checks the PR comes from this repo, and the repo asks for approval for every outside
+contributor. Live deploys ("Deploy app", "Deploy site") wait for an approval on the `production`
+environment, and only `main` may deploy to it.
+
+- Push to `main` or `dev`, or a PR: CI.
+- Live: run "Deploy app" or "Deploy site" from the Actions tab, then approve.
+
+Set up on 28 Oct 2026:
+
+    sudo useradd -m -s /bin/bash ghrunner
+    # as ghrunner: download actions-runner-linux-x64 into ~/runner, then
+    ./config.sh --unattended --url https://github.com/Cooperation-org/chipperly --token <registration token> \
+      --name contabo-chipperly --labels chipperly --work _work
+    sudo npx -y playwright@<version in package.json> install-deps chromium webkit
+    # /etc/systemd/system/github-runner.service and /etc/sudoers.d/ghrunner as described above
+    sudo systemctl enable --now github-runner
+
+The registration token comes from `gh api -X POST repos/Cooperation-org/chipperly/actions/runners/registration-token`.
