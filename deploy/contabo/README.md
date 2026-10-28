@@ -157,3 +157,39 @@ One-time setup:
   cron, which nothing runs today. The website's migration `20261013_100000_waitlist_invited` runs on the next
   "Deploy site".
 - `SITE_ORIGIN` defaults to https://chipperlyapp.com.
+
+## Dev copy (dev-app.chipperlyapp.com)
+
+Branch `dev`, on the same server, apart from live in every way that matters: its own clone
+(`~/chipperly-dev`), unit (`chipperly-dev`, 127.0.0.1:8065, 1 GB cap), database (`chipperly_dev`,
+role `chipperly_dev`), uploads (`~/chipperly-dev-uploads`) and `.env`. It starts with no live
+data, so reminders and emails only ever reach the test accounts made there. Stripe uses sandbox
+keys. No backups, no Google or Apple sign-in, no Firebase push, no newsletter or waitlist link.
+`dev-admin.chipperlyapp.com` is its admin site.
+
+Work lands on `dev`, is checked on dev-app, then `dev` is merged into `main` for the live deploy.
+
+    bash ~/chipperly-dev/deploy/contabo/deploy-dev.sh
+
+Both dev addresses ask for a password (user `dev`) except `/api/billing/webhook`, which Stripe
+signs. The hash is kept out of this public repo, in `/etc/caddy/dev-auth`:
+
+    printf 'basic_auth @locked {\n\tdev %s\n}\n' "$(caddy hash-password --plaintext '<password>')" | sudo tee /etc/caddy/dev-auth
+    sudo chmod 640 /etc/caddy/dev-auth && sudo chgrp caddy /etc/caddy/dev-auth
+
+One-time setup:
+
+    sudo -u postgres psql -c "create role chipperly_dev login password '<pw>'"
+    sudo -u postgres psql -c "create database chipperly_dev owner chipperly_dev"
+    git clone -b dev https://github.com/Cooperation-org/chipperly.git ~/chipperly-dev
+    # apps/api/.env (chmod 600): as live, but PORT=8065, the chipperly_dev database,
+    # UPLOAD_DIR=/home/mhany/chipperly-dev-uploads, APP_ORIGIN=https://dev-app.chipperlyapp.com,
+    # ADMIN_ORIGIN=https://dev-admin.chipperlyapp.com, a new JWT_SECRET, sandbox STRIPE_ values,
+    # the dev Resend key, MAIL_FROM with "Chipperly DEV", new VAPID keys
+    sudo cp ~/chipperly-dev/deploy/contabo/chipperly-dev.service /etc/systemd/system/
+    sudo systemctl daemon-reload && sudo systemctl enable chipperly-dev
+    sudo cp ~/chipperly-dev/deploy/contabo/Caddyfile /etc/caddy/Caddyfile
+    caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+    bash ~/chipperly-dev/deploy/contabo/deploy-dev.sh
+
+Cloudflare DNS: `dev-app` and `dev-admin` A records to this server, DNS only, like `app`.

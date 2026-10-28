@@ -1,0 +1,16 @@
+[Unit]
+Description=Chipperly DEV API + static app (dev-app.chipperlyapp.com, branch dev)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+User=mhany
+WorkingDirectory=/home/mhany/chipperly-dev/apps/api
+EnvironmentFile=/home/mhany/chipperly-dev/apps/api/.env
+ExecStart=/usr/bin/node dist/server.js
+Restart=always
+RestartSec=5
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

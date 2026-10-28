@@ -13,3 +13,25 @@ admin.chipperlyapp.com {
 	header X-Robots-Tag "noindex, nofollow"
 	reverse_proxy 127.0.0.1:8064
 }
+
+# The dev copy: branch dev, its own unit, database and uploads on 127.0.0.1:8065 (28 Oct 2026).
+# The password lives only on the server, in /etc/caddy/dev-auth (README.md, "Dev copy").
+# Stripe's sandbox webhook cannot type a password, so that one path stays open; Stripe signs it.
+(dev) {
+	encode zstd gzip
+	request_body {
+		max_size 60MB
+	}
+	header X-Robots-Tag "noindex, nofollow"
+	@locked not path /api/billing/webhook
+	import /etc/caddy/dev-auth
+	reverse_proxy 127.0.0.1:8065
+}
+
+dev-app.chipperlyapp.com {
+	import dev
+}
+
+dev-admin.chipperlyapp.com {
+	import dev
+}
