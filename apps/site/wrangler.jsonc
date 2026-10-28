@@ -73,6 +73,27 @@
       "d1_databases": [{ "binding": "D1", "database_name": "chipperly-site", "database_id": "5195570c-3b7a-4fa7-af24-c0b66d0bb939", "remote": true }],
       "r2_buckets": [{ "binding": "R2", "bucket_name": "chipperly-site-media", "remote": true }],
     },
+    // The dev copy at dev.chipperlyapp.com (Worker chipperly-site-dev, branch dev, 28 Oct 2026):
+    // its own D1 and buckets, no email routing, cache purge or analytics. Build with
+    // CLOUDFLARE_ENV=dev, deploy with --env dev. The DEV_GATE secret puts a password on it (worker.js).
+    "dev": {
+      "routes": [{ "pattern": "dev.chipperlyapp.com", "custom_domain": true }],
+      "d1_databases": [
+        { "binding": "D1", "database_name": "chipperly-site-dev", "database_id": "ce66454d-59cc-4624-aea5-db43472ac505", "remote": true },
+        { "binding": "NEXT_TAG_CACHE_D1", "database_name": "chipperly-site-dev", "database_id": "ce66454d-59cc-4624-aea5-db43472ac505", "remote": true },
+      ],
+      "r2_buckets": [
+        { "binding": "R2", "bucket_name": "chipperly-site-dev-media", "remote": true },
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "chipperly-site-dev-cache", "remote": true },
+      ],
+      "images": { "binding": "IMAGES" },
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "chipperly-site-dev" }],
+      "durable_objects": {
+        "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }],
+      },
+      "ratelimits": [{ "name": "WAITLIST_LIMITER", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } }],
+      "vars": { "EMAIL_DOMAIN": "chipperlyapp.com" },
+    },
   },
 
   // Uncomment when the owner is ready to move chipperlyapp.com off the old

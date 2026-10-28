@@ -8,8 +8,28 @@ import handler from './.open-next/worker.js';
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from './.open-next/worker.js';
 
+// The dev copy (dev.chipperlyapp.com, wrangler env "dev") sets the DEV_GATE secret to "user:password":
+// every page then asks for it and nothing is indexed. /api/ stays open, as on dev-app: callers there
+// bring their own credentials. Live has no DEV_GATE, so this does nothing there.
+function devGate(request, env) {
+  if (!env.DEV_GATE || new URL(request.url).pathname.startsWith('/api/')) return null;
+  if (request.headers.get('authorization') === `Basic ${btoa(env.DEV_GATE)}`) return null;
+  return new Response('This is the Chipperly dev site.', {
+    status: 401,
+    headers: { 'WWW-Authenticate': 'Basic realm="Chipperly dev"', 'X-Robots-Tag': 'noindex, nofollow' },
+  });
+}
+
 const worker = {
-  fetch: (request, env, ctx) => handler.fetch(request, env, ctx),
+  async fetch(request, env, ctx) {
+    if (!env.DEV_GATE) return handler.fetch(request, env, ctx);
+    const denied = devGate(request, env);
+    if (denied) return denied;
+    const upstream = await handler.fetch(request, env, ctx);
+    const res = new Response(upstream.body, upstream);
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return res;
+  },
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(
       env.WORKER_SELF_REFERENCE.fetch('https://chipperlyapp.com/api/payload-jobs/run?limit=10', {
