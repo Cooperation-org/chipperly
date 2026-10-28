@@ -81,6 +81,8 @@ const METRICS_FILE = path.join(DATA_DIR, 'metrics.json');
 let samples = [];
 try {
   samples = JSON.parse(readFileSync(METRICS_FILE, 'utf8')).filter((s) => s.t > Date.now() - 24 * 3600_000);
+  // Only the services listed in UNITS: one taken off the list leaves no trace in the history.
+  for (const s of samples) s.u = Object.fromEntries(UNITS.filter((u) => s.u[u.id]).map((u) => [u.id, s.u[u.id]]));
 } catch {}
 let prev = null;
 
