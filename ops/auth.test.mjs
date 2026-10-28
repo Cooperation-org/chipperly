@@ -42,4 +42,13 @@ const back = auth.signIn({ email: 'me@example.com', password: 'pw-1', code: code
 assert.ok(back.token, 'unlocked after 15 minutes');
 auth.signOut(back.token);
 assert.equal(auth.user(back.token), null);
+// OPS_TWO_STEP=off: the password alone, lockout still on.
+const dir2 = mkdtempSync(path.join(tmpdir(), 'ops-'));
+const noCode = createAuth(path.join(dir2, 'users.json'), { now: () => t, twoStep: false });
+noCode.save([{ email: 'me@example.com', password: hashPassword('pw-1'), totp: rfc }]);
+assert.ok(noCode.signIn({ email: 'me@example.com', password: 'pw-1' }, 'ip5').token, 'no code needed');
+assert.ok(noCode.signIn({ email: 'me@example.com', password: 'pw-1' }, 'ip5').token, 'and again');
+assert.ok(noCode.signIn({ email: 'me@example.com', password: 'wrong' }, 'ip5').error, 'password still checked');
+for (let i = 0; i < 5; i++) noCode.signIn({ email: 'me@example.com', password: 'bad' }, 'ip6');
+assert.match(noCode.signIn({ email: 'me@example.com', password: 'pw-1' }, 'ip7').error, /Too many/, 'lockout still on');
 console.log('auth: all checks passed');

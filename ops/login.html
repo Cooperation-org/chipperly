@@ -31,7 +31,7 @@ button:disabled { opacity: .6; cursor: wait; }
   <p>Sign in to see the servers, sites and deployments.</p>
   <label for="email">Email</label><input id="email" type="email" autocomplete="username" required autofocus>
   <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
-  <label for="code">Authenticator code</label><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+  <!--code--><label for="code">Authenticator code</label><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required><!--/code-->
   <button id="go">Sign in</button>
   <div class="err" id="err" role="alert" hidden></div>
 </form>
@@ -40,11 +40,11 @@ document.getElementById('f').onsubmit = async (e) => {
   e.preventDefault();
   const b = document.getElementById('go'), err = document.getElementById('err');
   b.disabled = true; err.hidden = true;
-  const body = { email: email.value, password: password.value, code: code.value };
+  const body = { email: email.value, password: password.value, code: window.code ? code.value : undefined };
   const res = await fetch('/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
   if (res && res.ok) return location.reload();
   err.textContent = res ? (await res.json().catch(() => ({}))).error || 'Could not sign in.' : 'No connection.';
-  err.hidden = false; b.disabled = false; code.value = ''; code.focus();
+  err.hidden = false; b.disabled = false; if (window.code) { code.value = ''; code.focus(); }
 };
 </script>
 </body>

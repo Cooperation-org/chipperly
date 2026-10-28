@@ -251,7 +251,9 @@ secrets in `/etc/ops/ops.env` (root, 600):
   write. Without it the Deployments tab is read-only.
 
 Until then it has its own sign-in: email, password and a 6-digit authenticator code, a 12-hour
-session cookie, and 15 minutes locked out after 5 misses (by email and by address). Add a person,
+session cookie, and 15 minutes locked out after 5 misses (by email and by address).
+`OPS_TWO_STEP=off` in `/etc/ops/ops.env` drops the code and asks for the password only (set on
+28 Oct 2026 at Muhammad's request); remove the line and restart to ask for it again. Add a person,
 or reset one (prints a new password and authenticator key once):
 
     sudo -u ops OPS_DATA_DIR=/var/lib/ops node /opt/ops/adduser.mjs someone@example.com

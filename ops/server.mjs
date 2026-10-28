@@ -26,8 +26,9 @@ const CF_ZONE = env.CF_ZONE_ID || '9f961107ff719cdefb274757754dd8cc';
 const GH_TOKEN = env.GH_TOKEN;
 const GH_REPO = env.GH_REPO || 'Cooperation-org/chipperly';
 const HTML = readFileSync(new URL('./index.html', import.meta.url));
-const LOGIN = readFileSync(new URL('./login.html', import.meta.url));
-const auth = createAuth(path.join(DATA_DIR, 'users.json'));
+const TWO_STEP = env.OPS_TWO_STEP !== 'off';
+const LOGIN = readFileSync(new URL('./login.html', import.meta.url), 'utf8').replace(TWO_STEP ? '' : /<!--code-->.*<!--\/code-->/s, '');
+const auth = createAuth(path.join(DATA_DIR, 'users.json'), { twoStep: TWO_STEP });
 const COOKIE = 'ops_session';
 const cookieOf = (req) => (/(?:^|;\s*)ops_session=([\w-]+)/.exec(req.headers.cookie || '') || [])[1];
 // Caddy is the only client (we listen on 127.0.0.1) and puts the visitor's address last.

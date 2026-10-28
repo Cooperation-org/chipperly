@@ -1,5 +1,6 @@
-// The panel's own sign-in, until Cloudflare Access is switched on for it: email, password and a
-// 6-digit authenticator code (TOTP, RFC 6238). People are added with `node adduser.mjs` on the server.
+// The panel's own sign-in, until Cloudflare Access is switched on for it: email, password and, unless
+// twoStep is off (OPS_TWO_STEP=off), a 6-digit authenticator code (TOTP, RFC 6238). People are added
+// with `node adduser.mjs` on the server.
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -46,7 +47,7 @@ export function checkPassword(pw, stored) {
 }
 
 /** Sign-in with lockout and one-time codes. `file` is a JSON list of {email, password, totp}. */
-export function createAuth(file, { now = () => Date.now(), sessionHours = 12 } = {}) {
+export function createAuth(file, { now = () => Date.now(), sessionHours = 12, twoStep = true } = {}) {
   const sessions = new Map(); // token -> { email, exp }
   const fails = new Map(); // email or ip -> [times]
   const usedStep = new Map(); // email -> last TOTP step used, so a code works once
@@ -66,13 +67,14 @@ export function createAuth(file, { now = () => Date.now(), sessionHours = 12 } =
       const who = String(email || '').trim().toLowerCase();
       if (locked(who) || locked(ip)) return { error: 'Too many tries. Wait 15 minutes.' };
       const user = load().find((u) => u.email.toLowerCase() === who);
-      const step = user && checkPassword(password, user.password) ? matchTotp(user.totp, code, now()) : null;
-      if (step == null || step <= (usedStep.get(who) ?? -1)) {
+      const passwordOk = Boolean(user) && checkPassword(password, user.password);
+      const step = passwordOk && twoStep ? matchTotp(user.totp, code, now()) : null;
+      if (!passwordOk || (twoStep && (step == null || step <= (usedStep.get(who) ?? -1)))) {
         fail(who);
         fail(ip);
-        return { error: 'Email, password or code is wrong.' };
+        return { error: twoStep ? 'Email, password or code is wrong.' : 'Email or password is wrong.' };
       }
-      usedStep.set(who, step);
+      if (twoStep) usedStep.set(who, step);
       fails.delete(who);
       const token = randomBytes(32).toString('base64url');
       sessions.set(token, { email: user.email, exp: now() + sessionHours * 3600_000 });
