@@ -221,15 +221,40 @@ function cf(pathname, { method = 'GET', body, query } = {}) {
 }
 const acct = (p) => `/accounts/${CF_ACCOUNT}${p}`;
 
-// Rollback: a live Worker can go back to one of its last MAX_ROLLBACK versions; a dev Worker not at all.
-const MAX_ROLLBACK = 10;
+// Rollback: a live Worker can go back to one of its last few versions (5 for the marketing site,
+// 10 for the rest); a dev Worker not at all. The app's limit (10) is in deploy/contabo/rollback.sh.
+const MAX_ROLLBACK = { 'chipperly-site': 5 };
+const maxRollback = (id) => MAX_ROLLBACK[id] ?? 10;
 const isDevWorker = (id) => id.endsWith('-dev');
 async function workerVersions(id) {
   const deployments = (await cf(acct(`/workers/scripts/${id}/deployments`)).catch(() => ({ result: { deployments: [] } }))).result.deployments || [];
   const live = deployments[0]?.versions?.[0]?.version_id ?? null;
   if (isDevWorker(id)) return { deployments, live, targets: [] };
-  const items = (await cf(acct(`/workers/scripts/${id}/versions`), { query: { per_page: String(MAX_ROLLBACK + 1) } }).catch(() => ({ result: { items: [] } }))).result.items || [];
-  return { deployments, live, targets: items.filter((v) => v.id !== live).slice(0, MAX_ROLLBACK) };
+  const items = (await cf(acct(`/workers/scripts/${id}/versions`), { query: { per_page: String(maxRollback(id) + 1) } }).catch(() => ({ result: { items: [] } }))).result.items || [];
+  return { deployments, live, targets: items.filter((v) => v.id !== live).slice(0, maxRollback(id)) };
+}
+
+// ---- Live app deploy history (deploy/contabo/deploy.sh appends one line per deploy) ----------
+
+const DEPLOY_LOG = '/var/lib/chipperly-deploys/chipperly.log';
+const ROLLBACK_LOG = path.join(DATA_DIR, 'rollback.log');
+let rollbackStarted = 0;
+function appDeploys() {
+  try {
+    return readFileSync(DEPLOY_LOG, 'utf8').trim().split('\n').filter(Boolean).reverse().map((l) => {
+      const [at, sha, migrations, kind] = l.split(' ');
+      return { at, sha, migrations: Number(migrations), kind };
+    });
+  } catch {
+    return [];
+  }
+}
+function rollbackState() {
+  let log = '';
+  try {
+    log = readFileSync(ROLLBACK_LOG, 'utf8').slice(-6000);
+  } catch {}
+  return { running: Boolean(rollbackStarted), started: rollbackStarted || null, log };
 }
 
 // ---- Site checks -----------------------------------------------------------------------------
@@ -349,10 +374,42 @@ const routes = {
   'POST /api/cf/workers/rollback': async ({ body, user }) => {
     if (!/^[a-z0-9-]+$/.test(body.script || '') || !/^[0-9a-f-]{36}$/.test(body.version || '')) throw Object.assign(new Error('Bad request'), { status: 400 });
     if (isDevWorker(body.script)) throw Object.assign(new Error('Dev Workers are not rolled back; push a fix to dev instead.'), { status: 400 });
-    if (!(await workerVersions(body.script)).targets.some((v) => v.id === body.version)) throw Object.assign(new Error(`Only the last ${MAX_ROLLBACK} versions can be rolled back to.`), { status: 400 });
+    if (!(await workerVersions(body.script)).targets.some((v) => v.id === body.version)) throw Object.assign(new Error(`Only the last ${maxRollback(body.script)} versions can be rolled back to.`), { status: 400 });
     audit(user, `rollback ${body.script} to ${body.version}`);
     return (await cf(acct(`/workers/scripts/${body.script}/deployments`), { method: 'POST', body: { strategy: 'percentage', versions: [{ version_id: body.version, percentage: 100 }], annotations: { 'workers/message': `Rollback from ops panel by ${user}` } } })).result;
   },
+
+  // The live app's deploys (written by deploy.sh) and rollback to one of the last 10.
+  'GET /api/app/deploys': async () => {
+    const all = appDeploys();
+    const health = await checkSite(SITES[0]);
+    const current = health.commit || all[0]?.sha;
+    const cur = all.find((d) => d.sha === current);
+    const seen = new Set([current]);
+    const targets = [];
+    for (const d of all) if (!seen.has(d.sha) && targets.length < 10) (seen.add(d.sha), targets.push({ ...d, sameSchema: cur ? d.migrations === cur.migrations : false }));
+    await Promise.all(targets.concat(cur ? [cur] : []).map(async (d) => (d.title = (await gh(`/repos/${GH_REPO}/commits/${d.sha}`, { cacheMs: 86_400_000 }).catch(() => null))?.commit?.message.split('\n')[0] ?? '')));
+    return { current: cur || { sha: current }, targets, rollback: rollbackState() };
+  },
+
+  'POST /api/app/rollback': async ({ body, user }) => {
+    if (!/^[0-9a-f]{7}$/.test(body.sha || '')) throw Object.assign(new Error('Bad request'), { status: 400 });
+    if (rollbackState().running) throw Object.assign(new Error('A rollback is already running'), { status: 409 });
+    audit(user, `app rollback to ${body.sha}`);
+    rollbackStarted = Date.now();
+    writeFileSync(ROLLBACK_LOG, `${new Date().toISOString()} rollback to ${body.sha} by ${user}\n`);
+    const child = spawn('sudo', ['-n', '-H', '-u', 'mhany', '/usr/bin/bash', '/usr/local/lib/chipperly/rollback.sh', body.sha], { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const append = (c) => writeFileSync(ROLLBACK_LOG, c, { flag: 'a' });
+    child.stdout.on('data', append);
+    child.stderr.on('data', append);
+    child.on('exit', (code) => {
+      append(`\n== finished with exit code ${code}\n`);
+      rollbackStarted = 0;
+    });
+    return { ok: true };
+  },
+
+  'GET /api/app/rollback': async () => rollbackState(),
 
   'GET /api/cf/worker-logs': async ({ q }) => {
     const script = q.get('script');

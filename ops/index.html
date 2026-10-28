@@ -228,6 +228,8 @@ async function deployments() {
     $('#main').innerHTML = `<h1>Deployments</h1><p class="sub">GitHub Actions on <a href="https://github.com/${esc(d.repo)}/actions" target="_blank" rel="noopener">${esc(d.repo)}</a>. Pushing to <b>dev</b> deploys dev-app and dev.chipperlyapp.com. Live deploys wait for an approval in GitHub.</p>
       ${d.canDispatch ? '' : '<div class="note">Read-only: no GitHub token is set, so the deploy buttons are off.</div>'}
       <div class="toolbar"><button class="btn primary" data-dispatch="deploy-app.yml" ${d.canDispatch ? '' : 'disabled'}>Deploy live app</button><button class="btn primary" data-dispatch="deploy-site.yml" ${d.canDispatch ? '' : 'disabled'}>Deploy live site</button></div>
+      <h2>Roll back the live app</h2><div id="apprb"><div class="empty">Loading…</div></div>
+      <h2>Workflow runs</h2>
       <div class="tablewrap"><table><thead><tr><th>Status</th><th>Workflow</th><th>Commit</th><th>Branch</th><th>When</th><th>Took</th></tr></thead><tbody>
       ${d.runs.map((r) => `<tr><td><div class="row"><span class="dot ${state(r)}"></span>${esc(word(r))}</div></td>
         <td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a><div style="color:var(--muted)">${esc(r.title)}</div>
@@ -244,6 +246,30 @@ async function deployments() {
       if (!(await confirmBox(b.textContent + '?', 'This starts the workflow on main. It then waits for your approval in GitHub before anything changes on live.', 'Start'))) return;
       try { toast((await api('/api/deployments/dispatch', { workflow: b.dataset.dispatch })).note); setTimeout(draw, 3000); } catch (e) { toast(e.message); }
     }));
+    await appRollback();
+  };
+  // The live app goes back to one of its last 10 deploys; only ones with the same database migrations.
+  let rbPoll = null;
+  const appRollback = async () => {
+    const box = $('#apprb');
+    if (!box) return;
+    const a = await api('/api/app/deploys').catch((e) => ({ error: e.message }));
+    if (a.error) return (box.innerHTML = `<div class="err">${esc(a.error)}</div>`);
+    const c = a.current;
+    const running = a.rollback.running;
+    box.innerHTML = `<div class="card"><div class="row"><span class="dot ${running ? 'run' : 'ok'}"></span><b>Live now:</b> <span class="mono">${esc(c.sha)}</span> ${esc(c.title || '')} ${c.at ? `<span style="color:var(--muted)">· deployed ${esc(ago(c.at))}</span>` : ''}</div>
+      ${running || a.rollback.log ? `<details ${running ? 'open' : ''} style="margin-top:10px"><summary>${running ? 'Rolling back…' : 'Last rollback'}</summary><pre class="logs mono" style="height:220px;margin-top:8px">${esc(a.rollback.log)}</pre></details>` : ''}</div>
+      ${a.targets.length ? `<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Deploy</th><th>When</th><th>Database</th><th></th></tr></thead><tbody>
+        ${a.targets.map((t) => `<tr><td><span class="mono">${esc(t.sha)}</span> ${esc(t.title || '')}${t.kind === 'rollback' ? ' <span class="pill">rollback</span>' : ''}</td><td>${esc(ago(t.at))}</td>
+          <td>${t.sameSchema ? 'same as live' : `<span style="color:var(--warn)">${t.migrations} migrations, live has ${c.migrations ?? '?'}</span>`}</td>
+          <td>${t.sameSchema ? `<button class="btn" data-apprb="${esc(t.sha)}" ${running ? 'disabled' : ''}>Roll back to this</button>` : '<span style="color:var(--muted)">needs a database restore</span>'}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="meta" style="margin-top:8px">No earlier live deploys recorded yet.</div>'}`;
+    box.querySelectorAll('[data-apprb]').forEach((b) => (b.onclick = async () => {
+      if (!(await confirmBox(`Roll the LIVE app back to ${b.dataset.apprb}?`, 'A database backup is taken first, then that commit is built and the app restarts (a few minutes, a short blip for people using it). The next "Deploy live app" brings main back.', 'Roll back', true))) return;
+      try { await api('/api/app/rollback', { sha: b.dataset.apprb }); toast('Rollback started'); appRollback(); } catch (e) { toast(e.message); }
+    }));
+    clearTimeout(rbPoll);
+    if (running) rbPoll = setTimeout(appRollback, 3000);
   };
   await draw();
   timer = setInterval(() => { if (!document.querySelector('details[open]')) draw().catch(() => {}); }, 20000);
