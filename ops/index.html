@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Chipperly Ops</title>
+<style>
+:root {
+  --bg: #fafafa; --panel: #fff; --line: #eaeaea; --line2: #d4d4d4; --fg: #111; --muted: #666; --faint: #999;
+  --ok: #0a7c42; --okbg: #e7f6ee; --warn: #a35200; --warnbg: #fff4e5; --bad: #c61b1b; --badbg: #fdecec; --info: #0060df; --infobg: #e8f1fe;
+  --accent: #111; --accentfg: #fff; --chart: #0060df; --chart2: #8f4bd6; --code: #f4f4f5;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000; --panel: #0a0a0a; --line: #1f1f1f; --line2: #333; --fg: #ededed; --muted: #a1a1a1; --faint: #6b6b6b;
+    --ok: #3ecf8e; --okbg: #0b2a1c; --warn: #f5a524; --warnbg: #2e1f05; --bad: #ff6166; --badbg: #2c0b0e; --info: #52a8ff; --infobg: #0a1c33;
+    --accent: #ededed; --accentfg: #000; --chart: #52a8ff; --chart2: #c084fc; --code: #111;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #000; --panel: #0a0a0a; --line: #1f1f1f; --line2: #333; --fg: #ededed; --muted: #a1a1a1; --faint: #6b6b6b;
+  --ok: #3ecf8e; --okbg: #0b2a1c; --warn: #f5a524; --warnbg: #2e1f05; --bad: #ff6166; --badbg: #2c0b0e; --info: #52a8ff; --infobg: #0a1c33;
+  --accent: #ededed; --accentfg: #000; --chart: #52a8ff; --chart2: #c084fc; --code: #111;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-size: 14px; line-height: 1.45; }
+a { color: inherit; }
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
+.top { display: flex; align-items: center; gap: 12px; padding: 12px 24px 0; }
+.logo { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #f6c445, #ef6c3a); flex: none; }
+.crumb { font-weight: 600; }
+.crumb span { color: var(--faint); font-weight: 400; margin: 0 6px; }
+.who { margin-left: auto; color: var(--muted); font-size: 13px; display: flex; gap: 10px; align-items: center; }
+nav { display: flex; gap: 4px; padding: 0 16px; overflow-x: auto; }
+nav button { background: none; border: 0; color: var(--muted); padding: 12px 10px 10px; font: inherit; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+nav button:hover { color: var(--fg); }
+nav button[aria-current="page"] { color: var(--fg); border-bottom-color: var(--fg); }
+main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.02em; }
+h2 { font-size: 15px; font-weight: 600; margin: 28px 0 10px; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.card h3 { margin: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.card .meta { color: var(--muted); font-size: 13px; margin-top: 6px; overflow-wrap: anywhere; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+.dot.ok { background: var(--ok); box-shadow: 0 0 0 3px var(--okbg); }
+.dot.bad { background: var(--bad); box-shadow: 0 0 0 3px var(--badbg); }
+.dot.warn { background: var(--warn); box-shadow: 0 0 0 3px var(--warnbg); }
+.dot.run { background: var(--info); box-shadow: 0 0 0 3px var(--infobg); animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .dot.run { animation: none; } }
+.pill { font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line2); color: var(--muted); white-space: nowrap; }
+.pill.live { color: var(--ok); border-color: currentColor; }
+.pill.dev { color: var(--info); border-color: currentColor; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.stat { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; margin-top: 6px; }
+.stat small { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.bar > i { display: block; height: 100%; background: var(--fg); border-radius: 99px; }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: 12.5px; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+.tablewrap { overflow-x: auto; border-radius: 10px; }
+button.btn, select, input[type=text], input[type=search] { font: inherit; border: 1px solid var(--line2); background: var(--panel); color: var(--fg); border-radius: 6px; padding: 6px 12px; min-height: 34px; }
+button.btn { cursor: pointer; font-weight: 500; }
+button.btn:hover { border-color: var(--fg); }
+button.btn.primary { background: var(--accent); color: var(--accentfg); border-color: var(--accent); }
+button.btn.danger { color: var(--bad); }
+button.btn:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.logs { background: var(--code); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; height: 62vh; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+.logs .e { color: var(--bad); }
+.logs .w { color: var(--warn); }
+.chart { width: 100%; height: 150px; display: block; }
+.chart text { fill: var(--faint); font-size: 10px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.empty { color: var(--muted); padding: 24px; text-align: center; }
+.err { background: var(--badbg); color: var(--bad); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
+.note { background: var(--infobg); color: var(--info); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
+details summary { cursor: pointer; color: var(--muted); }
+.steps { margin: 8px 0 0; padding: 0; list-style: none; }
+.steps li { display: flex; gap: 8px; align-items: center; padding: 3px 0; color: var(--muted); }
+dialog { border: 1px solid var(--line2); border-radius: 12px; background: var(--panel); color: var(--fg); padding: 20px; width: min(460px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 13px; }
+dialog input[type=text], dialog select { width: 100%; }
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--accent); color: var(--accentfg); padding: 10px 16px; border-radius: 8px; z-index: 20; max-width: calc(100vw - 40px); }
+@media (max-width: 640px) { main { padding: 16px; } .top { padding: 12px 16px 0; } nav { padding: 0 8px; } th, td { padding: 8px 10px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="logo" aria-hidden="true"></div>
+    <div class="crumb">Chipperly<span>/</span>Ops</div>
+    <div class="who"><span id="who"></span><button class="btn" id="theme" title="Switch light or dark">◐</button></div>
+  </div>
+  <nav aria-label="Sections">
+    <button data-tab="overview">Overview</button>
+    <button data-tab="deployments">Deployments</button>
+    <button data-tab="server">Server</button>
+    <button data-tab="logs">Logs</button>
+    <button data-tab="cloudflare">Cloudflare</button>
+  </nav>
+</header>
+<main id="main"></main>
+<dialog id="dlg"></dialog>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const bytes = (n) => n == null ? '–' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB';
+const ago = (d) => { const s = Math.round((Date.now() - new Date(d)) / 1000); if (!isFinite(s)) return '–'; if (s < 60) return s + 's ago'; if (s < 3600) return Math.round(s / 60) + 'm ago'; if (s < 86400) return Math.round(s / 3600) + 'h ago'; return Math.round(s / 86400) + 'd ago'; };
+const dur = (a, b) => { const s = Math.round((new Date(b || Date.now()) - new Date(a)) / 1000); return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's'; };
+
+async function api(path, body) {
+  const res = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.append(t); setTimeout(() => t.remove(), 4000); }
+function confirmBox(title, text, okLabel = 'Confirm', danger = false) {
+  return new Promise((resolve) => {
+    const d = $('#dlg');
+    d.innerHTML = `<h3 style="margin:0 0 8px">${esc(title)}</h3><p class="sub" style="margin:0 0 16px">${esc(text)}</p><div class="row" style="justify-content:flex-end"><button class="btn" value="no">Cancel</button><button class="btn ${danger ? 'danger' : 'primary'}" value="yes">${esc(okLabel)}</button></div>`;
+    d.querySelectorAll('button').forEach((b) => (b.onclick = () => { d.close(); resolve(b.value === 'yes'); }));
+    d.onclose = () => resolve(false);
+    d.showModal();
+  });
+}
+
+// ---- Charts: inline SVG, no library --------------------------------------------------------
+function chart(points, series, { max, fmt = (v) => v, height = 150 } = {}) {
+  if (points.length < 2) return '<div class="empty">Collecting data… (a point every 10 seconds)</div>';
+  const W = 600, H = height, P = 4, t0 = points[0].t, t1 = points.at(-1).t;
+  const top = max ?? Math.max(1, ...series.flatMap((s) => points.map(s.get).filter((v) => v != null))) * 1.1;
+  const x = (t) => P + ((t - t0) / (t1 - t0 || 1)) * (W - 2 * P);
+  const y = (v) => H - 14 - (v / top) * (H - 26);
+  const paths = series.map((s, i) => {
+    const pts = points.filter((p) => s.get(p) != null).map((p) => `${x(p.t).toFixed(1)},${y(s.get(p)).toFixed(1)}`);
+    if (!pts.length) return '';
+    const area = i === 0 ? `<path d="M${pts[0].split(',')[0]},${H - 14} L${pts.join(' L')} L${pts.at(-1).split(',')[0]},${H - 14} Z" fill="${s.color}" opacity=".12"/>` : '';
+    return `${area}<polyline points="${pts.join(' ')}" fill="none" stroke="${s.color}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
+  }).join('');
+  const lbl = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(series.map((s) => s.name).join(', '))} over time">
+    <line x1="0" x2="${W}" y1="${y(top / 1.1)}" y2="${y(top / 1.1)}" stroke="var(--line)" stroke-dasharray="3 3"/>
+    <line x1="0" x2="${W}" y1="${H - 14}" y2="${H - 14}" stroke="var(--line)"/>
+    ${paths}
+    <text x="2" y="${y(top / 1.1) - 3}">${esc(fmt(top / 1.1))}</text>
+    <text x="2" y="${H - 2}">${lbl(t0)}</text><text x="${W - 2}" y="${H - 2}" text-anchor="end">${lbl(t1)}</text>
+  </svg>${series.length > 1 ? `<div class="legend">${series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>` : ''}`;
+}
+const PALETTE = ['var(--chart)', 'var(--chart2)', '#e5484d', '#30a46c', '#f5a524', '#0091ff', '#8e8e8e'];
+
+// ---- Tabs ----------------------------------------------------------------------------------
+let timer = null, stream = null;
+const tabs = { overview, deployments, server, logs, cloudflare };
+function go(tab, params = {}) {
+  clearInterval(timer); timer = null;
+  if (stream) { stream.close(); stream = null; }
+  document.querySelectorAll('nav button').forEach((b) => (b.dataset.tab === tab ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
+  const q = new URLSearchParams(params).toString();
+  history.replaceState(null, '', '#' + tab + (q ? '?' + q : ''));
+  $('#main').innerHTML = '<div class="empty">Loading…</div>';
+  tabs[tab](params).catch((e) => ($('#main').innerHTML = `<div class="err">${esc(e.message)}</div>`));
+}
+document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => go(b.dataset.tab)));
+
+// Overview
+async function overview() {
+  const draw = async () => {
+    const o = await api('/api/overview');
+    const h = o.host, l = h.last || {};
+    const site = (s) => {
+      const cls = !s.up ? 'bad' : s.status >= 400 && s.status !== 401 ? 'warn' : 'ok';
+      return `<div class="card"><h3><span class="dot ${cls}"></span>${esc(s.name)} <span class="pill ${s.env}">${s.env}</span></h3>
+        <div class="meta"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url.replace('https://', ''))}</a></div>
+        <div class="meta row"><span>${s.status || 'no answer'} · ${s.ms} ms</span>${s.commit ? `<span class="mono">${esc(s.commit)}</span>` : ''}<span>${s.kind === 'worker' ? 'Cloudflare Worker' : 'this server'}</span></div></div>`;
+    };
+    const unit = (u) => {
+      const st = u.ActiveState === 'active' ? 'ok' : u.ActiveState === 'activating' || u.ActiveState === 'reloading' ? 'run' : u.ActiveState === 'inactive' ? '' : 'bad';
+      return `<tr><td><div class="row"><span class="dot ${st}"></span><b>${esc(u.label)}</b></div><div class="mono" style="color:var(--faint)">${esc(u.id)}</div></td>
+        <td>${esc(u.ActiveState)}${u.SubState ? ' (' + esc(u.SubState) + ')' : ''}</td>
+        <td>${u.last ? bytes(u.last[0]) : '–'}</td><td>${u.last && u.last[1] != null ? u.last[1] + '%' : '–'}</td>
+        <td>${u.ActiveEnterTimestamp ? esc(ago(u.ActiveEnterTimestamp.replace(/ [A-Z]+$/, ''))) : '–'}</td>
+        <td><div class="row"><button class="btn" data-logs="${esc(u.id)}">Logs</button>${u.restart ? `<button class="btn" data-restart="${esc(u.id)}" data-how="${u.restart}">${u.restart === 'reload' ? 'Reload' : 'Restart'}</button>` : ''}</div></td></tr>`;
+    };
+    $('#main').innerHTML = `<h1>Overview</h1><p class="sub">Everything Chipperly runs, checked every 15 seconds.</p>
+      <div class="grid">
+        <div class="card"><div class="meta">CPU</div><div class="stat">${l.cpu ?? '–'}<small>%</small></div><div class="bar"><i style="width:${Math.min(100, l.cpu || 0)}%"></i></div><div class="meta">load ${l.load ?? '–'} · 4 vCPU</div></div>
+        <div class="card"><div class="meta">Memory</div><div class="stat">${bytes(l.mem)}<small>of ${bytes(h.memTotal)}</small></div><div class="bar"><i style="width:${(100 * (l.mem || 0)) / h.memTotal}%"></i></div><div class="meta">swap ${bytes(l.swap)} of ${bytes(h.swapTotal)}</div></div>
+        <div class="card"><div class="meta">Disk</div><div class="stat">${bytes(h.diskUsed)}<small>of ${bytes(h.diskTotal)}</small></div><div class="bar"><i style="width:${(100 * h.diskUsed) / h.diskTotal}%"></i></div><div class="meta">/ on the Contabo VPS</div></div>
+        <div class="card"><div class="meta">Network</div><div class="stat">${bytes(l.rx)}<small>/s in</small></div><div class="meta">${bytes(l.tx)}/s out</div></div>
+      </div>
+      <h2>Sites</h2><div class="grid">${o.sites.map(site).join('')}</div>
+      <h2>Services on the server</h2><div class="tablewrap"><table><thead><tr><th>Service</th><th>State</th><th>Memory</th><th>CPU</th><th>Started</th><th></th></tr></thead><tbody>${o.units.map(unit).join('')}</tbody></table></div>`;
+    $('#main').querySelectorAll('[data-logs]').forEach((b) => (b.onclick = () => go('logs', { unit: b.dataset.logs })));
+    $('#main').querySelectorAll('[data-restart]').forEach((b) => (b.onclick = async () => {
+      const live = b.dataset.restart === 'chipperly';
+      if (!(await confirmBox(`${b.dataset.how === 'reload' ? 'Reload' : 'Restart'} ${b.dataset.restart}?`, live ? 'This is the LIVE app. People using it lose their connection for a few seconds.' : 'It is back in a few seconds.', b.textContent, live))) return;
+      try { await api('/api/units/restart', { unit: b.dataset.restart }); toast(`${b.dataset.restart}: done`); draw(); } catch (e) { toast(e.message); }
+    }));
+  };
+  await draw();
+  timer = setInterval(() => draw().catch(() => {}), 15000);
+}
+
+// Deployments
+async function deployments() {
+  const draw = async () => {
+    const d = await api('/api/deployments');
+    const state = (r) => r.status !== 'completed' ? (r.status === 'waiting' ? 'warn' : 'run') : r.conclusion === 'success' ? 'ok' : r.conclusion === 'cancelled' || r.conclusion === 'skipped' ? '' : 'bad';
+    const word = (r) => r.status !== 'completed' ? (r.status === 'waiting' ? 'Waiting for approval' : r.status === 'queued' ? 'Queued' : 'Building') : r.conclusion === 'success' ? 'Ready' : r.conclusion === 'failure' ? 'Error' : r.conclusion;
+    $('#main').innerHTML = `<h1>Deployments</h1><p class="sub">GitHub Actions on <a href="https://github.com/${esc(d.repo)}/actions" target="_blank" rel="noopener">${esc(d.repo)}</a>. Pushing to <b>dev</b> deploys dev-app and dev.chipperlyapp.com. Live deploys wait for an approval in GitHub.</p>
+      ${d.canDispatch ? '' : '<div class="note">Read-only: no GitHub token is set, so the deploy buttons are off.</div>'}
+      <div class="toolbar"><button class="btn primary" data-dispatch="deploy-app.yml" ${d.canDispatch ? '' : 'disabled'}>Deploy live app</button><button class="btn primary" data-dispatch="deploy-site.yml" ${d.canDispatch ? '' : 'disabled'}>Deploy live site</button></div>
+      <div class="tablewrap"><table><thead><tr><th>Status</th><th>Workflow</th><th>Commit</th><th>Branch</th><th>When</th><th>Took</th></tr></thead><tbody>
+      ${d.runs.map((r) => `<tr><td><div class="row"><span class="dot ${state(r)}"></span>${esc(word(r))}</div></td>
+        <td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a><div style="color:var(--muted)">${esc(r.title)}</div>
+          <details data-run="${r.id}"><summary>Jobs</summary><ul class="steps"><li>Loading…</li></ul></details></td>
+        <td class="mono">${esc(r.sha)}</td><td><span class="pill ${r.branch === 'main' ? 'live' : r.branch === 'dev' ? 'dev' : ''}">${esc(r.branch)}</span></td>
+        <td>${esc(ago(r.created))}<div style="color:var(--muted)">${esc(r.actor || '')} · ${esc(r.event)}</div></td><td>${esc(dur(r.created, r.status === 'completed' ? r.updated : null))}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    $('#main').querySelectorAll('details[data-run]').forEach((det) => det.addEventListener('toggle', async () => {
+      if (!det.open) return;
+      const jobs = await api('/api/deployments/jobs?run=' + det.dataset.run).catch((e) => [{ name: e.message, steps: [] }]);
+      det.querySelector('ul').innerHTML = jobs.map((j) => `<li><span class="dot ${j.status !== 'completed' ? 'run' : j.conclusion === 'success' ? 'ok' : j.conclusion === 'skipped' ? '' : 'bad'}"></span><a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.name)}</a> ${j.started ? '· ' + esc(dur(j.started, j.completed)) : ''}</li>`).join('');
+    }));
+    $('#main').querySelectorAll('[data-dispatch]').forEach((b) => (b.onclick = async () => {
+      if (!(await confirmBox(b.textContent + '?', 'This starts the workflow on main. It then waits for your approval in GitHub before anything changes on live.', 'Start'))) return;
+      try { toast((await api('/api/deployments/dispatch', { workflow: b.dataset.dispatch })).note); setTimeout(draw, 3000); } catch (e) { toast(e.message); }
+    }));
+  };
+  await draw();
+  timer = setInterval(() => { if (!document.querySelector('details[open]')) draw().catch(() => {}); }, 20000);
+}
+
+// Server
+async function server(params) {
+  const hours = Number(params.hours) || 1;
+  const draw = async () => {
+    const m = await api('/api/metrics?hours=' + hours);
+    const p = m.points;
+    const units = m.units.filter((u) => p.some((pt) => pt.u[u.id]?.[0] != null));
+    $('#main').innerHTML = `<h1>Server</h1><p class="sub">Contabo VPS 89.117.20.203 · 4 vCPU · ${bytes(m.info.memTotal)} RAM · points every 10 seconds, 24 hours kept.</p>
+      <div class="toolbar">${[1, 6, 24].map((h) => `<button class="btn ${h === hours ? 'primary' : ''}" data-h="${h}">${h}h</button>`).join('')}</div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(420px,1fr))">
+        <div class="card"><h3>CPU</h3>${chart(p, [{ name: 'CPU', color: PALETTE[0], get: (x) => x.cpu }], { max: 100, fmt: (v) => Math.round(v) + '%' })}</div>
+        <div class="card"><h3>Memory</h3>${chart(p, [{ name: 'Used', color: PALETTE[0], get: (x) => x.mem }, { name: 'Swap', color: PALETTE[1], get: (x) => x.swap }], { max: m.info.memTotal, fmt: bytes })}</div>
+        <div class="card"><h3>Network</h3>${chart(p, [{ name: 'In', color: PALETTE[0], get: (x) => x.rx }, { name: 'Out', color: PALETTE[1], get: (x) => x.tx }], { fmt: (v) => bytes(v) + '/s' })}</div>
+        <div class="card"><h3>Load average</h3>${chart(p, [{ name: 'Load', color: PALETTE[0], get: (x) => x.load }], { fmt: (v) => v.toFixed(1) })}</div>
+        <div class="card"><h3>Memory by service</h3>${chart(p, units.map((u, i) => ({ name: u.label, color: PALETTE[i % PALETTE.length], get: (x) => x.u[u.id]?.[0] })), { fmt: bytes })}</div>
+        <div class="card"><h3>CPU by service</h3>${chart(p, units.map((u, i) => ({ name: u.label, color: PALETTE[i % PALETTE.length], get: (x) => x.u[u.id]?.[1] })), { fmt: (v) => Math.round(v) + '%' })}</div>
+      </div>`;
+    $('#main').querySelectorAll('[data-h]').forEach((b) => (b.onclick = () => go('server', { hours: b.dataset.h })));
+  };
+  await draw();
+  timer = setInterval(() => draw().catch(() => {}), 10000);
+}
+
+// Logs
+const UNIT_LIST = [['chipperly', 'App (live)'], ['chipperly-dev', 'App (dev)'], ['caddy', 'Caddy'], ['postgresql@18-main', 'PostgreSQL'], ['github-runner', 'CI runner'], ['ops', 'Ops panel'], ['spl-harvester', 'spl-harvester']];
+async function logs(params) {
+  const unit = params.unit || 'chipperly';
+  $('#main').innerHTML = `<h1>Logs</h1><p class="sub">journald on the server. Live tail follows new lines as they arrive.</p>
+    <div class="toolbar">
+      <select id="unit" aria-label="Service">${UNIT_LIST.map(([id, l]) => `<option value="${id}" ${id === unit ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select id="prio" aria-label="Level"><option value="">All levels</option><option value="warning">Warnings and errors</option><option value="err">Errors only</option></select>
+      <select id="since" aria-label="Since"><option value="">Latest</option><option value="-15min">Last 15 min</option><option value="-1h">Last hour</option><option value="-24h">Last 24 h</option></select>
+      <input type="search" id="grep" placeholder="Search…" aria-label="Search" style="flex:1;min-width:160px">
+      <button class="btn" id="load">Search</button><button class="btn primary" id="tail">Live tail</button>
+    </div><pre class="logs mono" id="out" aria-live="off"></pre>`;
+  const out = $('#out');
+  const paint = (line) => { const cls = /\b(error|err|fatal|panic|refused|failed)\b|"level":(50|60)|\bERROR\b/i.test(line) ? 'e' : /\bwarn(ing)?\b|"level":40/i.test(line) ? 'w' : ''; return cls ? `<span class="${cls}">${esc(line)}</span>` : esc(line); };
+  const load = async () => {
+    if (stream) { stream.close(); stream = null; $('#tail').textContent = 'Live tail'; }
+    out.textContent = 'Loading…';
+    const qs = new URLSearchParams({ unit: $('#unit').value, lines: 500, grep: $('#grep').value, priority: $('#prio').value, since: $('#since').value });
+    const r = await api('/api/logs?' + qs).catch((e) => ({ text: e.message }));
+    out.innerHTML = r.text.trim() ? r.text.split('\n').map(paint).join('\n') : 'No lines.';
+    out.scrollTop = out.scrollHeight;
+  };
+  $('#load').onclick = load; $('#grep').onkeydown = (e) => e.key === 'Enter' && load();
+  $('#unit').onchange = () => { history.replaceState(null, '', '#logs?unit=' + $('#unit').value); load(); };
+  $('#prio').onchange = load; $('#since').onchange = load;
+  $('#tail').onclick = () => {
+    if (stream) { stream.close(); stream = null; $('#tail').textContent = 'Live tail'; return; }
+    out.innerHTML = '';
+    stream = new EventSource('/api/logs/stream?' + new URLSearchParams({ unit: $('#unit').value, priority: $('#prio').value }));
+    $('#tail').textContent = 'Stop';
+    stream.onmessage = (e) => {
+      const stick = out.scrollTop + out.clientHeight >= out.scrollHeight - 30;
+      out.insertAdjacentHTML('beforeend', paint(JSON.parse(e.data)) + '\n');
+      if (out.childNodes.length > 6000) out.innerHTML = out.innerHTML.split('\n').slice(-3000).join('\n');
+      if (stick) out.scrollTop = out.scrollHeight;
+    };
+  };
+  await load();
+}
+
+// Cloudflare
+async function cloudflare(params) {
+  const sub = params.view || 'workers';
+  $('#main').innerHTML = `<h1>Cloudflare</h1><p class="sub">Chipperly's Cloudflare account and the chipperlyapp.com zone.</p>
+    <div class="toolbar">${[['workers', 'Workers'], ['logs', 'Worker logs'], ['dns', 'DNS'], ['storage', 'D1 and R2'], ['traffic', 'Traffic'], ['cache', 'Cache']].map(([k, l]) => `<button class="btn ${k === sub ? 'primary' : ''}" data-v="${k}">${l}</button>`).join('')}</div><div id="cf"><div class="empty">Loading…</div></div>`;
+  $('#main').querySelectorAll('[data-v]').forEach((b) => (b.onclick = () => go('cloudflare', { view: b.dataset.v })));
+  const box = $('#cf');
+  const views = {
+    async workers() {
+      const ws = await api('/api/cf/workers');
+      box.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${ws.map((w) => {
+        const live = w.deployments[0];
+        const liveV = live?.versions?.[0]?.version_id;
+        return `<div class="card"><h3><span class="dot ok"></span>${esc(w.id)}</h3><div class="meta">changed ${esc(ago(w.modified))}${live ? ` · deployed ${esc(ago(live.created_on))} by ${esc(live.author_email || live.source || '')}` : ''}</div>
+          ${w.versions.length ? `<details style="margin-top:10px"><summary>Versions (${w.versions.length})</summary><div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Version</th><th>Created</th><th>Message</th><th></th></tr></thead><tbody>
+          ${w.versions.map((v) => `<tr><td class="mono">${esc(v.id.slice(0, 8))}${v.id === liveV ? ' <span class="pill live">live</span>' : ''}</td><td>${esc(ago(v.metadata?.created_on))}</td><td>${esc(v.annotations?.['workers/message'] || v.metadata?.source || '')}</td>
+            <td>${v.id === liveV ? '' : `<button class="btn" data-rb="${esc(w.id)}" data-ver="${esc(v.id)}">Roll back to this</button>`}</td></tr>`).join('')}</tbody></table></div></details>` : ''}</div>`;
+      }).join('')}</div>`;
+      box.querySelectorAll('[data-rb]').forEach((b) => (b.onclick = async () => {
+        const live = !b.dataset.rb.endsWith('-dev');
+        if (!(await confirmBox(`Roll ${b.dataset.rb} back?`, `Version ${b.dataset.ver.slice(0, 8)} takes all traffic right away.${live ? ' This is a LIVE Worker.' : ''}`, 'Roll back', live))) return;
+        try { await api('/api/cf/workers/rollback', { script: b.dataset.rb, version: b.dataset.ver }); toast('Rolled back'); views.workers(); } catch (e) { toast(e.message); }
+      }));
+    },
+    async logs() {
+      box.innerHTML = `<div class="toolbar"><select id="ws" aria-label="Worker">${['chipperly-site', 'chipperly-site-dev', 'chipperly-mail', 'chipperly-backup'].map((w) => `<option>${w}</option>`).join('')}</select>
+        <select id="wm" aria-label="Period"><option value="15">15 min</option><option value="60" selected>1 hour</option><option value="1440">24 hours</option></select>
+        <label class="row"><input type="checkbox" id="we"> Errors only</label><button class="btn" id="wl">Refresh</button></div><pre class="logs mono" id="wout"></pre>`;
+      const load = async () => {
+        $('#wout').textContent = 'Loading…';
+        const ev = await api(`/api/cf/worker-logs?script=${$('#ws').value}&minutes=${$('#wm').value}&errors=${$('#we').checked ? 1 : 0}`).catch((e) => ({ error: e.message }));
+        if (ev.error) return ($('#wout').innerHTML = `<span class="e">${esc(ev.error)}</span>`);
+        $('#wout').innerHTML = ev.length ? ev.map((e) => `${esc(new Date(e.t).toISOString().replace('T', ' ').slice(0, 19))}  ${e.error || e.level === 'error' ? '<span class="e">' : '<span>'}${esc([e.status, e.url, e.message, e.error].filter(Boolean).join('  '))}</span>`).join('\n') : 'No events in this period.';
+      };
+      $('#wl').onclick = load; $('#ws').onchange = load; $('#wm').onchange = load; $('#we').onchange = load;
+      await load();
+    },
+    async dns() {
+      const recs = await api('/api/cf/dns');
+      box.innerHTML = `<div class="toolbar"><button class="btn primary" id="add">Add record</button></div><div class="tablewrap"><table><thead><tr><th>Type</th><th>Name</th><th>Content</th><th>Proxy</th><th></th></tr></thead><tbody>
+        ${recs.map((r) => `<tr><td>${esc(r.type)}</td><td>${esc(r.name)}</td><td class="mono" style="max-width:340px;overflow-wrap:anywhere">${esc(r.content)}</td><td>${r.proxied ? '<span class="pill live">Proxied</span>' : '<span class="pill">DNS only</span>'}</td>
+          <td><div class="row"><button class="btn" data-edit="${esc(r.id)}">Edit</button><button class="btn danger" data-del="${esc(r.id)}" data-name="${esc(r.type + ' ' + r.name)}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>`;
+      const form = (r = { type: 'A', name: '', content: '', proxied: false }) => {
+        const d = $('#dlg');
+        d.innerHTML = `<h3 style="margin:0">${r.id ? 'Edit' : 'Add'} DNS record</h3>
+          <label for="ft">Type</label><select id="ft">${['A', 'AAAA', 'CNAME', 'TXT', 'MX'].map((t) => `<option ${t === r.type ? 'selected' : ''}>${t}</option>`).join('')}</select>
+          <label for="fn">Name</label><input type="text" id="fn" value="${esc(r.name)}" placeholder="dev-app.chipperlyapp.com">
+          <label for="fc">Content</label><input type="text" id="fc" value="${esc(r.content)}" placeholder="89.117.20.203">
+          <label class="row" style="margin-top:12px"><input type="checkbox" id="fp" ${r.proxied ? 'checked' : ''}> Proxied through Cloudflare</label>
+          <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="fx">Cancel</button><button class="btn primary" id="fs">Save</button></div>`;
+        $('#fx').onclick = () => d.close();
+        $('#fs').onclick = async () => {
+          try { await api('/api/cf/dns', { id: r.id, type: $('#ft').value, name: $('#fn').value.trim(), content: $('#fc').value.trim(), proxied: $('#fp').checked }); d.close(); toast('Saved'); views.dns(); } catch (e) { toast(e.message); }
+        };
+        d.showModal();
+      };
+      $('#add').onclick = () => form();
+      box.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => form(recs.find((r) => r.id === b.dataset.edit))));
+      box.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => {
+        if (!(await confirmBox(`Delete ${b.dataset.name}?`, 'Anything using this name stops resolving within minutes.', 'Delete', true))) return;
+        try { await api('/api/cf/dns/delete', { id: b.dataset.del }); toast('Deleted'); views.dns(); } catch (e) { toast(e.message); }
+      }));
+    },
+    async storage() {
+      const s = await api('/api/cf/storage');
+      box.innerHTML = `<h2 style="margin-top:0">D1 databases</h2><div class="tablewrap"><table><thead><tr><th>Name</th><th>Size</th><th>Tables</th><th>Created</th></tr></thead><tbody>${s.d1.map((d) => `<tr><td>${esc(d.name)}</td><td>${bytes(d.size)}</td><td>${d.tables ?? '–'}</td><td>${esc(ago(d.created))}</td></tr>`).join('')}</tbody></table></div>
+        <h2>R2 buckets</h2><div class="tablewrap"><table><thead><tr><th>Name</th><th>Size</th><th>Objects</th><th>Created</th></tr></thead><tbody>${s.r2.map((b) => `<tr><td>${esc(b.name)}</td><td>${bytes(b.size == null ? null : Number(b.size))}</td><td>${b.objects ?? '–'}</td><td>${esc(ago(b.created))}</td></tr>`).join('')}</tbody></table></div>`;
+    },
+    async traffic() {
+      const a = await api('/api/cf/analytics');
+      const pts = a.zone.map((z) => ({ t: new Date(z.dimensions.datetime).getTime(), req: z.sum.requests, cached: z.sum.cachedRequests, bytes: z.sum.bytes, uniq: z.uniq.uniques }));
+      const tot = (k) => pts.reduce((s, p) => s + (p[k] || 0), 0);
+      box.innerHTML = `<div class="grid"><div class="card"><div class="meta">Requests, 24 h</div><div class="stat">${tot('req').toLocaleString()}</div><div class="meta">${tot('req') ? Math.round((100 * tot('cached')) / tot('req')) : 0}% from cache</div></div>
+          <div class="card"><div class="meta">Data served, 24 h</div><div class="stat">${bytes(tot('bytes'))}</div></div>
+          <div class="card"><div class="meta">Visitors (peak hour)</div><div class="stat">${Math.max(0, ...pts.map((p) => p.uniq)).toLocaleString()}</div></div></div>
+        <div class="card" style="margin-top:12px"><h3>Requests per hour (chipperlyapp.com zone)</h3>${chart(pts, [{ name: 'All', color: PALETTE[0], get: (x) => x.req }, { name: 'Cached', color: PALETTE[1], get: (x) => x.cached }], { fmt: (v) => Math.round(v).toLocaleString() })}</div>
+        <h2>Workers, 24 h</h2><div class="tablewrap"><table><thead><tr><th>Worker</th><th>Requests</th><th>Errors</th><th>CPU p50 / p99</th></tr></thead><tbody>${a.workers.map((w) => `<tr><td>${esc(w.dimensions.scriptName)}</td><td>${w.sum.requests.toLocaleString()}</td><td>${w.sum.errors ? `<span style="color:var(--bad)">${w.sum.errors}</span>` : 0}</td><td>${(w.quantiles.cpuTimeP50 / 1000).toFixed(1)} / ${(w.quantiles.cpuTimeP99 / 1000).toFixed(1)} ms</td></tr>`).join('') || '<tr><td colspan="4" class="empty">No Worker traffic.</td></tr>'}</tbody></table></div>`;
+    },
+    async cache() {
+      box.innerHTML = `<div class="card"><h3>Purge the Cloudflare cache</h3><p class="meta">One URL per line, or leave empty to purge everything on chipperlyapp.com.</p>
+        <textarea id="urls" rows="5" style="width:100%;font:inherit;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--fg);padding:8px" placeholder="https://chipperlyapp.com/blog"></textarea>
+        <div class="row" style="margin-top:10px"><button class="btn danger" id="purge">Purge</button></div></div>`;
+      $('#purge').onclick = async () => {
+        const urls = $('#urls').value.split('\n').map((s) => s.trim()).filter(Boolean);
+        if (!(await confirmBox(urls.length ? `Purge ${urls.length} URL(s)?` : 'Purge everything?', urls.length ? 'They are fetched fresh on the next visit.' : 'Every cached page and file on chipperlyapp.com is fetched fresh. The site is slower for a few minutes.', 'Purge', !urls.length))) return;
+        try { await api('/api/cf/purge', { urls }); toast('Purged'); } catch (e) { toast(e.message); }
+      };
+    },
+  };
+  await views[sub]();
+}
+
+// Theme toggle and start
+$('#theme').onclick = () => {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const cur = document.documentElement.dataset.theme || (dark ? 'dark' : 'light');
+  document.documentElement.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('ops-theme', document.documentElement.dataset.theme); } catch {}
+};
+try { const t = localStorage.getItem('ops-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+api('/api/me').then((m) => ($('#who').textContent = m.email)).catch(() => {});
+const [tab, qs] = location.hash.slice(1).split('?');
+go(tabs[tab] ? tab : 'overview', Object.fromEntries(new URLSearchParams(qs || '')));
+</script>
+</body>
+</html>

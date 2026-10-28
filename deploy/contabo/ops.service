@@ -1,0 +1,23 @@
+[Unit]
+Description=Chipperly ops panel (ops.chipperlyapp.com)
+After=network-online.target
+
+[Service]
+User=ops
+Group=ops
+SupplementaryGroups=systemd-journal
+WorkingDirectory=/opt/ops
+# CF_API_TOKEN, GH_TOKEN, ACCESS_TEAM_DOMAIN, ACCESS_AUD (root-only file, README.md "Ops panel").
+EnvironmentFile=/etc/ops/ops.env
+Environment=OPS_PORT=8070 OPS_DATA_DIR=/var/lib/ops
+ExecStart=/usr/bin/node /opt/ops/server.mjs
+Restart=always
+RestartSec=5
+MemoryMax=256M
+CPUQuota=50%
+StateDirectory=ops
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

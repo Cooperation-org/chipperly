@@ -37,3 +37,13 @@ dev-app.chipperlyapp.com {
 dev-admin.chipperlyapp.com {
 	import dev
 }
+
+# The ops panel (28 Oct 2026). The record is proxied: Cloudflare Access signs people in before a
+# request gets here, and ops/server.mjs checks that signature itself.
+ops.chipperlyapp.com {
+	encode zstd gzip
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy 127.0.0.1:8070 {
+		flush_interval -1
+	}
+}

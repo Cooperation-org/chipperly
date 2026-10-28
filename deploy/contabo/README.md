@@ -233,3 +233,27 @@ The marketing site's dev copy is not on this server: it is the Worker `chipperly
 pages. It started on 28 Oct 2026 with live's posts, categories and settings; no waitlist,
 newsletter, unsubscribe or admin user rows were copied (the posts' author is a placeholder with no
 password). Make a CMS admin at dev.chipperlyapp.com/admin on the first visit.
+
+## Ops panel (ops.chipperlyapp.com)
+
+One page for the sites, deployments (GitHub Actions), the server's CPU, memory, disk and network
+per service (24 hours kept), the logs of each service, and Cloudflare (Workers and rollbacks,
+Worker logs, DNS, D1 and R2, traffic, cache purge). Code in `ops/`, no dependencies, about 50 MB.
+
+It runs as the user `ops` (no login, in `systemd-journal` to read logs) from `/opt/ops`, with its
+secrets in `/etc/ops/ops.env` (root, 600):
+
+- `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`: the Cloudflare Access application. Every request must carry a
+  valid Access token for it; without these two set, the panel refuses everyone.
+- `CF_API_TOKEN`: the "ops-panel" token (Workers, D1, R2, Worker logs, DNS, cache purge, analytics
+  for chipperlyapp.com only), usable only from this server's IPv4 address.
+- `GH_TOKEN` (optional): a fine-grained token for Cooperation-org/chipperly with Actions read and
+  write. Without it the Deployments tab is read-only.
+
+`/etc/sudoers.d/ops` lets it run exactly `systemctl restart chipperly`, `systemctl restart
+chipperly-dev` and `systemctl reload caddy`. Every change made from the panel is logged with the
+person's email: `journalctl -u ops | grep "ops action"`.
+
+Update after changing `ops/`:
+
+    sudo install -m 644 ~/chipperly-dev/ops/*.mjs ~/chipperly-dev/ops/index.html /opt/ops/ && sudo systemctl restart ops
