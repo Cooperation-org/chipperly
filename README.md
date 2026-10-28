@@ -54,6 +54,20 @@ brand             Logos and lockups from the owner
 
 `docs/technical-plan.md` explains why the system is shaped this way. `docs/ux-plan.md` describes every screen (S1, S2 ...).
 
+### Where to start reading
+
+These are the most connected parts of the backend (from the knowledge graph below); most changes touch one of them.
+
+| File | What it is |
+| --- | --- |
+| `apps/api/src/env.ts` | Every setting the API reads, each with what happens when it is unset |
+| `apps/api/src/app.ts` | Builds the Fastify app: plugins, routes, static web export |
+| `apps/api/src/db/client.ts`, `apps/api/src/db/schema/` | The database connection and every table (`users`, `accounts`, `account_members`, `profiles` ...) |
+| `apps/api/src/plugins/errors.ts` | `AppError` and how errors become responses |
+| `apps/api/src/routes/sync.ts` | Offline sync: pull, push, how each change is applied or refused |
+| `packages/shared/src/schemas/` | The zod shapes both sides agree on (`common.ts` has ids and timestamps) |
+| `apps/api/test/helpers.ts`, `fixtures.ts` | `buildTestApp()` and `request()`, used by every API test |
+
 ## Run it locally
 
 Node 22 or newer and pnpm 11 (`corepack enable`).
