@@ -208,7 +208,8 @@ each job checks the PR comes from this repo, and the repo asks for approval for 
 contributor. Live deploys ("Deploy app", "Deploy site") wait for an approval on the `production`
 environment, and only `main` may deploy to it.
 
-- Push to `main` or `dev`, or a PR: CI.
+- Push to `dev`: CI, then dev-app and dev.chipperlyapp.com are deployed.
+- Push to `main`, or a PR: CI only.
 - Live: run "Deploy app" or "Deploy site" from the Actions tab, then approve.
 
 Set up on 28 Oct 2026:
@@ -222,3 +223,13 @@ Set up on 28 Oct 2026:
     sudo systemctl enable --now github-runner
 
 The registration token comes from `gh api -X POST repos/Cooperation-org/chipperly/actions/runners/registration-token`.
+
+## Dev site (dev.chipperlyapp.com)
+
+The marketing site's dev copy is not on this server: it is the Worker `chipperly-site-dev`
+(`apps/site/wrangler.jsonc`, env `dev`) with its own D1 (`chipperly-site-dev`) and R2 buckets
+(`chipperly-site-dev-media`, `-cache`). It talks to dev-app (its own `ADMIN_LINK_SECRET` and
+`NEWSLETTER_API_SECRET` pair) and never to live. The `DEV_GATE` secret puts the dev password on its
+pages. It started on 28 Oct 2026 with live's posts, categories and settings; no waitlist,
+newsletter, unsubscribe or admin user rows were copied (the posts' author is a placeholder with no
+password). Make a CMS admin at dev.chipperlyapp.com/admin on the first visit.

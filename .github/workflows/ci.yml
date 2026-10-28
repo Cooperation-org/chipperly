@@ -3,7 +3,7 @@ name: CI
 # Runs on our own runner on the Contabo server (label chipperly), beside live. github-runner.service
 # caps it at 2 CPUs and 4 GB, so jobs queue one at a time and live keeps the rest. The repo is
 # public: pull requests from forks never run here (the `if` on each job; the repo also asks for
-# approval for every outside contributor).
+# approval for every outside contributor). A push to dev that passes is deployed to the dev copies.
 on:
   pull_request:
   push:
@@ -99,3 +99,46 @@ jobs:
             e2e/test-results
           retention-days: 7
 
+  # dev-app.chipperlyapp.com and dev.chipperlyapp.com, after the checks pass (not waiting for e2e).
+  deploy-dev:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: [self-hosted, chipperly]
+    timeout-minutes: 45
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_ACCOUNT_ID: e576a82e9534f6dcf627eeaf15adf6d7
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET_DEV }}
+      NEXT_PUBLIC_SITE_URL: https://dev.chipperlyapp.com
+      NEXT_PUBLIC_APP_URL: https://dev-app.chipperlyapp.com
+    steps:
+      # The runner may only run the deploy scripts as mhany (/etc/sudoers.d/ghrunner).
+      - name: Deploy the dev app
+        run: |
+          sudo -n -H -u mhany /usr/bin/bash /home/mhany/chipperly-dev/deploy/contabo/deploy-dev.sh
+          curl -s https://dev-app.chipperlyapp.com/api/health | tee /dev/stderr | grep -q '"ok":true'
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile --filter @chipperly/site...
+
+      - name: Migrate the dev D1, build and deploy the dev site Worker
+        run: pnpm -F @chipperly/site run deploy:dev
+
+      # The pages ask for the dev password; /api/ answers without it.
+      - name: Smoke test
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://dev.chipperlyapp.com/)
+          echo "/ without password: $code"; [ "$code" = 401 ] || exit 1
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://dev.chipperlyapp.com/api/categories)
+          echo "/api/categories: $code"; [ "$code" = 200 ] || exit 1
