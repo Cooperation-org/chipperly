@@ -1,0 +1,28 @@
+name: Deploy app
+
+# app.chipperlyapp.com and admin.chipperlyapp.com from main. Run it from the Actions tab; it waits
+# for an approval on the production environment. Takes a database backup first, then runs
+# deploy/contabo/deploy.sh as mhany on the server (the only things /etc/sudoers.d/ghrunner allows).
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-app
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, chipperly]
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Back up the live database
+        run: sudo -n -H -u mhany /home/mhany/bin/chipperly-backup.sh
+
+      - name: Deploy
+        run: sudo -n -H -u mhany /usr/bin/bash /home/mhany/chipperly/deploy/contabo/deploy.sh
+
+      - name: Live runs this commit
+        run: |
+          health=$(curl -s https://app.chipperlyapp.com/api/health); echo "$health"
+          echo "$health" | grep -q "\"commit\":\"${GITHUB_SHA::7}\"" || { echo "live is not on ${GITHUB_SHA::7}"; exit 1; }
