@@ -16,14 +16,16 @@ admin.chipperlyapp.com {
 
 # The dev copy: branch dev, its own unit, database and uploads on 127.0.0.1:8065 (28 Oct 2026).
 # The password lives only on the server, in /etc/caddy/dev-auth (README.md, "Dev copy").
-# Stripe's sandbox webhook cannot type a password, so that one path stays open; Stripe signs it.
+# Only the pages ask for it. /api stays open: the app sends its own sign-in in the same Authorization
+# header, which the password would replace, and the API checks every caller itself. The manifest is
+# fetched without the password by browsers.
 (dev) {
 	encode zstd gzip
 	request_body {
 		max_size 60MB
 	}
 	header X-Robots-Tag "noindex, nofollow"
-	@locked not path /api/billing/webhook
+	@locked not path /api/* /manifest.webmanifest
 	import /etc/caddy/dev-auth
 	reverse_proxy 127.0.0.1:8065
 }

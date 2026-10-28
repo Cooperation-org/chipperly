@@ -171,8 +171,9 @@ Work lands on `dev`, is checked on dev-app, then `dev` is merged into `main` for
 
     bash ~/chipperly-dev/deploy/contabo/deploy-dev.sh
 
-Both dev addresses ask for a password (user `dev`) except `/api/billing/webhook`, which Stripe
-signs. The hash is kept out of this public repo, in `/etc/caddy/dev-auth`:
+Both dev addresses ask for a password (user `dev`) on every page. `/api/*` stays open, because the
+app sends its own sign-in in the same Authorization header (and Stripe posts its webhook there);
+the API checks every caller itself. The hash is kept out of this public repo, in `/etc/caddy/dev-auth`:
 
     printf 'basic_auth @locked {\n\tdev %s\n}\n' "$(caddy hash-password --plaintext '<password>')" | sudo tee /etc/caddy/dev-auth
     sudo chmod 640 /etc/caddy/dev-auth && sudo chgrp caddy /etc/caddy/dev-auth
