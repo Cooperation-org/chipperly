@@ -42,7 +42,6 @@ const UNITS = [
   { id: 'caddy', label: 'Caddy', cgroup: 'system.slice/caddy.service', restart: 'reload' },
   { id: 'github-runner', label: 'CI runner', cgroup: 'system.slice/github-runner.service' },
   { id: 'ops', label: 'Ops panel', cgroup: 'system.slice/ops.service' },
-  { id: 'spl-harvester', label: 'spl-harvester (not Chipperly)', cgroup: 'system.slice/spl-harvester.service' },
 ];
 const SITES = [
   { name: 'App', url: 'https://app.chipperlyapp.com', health: '/api/health', env: 'live', kind: 'server' },

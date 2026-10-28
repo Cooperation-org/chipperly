@@ -299,7 +299,7 @@ async function server(params) {
 }
 
 // Logs
-const UNIT_LIST = [['chipperly', 'App (live)'], ['chipperly-dev', 'App (dev)'], ['caddy', 'Caddy'], ['postgresql@18-main', 'PostgreSQL'], ['github-runner', 'CI runner'], ['ops', 'Ops panel'], ['spl-harvester', 'spl-harvester']];
+const UNIT_LIST = [['chipperly', 'App (live)'], ['chipperly-dev', 'App (dev)'], ['caddy', 'Caddy'], ['postgresql@18-main', 'PostgreSQL'], ['github-runner', 'CI runner'], ['ops', 'Ops panel']];
 async function logs(params) {
   const unit = params.unit || 'chipperly';
   $('#main').innerHTML = `<h1>Logs</h1><p class="sub">journald on the server. Live tail follows new lines as they arrive.</p>
