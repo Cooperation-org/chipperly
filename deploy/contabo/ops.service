@@ -16,7 +16,7 @@ RestartSec=5
 MemoryMax=256M
 CPUQuota=50%
 StateDirectory=ops
-ProtectHome=true
+# No ProtectHome: rollback.sh runs as mhany from here and needs /home/mhany (ops itself cannot read it, 750).
 PrivateTmp=true
 
 [Install]

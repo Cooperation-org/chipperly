@@ -395,6 +395,13 @@ const routes = {
   'POST /api/app/rollback': async ({ body, user }) => {
     if (!/^[0-9a-f]{7}$/.test(body.sha || '')) throw Object.assign(new Error('Bad request'), { status: 400 });
     if (rollbackState().running) throw Object.assign(new Error('A rollback is already running'), { status: 409 });
+    const current = (await checkSite(SITES[0])).commit;
+    const all = appDeploys();
+    const cur = all.find((d) => d.sha === current);
+    const recent = [...new Set(all.map((d) => d.sha).filter((s) => s !== current))].slice(0, 10);
+    const target = all.find((d) => d.sha === body.sha);
+    if (!recent.includes(body.sha)) throw Object.assign(new Error('Only the last 10 live deploys can be rolled back to.'), { status: 400 });
+    if (!cur || target.migrations !== cur.migrations) throw Object.assign(new Error('That deploy has different database migrations from live; restore a backup instead.'), { status: 400 });
     audit(user, `app rollback to ${body.sha}`);
     rollbackStarted = Date.now();
     writeFileSync(ROLLBACK_LOG, `${new Date().toISOString()} rollback to ${body.sha} by ${user}\n`);
