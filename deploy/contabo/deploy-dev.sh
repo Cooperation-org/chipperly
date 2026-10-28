@@ -7,4 +7,5 @@ export CHIPPERLY_SERVICE=chipperly-dev
 export CHIPPERLY_PORT=8065
 export CHIPPERLY_ORIGIN=https://dev-app.chipperlyapp.com
 export CHIPPERLY_ADMIN_ORIGIN=https://dev-admin.chipperlyapp.com
+export CHIPPERLY_BRANCH=dev
 exec bash "$CHIPPERLY_DIR/deploy/contabo/deploy.sh"

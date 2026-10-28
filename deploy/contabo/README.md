@@ -10,7 +10,25 @@ The API serves the web export at `/` and the API at `/api/`, on 127.0.0.1:8064.
 
 ## Update
 
-    bash ~/chipperly/deploy/contabo/deploy.sh
+    bash /usr/local/lib/chipperly/deploy.sh
+
+Live runs the copy installed in `/usr/local/lib/chipperly/` (deploy.sh and rollback.sh, root-owned),
+not the one in `~/chipperly`: a rollback checks out an older commit, whose own deploy.sh may not
+know how to come back. After changing either script, install it again:
+
+    sudo install -m 755 ~/chipperly/deploy/contabo/deploy.sh ~/chipperly/deploy/contabo/rollback.sh /usr/local/lib/chipperly/
+
+Every deploy appends `<time> <commit> <migration count> deploy|rollback` to
+`/var/lib/chipperly-deploys/<unit>.log`. Two deploys at once are refused (a lock per unit).
+
+### Rollback
+
+    bash /usr/local/lib/chipperly/rollback.sh <commit>
+
+Puts live back on one of its last 10 deploys (the ops panel has a button for it). It refuses a
+commit with different database migrations from live: the database is never rolled back, so for
+those, restore a backup instead. It takes a backup first. The next normal deploy returns to main.
+The marketing site rolls back from the ops panel too (Cloudflare versions, the last 5); dev does not.
 
 ## Backups
 

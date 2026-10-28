@@ -2,7 +2,8 @@ name: Deploy app
 
 # app.chipperlyapp.com and admin.chipperlyapp.com from main. Run it from the Actions tab; it waits
 # for an approval on the production environment. Takes a database backup first, then runs
-# deploy/contabo/deploy.sh as mhany on the server (the only things /etc/sudoers.d/ghrunner allows).
+# the installed copy of deploy/contabo/deploy.sh (/usr/local/lib/chipperly) as mhany on the server
+# (the only things /etc/sudoers.d/ghrunner allows).
 on:
   workflow_dispatch:
 
@@ -20,7 +21,7 @@ jobs:
         run: sudo -n -H -u mhany /home/mhany/bin/chipperly-backup.sh
 
       - name: Deploy
-        run: sudo -n -H -u mhany /usr/bin/bash /home/mhany/chipperly/deploy/contabo/deploy.sh
+        run: sudo -n -H -u mhany /usr/bin/bash /usr/local/lib/chipperly/deploy.sh
 
       - name: Live runs this commit
         run: |

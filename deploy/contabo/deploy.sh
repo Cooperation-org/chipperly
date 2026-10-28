@@ -4,15 +4,26 @@
 # Pulls the checked-out branch (main here, dev in ~/chipperly-dev), builds the web export (served at the root) and the API,
 # runs migrations, restarts the systemd unit. First-time setup (Postgres
 # roles, apps/api/.env, the unit and the Caddyfile) is in README.md.
-# deploy-dev.sh runs this same script for the dev copy by setting the CHIPPERLY_ values.
+# deploy-dev.sh runs this same script for the dev copy by setting the CHIPPERLY_ values. Live runs
+# the copy installed at /usr/local/lib/chipperly/deploy.sh, so a rollback (rollback.sh, which sets
+# CHIPPERLY_REF to an earlier commit) cannot swap the script out from under the next deploy.
+# Every deploy is appended to /var/lib/chipperly-deploys/<unit>.log, which the ops panel reads.
 set -euo pipefail
 DIR="${CHIPPERLY_DIR:-$HOME/chipperly}"
 SERVICE="${CHIPPERLY_SERVICE:-chipperly}"
 PORT="${CHIPPERLY_PORT:-8064}"
 ORIGIN="${CHIPPERLY_ORIGIN:-https://app.chipperlyapp.com}"
 ADMIN="${CHIPPERLY_ADMIN_ORIGIN:-https://admin.chipperlyapp.com}"
+BRANCH="${CHIPPERLY_BRANCH:-main}"
+REF="${CHIPPERLY_REF:-}"
 cd "$DIR"
-git pull -q --ff-only
+exec 9>"/tmp/chipperly-deploy-$SERVICE.lock"
+flock -n 9 || { echo "another deploy of $SERVICE is running"; exit 1; }
+if [ -n "$REF" ]; then
+  git fetch -q origin && git checkout -q --detach "$REF"
+else
+  git checkout -q "$BRANCH" && git pull -q --ff-only
+fi
 echo "commit: $(git rev-parse --short HEAD)"
 
 echo "== install"; pnpm install --frozen-lockfile 2>&1 | tail -1
@@ -34,3 +45,5 @@ sudo systemctl restart "$SERVICE"
 for i in $(seq 1 30); do sleep 1; curl -sf -o /dev/null http://127.0.0.1:$PORT/api/health && break; done
 echo "health: $(curl -s http://127.0.0.1:$PORT/api/health)"
 echo "root:   $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$PORT/)"
+curl -sf -o /dev/null "http://127.0.0.1:$PORT/api/health" || { echo "not healthy after the restart"; exit 1; }
+echo "$(date -u +%FT%TZ) $(git rev-parse --short HEAD) $(ls apps/api/src/db/migrations/*.sql | wc -l) $([ -n "$REF" ] && echo rollback || echo deploy)" >> "/var/lib/chipperly-deploys/$SERVICE.log"
